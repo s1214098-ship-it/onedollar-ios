@@ -6,8 +6,6 @@ workflows:
     integrations:
       app_store_connect: paohui-app-store-connect
     environment:
-      groups:
-        - appstore_credentials
       xcode: 26.4
       vars:
         PROJECT_ZIP_URL: "https://www.s1214098.com.tw/ONE%20DOLLOR/OneDollarIOS.zip"
