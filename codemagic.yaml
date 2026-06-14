@@ -1,0 +1,55 @@
+workflows:
+  ios-app-store:
+    name: OneDollar iOS - App Store Connect
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: paohui-app-store-connect
+    environment:
+      groups:
+        - appstore_credentials
+      xcode: 26.4
+      vars:
+        PROJECT_ZIP_URL: "https://www.s1214098.com.tw/ONE%20DOLLOR/OneDollarIOS.zip"
+        BUNDLE_ID: "com.paohui.onedollar"
+    scripts:
+      - name: Download iOS project
+        script: |
+          curl -L "$PROJECT_ZIP_URL" -o OneDollarIOS.zip
+          unzip -q OneDollarIOS.zip
+          test -d OneDollarIOS
+      - name: Set build number
+        script: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $PROJECT_BUILD_NUMBER" OneDollarIOS/OneDollarIOS/Info.plist
+      - name: Initialize keychain
+        script: |
+          keychain initialize
+      - name: Fetch signing files from App Store Connect
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY
+      - name: Add certificates to keychain
+        script: |
+          keychain add-certificates
+      - name: Configure Xcode signing
+        script: |
+          cd OneDollarIOS
+          xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          cd OneDollarIOS
+          xcode-project build-ipa \
+            --project "OneDollarIOS.xcodeproj" \
+            --scheme "OneDollarIOS" \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - OneDollarIOS/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
