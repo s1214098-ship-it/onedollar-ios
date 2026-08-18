@@ -1,14 +1,14 @@
 const STORAGE_KEY = "huowang-listing-boards-v1";
 const OPEN_DELAY_MS = 500;
 const SHORTCUTS = [
-  { key: "1", name: "永慶房管", url: "https://dramax.ycut.com.tw/login" },
+  { key: "1", name: "永慶加盟系統", url: "https://is.ycut.com.tw/" },
   { key: "2", name: "591房屋", url: "https://www.591.com.tw/" },
   { key: "3", name: "007比價王", url: "https://007.houseprice.tw/" },
   { key: "4", name: "我家網VIP", url: "https://www.myhomes.com.tw/vip2/login.php" },
   { key: "5", name: "Facebook", url: "https://www.facebook.com/" },
   { key: "6", name: "地籍圖", url: "https://easymap.moi.gov.tw/Z10Web/Index" },
   { key: "7", name: "YES319", url: "https://www.yes319.com/my319/login/" },
-  { key: "8", name: "YCUT登入", url: "https://opid.ycut.com.tw/YcutPortal/Login" },
+  { key: "8", name: "YCUT登入頁", url: "https://opid.ycut.com.tw/YcutPortal/Login" },
   { key: "9", name: "paohui總路口", url: "https://paohui.org/" }
 ];
 const TRACKING_SHORTCUTS = [
@@ -304,7 +304,25 @@ function rightWindowFeatures() {
   return `left=${left},top=${availTop},width=${width},height=${height},scrollbars=yes,resizable=yes`;
 }
 
+function isYcutUrl(url) {
+  return /ycut\.com\.tw/.test(String(url || ""));
+}
+
+function openLoginTab(url) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.target = "_blank";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 function openOnRight(url, name) {
+  if (isYcutUrl(url)) {
+    openLoginTab(url);
+    return true;
+  }
   const win = window.open(url, name || "_blank", rightWindowFeatures());
   if (win && typeof win.moveTo === "function") {
     try {
@@ -317,27 +335,50 @@ function openOnRight(url, name) {
   return win;
 }
 
-function needsTypingWindow(url) {
-  return /ycut\.com\.tw|591\.com\.tw|facebook\.com|myhomes\.com\.tw|yes319\.com|houseprice\.tw|easymap\.moi|ecfme\.fme|shopmore\.com|post\.gov\.tw|huowang\.paohui/.test(String(url || ""));
+function showYcutHelp(url, title, autoOpen) {
+  const frame = $("#rightFrame");
+  frame.removeAttribute("src");
+  const help = $("#rightHelp");
+  if (help) {
+    help.hidden = false;
+    help.innerHTML = `
+      <h3>${title || "永慶加盟系統"}</h3>
+      <p>快捷 <b>1</b> 是永慶加盟系統（is.ycut.com.tw → opid.ycut.com.tw SSO），不是 dramax。請開完整分頁登入。</p>
+      <p><a class="btn red" href="https://is.ycut.com.tw/" target="_blank" rel="noopener">開啟永慶加盟系統（人員編號／密碼）</a></p>
+      <p><a class="btn gold" href="https://opid.ycut.com.tw/YcutPortal/Login" target="_blank" rel="noopener">YCUT 登入頁</a></p>
+      <p class="note">帳號用人員編號 C56026。每次從 is.ycut.com.tw 進去才會產生有效登入參數（code_challenge、nonce、state）。不要收藏過期的長網址。</p>`;
+  }
+  if (autoOpen !== false) {
+    openLoginTab(url || "https://is.ycut.com.tw/");
+    log("快捷 1 已開永慶加盟系統完整分頁。請在新分頁打人員編號與密碼。");
+  } else {
+    log("右邊是永慶加盟系統說明。點清單第 1 項或紅色按鈕開完整登入頁。");
+  }
 }
 
-function showInRightPane(url, title) {
+function showInRightPane(url, title, autoOpen) {
   state.rightUrl = url;
   const frame = $("#rightFrame");
+  const help = $("#rightHelp");
+  if (help) help.hidden = true;
   $("#rightTitle").textContent = title || url;
   document.querySelectorAll("[data-shortcut-url]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.shortcutUrl === url);
   });
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  if (isYcutUrl(url)) {
+    showYcutHelp(url, title, autoOpen);
+    return;
+  }
   if (needsTypingWindow(url)) {
     frame.removeAttribute("src");
     const win = openOnRight(url, "huowang-login");
     if (win) {
       try { win.focus(); } catch (_) { /* ignore */ }
-      log(`已開可輸入登入視窗：${title || url}。請在跳出的視窗打帳號、密碼、驗證碼。`);
+      log(`已開可輸入登入視窗：${title || url}。請在新分頁打帳號、密碼、驗證碼。`);
     } else {
-      frame.src = url;
-      log("瀏覽器擋彈窗，請允許後再點一次。內嵌登入頁通常不能輸入。");
+      openLoginTab(url);
+      log("已改用完整分頁開啟，請到新分頁登入。");
     }
     return;
   }
@@ -346,6 +387,10 @@ function showInRightPane(url, title) {
     try { frame.focus(); } catch (_) { /* ignore */ }
   }, 50);
   log(`已在這個窗格開啟：${title || url}`);
+}
+
+function needsTypingWindow(url) {
+  return /591\.com\.tw|facebook\.com|myhomes\.com\.tw|yes319\.com|houseprice\.tw|easymap\.moi|ecfme\.fme|shopmore\.com|post\.gov\.tw|huowang\.paohui/.test(String(url || ""));
 }
 
 function displayHost(url) {
@@ -442,7 +487,12 @@ function bind() {
   $("#openHubRight").addEventListener("click", () => showInRightPane("https://paohui.org/", "paohui.org"));
   $("#openAdminRight").addEventListener("click", () => showInRightPane("https://huowang.paohui.org/admin.html.html", "火旺後台"));
   $("#openCurrentRightWindow").addEventListener("click", () => {
-    if (!state.rightUrl) state.rightUrl = "https://paohui.org/";
+    if (!state.rightUrl) state.rightUrl = SHORTCUTS[0].url;
+    if (isYcutUrl(state.rightUrl)) {
+      openLoginTab(state.rightUrl);
+      log(`已開永慶加盟系統完整分頁：${state.rightUrl}`);
+      return;
+    }
     const win = openOnRight(state.rightUrl, "huowang-right");
     log(win ? `已把目前網站開在右邊視窗：${state.rightUrl}` : "瀏覽器擋彈窗，請允許後再開");
   });
@@ -468,7 +518,8 @@ async function boot() {
   renderShortcuts();
   bind();
   bindShortcutKeys();
-  showInRightPane(SHORTCUTS[8].url, SHORTCUTS[8].name);
+  showInRightPane(SHORTCUTS[0].url, SHORTCUTS[0].name, false);
+  log("快捷 1 已換成永慶加盟系統 is.ycut.com.tw（會轉到 opid SSO）。不要用 dramax。");
   log("點 Recents 會開可輸入的登入視窗。數字鍵不再搶密碼，快捷改為 Alt+1～9。");
   log(listings.wired.note);
   log(`已載入桃園大有物件 ${listings.property.title}，總價 ${listings.property.price} 萬。`);

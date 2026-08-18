@@ -22,7 +22,7 @@
       "name": "永慶物件",
       "adminUrl": "https://huowang.paohui.org/admin.html.html",
       "officialUrl": "https://is.ycut.com.tw/",
-      "note": "更新永慶流通／我的物件。正式上架、帶看、送件走 YCUT；火旺後台做清單與公開內容。"
+      "note": "更新永慶流通／我的物件。快捷 1 走 is.ycut.com.tw 加盟系統 SSO；火旺後台做清單與公開內容。"
     },
     {
       "id": "same-store",
@@ -118,34 +118,14 @@
       "note": "新增外部物件後顯示在客人選單。"
     },
     {
-      "id": "ycut-dramax",
-      "group": "永慶",
-      "name": "永慶 dramax 登入（指定網址）",
-      "url": "https://dramax.ycut.com.tw/login",
-      "open": true,
-      "account": "C56026",
-      "status": "ok",
-      "note": "永慶房管系統 v2.0 登入頁。人員編號 C56026。加盟 IS 流通另開 is.ycut.com.tw。"
-    },
-    {
       "id": "ycut-is",
       "group": "永慶",
-      "name": "永慶 YCUT 加盟系統 IS",
+      "name": "永慶加盟系統（快捷 1）",
       "url": "https://is.ycut.com.tw/",
       "open": true,
       "account": "C56026",
       "status": "ok",
-      "note": "永慶物件正式後台。人員編號 C56026。密碼只存在本機 secrets，不進 Git。"
-    },
-    {
-      "id": "ycut-is-dramax",
-      "group": "永慶",
-      "name": "永慶 IS-DRAMAX",
-      "url": "https://is-dramax.ycut.com.tw/",
-      "open": true,
-      "account": "C56026",
-      "status": "ok",
-      "note": "會轉到 opid.ycut.com.tw 加盟系統登入頁。"
+      "note": "正確入口。會轉到 opid.ycut.com.tw/YcutPortal/Login 並帶入有效 OAuth（redirect_uri=is.ycut.com.tw/signin-oidc）。帳號用人員編號 C56026。密碼不進 Git。不要收藏過期的長網址。"
     },
     {
       "id": "ycut-opid",
@@ -155,7 +135,27 @@
       "open": true,
       "account": "C56026",
       "status": "ok",
-      "note": "加盟系統登入。帶完整 OAuth 參數的舊網址會過期，請從 is.ycut.com.tw 進去。"
+      "note": "加盟系統登入頁。帶完整 OAuth 參數的舊網址會過期，請從 is.ycut.com.tw 進去。"
+    },
+    {
+      "id": "ycut-dramax",
+      "group": "永慶",
+      "name": "永慶 dramax（舊入口，不是快捷 1）",
+      "url": "https://dramax.ycut.com.tw/login",
+      "open": false,
+      "account": "C56026",
+      "status": "redirect",
+      "note": "不是加盟系統登入頁。快捷 1 請用 is.ycut.com.tw。"
+    },
+    {
+      "id": "ycut-is-dramax",
+      "group": "永慶",
+      "name": "永慶 IS-DRAMAX",
+      "url": "https://is-dramax.ycut.com.tw/",
+      "open": false,
+      "account": "C56026",
+      "status": "redirect",
+      "note": "會轉到 opid.ycut.com.tw 加盟系統登入頁。日常請用快捷 1 is.ycut.com.tw。"
     },
     {
       "id": "yungching-shop",
