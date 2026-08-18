@@ -11,6 +11,12 @@ const SHORTCUTS = [
   { key: "8", name: "YCUT登入", url: "https://opid.ycut.com.tw/YcutPortal/Login" },
   { key: "9", name: "paohui總路口", url: "https://paohui.org/" }
 ];
+const TRACKING_SHORTCUTS = [
+  { name: "FamilyMart寄件", url: "https://ecfme.fme.com.tw/FMEDCFPWebV2_II/list.aspx" },
+  { name: "FamilyMart寄件", url: "https://ecfme.fme.com.tw/FMEDCFPWebV2_II/index.aspx" },
+  { name: "郵件查詢", url: "https://postserv.post.gov.tw/pstmail/main_mail.html?targetTxn=EB500100" },
+  { name: "SHOPMORE 貨態查詢系統", url: "https://tracking.shopmore.com.tw/" }
+];
 const CORE_URLS = SHORTCUTS.map((item) => item.url);
 
 const state = {
@@ -322,17 +328,31 @@ function showInRightPane(url, title) {
   log(`已在這個窗格開啟：${title || url}`);
 }
 
+function displayHost(url) {
+  return String(url || "").replace(/^https?:\/\//, "").replace(/\/$/, "");
+}
+
+const GLOBE_ICON = `<svg class="globe" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="#2f6fed" stroke-width="1.8"/><ellipse cx="12" cy="12" rx="4" ry="9" fill="none" stroke="#2f6fed" stroke-width="1.8"/><path d="M3.5 12h17M12 3c2.6 2.4 3.8 5.3 3.8 9s-1.2 6.6-3.8 9c-2.6-2.4-3.8-5.3-3.8-9s1.2-6.6 3.8-9z" fill="none" stroke="#2f6fed" stroke-width="1.6"/></svg>`;
+
+function recentRow(item) {
+  const row = el(`
+    <button type="button" class="recent-item" data-shortcut-url="${item.url}" title="${item.name}">
+      ${GLOBE_ICON}
+      <span class="recent-title">${item.name}</span>
+      <span class="recent-url">${displayHost(item.url)}</span>
+    </button>`);
+  row.addEventListener("click", () => showInRightPane(item.url, item.name));
+  return row;
+}
+
 function renderShortcuts() {
   const root = $("#rightTabs");
   root.innerHTML = "";
-  SHORTCUTS.forEach((item) => {
-    const btn = el(`<button type="button" data-shortcut-url="${item.url}" title="快捷鍵 ${item.key}"><kbd>${item.key}</kbd><span>${item.name}</span></button>`);
-    btn.addEventListener("click", () => showInRightPane(item.url, item.name));
-    root.appendChild(btn);
-  });
-  const extra = el(`<button type="button" data-shortcut-url="https://huowang.paohui.org/admin.html.html" title="火旺後台"><kbd>0</kbd><span>火旺後台</span></button>`);
-  extra.addEventListener("click", () => showInRightPane("https://huowang.paohui.org/admin.html.html", "火旺後台"));
-  root.appendChild(extra);
+  root.appendChild(el(`<div class="recent-label">Recents</div>`));
+  TRACKING_SHORTCUTS.forEach((item) => root.appendChild(recentRow(item)));
+  root.appendChild(el(`<div class="recent-label">公用網站</div>`));
+  SHORTCUTS.forEach((item) => root.appendChild(recentRow({ name: item.name, url: item.url })));
+  root.appendChild(recentRow({ name: "火旺後台", url: "https://huowang.paohui.org/admin.html.html" }));
 }
 
 function bindShortcutKeys() {
