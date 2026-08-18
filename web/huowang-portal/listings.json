@@ -5,7 +5,7 @@
     "portals": true,
     "listingBoards": true,
     "liveWriteToYcut591": false,
-    "note": "快捷 9 是總控台。快捷 1 是 IS。本店 202 筆公開物件照片已還原；請把「原始營業員抓取清單-羅東文化盛群最新.json」覆蓋到火旺網站根目錄後，在同店物件管理按「重載完整照片」。"
+    "note": "快捷 9 是總控台。快捷 1 是 IS。請把 admin.html.html、shared-storage.js、原始營業員抓取清單-羅東文化盛群最新.json 覆蓋到 PHT-SR 火旺網站根目錄後，在同店物件管理按「重載完整照片」。雲端機連不到 VPN 100.92.117.104。"
   },
   "property": {
     "title": "桃園市大有路羅丹藝術家採光美三房",

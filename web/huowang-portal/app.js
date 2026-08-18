@@ -233,7 +233,7 @@ function downloadShopPhotoRestore() {
       a.href = URL.createObjectURL(blob);
       a.download = "原始營業員抓取清單-羅東文化盛群最新.json";
       a.click();
-      log("已下載後台照片還原檔（202 筆同店物件含照片）。請覆蓋到火旺網站根目錄，再到同店物件管理按「重載完整照片」。");
+      log("已下載後台照片還原檔（202 筆、3394 張照片）。請覆蓋到 PHT-SR 火旺網站根目錄，再覆蓋 admin.html.html 與 shared-storage.js，最後在同店物件管理按「重載完整照片」。");
     })
     .catch(() => log("照片還原檔讀不到，請確認 web/huowang-portal 裡有原始營業員抓取清單檔。"));
 }
@@ -307,7 +307,7 @@ function renderShopTracker() {
       <span>${state.shop.shopName}　已同步 ${state.shop.count} 筆　${state.shop.syncedAt}</span>
     </div>
     <article class="card bridge-card">
-      <p class="note">來源：${SHOP_LIST_URL}。202 筆公開物件照片已從本店官網／同店資料庫還原。後台若照片空白，請下載還原檔覆蓋火旺根目錄的「原始營業員抓取清單-羅東文化盛群最新.json」，再到同店物件管理按「重載完整照片」。不要用會打 95MB 的完整 API。</p>
+      <p class="note">來源：${SHOP_LIST_URL}。後台資料庫已有 202 筆同店含照片，但舊版後台會去抓 95MB 同業池並清掉本機照片。請把 web/huowang-portal 的 admin.html.html、shared-storage.js、原始營業員抓取清單-羅東文化盛群最新.json 覆蓋到 Z:\\WEB／PHT-SR 火旺根目錄（對應 https://huowang.paohui.org/）。雲端機連不到公司 VPN 100.92.117.104，必須在內網複製。</p>
       <div class="card-actions">
         <button type="button" data-open-right="${SHOP_URL}">開本店官網</button>
         <button type="button" data-open-right="${SHOP_LIST_URL}">開本店買屋清單</button>
@@ -600,7 +600,7 @@ function showYcutHelp(url, title, autoOpen) {
     help.innerHTML = `
       <h3>${title || "快捷 1 × 快捷 9 已開好"}</h3>
       <p><b>1</b> 永慶 IS 上班網站已開在右邊。<b>9</b> 總控台／火旺後台也開好了。這裡不再另開分頁。</p>
-      <p>在快捷 9 的後台編輯（自有物件、合約、YCUT流通作業）。複製上架包，貼到快捷 1 的「我的物件」，再按官方儲存。</p>
+      <p>在快捷 9 的後台編輯（自有物件、合約、同店清單）。複製上架包，貼到快捷 1 的「我的物件」，再按官方儲存。</p>
       <p class="note">帶看、委託、聯賣一定要在右邊 IS 存檔。火旺後台不能直接寫進永慶官方庫。</p>
       <p>
         <button class="btn red" type="button" id="copyYcutPackFromHelp">複製永慶上架包</button>
@@ -719,7 +719,7 @@ function renderYcutBridge(bridge) {
         <button type="button" id="focusHubExisting">叫出快捷 9 後台</button>
       </div>
       <ol class="bridge-steps">
-        <li>在快捷 9 火旺後台改公開文案、DM、同店清單（流通作業只是同店／異店彙總，不是官方 IS）。</li>
+        <li>在快捷 9 火旺後台改公開文案、DM、同店清單（「流通彙總」不是官方 IS）。</li>
         <li>按「複製永慶上架包」。</li>
         <li>切到快捷 1 IS → 我的物件，對欄位貼上，按官方儲存。</li>
         <li>帶看、委託、聯賣只在 IS 做。</li>

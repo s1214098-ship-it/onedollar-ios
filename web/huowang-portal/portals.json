@@ -8,7 +8,10 @@
     "line": "0911294374",
     "license": "107年登字第340146號",
     "shopUrl": "https://shop.yungching.com.tw/039519001/",
-    "sourceDisk": "Z:\\WEB"
+    "sourceDisk": "Z:\\WEB",
+    "vpnHost": "100.92.117.104",
+    "nasName": "PHT-SR",
+    "liveAdminRootHint": "覆蓋到火旺網站根目錄（Z:\\WEB 或 F:\\Web 對應 huowang.paohui.org）：admin.html.html、shared-storage.js、原始營業員抓取清單-羅東文化盛群最新.json"
   },
   "controlHub": {
     "id": "paohui-hub",
@@ -20,17 +23,17 @@
     "workHome": "https://is.ycut.com.tw/is/home",
     "login": "https://is.ycut.com.tw/",
     "huowangAdmin": "https://huowang.paohui.org/admin.html.html",
-    "huowangYcutDeskHint": "登入火旺後台後點「🗂️ YCUT流通作業」",
-    "limit": "YCUT流通作業不是官方 IS。它只彙總火旺裡的同店／異店清單，可關注、轉募集客戶；帶看、委託、聯賣、改價存檔一定要在快捷 1 的 is.ycut.com.tw/is/home。",
+    "huowangYcutDeskHint": "登入火旺後台後點「🗂️ 火旺流通彙總」",
+    "limit": "火旺流通彙總不是官方 IS。它只彙總火旺裡的同店／異店清單，可關注、轉募集客戶；帶看、委託、聯賣、改價存檔一定要在快捷 1 的 is.ycut.com.tw/is/home。",
     "modules": [
       {
         "is": "IS 首頁 / 我的物件（真的上班功能）",
         "role": "官方主檔。上架、改價、照片、謄本、委託後才能聯賣。火旺那頁連過去而已。",
-        "huowang": "按鈕「開啟官方 YCUT」。真正作業在 IS，不在火旺流通作業",
+        "huowang": "按鈕「開啟官方 IS」。真正作業在 IS，不在火旺流通彙總",
         "saveIn": "is"
       },
       {
-        "is": "火旺「YCUT流通作業」（本機彙總）",
+        "is": "火旺「流通彙總」（本機同店／異店）",
         "role": "不是官方庫。把同店物件當成「我的物件」、異店當成「流通」，可關注、轉買主需求。沒載入同店資料就全是 0。",
         "huowang": "同店物件管理＋異店物件管理。先重載完整照片才會有件數",
         "saveIn": "huowang"
@@ -38,13 +41,13 @@
       {
         "is": "關注物件",
         "role": "只釘在這台瀏覽器的火旺清單，不會同步到 IS 關注。",
-        "huowang": "YCUT流通作業 → 關注物件",
+        "huowang": "火旺流通彙總 → 關注物件",
         "saveIn": "huowang"
       },
       {
         "is": "轉募集客戶",
         "role": "在火旺新增一筆買主需求草稿。不會在 IS 建立客戶。",
-        "huowang": "YCUT流通作業 → 轉募集客戶；賣主開發／買主需求",
+        "huowang": "火旺流通彙總 → 轉募集客戶；賣主開發／買主需求",
         "saveIn": "huowang"
       },
       {
@@ -144,7 +147,7 @@
       "open": true,
       "account": "admin",
       "status": "ok",
-      "note": "合約、同店、開發物件、YCUT 流通作業、外部入口都在這頁。"
+      "note": "合約、同店、開發物件、火旺流通彙總、外部入口都在這頁。覆蓋後台檔後，同店重載照片改走輕量 API。"
     },
     {
       "id": "huowang-front",
