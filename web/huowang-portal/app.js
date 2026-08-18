@@ -1,11 +1,23 @@
 const STORAGE_KEY = "huowang-listing-boards-v1";
-const OPEN_DELAY_MS = 700;
+const OPEN_DELAY_MS = 500;
+const CORE_URLS = [
+  "https://dramax.ycut.com.tw/login",
+  "https://www.591.com.tw/",
+  "https://007.houseprice.tw/",
+  "https://www.myhomes.com.tw/vip2/login.php",
+  "https://www.facebook.com/",
+  "https://easymap.moi.gov.tw/Z10Web/Index",
+  "https://www.yes319.com/my319/login/",
+  "https://opid.ycut.com.tw/YcutPortal/Login",
+  "https://paohui.org/"
+];
 
 const state = {
   portals: [],
   boards: [],
   listings: { yongching: [], "same-store": [], development: [], exclusive: [] },
-  seed: null
+  seed: null,
+  rightUrl: ""
 };
 
 function $(sel, root = document) { return root.querySelector(sel); }
@@ -56,7 +68,7 @@ function renderPortals() {
           <p class="note">${p.note}</p>
           ${account}
           <div class="card-actions">
-            <a href="${p.url}" target="_blank" rel="noopener">開啟</a>
+            <button type="button" data-open-right="${p.url}">右邊開啟</button>
             <button type="button" data-copy="${p.url}">複製網址</button>
           </div>
         </article>`);
@@ -199,12 +211,12 @@ function renderCase(prop) {
         <p class="note">${prop.publicNotes}</p>
         <div class="facts">${facts}</div>
         <div class="card-actions">
-          <a href="${prop.sourceUrl}" target="_blank" rel="noopener">開591原物件</a>
-          <a href="${prop.channels.huowangAdmin}" target="_blank" rel="noopener">開火旺後台寫入</a>
-          <a href="${prop.channels.ycut}" target="_blank" rel="noopener">開永慶YCUT</a>
+          <button type="button" data-open-right="${prop.sourceUrl}">右邊開591</button>
+          <button type="button" data-open-right="${prop.channels.huowangAdmin}">右邊開火旺後台</button>
+          <button type="button" data-open-right="${prop.channels.ycut}">右邊開永慶YCUT</button>
           <button type="button" id="copyFb">複製FB上架文案</button>
           <button type="button" id="downloadImport">下載火旺匯入JSON</button>
-          <button type="button" id="openCaseUrls">開啟這筆相關網址</button>
+          <button type="button" id="openCaseUrls">相關網址開在右邊</button>
         </div>
       </div>
     </div>
@@ -224,8 +236,8 @@ function renderBoards() {
         <h3>${board.name} <small>(${items.length})</small></h3>
         <p class="note">${board.note}</p>
         <div class="card-actions">
-          <a href="${board.adminUrl}" target="_blank" rel="noopener">開火旺後台</a>
-          <a href="${board.officialUrl}" target="_blank" rel="noopener">開官方頁</a>
+          <button type="button" data-open-right="${board.adminUrl}">右邊開火旺後台</button>
+          <button type="button" data-open-right="${board.officialUrl}">右邊開官方頁</button>
         </div>
         <form>
           <input name="title" required placeholder="案名／編號">
@@ -276,22 +288,86 @@ function copyText(text) {
   return Promise.resolve();
 }
 
+function rightWindowFeatures() {
+  const availLeft = Number(window.screen.availLeft || 0);
+  const availTop = Number(window.screen.availTop || 0);
+  const width = Math.max(640, Math.floor(window.screen.availWidth / 2));
+  const height = Math.max(700, window.screen.availHeight);
+  const left = availLeft + window.screen.availWidth - width;
+  return `left=${left},top=${availTop},width=${width},height=${height},scrollbars=yes,resizable=yes`;
+}
+
+function openOnRight(url, name) {
+  const win = window.open(url, name || "_blank", rightWindowFeatures());
+  if (win && typeof win.moveTo === "function") {
+    try {
+      const width = Math.max(640, Math.floor(window.screen.availWidth / 2));
+      const left = Number(window.screen.availLeft || 0) + window.screen.availWidth - width;
+      win.moveTo(left, Number(window.screen.availTop || 0));
+      win.resizeTo(width, window.screen.availHeight);
+    } catch (_) { /* ignore */ }
+  }
+  return win;
+}
+
+function showInRightPane(url, title) {
+  state.rightUrl = url;
+  const frame = $("#rightFrame");
+  const fallback = $("#rightFallback");
+  $("#rightTitle").textContent = title || url;
+  fallback.style.display = "none";
+  frame.src = url;
+  document.querySelectorAll(".right-tabs button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.url === url);
+  });
+  setTimeout(() => {
+    fallback.style.display = "block";
+    fallback.textContent = "若右邊是空白，代表這個網站擋內嵌。已另外在螢幕右半邊開視窗。";
+  }, 1200);
+  const win = openOnRight(url, "huowang-right");
+  log(win ? `已在右邊開啟：${url}` : `瀏覽器擋彈窗，請允許後再按一次：${url}`);
+}
+
+function renderRightTabs() {
+  const root = $("#rightTabs");
+  root.innerHTML = "";
+  const items = [
+    { name: "paohui 總路口", url: "https://paohui.org/" },
+    { name: "永慶房管", url: "https://dramax.ycut.com.tw/login" },
+    { name: "591", url: "https://www.591.com.tw/" },
+    { name: "007", url: "https://007.houseprice.tw/" },
+    { name: "我家網", url: "https://www.myhomes.com.tw/vip2/login.php" },
+    { name: "Facebook", url: "https://www.facebook.com/" },
+    { name: "地籍圖", url: "https://easymap.moi.gov.tw/Z10Web/Index" },
+    { name: "YES319", url: "https://www.yes319.com/my319/login/" },
+    { name: "YCUT登入", url: "https://opid.ycut.com.tw/YcutPortal/Login" },
+    { name: "火旺後台", url: "https://huowang.paohui.org/admin.html.html" }
+  ];
+  items.forEach((item, idx) => {
+    const btn = el(`<button type="button" data-url="${item.url}">${item.name}</button>`);
+    if (idx === 0) btn.classList.add("active");
+    btn.addEventListener("click", () => showInRightPane(item.url, item.name));
+    root.appendChild(btn);
+  });
+}
+
 function openUrls(urls) {
-  log(`準備開啟 ${urls.length} 個網址`);
+  log(`準備在螢幕右邊開啟 ${urls.length} 個網站`);
   urls.forEach((url, i) => {
     setTimeout(() => {
-      const win = window.open(url, "_blank", "noopener");
-      log(win ? `已開：${url}` : `瀏覽器擋了彈窗，改請點卡片開啟：${url}`);
+      const win = openOnRight(url, `huowang-right-${i}`);
+      if (i === 0) showInRightPane(url, url);
+      log(win ? `右邊已開：${url}` : `瀏覽器擋了彈窗，改點右邊分頁：${url}`);
     }, i * OPEN_DELAY_MS);
   });
 }
 
 function bind() {
   document.addEventListener("click", (e) => {
+    const openRight = e.target.closest("[data-open-right]");
+    if (openRight) showInRightPane(openRight.dataset.openRight, openRight.textContent);
     const copy = e.target.closest("[data-copy]");
-    if (copy) {
-      copyText(copy.dataset.copy).then(() => log(`已複製 ${copy.dataset.copy}`));
-    }
+    if (copy) copyText(copy.dataset.copy).then(() => log(`已複製 ${copy.dataset.copy}`));
     const del = e.target.closest("[data-del]");
     if (del) {
       const [id, idx] = del.dataset.del.split(":");
@@ -299,29 +375,6 @@ function bind() {
       saveListings();
       renderBoards();
     }
-  });
-  $("#openAll").addEventListener("click", () => {
-    openUrls(state.portals.filter((p) => p.open).map((p) => p.url));
-  });
-  $("#openCore").addEventListener("click", () => {
-    openUrls([
-      "https://paohui.org/",
-      "https://huowang.paohui.org/",
-      "https://huowang.paohui.org/admin.html.html",
-      "https://is.ycut.com.tw/",
-      "https://www.591.com.tw/",
-      "https://007.houseprice.tw/",
-      "https://www.myhomes.com.tw/vip2/login.php",
-      "https://www.facebook.com/",
-      "https://easymap.moi.gov.tw/Z10Web/Index",
-      "https://www.yes319.com/my319/login/"
-    ]);
-  });
-  $("#copyAll").addEventListener("click", () => {
-    const text = state.portals.map((p) => `${p.name}\n${p.url}`).join("\n\n");
-    copyText(text).then(() => log("已複製全部網址清單"));
-  });
-  document.addEventListener("click", (e) => {
     if (e.target.id === "copyFb" && state.seed) {
       copyText(state.seed.facebookPost).then(() => log("已複製桃園大有 FB 上架文案"));
     }
@@ -336,6 +389,21 @@ function bind() {
     if (e.target.id === "openCaseUrls" && state.seed) {
       openUrls(Object.values(state.seed.channels));
     }
+  });
+  $("#openAll").addEventListener("click", () => {
+    openUrls(state.portals.filter((p) => p.open).map((p) => p.url));
+  });
+  $("#openCore").addEventListener("click", () => openUrls(CORE_URLS));
+  $("#copyAll").addEventListener("click", () => {
+    const text = state.portals.map((p) => `${p.name}\n${p.url}`).join("\n\n");
+    copyText(text).then(() => log("已複製全部網址清單"));
+  });
+  $("#openHubRight").addEventListener("click", () => showInRightPane("https://paohui.org/", "paohui.org"));
+  $("#openAdminRight").addEventListener("click", () => showInRightPane("https://huowang.paohui.org/admin.html.html", "火旺後台"));
+  $("#openCurrentRightWindow").addEventListener("click", () => {
+    if (!state.rightUrl) state.rightUrl = "https://paohui.org/";
+    const win = openOnRight(state.rightUrl, "huowang-right");
+    log(win ? `已把目前網站開在右邊視窗：${state.rightUrl}` : "瀏覽器擋彈窗，請允許後再開");
   });
 }
 
@@ -356,9 +424,11 @@ async function boot() {
   renderCase(listings.property);
   renderPortals();
   renderBoards();
+  renderRightTabs();
   bind();
   log(listings.wired.note);
   log(`已載入桃園大有物件 ${listings.property.title}，總價 ${listings.property.price} 萬。`);
+  log("網站會開在右邊。按「指定網站開在右邊」把你給的 9 個網站打開。");
 }
 
 boot();

@@ -7,33 +7,46 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="wrap">
-    <section class="hero">
-      <div class="kicker">Z:\WEB · paohui.org 控制上架</div>
-      <h1>火旺後台上架總控</h1>
-      <p>入口網站已串在總控台。桃園大有／羅丹藝術家這筆已做成完整物件資料，掛上永慶、同店、開發件、專任合約。</p>
-      <div class="meta" id="heroMeta"></div>
-    </section>
+  <div class="workspace">
+    <main class="wrap">
+      <section class="hero">
+        <div class="kicker">Z:\WEB · paohui.org 控制上架</div>
+        <h1>火旺後台上架總控</h1>
+        <p>左邊管物件，右邊開你指定的網站。按「全部開在右邊」會在螢幕右半邊打開。</p>
+        <div class="meta" id="heroMeta"></div>
+      </section>
 
-    <div class="toolbar">
-      <button class="btn red" id="openAll" type="button">一次開啟全部網址</button>
-      <button class="btn gold" id="openCore" type="button">先開你指定的 9 個網站</button>
-      <button class="btn ghost" id="copyAll" type="button">複製全部網址</button>
-      <a class="btn green" href="https://paohui.org/" target="_blank" rel="noopener">開總路口 paohui.org</a>
-      <a class="btn blue" href="https://huowang.paohui.org/admin.html.html" target="_blank" rel="noopener">開火旺後台</a>
-    </div>
-    <div class="log" id="openLog"></div>
+      <div class="toolbar">
+        <button class="btn red" id="openAll" type="button">全部開在右邊</button>
+        <button class="btn gold" id="openCore" type="button">指定網站開在右邊</button>
+        <button class="btn ghost" id="copyAll" type="button">複製全部網址</button>
+        <button class="btn green" id="openHubRight" type="button">右邊開 paohui.org</button>
+        <button class="btn blue" id="openAdminRight" type="button">右邊開火旺後台</button>
+      </div>
+      <div class="log" id="openLog"></div>
 
-    <article class="case" id="dayouCase"></article>
+      <article class="case" id="dayouCase"></article>
 
-    <div class="section">
-      <h2>上架控制看板</h2>
-      <span>記入後待更新：永慶物件、同店、開發件、專任合約</span>
-    </div>
-    <div class="board" id="boardGrid"></div>
+      <div class="section">
+        <h2>上架控制看板</h2>
+        <span>記入後待更新：永慶物件、同店、開發件、專任合約</span>
+      </div>
+      <div class="board" id="boardGrid"></div>
 
-    <div id="portalGroups"></div>
-  </main>
+      <div id="portalGroups"></div>
+    </main>
+
+    <aside class="right-dock" aria-label="右邊網站視窗">
+      <div class="right-head">
+        <strong>右邊網站</strong>
+        <span id="rightTitle">點左邊網站，這裡開啟</span>
+        <button class="btn gold" id="openCurrentRightWindow" type="button">這個也開右邊視窗</button>
+      </div>
+      <div class="right-tabs" id="rightTabs"></div>
+      <iframe id="rightFrame" title="右邊網站" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation-by-user-activation"></iframe>
+      <div class="right-fallback" id="rightFallback">多數官網會擋內嵌。已改在螢幕右半邊開視窗。</div>
+    </aside>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
