@@ -124,8 +124,8 @@
       "url": "https://dramax.ycut.com.tw/login",
       "open": true,
       "account": "C56026",
-      "status": "redirect",
-      "note": "你指定的網址目前會 404。正式加盟系統改走 is.ycut.com.tw / is-dramax.ycut.com.tw。"
+      "status": "ok",
+      "note": "永慶房管系統 v2.0 登入頁。人員編號 C56026。加盟 IS 流通另開 is.ycut.com.tw。"
     },
     {
       "id": "ycut-is",
@@ -211,11 +211,21 @@
       "id": "facebook",
       "group": "社群",
       "name": "Facebook 羅東農舍 郭火旺",
-      "url": "https://www.facebook.com/search/top/?q=%E7%BE%85%E6%9D%B1%E8%BE%B2%E8%88%8D%20%E9%83%AD%E7%81%AB%E6%97%BA",
+      "url": "https://www.facebook.com/",
       "open": true,
       "account": "羅東農舍 郭火旺",
       "status": "search",
-      "note": "以「羅東農舍 郭火旺」搜尋專頁／社團。登入後再釘選正式專頁網址。"
+      "note": "Facebook 首頁。請登入後搜尋「羅東農舍 郭火旺」釘選專頁；未登入的搜尋網址會 Not Found。"
+    },
+    {
+      "id": "facebook-search",
+      "group": "社群",
+      "name": "Facebook 搜尋：羅東農舍 郭火旺",
+      "url": "https://www.facebook.com/search/top/?q=%E7%BE%85%E6%9D%B1%E8%BE%B2%E8%88%8D%20%E9%83%AD%E7%81%AB%E6%97%BA",
+      "open": false,
+      "account": "羅東農舍 郭火旺",
+      "status": "search",
+      "note": "登入 Facebook 後再開這個搜尋。未登入時會 Not Found。"
     },
     {
       "id": "easymap",

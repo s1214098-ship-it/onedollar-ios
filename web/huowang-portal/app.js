@@ -163,7 +163,7 @@ function bind() {
       "https://www.591.com.tw/",
       "https://007.houseprice.tw/",
       "https://www.myhomes.com.tw/vip2/login.php",
-      "https://www.facebook.com/search/top/?q=%E7%BE%85%E6%9D%B1%E8%BE%B2%E8%88%8D%20%E9%83%AD%E7%81%AB%E6%97%BA",
+      "https://www.facebook.com/",
       "https://easymap.moi.gov.tw/Z10Web/Index",
       "https://www.yes319.com/my319/login/"
     ]);
