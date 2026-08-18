@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理系統入口</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Microsoft JhengHei", Arial, sans-serif;
+      color: #1f2937;
+      background: #f4f7fb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .portal {
+      width: min(1180px, 100%);
+    }
+
+    .header {
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: #64748b;
+      font-size: 17px;
+      line-height: 1.6;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      min-height: 230px;
+      padding: 28px;
+      border: 1px solid #d9e2ec;
+      border-radius: 8px;
+      background: #ffffff;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: #2563eb;
+      box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
+    }
+
+    .tag {
+      width: fit-content;
+      margin-bottom: 18px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .card.huowang .tag {
+      background: #ecfdf5;
+      color: #047857;
+    }
+
+    .card.auction .tag {
+      background: #fff7ed;
+      color: #c2410c;
+    }
+
+    .card.crm .tag {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .card.zhangzhang .tag {
+      background: #f5f3ff;
+      color: #6d28d9;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 26px;
+      letter-spacing: 0;
+    }
+
+    .desc {
+      margin: 0;
+      color: #475569;
+      line-height: 1.7;
+      font-size: 16px;
+    }
+
+    .action {
+      margin-top: auto;
+      padding-top: 24px;
+      color: #2563eb;
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .huowang .action {
+      color: #047857;
+    }
+
+    .auction .action {
+      color: #c2410c;
+    }
+
+    .crm .action {
+      color: #1d4ed8;
+    }
+
+    .zhangzhang .action {
+      color: #6d28d9;
+    }
+
+    @media (max-width: 980px) {
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      body {
+        align-items: flex-start;
+        padding-top: 40px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .card {
+        min-height: 190px;
+        padding: 22px;
+      }
+    }
+  </style>
+<style>.paohui-mobile-back{display:none}@media(max-width:767px){.paohui-mobile-back{position:fixed;left:12px;top:10px;z-index:9999;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:92px;height:42px;border:1px solid rgba(37,99,235,.22);border-radius:999px;background:rgba(255,255,255,.96);color:#2563eb;font-family:Arial,"Microsoft JhengHei",sans-serif;font-size:15px;font-weight:900;box-shadow:0 12px 28px rgba(31,41,55,.18);text-decoration:none}.paohui-mobile-back i{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:#2563eb;color:#fff;font-style:normal;font-size:22px;line-height:1;padding-bottom:2px}}</style></head>
+<body>
+  <main class="portal">
+    <section class="header">
+      <h1>管理系統入口</h1>
+      <p class="subtitle">請選擇要進入的系統。</p>
+    </section>
+
+    <section class="grid" aria-label="系統入口">
+      <a class="card huowang" href="https://huowang.paohui.org/">
+        <div class="tag">火旺</div>
+        <h2>火旺管理軟體</h2>
+        <p class="desc">房仲物件展示、前台預覽與後台管理。</p>
+        <div class="action">進入火旺管理軟體</div>
+      </a>
+
+      <a class="card baohui" href="https://baohui.paohui.org/">
+        <div class="tag">寶輝</div>
+        <h2>寶輝管理軟體</h2>
+        <p class="desc">線上報修、回收申請、員工請假與後台管理。</p>
+        <div class="action">進入寶輝管理軟體</div>
+      </a>
+
+      <a class="card crm" href="https://paohui.org/training-crm/">
+        <div class="tag">職訓</div>
+        <h2>職訓中心學員管理系統</h2>
+        <p class="desc">課程、學員、繳費與成績資料測試入口。</p>
+        <div class="action">進入職訓中心學員管理系統</div>
+      </a>
+
+      <a class="card auction" href="https://paohui.org/fb/#dashboard">
+        <div class="tag">60</div>
+        <h2>一元競標場系統數據表(FB)</h2>
+        <p class="desc">競標營收、出貨、發票追蹤、功能模組與員工 LOG。</p>
+        <div class="action">進入一元競標場系統數據表(FB)</div>
+      </a>
+
+      <a class="card zhangzhang" href="https://baohui.paohui.org/one-dollar-auction/">
+        <div class="tag">張張</div>
+        <h2>張張管理後台</h2>
+        <p class="desc">電腦現貨入庫、產品條碼、貨倉、競標排程與得標結算。獨立登入，不必先經過寶輝總部。</p>
+        <div class="action">進入張張管理後台</div>
+      </a>
+    </section>
+  </main>
+<script>(function(){function go(e){e.preventDefault();if(history.length>1)history.back();else location.href="/"}function mount(){if(!matchMedia("(max-width: 767px)").matches)return;if(document.querySelector(".paohui-mobile-back"))return;var a=document.createElement("a");a.href="/";a.className="paohui-mobile-back";a.innerHTML="<i>‹</i><span>返回</span>";a.onclick=go;document.body.appendChild(a)}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mount);else mount();window.addEventListener("resize",mount)})();</script><script src="/lingzanzan-customer-inquiry-float.js?v=20260611customer9" defer></script><script src="/lingzanzan-free-shipping-cart-20260611.js?v=20260611free2?v=20260611free2" defer></script></body>
+</html>

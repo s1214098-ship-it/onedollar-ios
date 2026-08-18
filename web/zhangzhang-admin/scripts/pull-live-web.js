@@ -2,8 +2,8 @@
 
 /**
  * Pull the published WEB copy of 張張 / 一元競標 data.
- * 1) Try company VPN 100.92.117.104 (Tailscale / QNAP) — usually RST from Cursor cloud.
- * 2) Fall back to https://baohui.paohui.org/one-dollar-auction/ which is the IIS copy of WEB.
+ * 1) Try company VPN 100.92.117.104 HTTP (PHT-SR IIS). Prefer SMB \\100.92.117.104\PHT-Web.
+ * 2) Fall back to https://baohui.paohui.org/one-dollar-auction/ which is F:\Web\baohui-staging.
  *
  * Usage: node scripts/pull-live-web.js
  *        node scripts/pull-live-web.js --all   # also products + members (large, gitignored)
@@ -36,7 +36,8 @@ const SOURCES = [
 function get(url) {
   return new Promise((resolve, reject) => {
     const lib = url.startsWith("https") ? https : http;
-    const req = lib.get(url, { timeout: 12000, headers: { "User-Agent": "zhangzhang-admin-sync" } }, (res) => {
+    const timeout = url.includes("100.92.117.104") ? 2500 : 20000;
+    const req = lib.get(url, { timeout, headers: { "User-Agent": "zhangzhang-admin-sync" } }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         return get(new URL(res.headers.location, url).href).then(resolve, reject);
       }
