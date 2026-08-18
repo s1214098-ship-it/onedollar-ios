@@ -22,6 +22,7 @@ function emptyDb() {
   return {
     version: 1,
     users: [],
+    settings: {},
     products: [],
     receipts: [],
     stockMoves: [],
@@ -202,6 +203,32 @@ function groupSum(rows, key, valueKey) {
   return Object.entries(map).map(([name, value]) => ({ name, value }));
 }
 
+function importLiveDir(db, dir, actor) {
+  const map = {
+    "products.json": "products",
+    "members.json": "members",
+    "suppliers.json": "suppliers",
+    "warehouses.json": "warehouses",
+    "schedules.json": "schedules",
+    "settlements.json": "settlements",
+    "receipts.json": "receipts"
+  };
+  const result = {};
+  if (!fs.existsSync(dir)) return result;
+  for (const [file, name] of Object.entries(map)) {
+    const full = path.join(dir, file);
+    if (!fs.existsSync(full)) continue;
+    const rows = JSON.parse(fs.readFileSync(full, "utf8"));
+    result[name] = importCollection(db, name, rows, actor);
+  }
+  const settingsFile = path.join(dir, "settings.json");
+  if (fs.existsSync(settingsFile)) {
+    db.settings = JSON.parse(fs.readFileSync(settingsFile, "utf8"));
+    result.settings = { imported: true };
+  }
+  return result;
+}
+
 function importCollection(db, name, rows, actor) {
   if (!Array.isArray(rows)) throw new Error(`${name} 必須是陣列`);
   const allowed = {
@@ -250,5 +277,6 @@ module.exports = {
   refreshProductStock,
   overview,
   analytics,
-  importCollection
+  importCollection,
+  importLiveDir
 };

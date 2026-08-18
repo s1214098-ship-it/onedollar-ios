@@ -304,6 +304,7 @@ function renderBackup() {
       <p class="muted">可匯出目前這台伺服器的 JSON。若要把線上 one-dollar-auction/data 的 products.json、members.json、suppliers.json、warehouses.json 帶進來，貼到下方後匯入。</p>
       <div class="actions">
         <button class="primary" type="button" id="exportBtn">下載備份</button>
+        <button class="secondary" type="button" id="importLiveBtn">匯入 data/live（線上 WEB 副本）</button>
       </div>
       <label class="full" style="margin-top:12px">匯入 JSON（可含 products / members / suppliers / warehouses / schedules / settlements）
         <textarea id="importBox" placeholder='{"products":[],"members":[]}'></textarea>
@@ -462,7 +463,14 @@ function bindPage(page) {
       a.click();
     });
   }
-  const importBtn = view.querySelector("#importBtn");
+  const importLiveBtn = view.querySelector("#importLiveBtn");
+  if (importLiveBtn) {
+    importLiveBtn.addEventListener("click", async () => {
+      const result = await api("/api/import-live", { method: "POST", body: {} });
+      toast("線上 WEB 已合併 " + JSON.stringify(result.data));
+      draw();
+    });
+  }
   if (importBtn) {
     importBtn.addEventListener("click", async () => {
       const raw = view.querySelector("#importBox").value;

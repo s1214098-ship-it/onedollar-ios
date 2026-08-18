@@ -1,4 +1,6 @@
 data/db.json
+data/live/
+data/vpn-web/
 data/*.tmp
 *.log
 node_modules

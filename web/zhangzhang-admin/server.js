@@ -445,11 +445,19 @@ async function handleApi(req, res, url) {
     const body = JSON.parse((await readBody(req)).toString("utf8") || "{}");
     const result = {};
     for (const [name, rows] of Object.entries(body)) {
-      if (name === "ok") continue;
+      if (name === "ok" || name === "settings") continue;
       result[name] = store.importCollection(db, name, rows, user.account);
     }
     store.saveDb(db);
     sendJson(res, 200, { ok: true, data: result });
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/import-live") {
+    const liveDir = path.join(store.DATA_DIR, "live");
+    const result = store.importLiveDir(db, liveDir, user.account);
+    store.saveDb(db);
+    sendJson(res, 200, { ok: true, data: result, dir: liveDir });
     return;
   }
 

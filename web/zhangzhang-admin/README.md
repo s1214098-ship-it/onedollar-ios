@@ -42,6 +42,33 @@ node server.js
 
 Windows 可把此資料夾拷到 `Z:\WEB\zhangzhang-admin`，用工作排程或 `node server.js` 常駐。IIS 可用 HttpPlatformHandler / iisnode 反向代理到 8788。`paohui.org` 入口可加一張卡片指到這台伺服器。
 
+## 公司 VPN / WEB 在哪裡
+
+公司 Tailscale：`100.92.117.104`（QNAP / PHT-SR）。網站後台磁碟是 `Z:\WEB`，對應分享多半是 `\\100.92.117.104\WEB`。
+
+Cursor 雲端機**不在**公司 Tailscale 裡：連 80/445 會 `Connection reset`，所以雲端讀不到 QNAP 上的 WEB 原始 PHP。已上線的 IIS 副本在：
+
+| WEB 內容 | 公開位址 |
+| --- | --- |
+| 張張／一元競標後台 | https://baohui.paohui.org/one-dollar-auction/ |
+| 張張電腦已帶入 | https://baohui.paohui.org/lingzanzan-computer-receipts.php |
+| 產品／會員／廠商／貨倉 JSON | https://baohui.paohui.org/one-dollar-auction/data/ |
+
+在**已連 VPN 的公司電腦**：
+
+```powershell
+powershell -File scripts/copy-from-vpn.ps1
+```
+
+在雲端或任何能上網的地方，拉已上線的 WEB 副本（不含密碼）：
+
+```bash
+node scripts/pull-live-web.js
+# 產品 + 會員很大，要加 --all
+```
+
+拉下來後，後台「備份匯入」或 `POST /api/import-live` 會依 id 合併進 `data/db.json`。
+
 ## 匯入線上資料
 
 把現有檔案內容貼進「備份匯入」：
