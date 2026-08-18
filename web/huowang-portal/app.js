@@ -4,7 +4,8 @@ const OPEN_DELAY_MS = 700;
 const state = {
   portals: [],
   boards: [],
-  listings: { yongching: [], "same-store": [], development: [], exclusive: [] }
+  listings: { yongching: [], "same-store": [], development: [], exclusive: [] },
+  seed: null
 };
 
 function $(sel, root = document) { return root.querySelector(sel); }
@@ -63,6 +64,154 @@ function renderPortals() {
     });
     root.appendChild(wrap);
   });
+}
+
+function seedBoardItems(prop) {
+  const at = "2026/08/18 已從591串入";
+  const source = prop.sourceUrl;
+  return {
+    yongching: [{
+      title: `${prop.publicTitle}｜${prop.price}萬｜${prop.build}坪`,
+      source,
+      note: `永慶主檔。591 ${prop.contractNo} 已上架。單價${prop.unitPrice}萬/坪。請同步 YCUT 我的物件。`,
+      at
+    }],
+    "same-store": [{
+      title: `${prop.publicTitle}｜本店可合作帶看`,
+      source,
+      note: "郭火旺本店物件。同店同事可協助帶看；前台不顯示抽成與精準門牌。",
+      at
+    }],
+    development: [{
+      title: `桃園大有路開發件｜${prop.community}`,
+      source: "https://market.591.com.tw/24525",
+      note: "開發來源：桃園區大有路羅丹一期。社區均價約25萬/坪，本物件約28.86萬/坪。",
+      at
+    }],
+    exclusive: [{
+      title: `${prop.contractNo} 專任約｜${prop.publicTitle}`,
+      source,
+      note: `合約類型專任約，591有效至 ${prop.expireDate}。簽約後同步公開物件與上架通路。`,
+      at
+    }]
+  };
+}
+
+function mergeSeedListings(prop) {
+  const seeded = seedBoardItems(prop);
+  Object.keys(seeded).forEach((key) => {
+    const exists = (state.listings[key] || []).some((item) => String(item.source || "").includes("20448597") || String(item.title || "").includes("羅丹藝術家"));
+    if (!exists) state.listings[key] = [...seeded[key], ...(state.listings[key] || [])];
+  });
+  saveListings();
+}
+
+function huowangImportPayload(prop) {
+  const base = {
+    contractNo: prop.contractNo,
+    contractType: prop.contractType,
+    owner: prop.agent,
+    buyer: "",
+    title: prop.title,
+    unitPrice: prop.unitPrice,
+    build: prop.build,
+    price: prop.price,
+    layout: prop.layout,
+    type: prop.type,
+    county: prop.county,
+    area: prop.area,
+    addressDetail: prop.addressDetail,
+    dmNearby: prop.dmNearby,
+    dmPublicText: prop.publicNotes,
+    publishingDate: prop.publishingDate,
+    lat: prop.lat,
+    lng: prop.lng,
+    expireDate: prop.expireDate,
+    saleStatus: prop.saleStatus,
+    soldPrice: "",
+    adText: prop.adText,
+    publicNo: prop.publicNo,
+    mainBuildArea: prop.mainBuildArea,
+    landArea: prop.landArea,
+    houseAge: prop.houseAge,
+    floor: prop.floor,
+    landUseZone: prop.landUseZone,
+    registryUse: prop.registryUse,
+    keyFeatures: prop.keyFeatures,
+    lifeFeatures: prop.lifeFeatures,
+    publicNotes: prop.publicNotes,
+    importRegion: "桃園市桃園區",
+    sourceUrl: prop.sourceUrl,
+    images: prop.images
+  };
+  return {
+    properties: [base],
+    targets: [{
+      id: prop.caseId || prop.contractNo,
+      title: prop.title,
+      county: prop.county,
+      area: prop.area,
+      price: prop.price,
+      build: prop.build,
+      unitPrice: prop.unitPrice,
+      status: "已上架",
+      sourceUrl: prop.sourceUrl,
+      publicNote: prop.publicNotes
+    }],
+    sameStoreItems: [{
+      brand: prop.brand,
+      contact: prop.agent,
+      title: prop.title,
+      price: prop.price + "萬",
+      city: prop.county,
+      district: prop.area,
+      road: prop.addressRoad,
+      nearby: prop.dmNearby,
+      status: "可合作",
+      sourceUrl: prop.sourceUrl
+    }]
+  };
+}
+
+function renderCase(prop) {
+  const facts = [
+    ["總價", prop.price + " 萬"],
+    ["權狀", prop.build + " 坪"],
+    ["單價", prop.unitPrice + " 萬/坪"],
+    ["格局", prop.layout],
+    ["樓層", prop.floor],
+    ["型態", prop.type],
+    ["社區", prop.community],
+    ["管理費", prop.managementFee],
+    ["車位", prop.parking],
+    ["裝潢", prop.decoration],
+    ["公設比", prop.commonAreaRatio],
+    ["591編號", prop.contractNo]
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+  const photos = (prop.images || []).slice(0, 12).map((src) => `<img src="${src}" alt="${prop.publicTitle}">`).join("");
+  $("#dayouCase").innerHTML = `
+    <div class="case-hero">
+      <img src="${prop.cover}" alt="${prop.publicTitle}">
+      <div class="case-body">
+        <div class="chip">已串入示範物件 · 桃園大有</div>
+        <h2>${prop.publicTitle}</h2>
+        <div class="price-line">${prop.price}萬<small>${prop.build}坪　${prop.unitPrice}萬/坪</small></div>
+        <p class="note">${prop.publicNotes}</p>
+        <div class="facts">${facts}</div>
+        <div class="card-actions">
+          <a href="${prop.sourceUrl}" target="_blank" rel="noopener">開591原物件</a>
+          <a href="${prop.channels.huowangAdmin}" target="_blank" rel="noopener">開火旺後台寫入</a>
+          <a href="${prop.channels.ycut}" target="_blank" rel="noopener">開永慶YCUT</a>
+          <button type="button" id="copyFb">複製FB上架文案</button>
+          <button type="button" id="downloadImport">下載火旺匯入JSON</button>
+          <button type="button" id="openCaseUrls">開啟這筆相關網址</button>
+        </div>
+      </div>
+    </div>
+    <div class="photos">${photos}</div>
+    <div style="padding:0 22px 22px">
+      <div class="copybox" id="fbCopy">${prop.facebookPost}</div>
+    </div>`;
 }
 
 function renderBoards() {
@@ -172,22 +321,44 @@ function bind() {
     const text = state.portals.map((p) => `${p.name}\n${p.url}`).join("\n\n");
     copyText(text).then(() => log("已複製全部網址清單"));
   });
+  document.addEventListener("click", (e) => {
+    if (e.target.id === "copyFb" && state.seed) {
+      copyText(state.seed.facebookPost).then(() => log("已複製桃園大有 FB 上架文案"));
+    }
+    if (e.target.id === "downloadImport" && state.seed) {
+      const blob = new Blob([JSON.stringify(huowangImportPayload(state.seed), null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "huowang-import-dayou-taoyuan.json";
+      a.click();
+      log("已下載火旺後台匯入檔 huowang-import-dayou-taoyuan.json");
+    }
+    if (e.target.id === "openCaseUrls" && state.seed) {
+      openUrls(Object.values(state.seed.channels));
+    }
+  });
 }
 
 async function boot() {
   loadListings();
   const data = await fetch("./portals.json").then((r) => r.json());
+  const listings = await fetch("./listings.json").then((r) => r.json());
   state.portals = data.portals;
   state.boards = data.listingBoards;
+  state.seed = listings.property;
   $("#heroMeta").innerHTML = `
     <span class="chip">${data.agent.name}　${data.agent.phone}</span>
     <span class="chip">${data.agent.brand}</span>
     <span class="chip">本機目錄 ${data.agent.sourceDisk}</span>
-    <span class="chip">永慶員編 C56026（密碼不進 Git）</span>`;
+    <span class="chip">永慶員編 C56026（密碼不進 Git）</span>
+    <span class="chip">桃園大有已串入 ${listings.property.contractNo}</span>`;
+  mergeSeedListings(listings.property);
+  renderCase(listings.property);
   renderPortals();
   renderBoards();
   bind();
-  log(`已載入 ${state.portals.length} 個網站紀錄。可按「一次開啟全部網址」。`);
+  log(listings.wired.note);
+  log(`已載入桃園大有物件 ${listings.property.title}，總價 ${listings.property.price} 萬。`);
 }
 
 boot();
