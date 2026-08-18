@@ -98,7 +98,7 @@
       "name": "同店物件",
       "adminUrl": "https://huowang.paohui.org/admin.html.html",
       "officialUrl": "https://shop.yungching.com.tw/039519001/",
-      "note": "羅東文化盛群同店同事可合作賣方物件。前台不顯示承辦人、抽成與精準門牌。"
+      "note": "羅東文化盛群本店官網公開物件與同店同事可合作賣方。前台不顯示承辦人、抽成與精準門牌。可從本店清單一鍵同步。"
     },
     {
       "id": "development",
@@ -229,12 +229,22 @@
     {
       "id": "yungching-shop",
       "group": "永慶",
-      "name": "永慶羅東文化盛群加盟店",
+      "name": "永慶羅東文化盛群加盟店（本店官網）",
       "url": "https://shop.yungching.com.tw/039519001/",
       "open": true,
       "account": null,
       "status": "ok",
-      "note": "門市公開網站，對照同店與店內公開物件。"
+      "note": "自己的店面公開頁。買屋清單 /039519001/list 共追蹤公開物件，可同步火旺後台永慶物件／同店看板。"
+    },
+    {
+      "id": "yungching-shop-list",
+      "group": "永慶",
+      "name": "本店買屋清單",
+      "url": "https://shop.yungching.com.tw/039519001/list",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "羅東文化盛群加盟店待售房屋。加緊追蹤、降價、店長強打從這裡對進後台。"
     },
     {
       "id": "591",

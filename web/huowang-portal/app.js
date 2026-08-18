@@ -14,6 +14,9 @@ const SHORTCUTS = [
 const HUOWANG_ADMIN = "https://huowang.paohui.org/admin.html.html";
 const YCUT_HOME = "https://is.ycut.com.tw/is/home";
 const YCUT_LOGIN = "https://is.ycut.com.tw/";
+const SHOP_URL = "https://shop.yungching.com.tw/039519001/";
+const SHOP_LIST_URL = "https://shop.yungching.com.tw/039519001/list";
+const SHOP_WATCH_KEY = "huowang-shop-watch-v1";
 const TRACKING_SHORTCUTS = [
   { name: "FamilyMart寄件", url: "https://ecfme.fme.com.tw/FMEDCFPWebV2_II/list.aspx" },
   { name: "FamilyMart寄件", url: "https://ecfme.fme.com.tw/FMEDCFPWebV2_II/index.aspx" },
@@ -30,7 +33,9 @@ const state = {
   rightUrl: "",
   ycutWin: null,
   hubWin: null,
-  ycutBridge: null
+  ycutBridge: null,
+  shop: null,
+  shopWatch: { prices: {}, watched: [] }
 };
 
 function $(sel, root = document) { return root.querySelector(sel); }
@@ -54,6 +59,16 @@ function loadListings() {
 }
 function saveListings() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.listings));
+}
+
+function loadShopWatch() {
+  try {
+    const raw = localStorage.getItem(SHOP_WATCH_KEY);
+    if (raw) Object.assign(state.shopWatch, JSON.parse(raw));
+  } catch (_) { /* ignore */ }
+}
+function saveShopWatch() {
+  localStorage.setItem(SHOP_WATCH_KEY, JSON.stringify(state.shopWatch));
 }
 
 function statusTag(status) {
@@ -129,6 +144,182 @@ function mergeSeedListings(prop) {
     if (!exists) state.listings[key] = [...seeded[key], ...(state.listings[key] || [])];
   });
   saveListings();
+}
+
+function shopRows(filter) {
+  const rows = (state.shop && state.shop.listings) || [];
+  if (filter === "watched") {
+    const ids = new Set(state.shopWatch.watched || []);
+    return rows.filter((r) => ids.has(r.id) || r.featured);
+  }
+  if (filter === "featured") return rows.filter((r) => r.featured);
+  if (filter === "drop") return rows.filter((r) => r.priceOrig && r.price && Number(r.price) < Number(r.priceOrig));
+  return rows;
+}
+
+function shopToBoardItem(row) {
+  const drop = row.priceOrig && row.price && Number(row.price) < Number(row.priceOrig)
+    ? ` 降價 ${row.priceOrig}→${row.price}萬`
+    : "";
+  return {
+    title: `${row.title}｜${row.price}萬｜${row.build || row.land || "—"}坪｜${row.ycNo || row.id}`,
+    source: row.url,
+    note: `本店公開追蹤 ${row.area || ""} ${row.type || ""} ${row.layout || ""} ${row.houseAge || ""}${drop}`.trim(),
+    at: new Date().toLocaleString("zh-TW"),
+    shopId: row.id,
+    ycNo: row.ycNo
+  };
+}
+
+function syncShopToBoards(target, filter) {
+  const rows = shopRows(filter);
+  const boards = target === "both" ? ["yongching", "same-store"] : [target];
+  let added = 0;
+  boards.forEach((boardId) => {
+    const list = state.listings[boardId] || [];
+    rows.forEach((row) => {
+      const exists = list.some((item) => item.shopId === row.id || String(item.source || "").includes(`/house/${row.id}`) || (row.ycNo && String(item.title || "").includes(row.ycNo)));
+      if (exists) return;
+      list.unshift(shopToBoardItem(row));
+      added += 1;
+    });
+    state.listings[boardId] = list;
+  });
+  saveListings();
+  renderBoards();
+  log(`已把 ${rows.length} 筆本店物件對進${boards.join("／")}看板，新增 ${added} 筆（其餘已在追蹤）。請到快捷 9 火旺後台用匯入檔寫入。`);
+}
+
+function shopHuowangPayload(rows) {
+  return {
+    source: "shop.yungching.com.tw/039519001",
+    shopName: (state.shop && state.shop.shopName) || "",
+    syncedAt: (state.shop && state.shop.syncedAt) || "",
+    properties: rows.map((row) => ({
+      contractNo: row.ycNo || row.id,
+      publicNo: row.ycNo || row.id,
+      contractType: "專任約",
+      owner: "郭火旺",
+      title: `${row.title}${row.area ? " " + row.area : ""}`,
+      price: row.price,
+      unitPrice: row.build && row.price ? (Number(row.price) / Number(row.build || 1)).toFixed(2) : "",
+      build: row.build,
+      mainBuildArea: row.mainBuild,
+      landArea: row.land,
+      layout: row.layout,
+      type: row.type,
+      floor: row.floor,
+      houseAge: row.houseAge,
+      county: (row.area || "").slice(0, 3),
+      area: row.area,
+      addressDetail: row.area,
+      publicNotes: row.note,
+      adText: `${row.title} ${row.price}萬 ${row.build || row.land || ""}坪 ${row.layout || ""} ${row.type || ""}`,
+      sourceUrl: row.url,
+      saleStatus: "unsold"
+    }))
+  };
+}
+
+function downloadShopImport(filter) {
+  const rows = shopRows(filter);
+  const blob = new Blob([JSON.stringify(shopHuowangPayload(rows), null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "huowang-import-shop-039519001.json";
+  a.click();
+  log(`已下載火旺匯入檔 ${rows.length} 筆本店物件。請在快捷 9 後台匯入。`);
+}
+
+function toggleShopWatch(id) {
+  const watched = new Set(state.shopWatch.watched || []);
+  if (watched.has(id)) watched.delete(id);
+  else watched.add(id);
+  state.shopWatch.watched = [...watched];
+  saveShopWatch();
+  renderShopTracker();
+}
+
+function rememberShopPrices() {
+  const prices = { ...(state.shopWatch.prices || {}) };
+  const listings = (state.shop && state.shop.listings) || [];
+  listings.forEach((row) => {
+    if (prices[row.id] == null) prices[row.id] = row.price;
+  });
+  state.shopWatch.prices = prices;
+  if (!(state.shopWatch.watched || []).length) {
+    state.shopWatch.watched = listings.filter((r) => r.featured).map((r) => r.id);
+  }
+  saveShopWatch();
+}
+
+function shopChanged(row) {
+  const prev = state.shopWatch.prices && state.shopWatch.prices[row.id];
+  if (prev && row.price && String(prev) !== String(row.price)) return `${prev}→${row.price}萬`;
+  if (row.priceOrig && row.price && Number(row.price) < Number(row.priceOrig)) return `官網降價 ${row.priceOrig}→${row.price}萬`;
+  return "";
+}
+
+function renderShopTracker() {
+  const root = $("#shopTracker");
+  if (!root || !state.shop) return;
+  const q = String(($("#shopFilter") && $("#shopFilter").value) || "").trim().toLowerCase();
+  const mode = ($("#shopMode") && $("#shopMode").value) || "all";
+  let rows = shopRows(mode);
+  if (q) {
+    rows = rows.filter((r) => `${r.title} ${r.area} ${r.ycNo} ${r.type} ${r.layout}`.toLowerCase().includes(q));
+  }
+  const watched = new Set(state.shopWatch.watched || []);
+  const drops = shopRows("drop").length;
+  const body = rows.slice(0, 80).map((row) => {
+    const change = shopChanged(row);
+    const on = watched.has(row.id) || row.featured;
+    return `<tr>
+      <td><button type="button" class="btn ghost" data-shop-watch="${row.id}">${on ? "追蹤中" : "加緊追蹤"}</button></td>
+      <td>${row.featured ? '<span class="tag warn">店長強打</span> ' : ""}${row.ycNo || row.id}</td>
+      <td><a href="${row.url}" target="_blank" rel="noopener">${row.title}</a><div class="note">${row.area || ""}</div></td>
+      <td>${row.price}萬${change ? `<div class="tag warn">${change}</div>` : ""}</td>
+      <td>${row.type || ""} ${row.layout || ""}</td>
+      <td>${row.build || row.land || "—"}坪</td>
+    </tr>`;
+  }).join("");
+  root.innerHTML = `
+    <div class="section">
+      <h2>本店公開物件加緊追蹤</h2>
+      <span>${state.shop.shopName}　已同步 ${state.shop.count} 筆　${state.shop.syncedAt}</span>
+    </div>
+    <article class="card bridge-card">
+      <p class="note">來源：${SHOP_LIST_URL}。公開頁物件對進永慶物件／同店看板，並可下載火旺匯入 JSON。官方改價、上架仍以 IS 為準。</p>
+      <div class="card-actions">
+        <button type="button" data-open-right="${SHOP_URL}">開本店官網</button>
+        <button type="button" data-open-right="${SHOP_LIST_URL}">開本店買屋清單</button>
+        <button type="button" id="syncShopYongching">同步全部到永慶物件看板</button>
+        <button type="button" id="syncShopSameStore">同步全部到同店看板</button>
+        <button type="button" id="syncShopWatched">只同步加緊追蹤</button>
+        <button type="button" id="downloadShopImport">下載全部火旺匯入JSON</button>
+        <button type="button" id="downloadShopWatched">下載追蹤中匯入JSON</button>
+      </div>
+      <div class="shop-tools">
+        <select id="shopMode">
+          <option value="all"${mode === "all" ? " selected" : ""}>全部 ${state.shop.count}</option>
+          <option value="featured"${mode === "featured" ? " selected" : ""}>店長強打 ${shopRows("featured").length}</option>
+          <option value="watched"${mode === "watched" ? " selected" : ""}>加緊追蹤 ${watched.size || shopRows("featured").length}</option>
+          <option value="drop"${mode === "drop" ? " selected" : ""}>官網降價 ${drops}</option>
+        </select>
+        <input id="shopFilter" value="${q}" placeholder="搜尋案名、YC編號、路段、格局">
+      </div>
+      <table class="bridge-table shop-table">
+        <thead><tr><th>追蹤</th><th>編號</th><th>案名</th><th>總價</th><th>型態／格局</th><th>坪數</th></tr></thead>
+        <tbody>${body || `<tr><td colspan="6">沒有符合的物件</td></tr>`}</tbody>
+      </table>
+      ${rows.length > 80 ? `<p class="note">先顯示 80 筆，請用搜尋或篩選縮小。</p>` : ""}
+    </article>`;
+  const modeEl = $("#shopMode");
+  const filterEl = $("#shopFilter");
+  if (modeEl) modeEl.addEventListener("change", renderShopTracker);
+  if (filterEl) filterEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") renderShopTracker();
+  });
 }
 
 function huowangImportPayload(prop) {
@@ -552,6 +743,8 @@ function renderShortcuts() {
   TRACKING_SHORTCUTS.forEach((item) => root.appendChild(recentRow(item)));
   root.appendChild(el(`<div class="recent-label">公用網站</div>`));
   SHORTCUTS.forEach((item) => root.appendChild(recentRow({ name: item.name, url: item.url })));
+  root.appendChild(recentRow({ name: "本店官網", url: SHOP_URL }));
+  root.appendChild(recentRow({ name: "本店買屋", url: SHOP_LIST_URL }));
   root.appendChild(recentRow({ name: "火旺後台", url: "https://huowang.paohui.org/admin.html.html" }));
 }
 
@@ -600,6 +793,13 @@ function bind() {
       copyText(state.seed.facebookPost).then(() => log("已複製桃園大有 FB 上架文案"));
     }
     if (e.target.id === "copyYcutPack" || e.target.id === "copyYcutPackFromHelp" || e.target.id === "copyYcutPackBar" || e.target.id === "copyYcutPackCase") copyYcutPack();
+    const watchBtn = e.target.closest("[data-shop-watch]");
+    if (watchBtn) toggleShopWatch(watchBtn.dataset.shopWatch);
+    if (e.target.id === "syncShopYongching") syncShopToBoards("yongching", "all");
+    if (e.target.id === "syncShopSameStore") syncShopToBoards("same-store", "all");
+    if (e.target.id === "syncShopWatched") syncShopToBoards("both", "watched");
+    if (e.target.id === "downloadShopImport") downloadShopImport("all");
+    if (e.target.id === "downloadShopWatched") downloadShopImport("watched");
     if (e.target.id === "focusYcutWin" || e.target.id === "focusYcutExisting") focusYcutWindow(YCUT_HOME);
     if (e.target.id === "focusHubWin" || e.target.id === "focusHubExisting") focusHubWindow("https://paohui.org/");
     if (e.target.id === "downloadImport" && state.seed) {
@@ -643,18 +843,24 @@ async function boot() {
   loadListings();
   const data = await fetch("./portals.json").then((r) => r.json());
   const listings = await fetch("./listings.json").then((r) => r.json());
+  const shop = await fetch("./shop-listings.json").then((r) => r.json()).catch(() => null);
   state.portals = data.portals;
   state.boards = data.listingBoards;
   state.ycutBridge = data.ycutBridge;
   state.seed = listings.property;
+  state.shop = shop;
+  loadShopWatch();
   $("#heroMeta").innerHTML = `
     <span class="chip">${data.agent.name}　${data.agent.phone}</span>
     <span class="chip">${data.agent.brand}</span>
     <span class="chip">本機目錄 ${data.agent.sourceDisk}</span>
     <span class="chip">永慶員編 C56026（密碼不進 Git）</span>
-    <span class="chip">桃園大有已串入 ${listings.property.contractNo}</span>`;
+    <span class="chip">桃園大有已串入 ${listings.property.contractNo}</span>
+    ${shop ? `<span class="chip">本店公開物件 ${shop.count} 筆</span>` : ""}`;
   mergeSeedListings(listings.property);
+  if (shop) rememberShopPrices();
   renderYcutBridge(data.ycutBridge);
+  renderShopTracker();
   renderCase(listings.property);
   renderPortals();
   renderBoards();
@@ -666,6 +872,7 @@ async function boot() {
   log("在 9 編輯 → 複製永慶上架包 → 貼到 1 的我的物件 → 官方儲存。");
   log(listings.wired.note);
   log(`已載入桃園大有物件 ${listings.property.title}，總價 ${listings.property.price} 萬。`);
+  if (shop) log(`本店官網 ${SHOP_URL} 已追蹤 ${shop.count} 筆公開物件，店長強打 ${shop.featuredIds.length} 筆。可同步到看板或下載火旺匯入檔。`);
 }
 
 boot();
