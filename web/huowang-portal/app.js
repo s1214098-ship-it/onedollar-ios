@@ -317,14 +317,34 @@ function openOnRight(url, name) {
   return win;
 }
 
+function needsTypingWindow(url) {
+  return /ycut\.com\.tw|591\.com\.tw|facebook\.com|myhomes\.com\.tw|yes319\.com|houseprice\.tw|easymap\.moi|ecfme\.fme|shopmore\.com|post\.gov\.tw|huowang\.paohui/.test(String(url || ""));
+}
+
 function showInRightPane(url, title) {
   state.rightUrl = url;
   const frame = $("#rightFrame");
   $("#rightTitle").textContent = title || url;
-  frame.src = url;
   document.querySelectorAll("[data-shortcut-url]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.shortcutUrl === url);
   });
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  if (needsTypingWindow(url)) {
+    frame.removeAttribute("src");
+    const win = openOnRight(url, "huowang-login");
+    if (win) {
+      try { win.focus(); } catch (_) { /* ignore */ }
+      log(`已開可輸入登入視窗：${title || url}。請在跳出的視窗打帳號、密碼、驗證碼。`);
+    } else {
+      frame.src = url;
+      log("瀏覽器擋彈窗，請允許後再點一次。內嵌登入頁通常不能輸入。");
+    }
+    return;
+  }
+  frame.src = url;
+  setTimeout(() => {
+    try { frame.focus(); } catch (_) { /* ignore */ }
+  }, 50);
   log(`已在這個窗格開啟：${title || url}`);
 }
 
@@ -357,7 +377,7 @@ function renderShortcuts() {
 
 function bindShortcutKeys() {
   document.addEventListener("keydown", (e) => {
-    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (!e.altKey || e.ctrlKey || e.metaKey) return;
     const tag = (e.target && e.target.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || tag === "select" || e.target.isContentEditable) return;
     if (e.key === "0") {
@@ -449,7 +469,7 @@ async function boot() {
   bind();
   bindShortcutKeys();
   showInRightPane(SHORTCUTS[8].url, SHORTCUTS[8].name);
-  log("公用網站快捷已放在右邊窗格。按 1～9 或點按鈕，就在這個窗格開啟。");
+  log("點 Recents 會開可輸入的登入視窗。數字鍵不再搶密碼，快捷改為 Alt+1～9。");
   log(listings.wired.note);
   log(`已載入桃園大有物件 ${listings.property.title}，總價 ${listings.property.price} 萬。`);
   log("網站會開在右邊。按「指定網站開在右邊」把你給的 9 個網站打開。");
