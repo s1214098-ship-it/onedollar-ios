@@ -1,0 +1,7 @@
+.env
+.env.local
+*.secret.json
+secrets.local.json
+web/huowang-portal/.env.local
+web/huowang-portal/secrets.local.json
+.DS_Store

@@ -1,0 +1,241 @@
+{
+  "title": "火旺後台上架總控",
+  "agent": {
+    "name": "郭火旺",
+    "brand": "永慶不動產羅東文化盛群加盟店",
+    "company": "盛群房屋仲介股份有限公司",
+    "phone": "0911-294-374",
+    "line": "0911294374",
+    "license": "107年登字第340146號",
+    "shopUrl": "https://shop.yungching.com.tw/039519001/",
+    "sourceDisk": "Z:\\WEB"
+  },
+  "controlHub": {
+    "id": "paohui-hub",
+    "name": "寶輝／火旺總網站後台路口",
+    "url": "https://paohui.org/",
+    "role": "上架控制總入口。從這裡進火旺管理軟體，更新永慶物件、同店、開發件與專任合約。"
+  },
+  "listingBoards": [
+    {
+      "id": "yongching",
+      "name": "永慶物件",
+      "adminUrl": "https://huowang.paohui.org/admin.html.html",
+      "officialUrl": "https://is.ycut.com.tw/",
+      "note": "更新永慶流通／我的物件。正式上架、帶看、送件走 YCUT；火旺後台做清單與公開內容。"
+    },
+    {
+      "id": "same-store",
+      "name": "同店物件",
+      "adminUrl": "https://huowang.paohui.org/admin.html.html",
+      "officialUrl": "https://shop.yungching.com.tw/039519001/",
+      "note": "羅東文化盛群同店同事可合作賣方物件。前台不顯示承辦人、抽成與精準門牌。"
+    },
+    {
+      "id": "development",
+      "name": "開發件",
+      "adminUrl": "https://huowang.paohui.org/admin.html.html",
+      "officialUrl": "https://007.houseprice.tw/",
+      "note": "賣主開發／同業開發池。從 007、地籍圖、591、YES319 找到案源後記入火旺開發物件。"
+    },
+    {
+      "id": "exclusive",
+      "name": "專任合約",
+      "adminUrl": "https://huowang.paohui.org/admin.html.html",
+      "officialUrl": "https://huowang.paohui.org/admin.html.html",
+      "note": "合約物件管理預設合約類型為專任約。簽約後同步公開物件與上架通路。"
+    }
+  ],
+  "portals": [
+    {
+      "id": "paohui",
+      "group": "總控",
+      "name": "paohui.org 總網站後台路口",
+      "url": "https://paohui.org/",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "火旺／寶輝／職訓／一元競標場總入口，用來控制上架。"
+    },
+    {
+      "id": "huowang",
+      "group": "總控",
+      "name": "火旺管理軟體",
+      "url": "https://huowang.paohui.org/",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "前台預覽、後台管理、自動化、上架簡化版、外部物件選單。"
+    },
+    {
+      "id": "huowang-admin",
+      "group": "總控",
+      "name": "火旺後台管理軟體",
+      "url": "https://huowang.paohui.org/admin.html.html",
+      "open": true,
+      "account": "admin",
+      "status": "ok",
+      "note": "合約、同店、開發物件、YCUT 流通作業、外部入口都在這頁。"
+    },
+    {
+      "id": "huowang-front",
+      "group": "總控",
+      "name": "火旺前台物件預覽",
+      "url": "https://huowang.paohui.org/front.html",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "客戶看的房屋、土地、DM 與物件圖文。"
+    },
+    {
+      "id": "huowang-publish",
+      "group": "總控",
+      "name": "上架物件簡化版系統",
+      "url": "https://house.paohui.org/HUOWAN%20HOUSE%20MENU/",
+      "open": true,
+      "account": null,
+      "status": "check",
+      "note": "放照片、壓縮圖片、暫存文章、產生件數編號。目前線上曾回 404，仍保留為上架入口。"
+    },
+    {
+      "id": "huowang-ext",
+      "group": "總控",
+      "name": "火旺伯外部物件選單",
+      "url": "https://huowang.paohui.org/huowang/",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "給客人看的中文／越南文物件展示頁。"
+    },
+    {
+      "id": "huowang-ext-admin",
+      "group": "總控",
+      "name": "火旺伯外部物件後台",
+      "url": "https://huowang.paohui.org/huowang/admin.html",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "新增外部物件後顯示在客人選單。"
+    },
+    {
+      "id": "ycut-dramax",
+      "group": "永慶",
+      "name": "永慶 dramax 登入（指定網址）",
+      "url": "https://dramax.ycut.com.tw/login",
+      "open": true,
+      "account": "C56026",
+      "status": "redirect",
+      "note": "你指定的網址目前會 404。正式加盟系統改走 is.ycut.com.tw / is-dramax.ycut.com.tw。"
+    },
+    {
+      "id": "ycut-is",
+      "group": "永慶",
+      "name": "永慶 YCUT 加盟系統 IS",
+      "url": "https://is.ycut.com.tw/",
+      "open": true,
+      "account": "C56026",
+      "status": "ok",
+      "note": "永慶物件正式後台。人員編號 C56026。密碼只存在本機 secrets，不進 Git。"
+    },
+    {
+      "id": "ycut-is-dramax",
+      "group": "永慶",
+      "name": "永慶 IS-DRAMAX",
+      "url": "https://is-dramax.ycut.com.tw/",
+      "open": true,
+      "account": "C56026",
+      "status": "ok",
+      "note": "會轉到 opid.ycut.com.tw 加盟系統登入頁。"
+    },
+    {
+      "id": "ycut-opid",
+      "group": "永慶",
+      "name": "永慶 SSO 登入頁",
+      "url": "https://opid.ycut.com.tw/YcutPortal/Login",
+      "open": true,
+      "account": "C56026",
+      "status": "ok",
+      "note": "加盟系統登入。帶完整 OAuth 參數的舊網址會過期，請從 is.ycut.com.tw 進去。"
+    },
+    {
+      "id": "yungching-shop",
+      "group": "永慶",
+      "name": "永慶羅東文化盛群加盟店",
+      "url": "https://shop.yungching.com.tw/039519001/",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "門市公開網站，對照同店與店內公開物件。"
+    },
+    {
+      "id": "591",
+      "group": "上架通路",
+      "name": "591 房屋交易",
+      "url": "https://www.591.com.tw/",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "買賣、租屋、土地曝光與物件上架。"
+    },
+    {
+      "id": "houseprice",
+      "group": "開發查價",
+      "name": "007 實價登錄比價王",
+      "url": "https://007.houseprice.tw/",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "金牌房仲／標示部、案源、估價。開發件查價入口。"
+    },
+    {
+      "id": "myhomes",
+      "group": "上架通路",
+      "name": "我家網 VIP 登入",
+      "url": "https://www.myhomes.com.tw/vip2/login.php",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "我家網後台上架。公開銷售頁：https://sales.myhomes.com.tw/0911294374"
+    },
+    {
+      "id": "myhomes-sales",
+      "group": "上架通路",
+      "name": "我家網郭火旺銷售頁",
+      "url": "https://sales.myhomes.com.tw/0911294374",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "羅東透天農舍／郭火旺公開物件頁。"
+    },
+    {
+      "id": "facebook",
+      "group": "社群",
+      "name": "Facebook 羅東農舍 郭火旺",
+      "url": "https://www.facebook.com/search/top/?q=%E7%BE%85%E6%9D%B1%E8%BE%B2%E8%88%8D%20%E9%83%AD%E7%81%AB%E6%97%BA",
+      "open": true,
+      "account": "羅東農舍 郭火旺",
+      "status": "search",
+      "note": "以「羅東農舍 郭火旺」搜尋專頁／社團。登入後再釘選正式專頁網址。"
+    },
+    {
+      "id": "easymap",
+      "group": "地籍",
+      "name": "內政部地籍圖資 e 地籍圖",
+      "url": "https://easymap.moi.gov.tw/Z10Web/Index",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "地籍圖、段小段、地號對照。開發件與專任約核對土地資料。"
+    },
+    {
+      "id": "yes319",
+      "group": "上架通路",
+      "name": "YES319 房屋市集登入",
+      "url": "https://www.yes319.com/my319/login/",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "房仲物件刊登與會員後台。"
+    }
+  ]
+}
