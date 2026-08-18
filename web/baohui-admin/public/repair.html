@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>頭城電腦維修｜寶輝科技</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<main class="shell">
+  <div class="brand-bar">
+    <div class="brand">
+      <div class="mark">BH</div>
+      <div>
+        <div class="brand-name">線上報修</div>
+        <div class="sub">頭城鎮到府免到府費，不修免檢測費</div>
+      </div>
+    </div>
+    <a class="btn btn-outline" href="/">回服務入口</a>
+  </div>
+  <section class="hero">
+    <h2>頭城電腦維修，到府免到府費</h2>
+    <p>送出後會建立維修工單，寶輝科技會依方便時段與您聯絡。緊急案件也可先用 LINE：s1214098。</p>
+  </section>
+  <div class="form-card">
+    <div id="msg" hidden></div>
+    <div class="row">
+      <div>
+        <label>故障分類</label>
+        <select id="fault">
+          <option value="">請選擇</option>
+          <option>無法開機</option>
+          <option>筆電重灌</option>
+          <option>系統異常／中毒</option>
+          <option>資料備份／救援</option>
+          <option>監視器／網路</option>
+          <option>其他</option>
+        </select>
+      </div>
+      <div>
+        <label>方便聯絡時段</label>
+        <input id="contactTime" placeholder="例如：今天下午、平日晚上">
+      </div>
+      <div class="full">
+        <label>詳細故障描述</label>
+        <textarea id="desc" placeholder="請描述設備、故障狀況、是否急件、是否需要到府"></textarea>
+      </div>
+      <div><label>姓名</label><input id="name"></div>
+      <div><label>手機</label><input id="phone"></div>
+      <div><label>縣市</label><select id="county"></select></div>
+      <div><label>鄉鎮市區</label><select id="district"></select></div>
+      <div class="full"><label>詳細地址</label><input id="addr" placeholder="路名、門牌、樓層"></div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="submitRepair()">送出報修申請</button>
+  </div>
+</main>
+<script src="/js/common.js"></script>
+<script>
+fillCountyDistrict("county", "district");
+async function submitRepair() {
+  try {
+    await postJson("/customer-api/repair", {
+      fault: document.getElementById("fault").value,
+      contactTime: document.getElementById("contactTime").value.trim(),
+      desc: document.getElementById("desc").value.trim(),
+      name: document.getElementById("name").value.trim(),
+      phone: document.getElementById("phone").value.trim(),
+      county: document.getElementById("county").value.trim(),
+      district: document.getElementById("district").value.trim(),
+      addr: document.getElementById("addr").value.trim()
+    });
+    showMsg(document.getElementById("msg"), "報修申請已送出，寶輝科技會盡快與您聯絡。", true);
+    setTimeout(() => location.href = "/", 1200);
+  } catch (e) {
+    showMsg(document.getElementById("msg"), e.message, false);
+  }
+}
+</script>
+</body>
+</html>

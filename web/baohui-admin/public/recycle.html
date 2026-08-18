@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>電腦 3C 回收｜寶輝科技</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<main class="shell">
+  <div class="brand-bar">
+    <div class="brand">
+      <div class="mark" style="background:#138a55">收</div>
+      <div>
+        <div class="brand-name">線上回收</div>
+        <div class="sub">電腦、螢幕、NAS、網通與大量 3C</div>
+      </div>
+    </div>
+    <a class="btn btn-outline" href="/">回服務入口</a>
+  </div>
+  <section class="hero">
+    <h2>企業、機關與個人設備回收</h2>
+    <p>先留下品項、數量與所在地，寶輝科技再協助清點、估價、搬運與回收處理。</p>
+  </section>
+  <form class="form-card" onsubmit="submitRecycle(event)">
+    <div id="msg" hidden></div>
+    <div class="row">
+      <div><label>回收品項</label><input name="type" placeholder="例如：主機、筆電、螢幕、NAS" required></div>
+      <div><label>數量／規格</label><input name="item" placeholder="例如：主機 4 台、螢幕 6 台"></div>
+      <div class="full"><label>物品描述</label><textarea name="memo" placeholder="品牌、年份、能否開機、是否含資料"></textarea></div>
+      <div><label>姓名</label><input name="name" required></div>
+      <div><label>手機</label><input name="phone" required></div>
+      <div><label>縣市</label><select id="county" name="county"></select></div>
+      <div><label>鄉鎮市區</label><select id="district" name="district"></select></div>
+      <div class="full"><label>詳細地址</label><input name="addr" placeholder="路名、門牌、樓層"></div>
+    </div>
+    <button class="btn btn-green" style="margin-top:16px;width:100%">送出回收申請</button>
+  </form>
+</main>
+<script src="/js/common.js"></script>
+<script>
+fillCountyDistrict("county", "district");
+async function submitRecycle(event) {
+  event.preventDefault();
+  const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+  try {
+    await postJson("/customer-api/recycle", payload);
+    showMsg(document.getElementById("msg"), "回收申請已送出，寶輝科技會盡快與您聯絡。", true);
+    setTimeout(() => location.href = "/", 1200);
+  } catch (e) {
+    showMsg(document.getElementById("msg"), e.message, false);
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>寶輝總部管理系統</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div id="loginPage" class="login-wrap">
+  <div class="login-card">
+    <h2 style="text-align:center;margin-top:0">寶輝科技管理系統</h2>
+    <div id="loginMsg" hidden></div>
+    <label>帳號</label>
+    <input id="uid" value="admin" autocomplete="username">
+    <label>密碼</label>
+    <input id="pwd" type="password" autocomplete="current-password">
+    <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="login()">登入系統</button>
+    <div class="top-actions" style="margin-top:14px;justify-content:center">
+      <a class="btn btn-outline btn-sm" href="/repair">線上報修</a>
+      <a class="btn btn-outline btn-sm" href="/recycle">線上回收</a>
+      <a class="btn btn-outline btn-sm" href="/leave">員工請假</a>
+    </div>
+  </div>
+</div>
+
+<div id="adminApp" class="admin-app">
+  <aside class="sidebar">
+    <h2>寶輝總部</h2>
+    <nav id="sidebarNav"></nav>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <button class="btn btn-outline btn-sm mobile-menu" onclick="document.body.classList.toggle('menu-open')">選單</button>
+        <b id="topTitle">寶輝總部管理系統</b>
+        <span id="who" class="badge st-doing"></span>
+      </div>
+      <div class="top-actions">
+        <a class="btn btn-outline btn-sm" href="/repair" target="_blank">線上報修</a>
+        <a class="btn btn-outline btn-sm" href="/leave" target="_blank">請假申請</a>
+        <button class="btn btn-outline btn-sm" onclick="logout()">登出</button>
+      </div>
+    </div>
+    <div class="content" id="view"></div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>
