@@ -208,7 +208,7 @@ button, input, select, textarea { font: inherit; }
   min-height: 40px; border: 1px solid #cfc4b4; border-radius: 7px; padding: 8px 12px; background: #fffdf8; font-weight: 800;
 }
 .shop-tools input { flex: 1; min-width: 220px; }
-.shop-table a { color: #9a3412; font-weight: 900; text-decoration: none; }
+.shop-thumb { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; background: #eee; display: block; }
 
 @media (max-width: 980px) {
   .case-hero, .facts, .photos { grid-template-columns: 1fr 1fr; }

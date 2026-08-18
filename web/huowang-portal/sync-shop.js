@@ -29,7 +29,12 @@ function parsePage(html) {
       .map((x) => decode(x[1].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim())
       .filter(Boolean);
     const prices = [...m[5].replace(/<[^>]+>/g, " ").matchAll(/([\d,]+)\s*萬/g)].map((x) => x[1].replace(/,/g, ""));
-    items.push({ hid, title, desc, yc, facts, prices });
+    let cover = "";
+    const imgM = html.match(new RegExp(`item_id="${hid}"[\\s\\S]{0,900}?<img src="([^"]+)"`));
+    if (imgM) {
+      cover = decode(imgM[1].startsWith("//") ? `https:${imgM[1]}` : imgM[1]);
+    }
+    items.push({ hid, title, desc, yc, facts, prices, cover });
   }
   return items;
 }
@@ -73,6 +78,8 @@ function clean(raw) {
     priceOrig: raw.prices.length >= 2 ? raw.prices[0] : "",
     url: `https://buy.yungching.com.tw/house/${raw.hid}`,
     featured: FEATURED.has(raw.hid),
+    cover: raw.cover || "",
+    images: raw.cover ? [raw.cover] : [],
     note
   };
 }
@@ -105,5 +112,15 @@ const out = {
 };
 
 const dest = path.join(__dirname, "shop-listings.json");
+try {
+  const prev = JSON.parse(fs.readFileSync(dest, "utf8"));
+  const byId = Object.fromEntries((prev.listings || []).map((x) => [x.id, x]));
+  listings.forEach((row) => {
+    const old = byId[row.id];
+    if (!old) return;
+    if (old.images && old.images.length > (row.images || []).length) row.images = old.images;
+    if (old.cover && !row.cover) row.cover = old.cover;
+  });
+} catch (_) { /* first run */ }
 fs.writeFileSync(dest, JSON.stringify(out, null, 2) + "\n");
 console.log(`已同步本店公開物件 ${listings.length} 筆 → ${dest}`);

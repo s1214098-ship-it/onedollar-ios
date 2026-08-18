@@ -216,9 +216,26 @@ function shopHuowangPayload(rows) {
       publicNotes: row.note,
       adText: `${row.title} ${row.price}萬 ${row.build || row.land || ""}坪 ${row.layout || ""} ${row.type || ""}`,
       sourceUrl: row.url,
-      saleStatus: "unsold"
+      saleStatus: "unsold",
+      images: (row.images && row.images.length ? row.images : (row.cover ? [row.cover] : [])).map((src, i) => ({
+        name: `物件照片${String(i + 1).padStart(2, "0")}`,
+        data: src
+      }))
     }))
   };
+}
+
+function downloadShopPhotoRestore() {
+  fetch(encodeURI("./原始營業員抓取清單-羅東文化盛群最新.json"))
+    .then((r) => r.blob())
+    .then((blob) => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "原始營業員抓取清單-羅東文化盛群最新.json";
+      a.click();
+      log("已下載後台照片還原檔（202 筆同店物件含照片）。請覆蓋到火旺網站根目錄，再到同店物件管理按「重載完整照片」。");
+    })
+    .catch(() => log("照片還原檔讀不到，請確認 web/huowang-portal 裡有原始營業員抓取清單檔。"));
 }
 
 function downloadShopImport(filter) {
@@ -276,8 +293,9 @@ function renderShopTracker() {
     const on = watched.has(row.id) || row.featured;
     return `<tr>
       <td><button type="button" class="btn ghost" data-shop-watch="${row.id}">${on ? "追蹤中" : "加緊追蹤"}</button></td>
+      <td>${row.cover ? `<img class="shop-thumb" src="${row.cover}" alt="" referrerpolicy="no-referrer" loading="lazy">` : ""}</td>
       <td>${row.featured ? '<span class="tag warn">店長強打</span> ' : ""}${row.ycNo || row.id}</td>
-      <td><a href="${row.url}" target="_blank" rel="noopener">${row.title}</a><div class="note">${row.area || ""}</div></td>
+      <td><a href="${row.url}" target="_blank" rel="noopener">${row.title}</a><div class="note">${row.area || ""}　${(row.images || []).length} 張照片</div></td>
       <td>${row.price}萬${change ? `<div class="tag warn">${change}</div>` : ""}</td>
       <td>${row.type || ""} ${row.layout || ""}</td>
       <td>${row.build || row.land || "—"}坪</td>
@@ -289,10 +307,11 @@ function renderShopTracker() {
       <span>${state.shop.shopName}　已同步 ${state.shop.count} 筆　${state.shop.syncedAt}</span>
     </div>
     <article class="card bridge-card">
-      <p class="note">來源：${SHOP_LIST_URL}。公開頁物件對進永慶物件／同店看板，並可下載火旺匯入 JSON。官方改價、上架仍以 IS 為準。</p>
+      <p class="note">來源：${SHOP_LIST_URL}。202 筆公開物件照片已從本店官網／同店資料庫還原。後台若照片空白，請下載還原檔覆蓋火旺根目錄的「原始營業員抓取清單-羅東文化盛群最新.json」，再到同店物件管理按「重載完整照片」。不要用會打 95MB 的完整 API。</p>
       <div class="card-actions">
         <button type="button" data-open-right="${SHOP_URL}">開本店官網</button>
         <button type="button" data-open-right="${SHOP_LIST_URL}">開本店買屋清單</button>
+        <button type="button" id="downloadShopPhotos">下載後台照片還原檔</button>
         <button type="button" id="syncShopYongching">同步全部到永慶物件看板</button>
         <button type="button" id="syncShopSameStore">同步全部到同店看板</button>
         <button type="button" id="syncShopWatched">只同步加緊追蹤</button>
@@ -309,7 +328,7 @@ function renderShopTracker() {
         <input id="shopFilter" value="${q}" placeholder="搜尋案名、YC編號、路段、格局">
       </div>
       <table class="bridge-table shop-table">
-        <thead><tr><th>追蹤</th><th>編號</th><th>案名</th><th>總價</th><th>型態／格局</th><th>坪數</th></tr></thead>
+        <thead><tr><th>追蹤</th><th>照片</th><th>編號</th><th>案名</th><th>總價</th><th>型態／格局</th><th>坪數</th></tr></thead>
         <tbody>${body || `<tr><td colspan="6">沒有符合的物件</td></tr>`}</tbody>
       </table>
       ${rows.length > 80 ? `<p class="note">先顯示 80 筆，請用搜尋或篩選縮小。</p>` : ""}
@@ -798,6 +817,7 @@ function bind() {
     if (e.target.id === "syncShopYongching") syncShopToBoards("yongching", "all");
     if (e.target.id === "syncShopSameStore") syncShopToBoards("same-store", "all");
     if (e.target.id === "syncShopWatched") syncShopToBoards("both", "watched");
+    if (e.target.id === "downloadShopPhotos") downloadShopPhotoRestore();
     if (e.target.id === "downloadShopImport") downloadShopImport("all");
     if (e.target.id === "downloadShopWatched") downloadShopImport("watched");
     if (e.target.id === "focusYcutWin" || e.target.id === "focusYcutExisting") focusYcutWindow(YCUT_HOME);
