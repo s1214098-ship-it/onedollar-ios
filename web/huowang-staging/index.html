@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>火旺房仲管理軟體</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:"Microsoft JhengHei","PingFang TC",Arial,sans-serif;color:#27221f;background:#f5f1ea}
+body{background:linear-gradient(180deg,#fff 0%,#f5f1ea 58%,#ece6dc 100%)}
+a{text-decoration:none;color:inherit}
+.page{min-height:100vh;display:flex;flex-direction:column}
+.hero{background:#fff;border-bottom:8px solid #3f3a35;padding:22px 0 20px}
+.hero-inner{width:min(980px,calc(100% - 28px));margin:0 auto}
+.agent-banner{display:block;width:100%;height:auto;object-fit:contain;background:#fff;border:1px solid #d8d0c4;box-shadow:0 14px 34px rgba(63,58,53,.16)}
+.actions-wrap{background:#f5f1ea}
+.actions{width:min(980px,calc(100% - 28px));margin:0 auto;padding:30px 0 28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.entry{background:#fff;border:1px solid #dfd4c4;border-radius:8px;padding:24px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px;box-shadow:0 10px 24px rgba(63,58,53,.08);transition:.18s ease}
+.entry:hover{transform:translateY(-2px);border-color:#b52639;box-shadow:0 16px 30px rgba(181,38,57,.14)}
+.entry-icon{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:#3f3a35;color:#fff;font-size:28px;font-weight:900}
+.entry:nth-child(2) .entry-icon{background:#b52639}
+.entry:nth-child(3) .entry-icon{background:#0f766e}
+.entry:nth-child(4) .entry-icon{background:#2563eb}
+.entry:nth-child(5) .entry-icon{background:#f59e0b;color:#3f2b12}
+.entry:nth-child(6) .entry-icon{background:#108b5b;color:#fff}
+.entry h3{font-size:28px;margin:0 0 8px;color:#1f1a17;font-weight:950}
+.entry p{margin:0;color:#5e564e;line-height:1.55;font-size:16px;font-weight:700}
+.entry-arrow{width:42px;height:42px;border-radius:50%;border:2px solid #b52639;color:#b52639;display:grid;place-items:center;font-size:28px;font-weight:900}
+.tool-row{width:min(980px,calc(100% - 28px));margin:0 auto 28px;display:flex;flex-wrap:wrap;gap:10px}
+.tool-row a{padding:11px 15px;background:#3f3a35;color:#fff;border-radius:6px;font-size:14px;font-weight:900}
+.tool-row a:hover{background:#b52639}
+.footer{margin-top:auto;text-align:center;color:#756c62;font-size:13px;padding:14px 20px 22px;font-weight:700}
+.float-back-menu{position:fixed;right:16px;bottom:16px;z-index:99998;display:flex;flex-direction:column;gap:8px}
+.float-back-menu button,.float-back-menu a{border:0;border-radius:999px;background:#3F3A39;color:#fff!important;-webkit-text-fill-color:#fff!important;padding:10px 14px;font-size:15px;font-weight:900;box-shadow:0 8px 22px rgba(0,0,0,.22);text-decoration:none;text-align:center;cursor:pointer}
+.float-back-menu .home{background:#B72B3E}.float-back-menu .share{background:#2563EB}
+@media (max-width:860px){
+  .hero{padding:18px 0 16px}
+  .hero-inner{width:calc(100% - 24px)}
+  .agent-banner{box-shadow:0 10px 24px rgba(63,58,53,.14)}
+  .actions{grid-template-columns:1fr;padding-top:22px}
+  .entry{grid-template-columns:auto 1fr;padding:18px;gap:14px}
+  .entry h3{font-size:26px}
+  .entry p{font-size:16px}
+  .entry-arrow{display:none}
+  .float-back-menu{right:10px;bottom:10px}
+  .float-back-menu button,.float-back-menu a{font-size:14px;padding:9px 12px}
+}
+</style>
+<link rel="stylesheet" href="/lingzanzan-contact-float.css?v=2026060702"></head>
+<body>
+<main class="page">
+  <section class="hero" aria-label="永慶不動產郭火旺聯絡資訊">
+    <div class="hero-inner">
+      <img class="agent-banner" src="agent-ad.jpg" alt="郭火旺 永慶不動產羅東文化盛群加盟店">
+    </div>
+  </section>
+
+  <section class="actions-wrap" aria-label="軟體入口">
+    <div class="actions">
+      <a class="entry" href="front.html">
+        <div class="entry-icon">前</div>
+        <div>
+          <h3>前台物件預覽</h3>
+          <p>展示客戶看的房屋、土地、DM與物件圖文內容。</p>
+        </div>
+        <div class="entry-arrow">›</div>
+      </a>
+      <a class="entry" href="admin.html.html">
+        <div class="entry-icon">管</div>
+        <div>
+          <h3>後台管理軟體</h3>
+          <p>管理物件、合約、開發物件、客戶資料與列印報表。</p>
+        </div>
+        <div class="entry-arrow">›</div>
+      </a>
+      <a class="entry" href="admin.html.html#automation">
+        <div class="entry-icon">自</div>
+        <div>
+          <h3>自動化功能</h3>
+          <p>集中查看到期提醒、行程提醒、AI匯入、同步與備份流程。</p>
+        </div>
+        <div class="entry-arrow">›</div>
+      </a>
+      <a class="entry" href="https://house.paohui.org/HUOWAN%20HOUSE%20MENU/">
+        <div class="entry-icon">上</div>
+        <div>
+          <h3>上架物件簡化版系統</h3>
+          <p>放照片、壓縮圖片、暫存文章內容，產生隨機件數編號。</p>
+        </div>
+        <div class="entry-arrow">›</div>
+      </a>
+      <a class="entry" href="https://huowang.paohui.org/huowang/" target="_blank" rel="noopener">
+        <div class="entry-icon">客</div>
+        <div>
+          <h3>火旺伯外部物件選單</h3>
+          <p>給客人看的中文/越南文物件展示頁，可用區域、類型、價格快速篩選。</p>
+        </div>
+        <div class="entry-arrow">›</div>
+      </a>
+      <a class="entry" href="https://huowang.paohui.org/huowang/admin.html" target="_blank" rel="noopener">
+        <div class="entry-icon">增</div>
+        <div>
+          <h3>火旺伯外部物件後台</h3>
+          <p>新增外部物件，填中文與越南文名稱，儲存後顯示在客人看的物件選單。</p>
+        </div>
+        <div class="entry-arrow">›</div>
+      </a>
+    </div>
+    <nav class="tool-row" aria-label="常用房仲入口">
+      <a href="https://www.591.com.tw/" target="_blank" rel="noopener">591房屋交易</a>
+      <a href="https://www.facebook.com/?ref=homescreenpwa" target="_blank" rel="noopener">FB臉書</a>
+      <a href="https://www.yes319.com/my319/login/" target="_blank" rel="noopener">YES319房屋市集</a>
+      <a href="https://tw.yahoo.com/" target="_blank" rel="noopener">YAHOO奇摩</a>
+      <a href="https://agent.foundi.info/tool/property/list?trading_type=sale&geo=address&city=%E5%8F%B0%E5%8C%97%E5%B8%82&order_by=property_first_seen" target="_blank" rel="noopener">FOUNDI房地</a>
+    </nav>
+  </section>
+  <footer class="footer">永慶不動產羅東文化盛群加盟店 盛群房屋仲介有限公司 火旺房仲管理軟體</footer>
+</main>
+<script>
+function copyCurrentPageUrl(){
+  const url = location.href;
+  const ok = () => alert("\u5df2\u8907\u88fd\u672c\u9801\u7db2\u5740\uff0c\u53ef\u4ee5\u8cbc\u7d66\u5ba2\u6236\u6216\u670b\u53cb");
+  const fallback = () => {
+    const ta = document.createElement("textarea");
+    ta.value = url;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand("copy"); ok(); } catch(e) { prompt("\u8acb\u8907\u88fd\u672c\u9801\u7db2\u5740", url); }
+    ta.remove();
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(ok).catch(fallback); }
+  else fallback();
+}
+</script>
+<div class="float-back-menu" aria-label="返回選單">
+  <button type="button" class="share" onclick="copyCurrentPageUrl()">複製網址</button>
+  <button type="button" onclick="if(history.length>1){history.back()}else{location.href='index.html'}">上一層</button>
+  <a class="home" href="index.html">主頁</a>
+</div>
+<script src="/lingzanzan-contact-float.js?v=2026060701" defer></script><script src="/lingzanzan-customer-inquiry-float.js?v=20260611customer9" defer></script><script src="/lingzanzan-free-shipping-cart-20260611.js?v=20260611free2?v=20260611free2" defer></script></body>
+</html>

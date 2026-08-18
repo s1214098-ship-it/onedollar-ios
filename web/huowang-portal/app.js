@@ -307,7 +307,7 @@ function renderShopTracker() {
       <span>${state.shop.shopName}　已同步 ${state.shop.count} 筆　${state.shop.syncedAt}</span>
     </div>
     <article class="card bridge-card">
-      <p class="note">來源：${SHOP_LIST_URL}。後台資料庫已有 202 筆同店含照片，但舊版後台會去抓 95MB 同業池並清掉本機照片。請把 web/huowang-portal 的 admin.html.html、shared-storage.js、原始營業員抓取清單-羅東文化盛群最新.json 覆蓋到 Z:\\WEB／PHT-SR 火旺根目錄（對應 https://huowang.paohui.org/）。雲端機連不到公司 VPN 100.92.117.104，必須在內網複製。</p>
+      <p class="note">來源：${SHOP_LIST_URL}。線上 WEB 根目錄是 F:\\Web\\huowang-staging（https://huowang.paohui.org/）。請把 repo 的 web/huowang-staging 整包覆蓋進去。雲端機連不到 VPN 100.92.117.104，無法直接改 NAS。</p>
       <div class="card-actions">
         <button type="button" data-open-right="${SHOP_URL}">開本店官網</button>
         <button type="button" data-open-right="${SHOP_LIST_URL}">開本店買屋清單</button>

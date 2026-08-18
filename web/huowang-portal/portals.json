@@ -11,7 +11,7 @@
     "sourceDisk": "Z:\\WEB",
     "vpnHost": "100.92.117.104",
     "nasName": "PHT-SR",
-    "liveAdminRootHint": "覆蓋到火旺網站根目錄（Z:\\WEB 或 F:\\Web 對應 huowang.paohui.org）：admin.html.html、shared-storage.js、原始營業員抓取清單-羅東文化盛群最新.json"
+    "liveAdminRootHint": "線上站對應 F:\\Web\\huowang-staging（Z:\\WEB 底下）。請把 repo 的 web/huowang-staging/ 整包覆蓋到該資料夾：admin.html.html、shared-storage.js、front.html、原始營業員抓取清單-羅東文化盛群最新.json。雲端機連不到 VPN 100.92.117.104。"
   },
   "controlHub": {
     "id": "paohui-hub",
