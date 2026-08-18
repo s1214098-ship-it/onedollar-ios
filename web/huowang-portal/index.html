@@ -12,7 +12,7 @@
       <section class="hero">
         <div class="kicker">Z:\WEB · paohui.org 控制上架</div>
         <h1>火旺後台上架總控</h1>
-        <p>快捷 1 是永慶加盟系統 is.ycut.com.tw（opid SSO），不是 dramax。Recents 用地球圖示、名稱、網址；全家、郵局、SHOPMORE 也在右邊。</p>
+        <p>快捷 1＝已開的永慶 IS 上班網站。快捷 9＝已開的總控台／火旺後台。在 9 編輯，複製上架包，貼到 1 再存檔。</p>
         <div class="meta" id="heroMeta"></div>
       </section>
 
@@ -20,11 +20,12 @@
         <button class="btn red" id="openAll" type="button">全部開在右邊</button>
         <button class="btn gold" id="openCore" type="button">指定網站開在右邊</button>
         <button class="btn ghost" id="copyAll" type="button">複製全部網址</button>
-        <button class="btn green" id="openHubRight" type="button">右邊開 paohui.org</button>
-        <button class="btn blue" id="openAdminRight" type="button">右邊開火旺後台</button>
+        <button class="btn green" id="openHubRight" type="button">快捷 9 總控台（已開）</button>
+        <button class="btn blue" id="openAdminRight" type="button">火旺後台（已開）</button>
+        <button class="btn red" id="copyYcutPackBar" type="button">複製永慶上架包</button>
       </div>
       <div class="log" id="openLog"></div>
-
+      <div id="ycutBridge"></div>
       <article class="case" id="dayouCase"></article>
 
       <div class="section">
@@ -47,7 +48,7 @@
         <iframe id="rightFrame" title="右邊網站"></iframe>
         <div class="right-help" id="rightHelp" hidden></div>
       </div>
-      <div class="right-fallback" id="rightFallback">快捷 1＝永慶加盟系統。登入請開完整分頁打人員編號、密碼。內嵌框多數官網不能輸入。</div>
+      <div class="right-fallback" id="rightFallback">1＝IS 已開　9＝後台已開。複製上架包貼到右邊我的物件。不要再新開分頁。</div>
     </aside>
   </div>
   <script src="app.js"></script>

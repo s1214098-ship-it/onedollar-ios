@@ -5,7 +5,7 @@
     "portals": true,
     "listingBoards": true,
     "liveWriteToYcut591": false,
-    "note": "總控台已串 paohui／火旺／591／007／我家網／地籍圖／YES319。快捷 1 是永慶加盟系統 is.ycut.com.tw（opid SSO），不是 dramax。這筆大有物件已做成可上架資料；永慶與 591 後台仍要在官方頁按儲存，雲端不能代登入寫入。"
+    "note": "快捷 9 是總控台 paohui.org。快捷 1 是上班網站 is.ycut.com.tw/is/home。火旺後台可編輯對應欄位並複製上架包，但不能代登入寫入永慶官方庫；帶看／委託／聯賣要在已登入的 IS 按存檔。"
   },
   "property": {
     "title": "桃園市大有路羅丹藝術家採光美三房",
@@ -78,7 +78,7 @@
       "yes319": "https://www.yes319.com/my319/login/",
       "easymap": "https://easymap.moi.gov.tw/Z10Web/Index",
       "yongchingShop": "https://shop.yungching.com.tw/039519001/",
-      "ycut": "https://is.ycut.com.tw/",
+      "ycut": "https://is.ycut.com.tw/is/home",
       "huowangAdmin": "https://huowang.paohui.org/admin.html.html",
       "huowangFront": "https://huowang.paohui.org/front.html",
       "facebook": "https://www.facebook.com/"

@@ -1,7 +1,7 @@
 const STORAGE_KEY = "huowang-listing-boards-v1";
 const OPEN_DELAY_MS = 500;
 const SHORTCUTS = [
-  { key: "1", name: "永慶加盟系統", url: "https://is.ycut.com.tw/" },
+  { key: "1", name: "永慶加盟系統", url: "https://is.ycut.com.tw/is/home" },
   { key: "2", name: "591房屋", url: "https://www.591.com.tw/" },
   { key: "3", name: "007比價王", url: "https://007.houseprice.tw/" },
   { key: "4", name: "我家網VIP", url: "https://www.myhomes.com.tw/vip2/login.php" },
@@ -9,8 +9,11 @@ const SHORTCUTS = [
   { key: "6", name: "地籍圖", url: "https://easymap.moi.gov.tw/Z10Web/Index" },
   { key: "7", name: "YES319", url: "https://www.yes319.com/my319/login/" },
   { key: "8", name: "YCUT登入頁", url: "https://opid.ycut.com.tw/YcutPortal/Login" },
-  { key: "9", name: "paohui總路口", url: "https://paohui.org/" }
+  { key: "9", name: "總控台", url: "https://paohui.org/" }
 ];
+const HUOWANG_ADMIN = "https://huowang.paohui.org/admin.html.html";
+const YCUT_HOME = "https://is.ycut.com.tw/is/home";
+const YCUT_LOGIN = "https://is.ycut.com.tw/";
 const TRACKING_SHORTCUTS = [
   { name: "FamilyMart寄件", url: "https://ecfme.fme.com.tw/FMEDCFPWebV2_II/list.aspx" },
   { name: "FamilyMart寄件", url: "https://ecfme.fme.com.tw/FMEDCFPWebV2_II/index.aspx" },
@@ -24,7 +27,10 @@ const state = {
   boards: [],
   listings: { yongching: [], "same-store": [], development: [], exclusive: [] },
   seed: null,
-  rightUrl: ""
+  rightUrl: "",
+  ycutWin: null,
+  hubWin: null,
+  ycutBridge: null
 };
 
 function $(sel, root = document) { return root.querySelector(sel); }
@@ -218,12 +224,9 @@ function renderCase(prop) {
         <p class="note">${prop.publicNotes}</p>
         <div class="facts">${facts}</div>
         <div class="card-actions">
-          <button type="button" data-open-right="${prop.sourceUrl}">右邊開591</button>
-          <button type="button" data-open-right="${prop.channels.huowangAdmin}">右邊開火旺後台</button>
-          <button type="button" data-open-right="${prop.channels.ycut}">右邊開永慶YCUT</button>
+          <button type="button" id="copyYcutPackCase">複製永慶上架包</button>
           <button type="button" id="copyFb">複製FB上架文案</button>
           <button type="button" id="downloadImport">下載火旺匯入JSON</button>
-          <button type="button" id="openCaseUrls">相關網址開在右邊</button>
         </div>
       </div>
     </div>
@@ -318,11 +321,55 @@ function openLoginTab(url) {
   a.remove();
 }
 
-function openOnRight(url, name) {
-  if (isYcutUrl(url)) {
-    openLoginTab(url);
-    return true;
+function isHubUrl(url) {
+  return /paohui\.org/.test(String(url || ""));
+}
+
+function alreadyOpen(label) {
+  log(`${label}你已經開好了，不再另開分頁。左邊／快捷 9 編輯，右邊／快捷 1 存檔。`);
+}
+
+function focusYcutWindow(url, force) {
+  if (state.ycutWin && !state.ycutWin.closed) {
+    try { state.ycutWin.focus(); } catch (_) { /* ignore */ }
+    alreadyOpen("快捷 1 永慶 IS：");
+    return state.ycutWin;
   }
+  if (force !== true) {
+    alreadyOpen("快捷 1 永慶 IS：");
+    return null;
+  }
+  const win = window.open(url || YCUT_HOME, "huowang-ycut", rightWindowFeatures());
+  state.ycutWin = win || state.ycutWin;
+  if (win && typeof win.moveTo === "function") {
+    try {
+      const width = Math.max(640, Math.floor(window.screen.availWidth / 2));
+      const left = Number(window.screen.availLeft || 0) + window.screen.availWidth - width;
+      win.moveTo(left, Number(window.screen.availTop || 0));
+      win.resizeTo(width, window.screen.availHeight);
+    } catch (_) { /* ignore */ }
+  }
+  return win;
+}
+
+function focusHubWindow(url, force) {
+  if (state.hubWin && !state.hubWin.closed) {
+    try { state.hubWin.focus(); } catch (_) { /* ignore */ }
+    alreadyOpen("快捷 9 總控台／後台：");
+    return state.hubWin;
+  }
+  if (force !== true) {
+    alreadyOpen("快捷 9 總控台／後台：");
+    return null;
+  }
+  const win = window.open(url || "https://paohui.org/", "huowang-hub", rightWindowFeatures());
+  state.hubWin = win || state.hubWin;
+  return win;
+}
+
+function openOnRight(url, name) {
+  if (isYcutUrl(url)) return focusYcutWindow(url);
+  if (isHubUrl(url)) return focusHubWindow(url);
   const win = window.open(url, name || "_blank", rightWindowFeatures());
   if (win && typeof win.moveTo === "function") {
     try {
@@ -336,24 +383,23 @@ function openOnRight(url, name) {
 }
 
 function showYcutHelp(url, title, autoOpen) {
-  const frame = $("#rightFrame");
-  frame.removeAttribute("src");
   const help = $("#rightHelp");
+  const target = url || YCUT_HOME;
   if (help) {
     help.hidden = false;
     help.innerHTML = `
-      <h3>${title || "永慶加盟系統"}</h3>
-      <p>快捷 <b>1</b> 是永慶加盟系統（is.ycut.com.tw → opid.ycut.com.tw SSO），不是 dramax。請開完整分頁登入。</p>
-      <p><a class="btn red" href="https://is.ycut.com.tw/" target="_blank" rel="noopener">開啟永慶加盟系統（人員編號／密碼）</a></p>
-      <p><a class="btn gold" href="https://opid.ycut.com.tw/YcutPortal/Login" target="_blank" rel="noopener">YCUT 登入頁</a></p>
-      <p class="note">帳號用人員編號 C56026。每次從 is.ycut.com.tw 進去才會產生有效登入參數（code_challenge、nonce、state）。不要收藏過期的長網址。</p>`;
+      <h3>${title || "快捷 1 × 快捷 9 已開好"}</h3>
+      <p><b>1</b> 永慶 IS 上班網站已開在右邊。<b>9</b> 總控台／火旺後台也開好了。這裡不再另開分頁。</p>
+      <p>在快捷 9 的後台編輯（自有物件、合約、YCUT流通作業）。複製上架包，貼到快捷 1 的「我的物件」，再按官方儲存。</p>
+      <p class="note">帶看、委託、聯賣一定要在右邊 IS 存檔。火旺後台不能直接寫進永慶官方庫。</p>
+      <p>
+        <button class="btn red" type="button" id="copyYcutPackFromHelp">複製永慶上架包</button>
+        <button class="btn gold" type="button" id="focusYcutWin">叫出右邊 IS</button>
+        <button class="btn green" type="button" id="focusHubWin">叫出快捷 9 後台</button>
+      </p>`;
   }
-  if (autoOpen !== false) {
-    openLoginTab(url || "https://is.ycut.com.tw/");
-    log("快捷 1 已開永慶加盟系統完整分頁。請在新分頁打人員編號與密碼。");
-  } else {
-    log("右邊是永慶加盟系統說明。點清單第 1 項或紅色按鈕開完整登入頁。");
-  }
+  if (autoOpen === true) focusYcutWindow(target);
+  else alreadyOpen("快捷 1 與快捷 9：");
 }
 
 function showInRightPane(url, title, autoOpen) {
@@ -366,7 +412,7 @@ function showInRightPane(url, title, autoOpen) {
     btn.classList.toggle("active", btn.dataset.shortcutUrl === url);
   });
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-  if (isYcutUrl(url)) {
+  if (isYcutUrl(url) || isHubUrl(url)) {
     showYcutHelp(url, title, autoOpen);
     return;
   }
@@ -377,8 +423,7 @@ function showInRightPane(url, title, autoOpen) {
       try { win.focus(); } catch (_) { /* ignore */ }
       log(`已開可輸入登入視窗：${title || url}。請在新分頁打帳號、密碼、驗證碼。`);
     } else {
-      openLoginTab(url);
-      log("已改用完整分頁開啟，請到新分頁登入。");
+      log(`${title || url} 請用已開的視窗，這裡不另開分頁。`);
     }
     return;
   }
@@ -390,7 +435,97 @@ function showInRightPane(url, title, autoOpen) {
 }
 
 function needsTypingWindow(url) {
-  return /591\.com\.tw|facebook\.com|myhomes\.com\.tw|yes319\.com|houseprice\.tw|easymap\.moi|ecfme\.fme|shopmore\.com|post\.gov\.tw|huowang\.paohui/.test(String(url || ""));
+  return /591\.com\.tw|facebook\.com|myhomes\.com\.tw|yes319\.com|houseprice\.tw|easymap\.moi|ecfme\.fme|shopmore\.com|post\.gov\.tw/.test(String(url || ""));
+}
+
+function ycutPackText(prop) {
+  if (!prop) return "";
+  return [
+    "【永慶加盟系統上架包】從快捷 9 後台帶到快捷 1 IS → 我的物件",
+    `物件標題：${prop.title || ""}`,
+    `公開物件編號：${prop.publicNo || prop.contractNo || ""}`,
+    `總價：${prop.price || ""} 萬`,
+    `建坪／建物總坪：${prop.build || ""} 坪`,
+    `主建物坪數：${prop.mainBuildArea || ""}`,
+    `土地坪數：${prop.landArea || ""}`,
+    `單價：${prop.unitPrice || ""} 萬/坪`,
+    `格局：${prop.layout || ""}`,
+    `型態：${prop.type || ""}`,
+    `樓層：${prop.floor || ""}`,
+    `屋齡：${prop.houseAge || ""}`,
+    `社區：${prop.community || ""}`,
+    `縣市：${prop.county || ""}`,
+    `區域：${prop.area || ""}`,
+    `路段：${prop.addressRoad || ""} ${prop.addressDetail || ""}`,
+    `登記用途：${prop.registryUse || ""}`,
+    `使用分區：${prop.landUseZone || ""}`,
+    `管理費：${prop.managementFee || ""}`,
+    `車位：${prop.parking || ""}`,
+    `緯度：${prop.lat || ""}`,
+    `經度：${prop.lng || ""}`,
+    `特色：${prop.keyFeatures || ""}`,
+    `生活機能：${prop.lifeFeatures || ""}`,
+    `房屋描述：${prop.publicNotes || ""}`,
+    `廣告文案：${prop.adText || ""}`,
+    `照片：\n${(prop.images || []).join("\n")}`
+  ].join("\n");
+}
+
+function copyYcutPack() {
+  const text = ycutPackText(state.seed);
+  if (!text) {
+    log("沒有可複製的物件資料");
+    return;
+  }
+  copyText(text).then(() => log("已複製永慶上架包。請貼到已開的快捷 1「我的物件」再按官方儲存。"));
+}
+
+function saveWhere(kind) {
+  if (kind === "is") return "只在快捷 1 IS 存檔";
+  if (kind === "huowang") return "快捷 9 後台即可";
+  return "兩邊都要對過";
+}
+
+function renderYcutBridge(bridge) {
+  const root = $("#ycutBridge");
+  if (!root || !bridge) return;
+  const modules = (bridge.modules || []).map((m) => `
+    <tr>
+      <td><b>${m.is}</b><div class="note">${m.role}</div></td>
+      <td>${m.huowang}</td>
+      <td>${saveWhere(m.saveIn)}</td>
+    </tr>`).join("");
+  const fields = (bridge.fieldMap || []).map(([ycut, hw]) => `<tr><td>${ycut}</td><td>${hw}</td></tr>`).join("");
+  root.innerHTML = `
+    <div class="section">
+      <h2>快捷 1 × 快捷 9 對接</h2>
+      <span>兩邊都已開好：1＝IS 上班網站，9＝總控台／火旺後台</span>
+    </div>
+    <article class="card bridge-card">
+      <p class="note">${bridge.limit}</p>
+      <div class="card-actions">
+        <button type="button" id="copyYcutPack">複製永慶上架包到剪貼簿</button>
+        <button type="button" id="focusYcutExisting">叫出快捷 1 IS</button>
+        <button type="button" id="focusHubExisting">叫出快捷 9 後台</button>
+      </div>
+      <ol class="bridge-steps">
+        <li>在快捷 9 火旺後台改價格、文案、照片（自有物件／合約／YCUT流通作業）。</li>
+        <li>按「複製永慶上架包」。</li>
+        <li>切到快捷 1 IS → 我的物件，對欄位貼上，按官方儲存。</li>
+        <li>帶看、委託、聯賣只在 IS 做。</li>
+      </ol>
+      <h3>功能對照</h3>
+      <table class="bridge-table">
+        <thead><tr><th>快捷 1　IS 上班網站</th><th>快捷 9　火旺後台</th><th>存檔位置</th></tr></thead>
+        <tbody>${modules}</tbody>
+      </table>
+      <h3>欄位對照（貼到我的物件）</h3>
+      <table class="bridge-table">
+        <thead><tr><th>永慶 IS／物件分享欄位</th><th>火旺後台欄位</th></tr></thead>
+        <tbody>${fields}</tbody>
+      </table>
+      <pre class="copybox" id="ycutPackPreview">${ycutPackText(state.seed)}</pre>
+    </article>`;
 }
 
 function displayHost(url) {
@@ -464,6 +599,9 @@ function bind() {
     if (e.target.id === "copyFb" && state.seed) {
       copyText(state.seed.facebookPost).then(() => log("已複製桃園大有 FB 上架文案"));
     }
+    if (e.target.id === "copyYcutPack" || e.target.id === "copyYcutPackFromHelp" || e.target.id === "copyYcutPackBar" || e.target.id === "copyYcutPackCase") copyYcutPack();
+    if (e.target.id === "focusYcutWin" || e.target.id === "focusYcutExisting") focusYcutWindow(YCUT_HOME);
+    if (e.target.id === "focusHubWin" || e.target.id === "focusHubExisting") focusHubWindow("https://paohui.org/");
     if (e.target.id === "downloadImport" && state.seed) {
       const blob = new Blob([JSON.stringify(huowangImportPayload(state.seed), null, 2)], { type: "application/json" });
       const a = document.createElement("a");
@@ -484,13 +622,16 @@ function bind() {
     const text = state.portals.map((p) => `${p.name}\n${p.url}`).join("\n\n");
     copyText(text).then(() => log("已複製全部網址清單"));
   });
-  $("#openHubRight").addEventListener("click", () => showInRightPane("https://paohui.org/", "paohui.org"));
-  $("#openAdminRight").addEventListener("click", () => showInRightPane("https://huowang.paohui.org/admin.html.html", "火旺後台"));
+  $("#openHubRight").addEventListener("click", () => showInRightPane("https://paohui.org/", "總控台"));
+  $("#openAdminRight").addEventListener("click", () => showInRightPane(HUOWANG_ADMIN, "火旺後台"));
   $("#openCurrentRightWindow").addEventListener("click", () => {
     if (!state.rightUrl) state.rightUrl = SHORTCUTS[0].url;
     if (isYcutUrl(state.rightUrl)) {
-      openLoginTab(state.rightUrl);
-      log(`已開永慶加盟系統完整分頁：${state.rightUrl}`);
+      focusYcutWindow(state.rightUrl);
+      return;
+    }
+    if (isHubUrl(state.rightUrl)) {
+      focusHubWindow(state.rightUrl);
       return;
     }
     const win = openOnRight(state.rightUrl, "huowang-right");
@@ -504,6 +645,7 @@ async function boot() {
   const listings = await fetch("./listings.json").then((r) => r.json());
   state.portals = data.portals;
   state.boards = data.listingBoards;
+  state.ycutBridge = data.ycutBridge;
   state.seed = listings.property;
   $("#heroMeta").innerHTML = `
     <span class="chip">${data.agent.name}　${data.agent.phone}</span>
@@ -512,6 +654,7 @@ async function boot() {
     <span class="chip">永慶員編 C56026（密碼不進 Git）</span>
     <span class="chip">桃園大有已串入 ${listings.property.contractNo}</span>`;
   mergeSeedListings(listings.property);
+  renderYcutBridge(data.ycutBridge);
   renderCase(listings.property);
   renderPortals();
   renderBoards();
@@ -519,11 +662,10 @@ async function boot() {
   bind();
   bindShortcutKeys();
   showInRightPane(SHORTCUTS[0].url, SHORTCUTS[0].name, false);
-  log("快捷 1 已換成永慶加盟系統 is.ycut.com.tw（會轉到 opid SSO）。不要用 dramax。");
-  log("點 Recents 會開可輸入的登入視窗。數字鍵不再搶密碼，快捷改為 Alt+1～9。");
+  log("快捷 1 IS 與快捷 9 後台都已開好，不再另開分頁。");
+  log("在 9 編輯 → 複製永慶上架包 → 貼到 1 的我的物件 → 官方儲存。");
   log(listings.wired.note);
   log(`已載入桃園大有物件 ${listings.property.title}，總價 ${listings.property.price} 萬。`);
-  log("網站會開在右邊。按「指定網站開在右邊」把你給的 9 個網站打開。");
 }
 
 boot();

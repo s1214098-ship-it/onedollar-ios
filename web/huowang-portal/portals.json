@@ -12,17 +12,86 @@
   },
   "controlHub": {
     "id": "paohui-hub",
-    "name": "寶輝／火旺總網站後台路口",
+    "name": "總控台",
     "url": "https://paohui.org/",
-    "role": "上架控制總入口。從這裡進火旺管理軟體，更新永慶物件、同店、開發件與專任合約。"
+    "role": "快捷 9。上架控制總入口。從這裡進火旺管理軟體，更新永慶物件、同店、開發件與專任合約。"
+  },
+  "ycutBridge": {
+    "workHome": "https://is.ycut.com.tw/is/home",
+    "login": "https://is.ycut.com.tw/",
+    "huowangAdmin": "https://huowang.paohui.org/admin.html.html",
+    "huowangYcutDeskHint": "登入火旺後台後點「🗂️ YCUT流通作業」",
+    "limit": "雲端不能代登入、也不能直接寫入永慶官方庫。火旺後台負責編輯與公開內容；帶看、委託、聯賣、官方儲存仍要在已登入的 IS 首頁按存檔。",
+    "modules": [
+      {
+        "is": "IS 首頁 / 我的物件",
+        "role": "上班主檔。上架、改價、照片、謄本、委託後才能聯賣。",
+        "huowang": "YCUT流通作業 → 我的物件；自有物件銷售；合約物件管理",
+        "saveIn": "is"
+      },
+      {
+        "is": "流通物件",
+        "role": "加盟四品牌聯賣庫。調件、申請帶看。",
+        "huowang": "YCUT流通作業 → 流通／異店；異店物件管理",
+        "saveIn": "both"
+      },
+      {
+        "is": "關注物件",
+        "role": "把要跟的流通件釘在清單。",
+        "huowang": "YCUT流通作業 → 關注物件",
+        "saveIn": "huowang"
+      },
+      {
+        "is": "轉募集客戶",
+        "role": "從物件轉出買方需求，補姓名電話。",
+        "huowang": "YCUT流通作業 → 轉募集客戶；賣主開發／買主需求",
+        "saveIn": "huowang"
+      },
+      {
+        "is": "帶看／送件／委託",
+        "role": "官方流程與時間紀錄，聯賣抽成依此。",
+        "huowang": "行事曆／帶看排程只做提醒，正式送件仍開 IS",
+        "saveIn": "is"
+      },
+      {
+        "is": "公開物件分享（ycut.com.tw/case-info）",
+        "role": "IS 存檔後對外分享頁：總價、建坪、謄本、房屋描述。",
+        "huowang": "永慶式公開物件資訊、前台預覽、DM",
+        "saveIn": "both"
+      }
+    ],
+    "fieldMap": [
+      ["物件標題", "title / 物件標題"],
+      ["公開物件編號", "publicNo / 公開物件編號"],
+      ["總價（萬）", "price / 總價(萬)"],
+      ["建坪／建物總坪", "build / 坪數"],
+      ["主建物坪數", "mainBuildArea / 主建物坪數"],
+      ["土地坪數", "landArea / 土地坪數"],
+      ["單價（萬/坪）", "unitPrice / 坪數單價"],
+      ["格局", "layout / 格局"],
+      ["型態", "type / 型態"],
+      ["樓層", "floor / 樓層"],
+      ["屋齡", "houseAge / 屋齡"],
+      ["社區", "community"],
+      ["縣市／區域", "county + area"],
+      ["路段（公開不寫門牌）", "addressRoad / addressDetail"],
+      ["登記用途", "registryUse / 謄本用途"],
+      ["使用分區", "landUseZone / 土地使用分區"],
+      ["管理費", "managementFee"],
+      ["車位", "parking"],
+      ["緯度／經度", "lat / lng"],
+      ["房屋描述／特色", "publicNotes + keyFeatures + adText"],
+      ["生活機能", "lifeFeatures / dmNearby"],
+      ["照片", "images"]
+    ]
   },
   "listingBoards": [
     {
       "id": "yongching",
       "name": "永慶物件",
       "adminUrl": "https://huowang.paohui.org/admin.html.html",
-      "officialUrl": "https://is.ycut.com.tw/",
-      "note": "更新永慶流通／我的物件。快捷 1 走 is.ycut.com.tw 加盟系統 SSO；火旺後台做清單與公開內容。"
+      "officialUrl": "https://is.ycut.com.tw/is/home",
+      "note": "更新永慶流通／我的物件。快捷 1 走已登入的 IS 首頁 is.ycut.com.tw/is/home；火旺後台做編輯與公開內容，官方存檔仍在 IS。"
     },
     {
       "id": "same-store",
@@ -50,7 +119,7 @@
     {
       "id": "paohui",
       "group": "總控",
-      "name": "paohui.org 總網站後台路口",
+      "name": "總控台（快捷 9）",
       "url": "https://paohui.org/",
       "open": true,
       "account": null,
@@ -120,12 +189,12 @@
     {
       "id": "ycut-is",
       "group": "永慶",
-      "name": "永慶加盟系統（快捷 1）",
-      "url": "https://is.ycut.com.tw/",
+      "name": "永慶加盟系統 IS 首頁（快捷 1）",
+      "url": "https://is.ycut.com.tw/is/home",
       "open": true,
       "account": "C56026",
       "status": "ok",
-      "note": "正確入口。會轉到 opid.ycut.com.tw/YcutPortal/Login 並帶入有效 OAuth（redirect_uri=is.ycut.com.tw/signin-oidc）。帳號用人員編號 C56026。密碼不進 Git。不要收藏過期的長網址。"
+      "note": "上班首頁。已登入會進 /is/home；未登入會回 SSO。帳號用人員編號 C56026。密碼不進 Git。不要收藏過期的長網址。"
     },
     {
       "id": "ycut-opid",
