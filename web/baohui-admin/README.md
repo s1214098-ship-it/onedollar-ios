@@ -1,6 +1,8 @@
-# 寶輝科技管理後台伺服器
+# 寶輝科技管理後台伺服器（實驗用，不是線上後台）
 
-給 [寶輝科技有限公司](https://www.s1214098.com.tw/) 使用的獨立後台伺服器：把線上報修、回收、專案申請、員工請假，以及工單／人資／薪資／任務寫進同一份 SQLite 共用資料。
+**線上真正在用的後台是** [baohui.paohui.org](https://baohui.paohui.org/)（PHP，在公司機 `F:\Web\baohui-staging`）。電子發票請看 [`../baohui-staging/`](../baohui-staging/README.md)。
+
+下面這份 Node 服務是實驗用，**不會自動改到你現有網站**。
 
 現有入口 [baohui.paohui.org](https://baohui.paohui.org/) 的 `repair`、`customer-api/repair` 在部分主機上會 404。這套伺服器補上同一組路徑，可單獨跑，也可當現有 `admin.php` 前端的 `api.php` 相容後端。
 

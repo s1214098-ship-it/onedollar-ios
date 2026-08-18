@@ -1,0 +1,6 @@
+Invoices/
+*.sqlite
+gmail-oauth-client.json
+gmail-oauth-token.bin
+certs/
+one-dollar-auction/data/*.json
