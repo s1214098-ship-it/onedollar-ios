@@ -1,16 +1,17 @@
 const STORAGE_KEY = "huowang-listing-boards-v1";
 const OPEN_DELAY_MS = 500;
-const CORE_URLS = [
-  "https://dramax.ycut.com.tw/login",
-  "https://www.591.com.tw/",
-  "https://007.houseprice.tw/",
-  "https://www.myhomes.com.tw/vip2/login.php",
-  "https://www.facebook.com/",
-  "https://easymap.moi.gov.tw/Z10Web/Index",
-  "https://www.yes319.com/my319/login/",
-  "https://opid.ycut.com.tw/YcutPortal/Login",
-  "https://paohui.org/"
+const SHORTCUTS = [
+  { key: "1", name: "永慶房管", url: "https://dramax.ycut.com.tw/login" },
+  { key: "2", name: "591房屋", url: "https://www.591.com.tw/" },
+  { key: "3", name: "007比價王", url: "https://007.houseprice.tw/" },
+  { key: "4", name: "我家網VIP", url: "https://www.myhomes.com.tw/vip2/login.php" },
+  { key: "5", name: "Facebook", url: "https://www.facebook.com/" },
+  { key: "6", name: "地籍圖", url: "https://easymap.moi.gov.tw/Z10Web/Index" },
+  { key: "7", name: "YES319", url: "https://www.yes319.com/my319/login/" },
+  { key: "8", name: "YCUT登入", url: "https://opid.ycut.com.tw/YcutPortal/Login" },
+  { key: "9", name: "paohui總路口", url: "https://paohui.org/" }
 ];
+const CORE_URLS = SHORTCUTS.map((item) => item.url);
 
 const state = {
   portals: [],
@@ -313,41 +314,41 @@ function openOnRight(url, name) {
 function showInRightPane(url, title) {
   state.rightUrl = url;
   const frame = $("#rightFrame");
-  const fallback = $("#rightFallback");
   $("#rightTitle").textContent = title || url;
-  fallback.style.display = "none";
   frame.src = url;
-  document.querySelectorAll(".right-tabs button").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.url === url);
+  document.querySelectorAll("[data-shortcut-url]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.shortcutUrl === url);
   });
-  setTimeout(() => {
-    fallback.style.display = "block";
-    fallback.textContent = "若右邊是空白，代表這個網站擋內嵌。已另外在螢幕右半邊開視窗。";
-  }, 1200);
-  const win = openOnRight(url, "huowang-right");
-  log(win ? `已在右邊開啟：${url}` : `瀏覽器擋彈窗，請允許後再按一次：${url}`);
+  log(`已在這個窗格開啟：${title || url}`);
 }
 
-function renderRightTabs() {
+function renderShortcuts() {
   const root = $("#rightTabs");
   root.innerHTML = "";
-  const items = [
-    { name: "paohui 總路口", url: "https://paohui.org/" },
-    { name: "永慶房管", url: "https://dramax.ycut.com.tw/login" },
-    { name: "591", url: "https://www.591.com.tw/" },
-    { name: "007", url: "https://007.houseprice.tw/" },
-    { name: "我家網", url: "https://www.myhomes.com.tw/vip2/login.php" },
-    { name: "Facebook", url: "https://www.facebook.com/" },
-    { name: "地籍圖", url: "https://easymap.moi.gov.tw/Z10Web/Index" },
-    { name: "YES319", url: "https://www.yes319.com/my319/login/" },
-    { name: "YCUT登入", url: "https://opid.ycut.com.tw/YcutPortal/Login" },
-    { name: "火旺後台", url: "https://huowang.paohui.org/admin.html.html" }
-  ];
-  items.forEach((item, idx) => {
-    const btn = el(`<button type="button" data-url="${item.url}">${item.name}</button>`);
-    if (idx === 0) btn.classList.add("active");
+  SHORTCUTS.forEach((item) => {
+    const btn = el(`<button type="button" data-shortcut-url="${item.url}" title="快捷鍵 ${item.key}"><kbd>${item.key}</kbd><span>${item.name}</span></button>`);
     btn.addEventListener("click", () => showInRightPane(item.url, item.name));
     root.appendChild(btn);
+  });
+  const extra = el(`<button type="button" data-shortcut-url="https://huowang.paohui.org/admin.html.html" title="火旺後台"><kbd>0</kbd><span>火旺後台</span></button>`);
+  extra.addEventListener("click", () => showInRightPane("https://huowang.paohui.org/admin.html.html", "火旺後台"));
+  root.appendChild(extra);
+}
+
+function bindShortcutKeys() {
+  document.addEventListener("keydown", (e) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const tag = (e.target && e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select" || e.target.isContentEditable) return;
+    if (e.key === "0") {
+      e.preventDefault();
+      showInRightPane("https://huowang.paohui.org/admin.html.html", "火旺後台");
+      return;
+    }
+    const hit = SHORTCUTS.find((item) => item.key === e.key);
+    if (!hit) return;
+    e.preventDefault();
+    showInRightPane(hit.url, hit.name);
   });
 }
 
@@ -424,8 +425,11 @@ async function boot() {
   renderCase(listings.property);
   renderPortals();
   renderBoards();
-  renderRightTabs();
+  renderShortcuts();
   bind();
+  bindShortcutKeys();
+  showInRightPane(SHORTCUTS[8].url, SHORTCUTS[8].name);
+  log("公用網站快捷已放在右邊窗格。按 1～9 或點按鈕，就在這個窗格開啟。");
   log(listings.wired.note);
   log(`已載入桃園大有物件 ${listings.property.title}，總價 ${listings.property.price} 萬。`);
   log("網站會開在右邊。按「指定網站開在右邊」把你給的 9 個網站打開。");

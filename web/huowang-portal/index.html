@@ -12,7 +12,7 @@
       <section class="hero">
         <div class="kicker">Z:\WEB · paohui.org 控制上架</div>
         <h1>火旺後台上架總控</h1>
-        <p>左邊管物件，右邊開你指定的網站。按「全部開在右邊」會在螢幕右半邊打開。</p>
+        <p>公用網站做成這個窗格的快捷：按 1～9 或點右邊按鈕，就在本窗格開啟。</p>
         <div class="meta" id="heroMeta"></div>
       </section>
 
@@ -38,13 +38,13 @@
 
     <aside class="right-dock" aria-label="右邊網站視窗">
       <div class="right-head">
-        <strong>右邊網站</strong>
-        <span id="rightTitle">點左邊網站，這裡開啟</span>
-        <button class="btn gold" id="openCurrentRightWindow" type="button">這個也開右邊視窗</button>
+        <strong>公用網站快捷</strong>
+        <span id="rightTitle">按 1～9 在這個窗格開啟</span>
+        <button class="btn gold" id="openCurrentRightWindow" type="button">若被擋再開視窗</button>
       </div>
       <div class="right-tabs" id="rightTabs"></div>
       <iframe id="rightFrame" title="右邊網站" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation-by-user-activation"></iframe>
-      <div class="right-fallback" id="rightFallback">多數官網會擋內嵌。已改在螢幕右半邊開視窗。</div>
+      <div class="right-fallback" id="rightFallback">若畫面空白，代表該網站擋內嵌，再按「若被擋再開視窗」。</div>
     </aside>
   </div>
   <script src="app.js"></script>
