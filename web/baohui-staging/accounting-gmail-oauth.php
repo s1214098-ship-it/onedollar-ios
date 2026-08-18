@@ -1,70 +1,56 @@
 <?php
 declare(strict_types=1);
-require __DIR__ . '/accounting-lib.php';
 
-$auth = accounting_current_user();
-$client = accounting_oauth_client();
-$rules = accounting_rules();
-$redirect = $rules['oauthRedirect'] ?? 'https://baohui.paohui.org/accounting-gmail-oauth.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'accounting-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'accounting-gmail-source.php';
 
-function oauth_html(string $title, string $body, bool $ok): void {
-    $payload = json_encode(['type' => 'baohui-gmail-oauth', 'ok' => $ok], JSON_UNESCAPED_UNICODE);
-    echo '<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><title>' . htmlspecialchars($title) . '</title>';
-    echo '<style>body{font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;padding:40px;background:#f5f7fa;color:#172033}main{max-width:520px;margin:0 auto;background:#fff;border:1px solid #d9e2ec;border-radius:10px;padding:28px}h1{font-size:1.2rem;margin:0 0 10px}p{line-height:1.6;color:#334155}.bad{color:#991b1b}.ok{color:#166534}</style></head><body><main>';
-    echo '<h1 class="' . ($ok ? 'ok' : 'bad') . '">' . htmlspecialchars($title) . '</h1>';
-    echo '<p>' . $body . '</p><p><a href="admin.php">回後台</a>　<a href="accounting-invoices.php">回電子發票</a></p></main>';
-    echo '<script>try{if(window.opener){window.opener.postMessage(' . $payload . ', window.location.origin);}}catch(e){}</script></body></html>';
+acc_start_session();
+$context = acc_user_context();
+header('Content-Type: text/html; charset=UTF-8');
+header('Cache-Control: no-store');
+header('X-Content-Type-Options: nosniff');
+
+function acc_oauth_page(string $title, string $body, bool $ok = true): never
+{
+    $color = $ok ? '#166534' : '#991b1b';
+    echo '<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><title>'
+        . htmlspecialchars($title, ENT_QUOTES, 'UTF-8')
+        . '</title><style>body{font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;padding:40px;background:#f5f7fa;color:#172033}main{max-width:520px;margin:0 auto;background:#fff;border:1px solid #d9e2ec;border-radius:10px;padding:28px}h1{font-size:1.2rem;margin:0 0 10px;color:'
+        . $color
+        . '}p{line-height:1.6;color:#334155}</style></head><body><main><h1>'
+        . htmlspecialchars($title, ENT_QUOTES, 'UTF-8')
+        . '</h1><p>'
+        . htmlspecialchars($body, ENT_QUOTES, 'UTF-8')
+        . '</p><p><a href="admin.php">回後台</a>　<a href="accounting-invoices.php">回電子發票</a></p></main><script>try{if(window.opener){window.opener.postMessage({type:"baohui-gmail-oauth",ok:'
+        . ($ok ? 'true' : 'false')
+        . '}, window.location.origin);' . ($ok ? 'setTimeout(function(){window.close()},800)' : '') . '}}catch(e){}</script></body></html>';
+    exit;
 }
 
-if (!$auth['ok']) {
-    oauth_html('尚未登入', '請先登入寶輝後台，再連接 Gmail。', false);
-    exit;
+if (!$context['loggedIn']) acc_oauth_page('尚未登入', '請先登入寶輝後台，再連接 Gmail。', false);
+if (!in_array('invoice_edit', $context['capabilities'], true)) acc_oauth_page('沒有權限', '這個帳號不能連接 Gmail。', false);
+
+$error = trim((string)($_GET['error'] ?? ''));
+if ($error !== '') {
+    acc_oauth_page('Gmail 授權取消', $error === 'access_denied' ? '你沒有同意授權。' : ('Google 回傳：' . $error), false);
 }
 
 $code = trim((string)($_GET['code'] ?? ''));
-$err = trim((string)($_GET['error'] ?? ''));
-if ($err !== '') {
-    oauth_html('Gmail 授權取消', htmlspecialchars($err), false);
-    exit;
-}
+$state = trim((string)($_GET['state'] ?? ''));
+if ($code === '') acc_oauth_page('缺少授權碼', '請從電子發票頁面再按一次「連接 Gmail」。', false);
+$expected = (string)($_SESSION['gmail_oauth_state'] ?? '');
+if ($expected === '' || !hash_equals($expected, $state)) acc_oauth_page('安全驗證失敗', '授權狀態不符，請關閉視窗後重試。', false);
+unset($_SESSION['gmail_oauth_state']);
 
-if ($code === '') {
-    if (!$client) {
-        oauth_html('缺少 OAuth 設定', '請把 Google 用戶端放到 <code>F:\\Data\\BaohuiAccounting\\gmail-oauth-client.json</code>。', false);
-        exit;
-    }
-    $qs = http_build_query([
-        'client_id' => $client['client_id'] ?? '',
-        'redirect_uri' => $redirect,
-        'response_type' => 'code',
-        'scope' => 'https://www.googleapis.com/auth/gmail.readonly',
-        'access_type' => 'offline',
-        'prompt' => 'consent',
-        'login_hint' => $rules['gmailAccount'] ?? 's1214098@gmail.com',
-    ]);
-    header('Location: https://accounts.google.com/o/oauth2/v2/auth?' . $qs);
-    exit;
+try {
+    $token = acc_gmail_exchange_code($code);
+    $email = trim((string)($token['email'] ?? acc_gmail_refresh_profile()));
+    acc_oauth_page('Gmail 已連接', $email !== '' ? ('已授權信箱：' . $email) : '授權完成，可以回電子發票頁面抓信。', true);
+} catch (Throwable $e) {
+    @file_put_contents(
+        acc_private_root() . DIRECTORY_SEPARATOR . 'gmail-oauth-error.log',
+        date('c') . ' ' . $e->getMessage() . PHP_EOL,
+        FILE_APPEND
+    );
+    acc_oauth_page('Gmail 授權失敗', $e->getMessage(), false);
 }
-
-$res = accounting_http('https://oauth2.googleapis.com/token', [
-    'post' => [
-        'code' => $code,
-        'client_id' => $client['client_id'] ?? '',
-        'client_secret' => $client['client_secret'] ?? '',
-        'redirect_uri' => $redirect,
-        'grant_type' => 'authorization_code',
-    ],
-]);
-if (empty($res['ok']) || empty($res['json']['access_token'])) {
-    oauth_html('換 token 失敗', htmlspecialchars($res['body'] ?? $res['error'] ?? 'unknown'), false);
-    exit;
-}
-$existing = accounting_load_token();
-$token = $res['json'];
-if (empty($token['refresh_token']) && !empty($existing['refresh_token'])) {
-    $token['refresh_token'] = $existing['refresh_token'];
-}
-$token['saved_at'] = date('c');
-$token['account'] = $rules['gmailAccount'] ?? 's1214098@gmail.com';
-accounting_save_token($token);
-oauth_html('Gmail 已連接', '可以用 ' . htmlspecialchars($token['account']) . ' 抓捷元電子對帳單了。這個視窗可以關掉。', true);
