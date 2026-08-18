@@ -719,7 +719,7 @@ function renderYcutBridge(bridge) {
         <button type="button" id="focusHubExisting">叫出快捷 9 後台</button>
       </div>
       <ol class="bridge-steps">
-        <li>在快捷 9 火旺後台改價格、文案、照片（自有物件／合約／YCUT流通作業）。</li>
+        <li>在快捷 9 火旺後台改公開文案、DM、同店清單（流通作業只是同店／異店彙總，不是官方 IS）。</li>
         <li>按「複製永慶上架包」。</li>
         <li>切到快捷 1 IS → 我的物件，對欄位貼上，按官方儲存。</li>
         <li>帶看、委託、聯賣只在 IS 做。</li>
