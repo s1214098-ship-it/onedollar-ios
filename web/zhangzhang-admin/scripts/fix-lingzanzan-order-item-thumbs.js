@@ -85,13 +85,13 @@ function stampHtml(dir) {
   let n = 0;
   for (const name of names) {
     const file = path.join(dir, name);
-    let html = fs.readFileSync(file, "utf8");
+    let html = fs.readFileSync(file, "latin1");
     if (!/admin\.js|admin-order-tracking\.css/.test(html)) continue;
     const next = html
       .replace(/admin\.js(?:\?v=[^"']+)?/g, `admin.js?v=${STAMP}`)
       .replace(/admin-order-tracking\.css(?:\?v=[^"']+)?/g, `admin-order-tracking.css?v=${STAMP}`);
     if (next === html) continue;
-    fs.writeFileSync(file, next);
+    fs.writeFileSync(file, Buffer.from(next, "latin1"));
     n++;
     console.log("stamped", name);
   }

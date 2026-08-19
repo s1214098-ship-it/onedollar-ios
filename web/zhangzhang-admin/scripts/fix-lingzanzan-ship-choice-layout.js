@@ -164,13 +164,13 @@ function stampHtml(dir) {
   let n = 0;
   for (const name of names) {
     const file = path.join(dir, name);
-    let html = fs.readFileSync(file, "utf8");
+    let html = fs.readFileSync(file, "latin1");
     if (!/admin\.css|address-helper\.css/.test(html)) continue;
     const next = html
       .replace(/admin\.css(?:\?v=[^"']+)?/g, `admin.css?v=${STAMP}`)
       .replace(/address-helper\.css(?:\?v=[^"']+)?/g, `address-helper.css?v=${STAMP}`);
     if (next === html) continue;
-    fs.writeFileSync(file, next);
+    fs.writeFileSync(file, Buffer.from(next, "latin1"));
     n++;
     console.log("stamped", name);
   }

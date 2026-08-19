@@ -53,14 +53,14 @@ function stampHtml(dir) {
   let n = 0;
   for (const name of names) {
     const file = path.join(dir, name);
-    let html = fs.readFileSync(file, "utf8");
+    let html = fs.readFileSync(file, "latin1");
     if (!/member-risk-v2\.(js|css)|admin-navigation\.js/.test(html)) continue;
     const next = html
       .replace(/member-risk-v2\.css(?:\?v=[^"']+)?/g, "member-risk-v2.css?v=" + STAMP)
       .replace(/member-risk-v2\.js(?:\?v=[^"']+)?/g, "member-risk-v2.js?v=" + STAMP)
       .replace(/admin-navigation\.js(?:\?v=[^"']+)?/g, "admin-navigation.js?v=" + STAMP);
     if (next === html) continue;
-    fs.writeFileSync(file, next);
+    fs.writeFileSync(file, Buffer.from(next, "latin1"));
     n += 1;
     console.log("stamped", name);
   }

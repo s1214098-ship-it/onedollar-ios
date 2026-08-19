@@ -178,7 +178,7 @@ function stampHtml(dir) {
   let n = 0;
   for (const name of names) {
     const file = path.join(dir, name);
-    let html = fs.readFileSync(file, "utf8");
+    let html = fs.readFileSync(file, "latin1");
     if (!/admin\.css|address-helper\.css|address-helper\.js|admin\.js/.test(html)) continue;
     const next = html
       .replace(/admin\.css(?:\?v=[^"']+)?/g, `admin.css?v=${STAMP}`)
@@ -186,7 +186,7 @@ function stampHtml(dir) {
       .replace(/address-helper\.js(?:\?v=[^"']+)?/g, `address-helper.js?v=${STAMP}`)
       .replace(/admin\.js(?:\?v=[^"']+)?/g, `admin.js?v=${STAMP}`);
     if (next === html) continue;
-    fs.writeFileSync(file, next);
+    fs.writeFileSync(file, Buffer.from(next, "latin1"));
     n++;
     console.log("stamped", name);
   }

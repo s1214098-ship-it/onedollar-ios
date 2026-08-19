@@ -51,11 +51,12 @@ function stampHtml(dir) {
   let n = 0;
   for (const name of names) {
     const file = path.join(dir, name);
-    const html = fs.readFileSync(file, "utf8");
-    if (!/admin\.js/.test(html)) continue;
+    // latin1 round-trip is byte-preserving. Never decode HTML as UTF-8.
+    const html = fs.readFileSync(file, "latin1");
+    if (html.indexOf("admin.js") === -1) continue;
     const next = html.replace(/admin\.js(?:\?v=[^"']+)?/g, "admin.js?v=" + STAMP);
     if (next === html) continue;
-    fs.writeFileSync(file, next);
+    fs.writeFileSync(file, Buffer.from(next, "latin1"));
     n += 1;
     console.log("stamped", name);
   }
