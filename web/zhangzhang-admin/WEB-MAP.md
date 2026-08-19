@@ -43,8 +43,9 @@ F:\Web\baohui-staging\one-dollar-auction\operations.php
 F:\Web\baohui-staging\lingzanzan-computer-receipts.php
 F:\Web\lingzanzan-staging\zhangzhang.html
 F:\Web\lingzanzan-staging\lingzanzan-computer-receipts.php   （轉呼叫寶輝那份）
-F:\Web\lingzanzan-staging\admin-order-tracking.html          （FIFO 出貨核對）
-F:\Web\lingzanzan-staging\assets\admin.js                    （2026-08-19 開出貨單卡住：?v=20260819-fifo-open-hang-1）
+F:\Web\lingzanzan-staging\admin-order-tracking.html          （訂單列表／進度；取消單不進「全部狀態」）
+F:\Web\lingzanzan-staging\assets\admin.js                    （?v=20260819-blacklist-card-1 姓名／電話黑名單）
+F:\Web\lingzanzan-staging\assets\member-risk-v2.js           （訂單卡姓名電話旁顯示黑名單）
 F:\Web\lingzanzan-staging\assets\image-upload-paste.js       （所有圖片上傳欄可貼上／拖放）
 F:\Web\lingzanzan-staging\assets\admin-navigation.js
 F:\Web\paohui-portal-staging\index.html

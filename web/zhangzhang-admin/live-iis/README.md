@@ -10,6 +10,7 @@
 - `zhangzhang.html` 轉到 `/one-dollar-auction/`
 - `lingzanzan-computer-receipts.php` `require` 寶輝那份收據程式
 - `assets/admin-navigation.js` 側欄加「張張／一元競標」
+- `assets/admin.js` / `member-risk-v2.js` `?v=20260819-blacklist-card-1`：訂單列表姓名／電話旁顯示黑名單；取消單不再混進「全部狀態」待處理
 
 ## 登入修正（`baohui-staging`）
 
