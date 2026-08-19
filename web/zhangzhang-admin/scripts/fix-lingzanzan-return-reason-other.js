@@ -13,6 +13,7 @@ const path = require('path');
 
 const root = process.env.LINGZANZAN_ROOT || 'F:/Web/lingzanzan-staging';
 const BUST = '20260819-return-other-1';
+const RETURNS_BUST = '20260819-return-other-2';
 const PREV_ADMIN = '20260819-nita-no-tracking-1';
 const PREV_RETURNS = '20260819-accountability-1';
 
@@ -219,6 +220,20 @@ const NEW_RETURNS_PAYLOAD = `      reasonCode: type === 'customer' ? String((one
         return String(((one('[data-return-reason-code]') || {}).selectedOptions || [])[0] && ((one('[data-return-reason-code]') || {}).selectedOptions || [])[0].textContent || '');
       })(),`;
 
+const OLD_SAVEFORM = `  function saveForm() {
+    var payload = formPayload();
+    if (!payload.lines.length) { feedback('請至少加入一個退貨品項。 / Tambahkan minimal satu item retur.', 'error'); return; }`;
+
+const NEW_SAVEFORM = `  function saveForm() {
+    var payload = formPayload();
+    if (!payload.lines.length) { feedback('請至少加入一個退貨品項。 / Tambahkan minimal satu item retur.', 'error'); return; }
+    if (type === 'customer' && payload.reasonCode === 'other' && !String(payload.reasonDetail || '').trim()) {
+      feedback('請填入其他原因，例如多打單故取消。 / Isi alasan lain.', 'error');
+      var otherInput = one('[data-return-reason-other]');
+      if (otherInput) otherInput.focus();
+      return;
+    }`;
+
 const OLD_NORMALIZE = `        $row['reasonCode'] ?? '',
         $row['reasonLabel'] ?? '',
         $row['party'] ?? '',`;
@@ -260,6 +275,7 @@ if (fs.existsSync(returnsJs)) {
   let rjs = fs.readFileSync(returnsJs, 'utf8');
   rjs = replaceOnce(rjs, OLD_RETURNS_INIT, NEW_RETURNS_INIT, 'customer-returns toggle other field');
   rjs = replaceOnce(rjs, OLD_RETURNS_PAYLOAD, NEW_RETURNS_PAYLOAD, 'customer-returns save other label');
+  rjs = replaceOnce(rjs, OLD_SAVEFORM, NEW_SAVEFORM, 'customer-returns require other text');
   fs.writeFileSync(returnsJs, rjs);
 }
 
@@ -272,11 +288,12 @@ names.forEach(function (name) {
   let html = fs.readFileSync(file, 'utf8');
   const orig = html;
   html = html.split('admin.js?v=' + PREV_ADMIN).join('admin.js?v=' + BUST);
-  html = html.split('admin-returns.js?v=' + PREV_RETURNS).join('admin-returns.js?v=' + BUST);
+  html = html.split('admin-returns.js?v=' + PREV_RETURNS).join('admin-returns.js?v=' + RETURNS_BUST);
+  html = html.split('admin-returns.js?v=' + BUST).join('admin-returns.js?v=' + RETURNS_BUST);
   if (html !== orig) {
     fs.writeFileSync(file, html);
     n++;
     console.log('cache-bust', name);
   }
 });
-console.log('html files busted', n, BUST);
+console.log('html files busted', n, 'admin.js', BUST, 'admin-returns.js', RETURNS_BUST);
