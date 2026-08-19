@@ -10,7 +10,7 @@
 - `zhangzhang.html` 轉到 `/one-dollar-auction/`
 - `lingzanzan-computer-receipts.php` `require` 寶輝那份收據程式
 - `assets/admin-navigation.js` 側欄加「張張／一元競標」
-- `assets/admin.js` / `member-risk-v2.js` `?v=20260819-post-ruzhang-1`：訂單列表顯示郵局「入帳成功」原文；入帳成功仍是配送中，不是取件完成
+- `order-admin-api-v6.php` + `json-atomic-write.php`：填物流單號存檔時，Windows 不再因 `orders.json` rename 存取被拒而 HTTP 500
 
 ## 登入修正（`baohui-staging`）
 
