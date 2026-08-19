@@ -44,7 +44,8 @@ F:\Web\baohui-staging\lingzanzan-computer-receipts.php
 F:\Web\lingzanzan-staging\zhangzhang.html
 F:\Web\lingzanzan-staging\lingzanzan-computer-receipts.php   （轉呼叫寶輝那份）
 F:\Web\lingzanzan-staging\admin-order-tracking.html          （訂單列表／進度；取消單不進「全部狀態」）
-F:\Web\lingzanzan-staging\assets\admin.js                    （?v=20260819-post-ruzhang-1 卡片顯示郵局入帳成功）
+F:\Web\lingzanzan-staging\order-admin-api-v6.php            （存檔 rename 被拒：改原子寫入可重試）
+F:\Web\lingzanzan-staging\json-atomic-write.php             （Windows 覆蓋 orders.json）
 F:\Web\lingzanzan-staging\assets\member-risk-v2.js           （訂單卡姓名電話旁顯示黑名單）
 F:\Web\lingzanzan-staging\assets\image-upload-paste.js       （所有圖片上傳欄可貼上／拖放）
 F:\Web\lingzanzan-staging\assets\admin-navigation.js
