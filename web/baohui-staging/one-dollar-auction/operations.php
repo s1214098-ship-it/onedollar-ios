@@ -213,6 +213,7 @@ function write_data($name, $data) {
 }
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'marketplace-channels.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'post-reply-sets.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'facebook-daily-report.php';
 function uid($prefix) { return $prefix . date('ymdHis') . substr(bin2hex(random_bytes(3)), 0, 6); }
 function pinduoduo_taobao_supplier_name(): string
 {
@@ -2075,6 +2076,7 @@ $opsFunctionGroups = [
     ],
     '自動化排程相關' => [
         'schedule' => '排程上架',
+        'facebook-daily' => '臉書當日日報',
         'post-scripts' => '發文問答套組',
         'settlement' => '得標結算',
         'settlement-edit' => '結算編輯',
@@ -4497,6 +4499,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $opsInitialTab = 'schedule';
     }
 
+    if ($action === 'save_facebook_daily_mark') {
+        $opsInitialTab = 'facebook-daily';
+        $id = trim((string)($_POST['schedule_id'] ?? ''));
+        $mark = trim((string)($_POST['mark'] ?? ''));
+        $updated = false;
+        foreach ($schedules as &$s) {
+            if (($s['id'] ?? '') !== $id) continue;
+            if (isset($_POST['post_url'])) $s['post_url'] = safe_http_url($_POST['post_url']);
+            if (isset($_POST['current_bid']) && $_POST['current_bid'] !== '') {
+                $s['current_bid'] = (float)$_POST['current_bid'];
+                $s['bid_updated_at'] = date('Y-m-d H:i');
+            }
+            if ($mark === 'posted') {
+                $s['publish_status'] = '已上架';
+                $s['status'] = '已上架';
+                if (trim((string)($s['actual_publish_at'] ?? '')) === '') $s['actual_publish_at'] = date('Y-m-d H:i');
+                $s['fb_qa_pinned'] = '1';
+                $notice = '已標記發文完成，請確認貼文網址已填。';
+            } elseif ($mark === 'qa') {
+                $s['fb_qa_pinned'] = '1';
+                $notice = '已標記問答包已置頂。';
+            } elseif ($mark === 'reminded') {
+                $s['last_reminder_at'] = date('Y-m-d H:i');
+                $s['next_reminder_at'] = reminder_next_time($s);
+                $s['reminder_status'] = '已產生提醒，待人工發布';
+                $notice = '已標記價格提醒已送。';
+            } elseif ($mark === 'winner') {
+                $s['fb_winner_notice_sent'] = '1';
+                $notice = '已標記得標通知已送。';
+            } else {
+                $notice = '貼文資料已更新。';
+            }
+            $s['updated_at'] = date('c');
+            $updated = true;
+            break;
+        }
+        unset($s);
+        if ($updated) write_data('schedules', $schedules);
+        else $notice = '找不到要標記的排程。';
+    }
+
     if (in_array($action, ['save_post_reply_set', 'delete_post_reply_set', 'set_default_post_reply_set', 'restore_default_post_reply_sets', 'restore_post_reply_set', 'duplicate_post_reply_set'], true)) {
         $opsInitialTab = 'post-scripts';
     }
@@ -6157,6 +6200,8 @@ foreach ($schedules as &$s) {
     if (!array_key_exists('next_reminder_at', $s)) { $s['next_reminder_at'] = reminder_next_time($s); $normalizeChanged = true; }
     if (!array_key_exists('reminder_status', $s)) { $s['reminder_status'] = schedule_needs_hourly_update($s) ? '需要更新' : '待確認發布'; $normalizeChanged = true; }
     if (!array_key_exists('reminder_draft', $s)) { $s['reminder_draft'] = ''; $normalizeChanged = true; }
+    if (!array_key_exists('fb_qa_pinned', $s)) { $s['fb_qa_pinned'] = '0'; $normalizeChanged = true; }
+    if (!array_key_exists('fb_winner_notice_sent', $s)) { $s['fb_winner_notice_sent'] = '0'; $normalizeChanged = true; }
 }
 unset($s);
 if ($normalizeChanged) write_data('schedules', $schedules);
@@ -6642,6 +6687,29 @@ foreach ($schedules as $s) {
 }
 usort($scheduleUpcoming, function($a, $b) { return strcmp($a['scheduled_publish_at'] ?? $a['publish_at'] ?? '', $b['scheduled_publish_at'] ?? $b['publish_at'] ?? ''); });
 usort($scheduleClosingSoon, function($a, $b) { return strcmp($a['close_at'] ?? '', $b['close_at'] ?? ''); });
+$facebookDailyDate = facebook_daily_date((string)($_GET['fb_day'] ?? $_GET['date'] ?? ''));
+$facebookDailyRows = facebook_daily_collect($schedules, $products, $postReplySets ?? [], $facebookDailyDate);
+$facebookDailyCompare = facebook_daily_compare($facebookDailyRows, $facebookDailyDate);
+$facebookDailyCodexText = facebook_daily_codex_text($facebookDailyRows, $facebookDailyCompare, $facebookDailyDate);
+if (in_array((string)($_GET['partial'] ?? ''), ['facebook_daily', 'facebook_daily_text'], true)) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    if (($_GET['partial'] ?? '') === 'facebook_daily_text') {
+        header('Content-Type: text/plain; charset=utf-8');
+        echo $facebookDailyCodexText;
+        exit;
+    }
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'ok' => true,
+        'date' => $facebookDailyDate,
+        'generated_at' => date('c'),
+        'compare' => $facebookDailyCompare,
+        'rows' => $facebookDailyRows,
+        'codex_text' => $facebookDailyCodexText,
+        'instructions' => 'Codex 依 rows 的 need_post / need_pin_qa / need_remind / need_winner 執行。發文後請回填 post_url 並把 publish_status 改已上架。',
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
 if (($_GET['partial'] ?? '') === 'ops_status') {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -6670,6 +6738,7 @@ if (($_GET['partial'] ?? '') === 'ops_status') {
         'pendingToday' => $pendingTodayForStatus,
         'postedToday' => $postedTodayForStatus,
         'online' => $onlineForStatus,
+        'facebookDaily' => $facebookDailyCompare,
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -7417,6 +7486,21 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 .post-reply-hit b{display:block;margin-bottom:6px;color:#0f172a}
 .post-reply-hit pre{white-space:pre-wrap;margin:0;font:inherit}
 @media(max-width:760px){.post-reply-qa-row{grid-template-columns:1fr}.post-reply-set-tools form,.post-reply-set-tools button{width:100%}}
+.fb-daily-compare{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0}
+.fb-daily-compare .metric b.warn{color:#b45309}.fb-daily-compare .metric b.bad{color:#b91c1c}.fb-daily-compare .metric b.ok{color:#047857}
+.fb-daily-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:12px 0 16px}
+.fb-daily-card{border:1px solid #d8e0ea;border-radius:12px;background:#fff;padding:14px;margin:12px 0}
+.fb-daily-card.is-todo{border-color:#f59e0b;background:#fffbeb}
+.fb-daily-card.is-done{border-color:#a7f3d0;background:#f0fdf4}
+.fb-daily-card.is-close{border-color:#fda4af;background:#fff1f2}
+.fb-daily-head{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:12px;align-items:start}
+.fb-daily-head img,.fb-daily-noimg{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-weight:800}
+.fb-daily-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.fb-daily-copybox textarea{width:100%;min-height:90px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.4}
+.fb-daily-playbook{width:100%;min-height:220px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.45}
+.fb-daily-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:760px){.fb-daily-head{grid-template-columns:1fr}}
+
 
 </style>
 <script>
@@ -7662,11 +7746,17 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <div class="metric scene-metric scene-close"><span>24 小時內截標</span><strong><?=h(count($scheduleClosingSoon))?> 筆</strong></div>
       <div class="metric scene-metric scene-ship"><span>未出貨客戶</span><strong><?=h(count($unshippedByBuyer))?> 位</strong></div>
       <div class="metric scene-metric scene-relist"><span>棄標 / 取消可重上架</span><strong><?=h(count($relistReminders))?> 筆</strong></div>
+      <div class="metric scene-metric scene-schedule"><span>今日臉書待發文</span><strong><?=h((int)($facebookDailyCompare['missing_post'] ?? 0))?> 筆</strong></div>
     </div>
 
     <div class="overview-board">
       <div class="ops-card reminder-card scene-schedule">
-        <div class="section-head"><h2>排程上架提醒</h2><a class="button-like small" href="#schedule" data-jump-tab="schedule">看排程</a></div>
+        <div class="section-head"><h2>排程上架提醒</h2>
+          <div>
+            <a class="button-like small" href="#facebook-daily" data-jump-tab="facebook-daily">今日臉書日報</a>
+            <a class="button-like small" href="#schedule" data-jump-tab="schedule">看排程</a>
+          </div>
+        </div>
         <?php if (!$scheduleUpcoming): ?><p class="muted">目前 3 天內沒有待上架排程。</p><?php endif; ?>
         <?php foreach(array_slice($scheduleUpcoming, 0, 10) as $s): ?>
           <div class="reminder-row">
@@ -9960,7 +10050,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <button class="primary">建立排程並預約庫存</button>
     </form>
 
-    <div class="section-head"><h2>排程上架工作</h2><span>上架序依「預定上架時間」由早到晚。Codex／人工發海賊團時照這個順序，系統不會自動發 Facebook。文案與問答改「發文問答套組」。</span></div>
+    <div class="section-head"><h2>排程上架工作</h2><span>上架序依「預定上架時間」由早到晚。Codex／人工發海賊團時照這個順序，系統不會自動發 Facebook。當日比對與執行稿在「臉書當日日報」。</span></div>
     <form method="get" class="inline-actions">
       <label>結標狀態<select name="close_status"><option value="">全部</option><option value="open" <?=($filterClose==='open'?'selected':'')?>>未結標</option><option value="closed" <?=($filterClose==='closed'?'selected':'')?>>已結標</option></select></label>
       <label>記單狀態<select name="order"><option value="">全部</option><?php foreach(['待記單','已記單','備貨中','等待出貨','已出貨','完成','退回處理','取消'] as $v): ?><option <?=($filterOrder===$v?'selected':'')?>><?=h($v)?></option><?php endforeach; ?></select></label>
@@ -10051,6 +10141,105 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <?php endforeach; ?>
       <?php if(!$shown): ?><div class="stock-empty">目前沒有符合條件的排程。</div><?php endif; ?>
     </div>
+  </section>
+
+  <section class="ops-card ops-tab" id="facebook-daily">
+    <div class="section-head">
+      <div>
+        <h2>臉書當日上架日報</h2>
+        <p class="muted">看出今天要上架／已上架哪些產品，並比對缺貼文、待提醒、待得標通知。Codex 依這份日報執行發文、第一則問答、價格提醒與得標通知；系統不會自動發 Facebook。</p>
+      </div>
+      <div class="form-actions">
+        <a class="button-like" href="operations.php?partial=facebook_daily&amp;date=<?=h($facebookDailyDate)?>" target="_blank" rel="noopener">JSON（給 Codex）</a>
+        <a class="button-like" href="operations.php?partial=facebook_daily_text&amp;date=<?=h($facebookDailyDate)?>" target="_blank" rel="noopener">純文字執行稿</a>
+      </div>
+    </div>
+    <form method="get" action="operations.php#facebook-daily" class="fb-daily-toolbar">
+      <input type="hidden" name="tab" value="facebook-daily">
+      <label>日報日期<input type="date" name="fb_day" value="<?=h($facebookDailyDate)?>"></label>
+      <button class="secondary">查這天</button>
+      <a class="button-like" href="operations.php?fb_day=<?=h(date('Y-m-d'))?>#facebook-daily">回到今天</a>
+    </form>
+    <div class="fb-daily-compare">
+      <div class="metric"><span>當日場次</span><strong><?=h((int)$facebookDailyCompare['planned'])?></strong><small>預定或當日實際上架</small></div>
+      <div class="metric"><span>已上架</span><strong class="ok"><?=h((int)$facebookDailyCompare['posted'])?></strong></div>
+      <div class="metric"><span>待發文</span><strong class="<?= ((int)$facebookDailyCompare['missing_post']>0?'bad':'ok') ?>"><?=h((int)$facebookDailyCompare['missing_post'])?></strong></div>
+      <div class="metric"><span>缺貼文網址</span><strong class="<?= ((int)$facebookDailyCompare['missing_url']>0?'warn':'ok') ?>"><?=h((int)$facebookDailyCompare['missing_url'])?></strong></div>
+      <div class="metric"><span>待置頂問答</span><strong><?=h((int)$facebookDailyCompare['need_pin_qa'])?></strong></div>
+      <div class="metric"><span>今日截標</span><strong><?=h((int)$facebookDailyCompare['closing'])?></strong></div>
+      <div class="metric"><span>待價格提醒</span><strong class="<?= ((int)$facebookDailyCompare['need_remind']>0?'warn':'ok') ?>"><?=h((int)$facebookDailyCompare['need_remind'])?></strong></div>
+      <div class="metric"><span>待得標通知</span><strong class="<?= ((int)$facebookDailyCompare['need_winner']>0?'bad':'ok') ?>"><?=h((int)$facebookDailyCompare['need_winner'])?></strong></div>
+    </div>
+    <label class="wide">給 Codex 的完整執行稿<button type="button" class="secondary small copy-fb-playbook">複製整份日報</button>
+      <textarea id="facebookDailyPlaybook" class="fb-daily-playbook" readonly><?=h($facebookDailyCodexText)?></textarea>
+    </label>
+
+    <div class="table-wrap" style="margin-top:18px">
+      <table>
+        <thead><tr><th>序</th><th>圖</th><th>產品</th><th>預定上架</th><th>截標</th><th>狀態</th><th>貼文</th><th>金額</th><th>Codex 待辦</th></tr></thead>
+        <tbody>
+        <?php foreach ($facebookDailyRows as $row): $todos=[]; if(!empty($row['need_post'])) $todos[]='發文'; if(!empty($row['need_pin_qa'])) $todos[]='問答'; if(!empty($row['need_remind'])) $todos[]='提醒'; if(!empty($row['need_winner_record'])) $todos[]='補得標人'; elseif(!empty($row['need_winner'])) $todos[]='得標通知'; ?>
+          <tr>
+            <td><?=h(str_pad((string)$row['queue'], 2, '0', STR_PAD_LEFT))?></td>
+            <td><?php if (!empty($row['image'])): ?><img class="thumb zoomable" src="<?=h($row['image'])?>" alt=""><?php endif; ?></td>
+            <td><b><?=h($row['product_id'])?></b><br><?=h($row['title'])?><div class="muted"><?=h($row['spec'] ?: '-')?></div></td>
+            <td><?=h($row['publish_at'])?></td>
+            <td><?=h($row['close_at'])?></td>
+            <td><?=h($row['publish_status'])?><br><span class="muted"><?=h($row['auction_status'])?></span></td>
+            <td><?php if ($row['post_url'] !== ''): ?><a href="<?=h($row['post_url'])?>" target="_blank" rel="noopener">開貼文</a><?php else: ?><span class="muted">未回填</span><?php endif; ?></td>
+            <td><?=money($row['current_bid'])?></td>
+            <td><?= $todos ? h(implode('、', $todos)) : '已齊' ?></td>
+          </tr>
+        <?php endforeach; ?>
+        <?php if (!$facebookDailyRows): ?><tr><td colspan="9" class="muted">這天沒有上架或截標場次。</td></tr><?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+
+    <?php foreach ($facebookDailyRows as $row):
+      $todo = !empty($row['need_post']) || !empty($row['need_pin_qa']) || !empty($row['need_remind']) || !empty($row['need_winner']);
+      $cardClass = !empty($row['need_winner']) ? 'is-close' : ($todo ? 'is-todo' : 'is-done');
+    ?>
+    <article class="fb-daily-card <?=h($cardClass)?>">
+      <div class="fb-daily-head">
+        <?php if (!empty($row['image'])): ?><img src="<?=h($row['image'])?>" alt=""><?php else: ?><div class="fb-daily-noimg">無圖</div><?php endif; ?>
+        <div>
+          <b>上架序 <?=h(str_pad((string)$row['queue'], 2, '0', STR_PAD_LEFT))?>　<?=h($row['product_id'])?></b>
+          <div><?=h($row['title'])?></div>
+          <div class="muted"><?=h($row['spec'] ?: '-')?>　數量 <?=h($row['qty'])?>　套組 <?=h($row['post_set_name'] ?: '預設')?></div>
+          <div class="fb-daily-chips">
+            <span class="status-pill"><?=h($row['publish_status'])?></span>
+            <span class="status-pill"><?=h($row['auction_status'])?></span>
+            <?php if (!empty($row['need_post'])): ?><span class="status-pill">待發文</span><?php endif; ?>
+            <?php if (!empty($row['need_pin_qa'])): ?><span class="status-pill">待問答</span><?php endif; ?>
+            <?php if (!empty($row['need_remind'])): ?><span class="status-pill">待提醒</span><?php endif; ?>
+            <?php if (!empty($row['need_winner'])): ?><span class="status-pill">待得標通知</span><?php endif; ?>
+          </div>
+        </div>
+        <div class="muted" style="text-align:right">預定 <?=h($row['publish_at'])?><br>截標 <?=h($row['close_at'])?><br>金額 <?=money($row['current_bid'])?></div>
+      </div>
+      <form method="post" class="mini-form" style="margin-top:12px">
+        <input type="hidden" name="action" value="save_facebook_daily_mark">
+        <input type="hidden" name="schedule_id" value="<?=h($row['schedule_id'])?>">
+        <label class="wide">Facebook 貼文網址<input name="post_url" value="<?=h($row['post_url'])?>" placeholder="https://www.facebook.com/..."></label>
+        <label>目前競標金額<input name="current_bid" type="number" min="0" step="1" value="<?=h((int)$row['current_bid'])?>"></label>
+        <div class="wide fb-daily-actions">
+          <button class="secondary" name="mark" value="posted">標記已發文＋已置頂問答</button>
+          <button class="secondary" name="mark" value="qa">只標記問答已置頂</button>
+          <button class="secondary" name="mark" value="reminded">標記已價格提醒</button>
+          <button class="secondary" name="mark" value="winner">標記已得標通知</button>
+          <button class="secondary" name="mark" value="save">只存網址／金額</button>
+          <a class="button-like" href="#schedule" data-jump-tab="schedule">回排程卡</a>
+        </div>
+      </form>
+      <div class="fb-daily-copybox">
+        <label>發文稿<button type="button" class="secondary small copy-fb-box">複製</button><textarea readonly><?=h($row['listing'])?></textarea></label>
+        <label>第一則問答<button type="button" class="secondary small copy-fb-box">複製</button><textarea readonly><?=h($row['qa_pack'])?></textarea></label>
+        <?php if (!empty($row['need_remind']) || !empty($row['in_publish_day'])): ?><label>價格提醒<button type="button" class="secondary small copy-fb-box">複製</button><textarea readonly><?=h($row['reminder'])?></textarea></label><?php endif; ?>
+        <?php if (!empty($row['in_close_day'])): ?><label>得標通知<button type="button" class="secondary small copy-fb-box">複製</button><textarea readonly><?=h($row['winner_notice'])?></textarea></label><?php endif; ?>
+      </div>
+    </article>
+    <?php endforeach; ?>
   </section>
 
   <section class="ops-card ops-tab" id="post-scripts">
@@ -14569,6 +14758,21 @@ document.querySelectorAll('.copy-facebook-listing').forEach((btn) => {
     catch (e) { btn.closest('form')?.querySelector('.schedule-listing-draft')?.select(); document.execCommand('copy'); }
   });
 });
+document.querySelectorAll('.copy-fb-playbook').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const text = document.getElementById('facebookDailyPlaybook')?.value || '';
+    try { await navigator.clipboard.writeText(text); btn.textContent = '已複製'; setTimeout(() => btn.textContent = '複製整份日報', 1200); }
+    catch (e) { document.getElementById('facebookDailyPlaybook')?.select(); document.execCommand('copy'); }
+  });
+});
+document.querySelectorAll('.copy-fb-box').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const area = btn.parentElement?.querySelector('textarea');
+    const text = area?.value || '';
+    try { await navigator.clipboard.writeText(text); btn.textContent = '已複製'; setTimeout(() => btn.textContent = '複製', 1200); }
+    catch (e) { area?.select(); document.execCommand('copy'); }
+  });
+});
 document.querySelectorAll('.copy-schedule-qa').forEach((btn) => {
   btn.addEventListener('click', async () => {
     const text = btn.closest('form')?.querySelector('.schedule-qa-draft')?.value || '';
@@ -14726,7 +14930,7 @@ function setOpsStaffPermissionSelection(selectAll) {
 }
 function setOpsStaffPermissionRole(role) {
   const presets = {
-    shelf: ['overview','products','product-categories','shopee-workspace','color-modules','stock-search','schedule','post-scripts','settlement'],
+    shelf: ['overview','products','product-categories','shopee-workspace','color-modules','stock-search','schedule','facebook-daily','post-scripts','settlement'],
     ship: ['overview','members','member-create','customer-shipping','orders','settlement','settlement-edit','logistics','document-center'],
     warehouse: ['overview','stock-search','stock-in','inventory-count','inventory-transfer','finance-loss','finance-overage','warehouses','document-center'],
     finance: ['overview','document-center','finance-reconcile','finance-collection','finance-request','finance-bad-debt','finance-analytics','finance-report','finance-expense-categories','finance-fixed-expense','finance-fixed-asset','finance-mobile-asset']
