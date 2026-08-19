@@ -212,6 +212,7 @@ function write_data($name, $data) {
     file_put_contents(data_path($name), json_encode(array_values($data), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
 }
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'marketplace-channels.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'post-reply-sets.php';
 function uid($prefix) { return $prefix . date('ymdHis') . substr(bin2hex(random_bytes(3)), 0, 6); }
 function pinduoduo_taobao_supplier_name(): string
 {
@@ -927,29 +928,12 @@ function reminder_next_time($s) {
     if (!$ts) $ts = time();
     return date('Y-m-d H:i', $ts + 3600);
 }
-function facebook_listing_draft_text($s, $p) {
-    $title = trim((string)(($p['title'] ?? '') ?: ($s['product_title'] ?? '')));
-    $id = trim((string)($s['product_id'] ?? ($p['id'] ?? '')));
-    $spec = trim((string)(($s['product_color'] ?? ($p['color'] ?? '')) . ' / ' . ($s['product_size'] ?? ($p['size'] ?? '')) . ' / ' . ($s['product_spec'] ?? ($p['spec'] ?? ''))), ' /');
-    $closeAt = trim((string)($s['close_at'] ?? ''));
-    $desc = trim((string)($s['product_description'] ?? ($p['description'] ?? '')));
-    $lines = [];
-    $lines[] = '【寶輝電腦｜海賊團一元競標】';
-    $lines[] = $title;
-    if ($id !== '') $lines[] = '編號：' . $id;
-    if ($spec !== '') $lines[] = '規格：' . $spec;
-    if ($desc !== '') {
-        $lines[] = '';
-        $lines[] = $desc;
-    }
-    $lines[] = '';
-    $lines[] = '板規（不可改）：最低出價 30；每次至少加 30；單次最高 2000。';
-    $lines[] = '最後一分鐘有人喊就自動延長 3 分鐘。';
-    $lines[] = '結標時間：' . ($closeAt !== '' ? $closeAt : '以本篇標示為準');
-    $lines[] = '得標後兩天內匯款；產品可累計，整體上限一個禮拜。稅金外加 5%。';
-    $lines[] = '保固產品七天個人保固。未取貨保留 2 個禮拜。';
-    $lines[] = '只認純數字出價，有效標會回在你留言下面。留言排序請改「最新」或「所有留言」。';
-    return implode("\n", $lines);
+function facebook_listing_draft_text($s, $p, $setId = '') {
+    global $postReplySets;
+    $sets = (isset($postReplySets) && is_array($postReplySets) && $postReplySets)
+        ? $postReplySets
+        : normalize_post_reply_sets(default_post_reply_sets());
+    return render_post_reply_listing(is_array($s) ? $s : [], is_array($p) ? $p : [], $sets, (string)$setId);
 }
 function reminder_draft_text($s, $p) {
     $url = safe_http_url($s['post_url'] ?? '');
@@ -1863,7 +1847,7 @@ $marketplaceCategoryMappings = read_data('marketplace_category_mappings');
 $marketplaceListingDrafts = read_data('marketplace_listing_drafts');
 $marketplaceMallCandidates = read_data('marketplace_mall_candidates');
 $productSpecs = normalize_spec_options(read_data('product_specs'));
-foreach (['members', 'returns', 'repair_documents', 'suppliers', 'stock_movements', 'product_categories', 'delivery_notes', 'payment_records', 'finance_expense_categories', 'finance_other_income', 'collection_receipts', 'billing_requests', 'bad_debts', 'fixed_expenses', 'fixed_expense_payments', 'fixed_assets', 'mobile_assets', 'mobile_asset_movements', 'warehouses', 'company_profile', 'color_modules', 'ops_staff_permissions', 'document_workflows', 'inventory_counts', 'inventory_transfers', 'inventory_adjustments', 'purchase_batches', 'purchase_cost_audits', 'purchase_cost_rules', 'marketplace_category_mappings', 'marketplace_listing_drafts', 'marketplace_mall_candidates', 'product_specs'] as $name) if (!file_exists(data_path($name))) write_data($name, []);
+foreach (['members', 'returns', 'repair_documents', 'suppliers', 'stock_movements', 'product_categories', 'delivery_notes', 'payment_records', 'finance_expense_categories', 'finance_other_income', 'collection_receipts', 'billing_requests', 'bad_debts', 'fixed_expenses', 'fixed_expense_payments', 'fixed_assets', 'mobile_assets', 'mobile_asset_movements', 'warehouses', 'company_profile', 'color_modules', 'ops_staff_permissions', 'document_workflows', 'inventory_counts', 'inventory_transfers', 'inventory_adjustments', 'purchase_batches', 'purchase_cost_audits', 'purchase_cost_rules', 'marketplace_category_mappings', 'marketplace_listing_drafts', 'marketplace_mall_candidates', 'product_specs', 'post_reply_sets'] as $name) if (!file_exists(data_path($name))) write_data($name, []);
 if (marketplace_seed_category_mappings($marketplaceCategoryMappings, $productCategories, function_exists('current_operator') ? current_operator() : 'system')) {
     write_data('marketplace_category_mappings', $marketplaceCategoryMappings);
 }
@@ -1877,6 +1861,13 @@ foreach ($products as $productRow) {
     if (remember_product_spec($productSpecs, $productRow['spec'] ?? '')) $specLibraryChanged = true;
 }
 if ($specLibraryChanged) write_data('product_specs', $productSpecs);
+$rawPostReplySets = read_data('post_reply_sets');
+if (!$rawPostReplySets) {
+    $postReplySets = normalize_post_reply_sets(default_post_reply_sets());
+    write_data('post_reply_sets', $postReplySets);
+} else {
+    $postReplySets = normalize_post_reply_sets($rawPostReplySets);
+}
 $purchaseSourceOptions = purchase_source_options($suppliers, $products);
 
 $deliveryNoRepaired = false;
@@ -2084,6 +2075,7 @@ $opsFunctionGroups = [
     ],
     '自動化排程相關' => [
         'schedule' => '排程上架',
+        'post-scripts' => '發文問答套組',
         'settlement' => '得標結算',
         'settlement-edit' => '結算編輯',
         'orders' => '記單出貨',
@@ -4424,6 +4416,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'schedule_image' => $image,
                     'schedule_image_note' => trim($_POST['schedule_image_note'] ?? ''),
                     'post_url' => '',
+                    'post_set_id' => (string)(post_reply_find_set($postReplySets, trim((string)($_POST['post_set_id'] ?? '')))['id'] ?? ''),
                     'order_token' => bin2hex(random_bytes(16)),
                     'show_on_buyer_board' => isset($_POST['show_on_buyer_board']) ? '1' : '0',
                     'current_bid' => (float)($product['start_price'] ?? 0),
@@ -4491,12 +4484,142 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (schedule_needs_hourly_update($s)) $s['reminder_status'] = '需要更新';
             }
             $s['publish_note'] = trim($_POST['publish_note'] ?? ($s['publish_note'] ?? ''));
+            if (isset($_POST['post_set_id'])) {
+                $pickedSet = post_reply_find_set($postReplySets, trim((string)$_POST['post_set_id']));
+                $s['post_set_id'] = (string)($pickedSet['id'] ?? '');
+            }
             $s['updated_at'] = date('c');
             break;
         }
         unset($s);
         write_data('schedules', $schedules);
         $notice = '排程上架狀態已更新。';
+        $opsInitialTab = 'schedule';
+    }
+
+    if (in_array($action, ['save_post_reply_set', 'delete_post_reply_set', 'set_default_post_reply_set', 'restore_default_post_reply_sets', 'restore_post_reply_set', 'duplicate_post_reply_set'], true)) {
+        $opsInitialTab = 'post-scripts';
+    }
+
+    if ($action === 'save_post_reply_set') {
+        $setId = trim((string)($_POST['set_id'] ?? ''));
+        $row = [
+            'id' => $setId,
+            'name' => trim((string)($_POST['set_name'] ?? '')),
+            'scene' => trim((string)($_POST['set_scene'] ?? 'auction')),
+            'note' => trim((string)($_POST['set_note'] ?? '')),
+            'post_template' => (string)($_POST['post_template'] ?? ''),
+            'qa' => post_reply_qa_from_parallel($_POST['qa_ask'] ?? [], $_POST['qa_aliases'] ?? [], $_POST['qa_answer'] ?? []),
+            'is_default' => !empty($_POST['is_default']),
+            'updated_at' => date('c'),
+        ];
+        if ($row['name'] === '') {
+            $notice = '發文套組儲存失敗：請先填套組名稱。';
+        } else {
+            $saved = normalize_post_reply_set($row, $setId !== '');
+            $updated = false;
+            foreach ($postReplySets as $i => $existing) {
+                if (($existing['id'] ?? '') === $saved['id']) {
+                    if (empty($saved['is_default'])) $saved['is_default'] = !empty($existing['is_default']);
+                    $postReplySets[$i] = $saved;
+                    $updated = true;
+                    break;
+                }
+            }
+            if (!$updated) $postReplySets[] = $saved;
+            if (!empty($saved['is_default']) || !empty($_POST['is_default'])) {
+                $postReplySets = post_reply_mark_default($postReplySets, $saved['id']);
+            }
+            $postReplySets = normalize_post_reply_sets($postReplySets);
+            write_data('post_reply_sets', $postReplySets);
+            $notice = ($updated ? '發文問答套組已更新：' : '已新增發文問答套組：') . $saved['name'];
+        }
+    }
+
+    if ($action === 'delete_post_reply_set') {
+        $setId = trim((string)($_POST['set_id'] ?? ''));
+        if (count($postReplySets) <= 1) {
+            $notice = '至少要留一套發文問答，不能全部刪光。';
+        } else {
+            $kept = [];
+            $removed = '';
+            foreach ($postReplySets as $existing) {
+                if (($existing['id'] ?? '') === $setId) {
+                    $removed = (string)($existing['name'] ?? $setId);
+                    continue;
+                }
+                $kept[] = $existing;
+            }
+            if ($removed === '') {
+                $notice = '找不到要刪的發文套組。';
+            } else {
+                $postReplySets = normalize_post_reply_sets($kept);
+                write_data('post_reply_sets', $postReplySets);
+                $notice = '已刪除發文問答套組：' . $removed;
+            }
+        }
+    }
+
+    if ($action === 'set_default_post_reply_set') {
+        $setId = trim((string)($_POST['set_id'] ?? ''));
+        $found = post_reply_find_set($postReplySets, $setId);
+        if (($found['id'] ?? '') === '') {
+            $notice = '找不到要設成預設的套組。';
+        } else {
+            $postReplySets = post_reply_mark_default($postReplySets, (string)$found['id']);
+            write_data('post_reply_sets', $postReplySets);
+            $notice = '預設發文套組已改為：' . ($found['name'] ?? $found['id']);
+        }
+    }
+
+    if ($action === 'duplicate_post_reply_set') {
+        $source = post_reply_find_set($postReplySets, trim((string)($_POST['set_id'] ?? '')));
+        $copy = $source;
+        $copy['id'] = '';
+        $copy['name'] = trim((string)($source['name'] ?? '套組')) . '（複本）';
+        $copy['is_default'] = false;
+        $copy['updated_at'] = date('c');
+        $copy = normalize_post_reply_set($copy, false);
+        $postReplySets[] = $copy;
+        $postReplySets = normalize_post_reply_sets($postReplySets);
+        write_data('post_reply_sets', $postReplySets);
+        $notice = '已複製套組：' . $copy['name'];
+    }
+
+    if ($action === 'restore_post_reply_set') {
+        $setId = trim((string)($_POST['set_id'] ?? ''));
+        $factory = null;
+        foreach (default_post_reply_sets() as $row) {
+            if (($row['id'] ?? '') === $setId) { $factory = $row; break; }
+        }
+        if (!$factory) {
+            $notice = '這套不是內建範本，沒有原廠文案可還原。';
+        } else {
+            $keepDefault = false;
+            $updated = false;
+            foreach ($postReplySets as $i => $existing) {
+                if (($existing['id'] ?? '') === $setId) {
+                    $keepDefault = !empty($existing['is_default']);
+                    $factory['is_default'] = $keepDefault;
+                    $postReplySets[$i] = normalize_post_reply_set($factory);
+                    $updated = true;
+                    break;
+                }
+            }
+            if (!$updated) {
+                $factory['is_default'] = false;
+                $postReplySets[] = normalize_post_reply_set($factory);
+            }
+            $postReplySets = normalize_post_reply_sets($postReplySets);
+            write_data('post_reply_sets', $postReplySets);
+            $notice = '已還原內建文案：' . ($factory['name'] ?? $setId);
+        }
+    }
+
+    if ($action === 'restore_default_post_reply_sets') {
+        $postReplySets = normalize_post_reply_sets(default_post_reply_sets());
+        write_data('post_reply_sets', $postReplySets);
+        $notice = '已還原四套內建發文問答（海賊團／門市／商城／得標後）。';
     }
 
     if ($action === 'assign_winner_batch') {
@@ -7275,6 +7398,26 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 .fixed-expense-list{display:grid;gap:8px;margin:12px 0 22px}.fixed-expense-editor{border:1px solid #d8e0ea;border-radius:8px;background:#fff;overflow:hidden}.fixed-expense-editor>summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;padding:12px 14px;background:#f8fafc}.fixed-expense-editor>summary::-webkit-details-marker{display:none}.fixed-expense-editor>summary b,.fixed-expense-editor>summary small{display:block}.fixed-expense-editor>summary small{margin-top:4px;color:#64748b}.fixed-expense-edit-form{margin:0;padding:14px;border-top:1px solid #e2e8f0}.fixed-expense-delete{padding:0 14px 14px}.fixed-expense-payment-head{align-items:end;margin-top:20px}.fixed-expense-payment-head h3{margin-bottom:4px}.fixed-expense-filter{margin:12px 0}.fixed-expense-payment-table{min-width:1250px}.fixed-expense-payment-table td small{display:block;margin-top:4px;color:#64748b}.fixed-expense-overdue{background:#fff1f2}.fixed-payment-editor{min-width:110px}.fixed-payment-editor>summary{cursor:pointer;color:#0f766e;font-weight:800}.fixed-payment-editor .product-form{min-width:680px;margin:8px 0;padding:12px;border:1px solid #d8e0ea;border-radius:8px;background:#fff}.fixed-payment-editor .inline-form{margin-top:8px}@media(max-width:760px){.fixed-expense-editor>summary{grid-template-columns:1fr}.fixed-expense-payment-head{display:block}.fixed-expense-payment-head form{margin-top:10px}.fixed-payment-editor .product-form{min-width:560px}}
 .fixed-asset-filter{margin:16px 0}.fixed-asset-table{min-width:1550px}.fixed-asset-table td small{display:block;margin-top:4px;color:#64748b}.fixed-asset-attention{background:#fff7ed}.fixed-asset-editor{min-width:110px}.fixed-asset-editor>summary{cursor:pointer;color:#0f766e;font-weight:800}.fixed-asset-editor .product-form{min-width:780px;margin:8px 0;padding:12px;border:1px solid #d8e0ea;border-radius:8px;background:#fff}.fixed-asset-editor .inline-form{margin-top:8px}@media(max-width:760px){.fixed-asset-editor .product-form{min-width:620px}}
 .mobile-asset-workbench{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0 22px}.mobile-asset-panel{border:1px solid #d8e0ea;border-radius:8px;padding:14px;background:#f8fafc}.mobile-asset-panel h3{margin-top:0}.mobile-asset-panel .product-form{margin-bottom:0}.mobile-asset-filter{margin:12px 0}.mobile-asset-table{min-width:1450px}.mobile-movement-table{min-width:1450px}.mobile-asset-table td small,.mobile-movement-table td small{display:block;margin-top:4px;color:#64748b}.mobile-asset-overdue{background:#fff1f2}.mobile-asset-attention{background:#fff7ed}.mobile-asset-editor>summary{cursor:pointer;color:#0f766e;font-weight:800}.mobile-asset-editor .product-form{min-width:720px;margin:8px 0;padding:12px;border:1px solid #d8e0ea;border-radius:8px;background:#fff}.mobile-asset-editor .inline-form{margin-top:8px}@media(max-width:900px){.mobile-asset-workbench{grid-template-columns:1fr}}@media(max-width:760px){.mobile-asset-editor .product-form{min-width:600px}}
+.post-reply-editor{margin:0 0 22px;padding:14px;border:1px solid #d8e0ea;border-radius:12px;background:#f8fafc}
+.post-reply-set-list{display:grid;gap:14px;margin:18px 0}
+.post-reply-set-card{border:1px solid #d8e0ea;border-radius:12px;background:#fff;overflow:hidden}
+.post-reply-set-card>summary{cursor:pointer;list-style:none;padding:14px 16px;background:#f8fafc}
+.post-reply-set-card>summary::-webkit-details-marker{display:none}
+.post-reply-set-card>summary b{display:block;font-size:17px;color:#0f172a}
+.post-reply-set-card>summary small{display:block;margin-top:4px;color:#64748b}
+.post-reply-set-body{padding:14px 16px;border-top:1px solid #e2e8f0}
+.post-reply-qa-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) auto;gap:10px;align-items:end;padding:10px 0;border-top:1px dashed #e2e8f0}
+.post-reply-qa-row .wide{grid-column:1/-1}
+.post-reply-qa-add{margin-top:8px}
+.post-reply-set-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.post-reply-preview-box textarea,.post-reply-matcher textarea,.schedule-qa-draft{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;line-height:1.45}
+.post-reply-matcher{margin-top:22px;padding:14px;border:1px solid #bfdbfe;border-radius:12px;background:#eff6ff}
+.post-reply-match-hits{display:grid;gap:10px;margin-top:12px}
+.post-reply-hit{border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;background:#fff}
+.post-reply-hit b{display:block;margin-bottom:6px;color:#0f172a}
+.post-reply-hit pre{white-space:pre-wrap;margin:0;font:inherit}
+@media(max-width:760px){.post-reply-qa-row{grid-template-columns:1fr}.post-reply-set-tools form,.post-reply-set-tools button{width:100%}}
+
 </style>
 <script>
 /* BAOHUI_LOCK_MOBILE_ZOOM_20260711_START */
@@ -7299,7 +7442,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 /* BAOHUI_LOCK_MOBILE_ZOOM_20260711_END */
 </script>
 </head>
-<body<?= !empty($isEmbed) ? ' class="is-embed"' : '' ?><?= (($opsInitialTab ?? '') === 'customer-shipping') ? ' data-ops-open-shipping="1"' : '' ?><?= (($opsInitialTab ?? '') === 'shopee-workspace') ? ' data-ops-open-tab="shopee-workspace"' : '' ?>>
+<body<?= !empty($isEmbed) ? ' class="is-embed"' : '' ?><?= (($opsInitialTab ?? '') === 'customer-shipping') ? ' data-ops-open-shipping="1"' : '' ?><?= (($opsInitialTab ?? '') !== '' && ($opsInitialTab ?? '') !== 'customer-shipping') ? ' data-ops-open-tab="' . h($opsInitialTab) . '"' : '' ?>>
 <div class="ops-shell">
 <button type="button" class="ops-mobile-nav-toggle" onclick="return window.toggleOpsMobileMenu ? window.toggleOpsMobileMenu(event) : (function(btn,ev){if(ev){ev.preventDefault();ev.stopPropagation();}var shell=document.querySelector('.ops-shell');if(!shell)return false;var open=!shell.classList.contains('ops-mobile-menu-open');shell.classList.toggle('ops-mobile-menu-open',open);document.body.classList.toggle('ops-mobile-menu-open',open);btn.setAttribute('aria-expanded',open?'true':'false');return false;})(this,event);" aria-expanded="false" aria-controls="opsMobileNav"><span>功能選單</span><b data-ops-mobile-current>總覽</b></button>
 <aside id="opsMobileNav" class="ops-nav" aria-label="電商營運管理功能">
@@ -9776,6 +9919,11 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       </div>
       <div class="wide schedule-product-preview" id="scheduleProductPreview">確認帶入產品後，這裡會顯示產品主圖、小圖、標題、規格、倉位與可用庫存。</div>
       <label>上架模式<select name="publish_mode"><option value="scheduled">排程上架</option><option value="instant">即時上架</option></select></label>
+      <label>發文套組<select name="post_set_id">
+        <?php foreach ($postReplySets as $postSet): ?>
+          <option value="<?=h($postSet['id'] ?? '')?>" <?= !empty($postSet['is_default']) ? 'selected' : '' ?>><?=h(($postSet['name'] ?? '套組') . '（' . post_reply_scene_label((string)($postSet['scene'] ?? '')) . '）')?></option>
+        <?php endforeach; ?>
+      </select></label>
       <label class="check">顯示在買家今日看板<input type="checkbox" name="show_on_buyer_board" value="1" checked></label>
       <input type="hidden" name="quantity" value="1">
       <input type="hidden" name="publish_date" value="<?=h(date('Y-m-d'))?>">
@@ -9812,7 +9960,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <button class="primary">建立排程並預約庫存</button>
     </form>
 
-    <div class="section-head"><h2>排程上架工作</h2><span>上架序依「預定上架時間」由早到晚。Codex／人工發海賊團時照這個順序，系統不會自動發 Facebook。</span></div>
+    <div class="section-head"><h2>排程上架工作</h2><span>上架序依「預定上架時間」由早到晚。Codex／人工發海賊團時照這個順序，系統不會自動發 Facebook。文案與問答改「發文問答套組」。</span></div>
     <form method="get" class="inline-actions">
       <label>結標狀態<select name="close_status"><option value="">全部</option><option value="open" <?=($filterClose==='open'?'selected':'')?>>未結標</option><option value="closed" <?=($filterClose==='closed'?'selected':'')?>>已結標</option></select></label>
       <label>記單狀態<select name="order"><option value="">全部</option><?php foreach(['待記單','已記單','備貨中','等待出貨','已出貨','完成','退回處理','取消'] as $v): ?><option <?=($filterOrder===$v?'selected':'')?>><?=h($v)?></option><?php endforeach; ?></select></label>
@@ -9840,7 +9988,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <div class="metric"><span>今日已上架</span><strong><?=h($postedToday)?></strong></div>
     </div>
         <div class="schedule-card-list">
-      <?php foreach($scheduleQueue as $queueIndex => $s): $p=product_by_id($products,$s['product_id']??''); $img=$s['schedule_image']??($p['image']??''); $closed=(strtotime($s['close_at']??'') && strtotime($s['close_at'])<=time()); $pubStatus=$s['publish_status']??$s['status']??'未上架'; $cardClass=$closed?'is-closed':($pubStatus==='已上架'?'is-posted':($pubStatus==='未上架成功'?'is-failed':'is-pending')); $spec=trim(($p['color']??'').' / '.($p['size']??'').' / '.($p['spec']??''),' /'); $listingDraft=facebook_listing_draft_text($s,$p); ?>
+      <?php foreach($scheduleQueue as $queueIndex => $s): $p=product_by_id($products,$s['product_id']??''); $img=$s['schedule_image']??($p['image']??''); $closed=(strtotime($s['close_at']??'') && strtotime($s['close_at'])<=time()); $pubStatus=$s['publish_status']??$s['status']??'未上架'; $cardClass=$closed?'is-closed':($pubStatus==='已上架'?'is-posted':($pubStatus==='未上架成功'?'is-failed':'is-pending')); $spec=trim(($p['color']??'').' / '.($p['size']??'').' / '.($p['spec']??''),' /'); $pickedPostSet=post_reply_find_set($postReplySets,(string)($s['post_set_id']??'')); $pickedPostSetId=(string)($pickedPostSet['id']??''); $listingDraft=render_post_reply_listing($s,$p,$postReplySets,$pickedPostSetId); $qaDraft=render_post_reply_qa_pack($s,$p,$postReplySets,$pickedPostSetId); $postSetPayload=[]; foreach($postReplySets as $postSetRow){ $sid=(string)($postSetRow['id']??''); $postSetPayload[$sid]=['listing'=>render_post_reply_listing($s,$p,$postReplySets,$sid),'qa'=>render_post_reply_qa_pack($s,$p,$postReplySets,$sid)]; } ?>
       <article class="schedule-work-card <?=h($cardClass)?>">
         <div class="schedule-card-select"><input type="checkbox" name="schedule_ids[]" value="<?=h($s['id']??'')?>" form="scheduleBulkDeleteForm" aria-label="選取 <?=h($s['product_id']??'')?>"></div>
         <div class="schedule-card-media">
@@ -9868,12 +10016,22 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
             <input type="hidden" name="action" value="save_publish_status">
             <input type="hidden" name="schedule_id" value="<?=h($s['id'])?>">
             <label>上架狀態<select name="publish_status"><?php foreach(['未上架','已上架','未上架成功','補上架'] as $v): ?><option <?= ($pubStatus===$v?'selected':'') ?>><?=h($v)?></option><?php endforeach; ?></select></label>
+            <label>發文套組<select name="post_set_id" class="schedule-post-set-pick" data-payload="<?=h(json_encode($postSetPayload, JSON_UNESCAPED_UNICODE))?>">
+              <?php foreach($postReplySets as $postSetRow): $sid=(string)($postSetRow['id']??''); ?>
+                <option value="<?=h($sid)?>" <?= $pickedPostSetId===$sid?'selected':'' ?>><?=h(($postSetRow['name']??'套組').(!empty($postSetRow['is_default'])?'（預設）':''))?></option>
+              <?php endforeach; ?>
+            </select></label>
             <label>實際上架<input name="actual_publish_at" type="datetime-local" value="<?=h(str_replace(' ', 'T', $s['actual_publish_at']??''))?>"></label>
             <label class="wide">貼文網址<input name="post_url" value="<?=h($s['post_url']??'')?>" placeholder="https://www.facebook.com/..."></label>
             <label>目前競標金額<input name="current_bid" type="number" min="0" step="1" value="<?=h($s['current_bid']??($s['winning_price']??0))?>"></label>
             <label class="check">買家看板<input type="checkbox" name="show_on_buyer_board" value="1" <?= (($s['show_on_buyer_board']??'1')!=='0'?'checked':'') ?>></label>
-            <label class="wide">海賊團上架文案<textarea rows="8" readonly><?=h($listingDraft)?></textarea></label>
-            <button type="button" class="secondary copy-facebook-listing">複製上架文案</button>
+            <label class="wide">上架文案（依套組帶入，可複製貼到 Facebook）<textarea class="schedule-listing-draft" rows="8" readonly><?=h($listingDraft)?></textarea></label>
+            <div class="wide form-button-row">
+              <button type="button" class="secondary copy-facebook-listing">複製上架文案</button>
+              <button type="button" class="secondary copy-schedule-qa">複製問答包</button>
+              <a class="button-like" href="#post-scripts" data-jump-tab="post-scripts">改套組文案</a>
+            </div>
+            <label class="wide">問答包（可當第一則留言置頂）<textarea class="schedule-qa-draft" rows="8" readonly><?=h($qaDraft)?></textarea></label>
             <label class="wide">每小時提醒草稿<textarea rows="4" readonly><?=h(trim((string)($s['reminder_draft']??'')) ?: reminder_draft_text($s, $p))?></textarea></label>
             <div class="wide muted small">目前金額更新：<?=h($s['bid_updated_at']??'-')?>　上次提醒：<?=h($s['last_reminder_at']??'-')?>　下次提醒：<?=h($s['next_reminder_at']??reminder_next_time($s))?>　狀態：<?=h($s['reminder_status']??(schedule_needs_hourly_update($s)?'需要更新':'待確認發布'))?></div>
             <label class="wide">備註<input name="publish_note" value="<?=h($s['publish_note']??'')?>"></label>
@@ -9893,6 +10051,156 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <?php endforeach; ?>
       <?php if(!$shown): ?><div class="stock-empty">目前沒有符合條件的排程。</div><?php endif; ?>
     </div>
+  </section>
+
+  <section class="ops-card ops-tab" id="post-scripts">
+    <div class="section-head">
+      <div>
+        <h2>發文問答套組</h2>
+        <p class="muted">客製化幾套「發文」與「常見問法／回答」。排程上架會依套組帶出文案，複製後貼到 Facebook／商城；系統不會自動發文。變數：<?=h(post_reply_placeholder_help())?></p>
+      </div>
+      <form method="post" onsubmit="return confirm('確定把全部套組還原成四套內建文案？你改過的內容會被蓋掉。');">
+        <input type="hidden" name="action" value="restore_default_post_reply_sets">
+        <button class="secondary" type="submit">還原四套內建文案</button>
+      </form>
+    </div>
+
+    <form method="post" class="post-reply-editor mini-form" data-post-reply-editor="new">
+      <input type="hidden" name="action" value="save_post_reply_set">
+      <input type="hidden" name="set_id" value="">
+      <h3 class="wide">新增一套</h3>
+      <label>套組名稱<input name="set_name" required placeholder="例如：週末特賣發文"></label>
+      <label>使用場景<select name="set_scene"><?php foreach (post_reply_scene_options() as $sceneKey => $sceneLabel): ?><option value="<?=h($sceneKey)?>"><?=h($sceneLabel)?></option><?php endforeach; ?></select></label>
+      <label class="check">設成預設套組<input type="checkbox" name="is_default" value="1"></label>
+      <label class="wide">備註<input name="set_note" placeholder="這套給誰用、什麼時候用"></label>
+      <label class="wide">發文稿<textarea name="post_template" rows="8" placeholder="可貼上你平常發文的全文，變數用 {{title}} {{id}} {{spec}} {{close_at}} 等"></textarea></label>
+      <div class="wide post-reply-qa-block">
+        <div class="section-head compact"><h3>問法與回答</h3><span>買家訊息含問法或關鍵字時，可在下面「貼上買家訊息」對到回答。</span></div>
+        <div class="post-reply-qa-rows" data-qa-rows>
+          <div class="post-reply-qa-row">
+            <label>問法<input name="qa_ask[]" placeholder="有現貨嗎？"></label>
+            <label>關鍵字<input name="qa_aliases[]" placeholder="現貨,有貨,庫存"></label>
+            <label class="wide">回答<textarea name="qa_answer[]" rows="2" placeholder="有，頭城門市現貨。"></textarea></label>
+            <button type="button" class="danger small post-reply-qa-remove">刪這則</button>
+          </div>
+        </div>
+        <button type="button" class="secondary small post-reply-qa-add">再加一則問答</button>
+      </div>
+      <div class="wide form-button-row"><button class="primary">儲存新套組</button></div>
+    </form>
+
+    <?php
+      $firstPreviewProduct = (isset($products[0]) && is_array($products[0])) ? $products[0] : [];
+      $postReplyPreviewProduct = [
+          'id' => (string)(($firstPreviewProduct['id'] ?? '') ?: 'DEMO-001'),
+          'title' => (string)(($firstPreviewProduct['title'] ?? '') ?: '範例商品：DDR4 3200 16G'),
+          'barcode' => (string)(($firstPreviewProduct['barcode'] ?? '') ?: 'BH000001'),
+          'color' => (string)(($firstPreviewProduct['color'] ?? '') ?: ''),
+          'size' => (string)(($firstPreviewProduct['size'] ?? '') ?: ''),
+          'spec' => (string)(($firstPreviewProduct['spec'] ?? '') ?: '16G / 3200'),
+          'description' => (string)(($firstPreviewProduct['description'] ?? '') ?: '門市現貨，可自取。'),
+          'sale_price' => $firstPreviewProduct['sale_price'] ?? ($firstPreviewProduct['selling_price'] ?? 990),
+          'warehouse_name' => (string)(($firstPreviewProduct['warehouse_name'] ?? '') ?: '頭城門市'),
+          'shelf_code' => (string)($firstPreviewProduct['shelf_code'] ?? ''),
+          'warehouse_location' => (string)($firstPreviewProduct['warehouse_location'] ?? ''),
+      ];
+      $postReplyPreviewSchedule = [
+          'product_id' => $postReplyPreviewProduct['id'],
+          'product_title' => $postReplyPreviewProduct['title'],
+          'product_barcode' => $postReplyPreviewProduct['barcode'],
+          'product_spec' => $postReplyPreviewProduct['spec'],
+          'product_description' => $postReplyPreviewProduct['description'],
+          'close_at' => date('Y-m-d 23:59'),
+          'publish_at' => date('Y-m-d 20:00'),
+          'winning_price' => $postReplyPreviewProduct['sale_price'],
+          'quantity' => 1,
+      ];
+      $factoryIds = [];
+      foreach (default_post_reply_sets() as $factoryRow) $factoryIds[(string)($factoryRow['id'] ?? '')] = true;
+    ?>
+
+    <div class="post-reply-set-list">
+      <?php foreach ($postReplySets as $postSet): $sid = (string)($postSet['id'] ?? ''); $isFactory = isset($factoryIds[$sid]); ?>
+      <details class="post-reply-set-card" <?= !empty($postSet['is_default']) ? 'open' : '' ?>>
+        <summary>
+          <b><?=h($postSet['name'] ?? '未命名套組')?></b>
+          <small><?=h(post_reply_scene_label((string)($postSet['scene'] ?? '')))?><?= !empty($postSet['is_default']) ? ' · 預設' : '' ?><?= $postSet['note'] ? ' · ' . h($postSet['note']) : '' ?></small>
+        </summary>
+        <div class="post-reply-set-body">
+          <form method="post" class="post-reply-editor mini-form" data-post-reply-editor="<?=h($sid)?>">
+            <input type="hidden" name="action" value="save_post_reply_set">
+            <input type="hidden" name="set_id" value="<?=h($sid)?>">
+            <label>套組名稱<input name="set_name" required value="<?=h($postSet['name'] ?? '')?>"></label>
+            <label>使用場景<select name="set_scene">
+              <?php foreach (post_reply_scene_options() as $sceneKey => $sceneLabel): ?>
+                <option value="<?=h($sceneKey)?>" <?= (($postSet['scene'] ?? '') === $sceneKey) ? 'selected' : '' ?>><?=h($sceneLabel)?></option>
+              <?php endforeach; ?>
+            </select></label>
+            <label class="check">設成預設套組<input type="checkbox" name="is_default" value="1" <?= !empty($postSet['is_default']) ? 'checked' : '' ?>></label>
+            <label class="wide">備註<input name="set_note" value="<?=h($postSet['note'] ?? '')?>"></label>
+            <label class="wide">發文稿<textarea name="post_template" rows="10" class="post-reply-template"><?=h($postSet['post_template'] ?? '')?></textarea></label>
+            <div class="wide post-reply-preview-box">
+              <div class="section-head compact"><h3>預覽（用目前庫存第一筆或範例商品帶入）</h3>
+                <button type="button" class="secondary small copy-post-preview">複製預覽發文</button>
+              </div>
+              <textarea class="post-reply-preview" rows="8" readonly><?=h(render_post_reply_listing($postReplyPreviewSchedule, $postReplyPreviewProduct, $postReplySets, $sid))?></textarea>
+            </div>
+            <div class="wide post-reply-qa-block">
+              <div class="section-head compact"><h3>問法與回答</h3><span>關鍵字可用逗號分隔，留言對到就帶這則回答。</span></div>
+              <div class="post-reply-qa-rows" data-qa-rows>
+                <?php $qaRows = (array)($postSet['qa'] ?? []); if (!$qaRows) $qaRows = [['ask'=>'','aliases'=>'','answer'=>'']]; foreach ($qaRows as $qaRow): ?>
+                <div class="post-reply-qa-row">
+                  <label>問法<input name="qa_ask[]" value="<?=h($qaRow['ask'] ?? '')?>"></label>
+                  <label>關鍵字<input name="qa_aliases[]" value="<?=h($qaRow['aliases'] ?? '')?>"></label>
+                  <label class="wide">回答<textarea name="qa_answer[]" rows="2"><?=h($qaRow['answer'] ?? '')?></textarea></label>
+                  <button type="button" class="danger small post-reply-qa-remove">刪這則</button>
+                </div>
+                <?php endforeach; ?>
+              </div>
+              <button type="button" class="secondary small post-reply-qa-add">再加一則問答</button>
+            </div>
+            <div class="wide form-button-row">
+              <button class="primary">儲存此套組</button>
+            </div>
+          </form>
+          <div class="post-reply-set-tools">
+            <form method="post">
+              <input type="hidden" name="action" value="set_default_post_reply_set">
+              <input type="hidden" name="set_id" value="<?=h($sid)?>">
+              <button class="secondary" type="submit">設成預設</button>
+            </form>
+            <form method="post">
+              <input type="hidden" name="action" value="duplicate_post_reply_set">
+              <input type="hidden" name="set_id" value="<?=h($sid)?>">
+              <button class="secondary" type="submit">複製一套</button>
+            </form>
+            <?php if ($isFactory): ?>
+            <form method="post" onsubmit="return confirm('還原這套內建文案？你改過的內容會被蓋掉。');">
+              <input type="hidden" name="action" value="restore_post_reply_set">
+              <input type="hidden" name="set_id" value="<?=h($sid)?>">
+              <button class="secondary" type="submit">還原內建文案</button>
+            </form>
+            <?php endif; ?>
+            <form method="post" onsubmit="return confirm('確定刪除這套發文問答？');">
+              <input type="hidden" name="action" value="delete_post_reply_set">
+              <input type="hidden" name="set_id" value="<?=h($sid)?>">
+              <button class="danger" type="submit">刪除套組</button>
+            </form>
+            <button type="button" class="secondary copy-set-qa" data-qa-text="<?=h(render_post_reply_qa_pack($postReplyPreviewSchedule, $postReplyPreviewProduct, $postReplySets, $sid))?>">複製問答包</button>
+          </div>
+        </div>
+      </details>
+      <?php endforeach; ?>
+    </div>
+
+    <div class="post-reply-matcher">
+      <div class="section-head compact"><h3>貼上買家訊息，帶出對應回答</h3><span>選一套後貼留言，系統用問法／關鍵字對到最接近的回答，方便直接回。</span></div>
+      <label>用哪一套<select id="postReplyMatchSet"><?php foreach ($postReplySets as $postSet): ?><option value="<?=h($postSet['id'] ?? '')?>"><?=h($postSet['name'] ?? '套組')?></option><?php endforeach; ?></select></label>
+      <label class="wide">買家訊息<textarea id="postReplyMatchQuery" rows="4" placeholder="例如：現在有現貨嗎？可以面交嗎？"></textarea></label>
+      <div id="postReplyMatchHits" class="post-reply-match-hits muted">貼上留言後會顯示建議回答。</div>
+    </div>
+    <script type="application/json" id="postReplySetsJson"><?=json_encode($postReplySets, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP)?></script>
+    <script type="application/json" id="postReplyPreviewTokensJson"><?=json_encode(post_reply_tokens($postReplyPreviewSchedule, $postReplyPreviewProduct), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP)?></script>
   </section>
 
   <section class="ops-card ops-tab" id="settlement">
@@ -14256,11 +14564,135 @@ document.querySelectorAll('.batch-member-picker').forEach((select) => {
 
 document.querySelectorAll('.copy-facebook-listing').forEach((btn) => {
   btn.addEventListener('click', async () => {
-    const text = btn.previousElementSibling?.querySelector?.('textarea')?.value || '';
+    const text = btn.closest('form')?.querySelector('.schedule-listing-draft')?.value || '';
     try { await navigator.clipboard.writeText(text); btn.textContent = '已複製'; setTimeout(() => btn.textContent = '複製上架文案', 1200); }
-    catch (e) { btn.previousElementSibling?.querySelector?.('textarea')?.select(); document.execCommand('copy'); }
+    catch (e) { btn.closest('form')?.querySelector('.schedule-listing-draft')?.select(); document.execCommand('copy'); }
   });
 });
+document.querySelectorAll('.copy-schedule-qa').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const text = btn.closest('form')?.querySelector('.schedule-qa-draft')?.value || '';
+    try { await navigator.clipboard.writeText(text); btn.textContent = '已複製'; setTimeout(() => btn.textContent = '複製問答包', 1200); }
+    catch (e) { btn.closest('form')?.querySelector('.schedule-qa-draft')?.select(); document.execCommand('copy'); }
+  });
+});
+document.querySelectorAll('.schedule-post-set-pick').forEach((select) => {
+  select.addEventListener('change', () => {
+    let payload = {};
+    try { payload = JSON.parse(select.getAttribute('data-payload') || '{}') || {}; } catch (e) { payload = {}; }
+    const picked = payload[select.value] || {};
+    const form = select.closest('form');
+    if (form && form.querySelector('.schedule-listing-draft')) form.querySelector('.schedule-listing-draft').value = picked.listing || '';
+    if (form && form.querySelector('.schedule-qa-draft')) form.querySelector('.schedule-qa-draft').value = picked.qa || '';
+  });
+});
+(function bindPostReplyEditors() {
+  const qaHtml = '<div class="post-reply-qa-row"><label>問法<input name="qa_ask[]" placeholder="有現貨嗎？"></label><label>關鍵字<input name="qa_aliases[]" placeholder="現貨,有貨,庫存"></label><label class="wide">回答<textarea name="qa_answer[]" rows="2"></textarea></label><button type="button" class="danger small post-reply-qa-remove">刪這則</button></div>';
+  document.querySelectorAll('.post-reply-qa-add').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const wrap = btn.closest('.post-reply-qa-block')?.querySelector('[data-qa-rows]');
+      if (!wrap) return;
+      wrap.insertAdjacentHTML('beforeend', qaHtml);
+    });
+  });
+  document.addEventListener('click', (event) => {
+    const remove = event.target.closest?.('.post-reply-qa-remove');
+    if (!remove) return;
+    const rows = remove.closest('[data-qa-rows]');
+    const row = remove.closest('.post-reply-qa-row');
+    if (!rows || !row) return;
+    if (rows.querySelectorAll('.post-reply-qa-row').length <= 1) {
+      row.querySelectorAll('input,textarea').forEach((el) => { el.value = ''; });
+      return;
+    }
+    row.remove();
+  });
+  function fillTemplate(template, tokens) {
+    let out = String(template || '');
+    Object.keys(tokens || {}).forEach((key) => {
+      out = out.split('{{' + key + '}}').join(tokens[key] == null ? '' : String(tokens[key]));
+    });
+    return out.replace(/\n{3,}/g, '\n\n').trim();
+  }
+  let previewTokens = {};
+  try { previewTokens = JSON.parse(document.getElementById('postReplyPreviewTokensJson')?.textContent || '{}') || {}; } catch (e) { previewTokens = {}; }
+  document.querySelectorAll('[data-post-reply-editor]').forEach((form) => {
+    const template = form.querySelector('.post-reply-template, textarea[name="post_template"]');
+    const preview = form.querySelector('.post-reply-preview');
+    if (!template || !preview) return;
+    const refresh = () => { preview.value = fillTemplate(template.value, previewTokens); };
+    template.addEventListener('input', refresh);
+  });
+  document.querySelectorAll('.copy-post-preview').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const text = btn.closest('.post-reply-preview-box')?.querySelector('textarea')?.value || '';
+      try { await navigator.clipboard.writeText(text); btn.textContent = '已複製'; setTimeout(() => btn.textContent = '複製預覽發文', 1200); }
+      catch (e) { btn.closest('.post-reply-preview-box')?.querySelector('textarea')?.select(); document.execCommand('copy'); }
+    });
+  });
+  document.querySelectorAll('.copy-set-qa').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const text = btn.getAttribute('data-qa-text') || '';
+      try { await navigator.clipboard.writeText(text); btn.textContent = '已複製'; setTimeout(() => btn.textContent = '複製問答包', 1200); }
+      catch (e) { navigator.clipboard.writeText(text); }
+    });
+  });
+  function normalizeQuery(text) {
+    return String(text || '').toLowerCase().replace(/\s+/g, '');
+  }
+  function matchSet(set, query) {
+    const q = normalizeQuery(query);
+    if (!q) return [];
+    const hits = [];
+    (set.qa || []).forEach((item, index) => {
+      const needles = String((item.ask || '') + ',' + (item.aliases || '')).split(/[,，、\/|]+/).map((v) => v.trim()).filter(Boolean);
+      let score = 0;
+      needles.forEach((needle) => {
+        const n = normalizeQuery(needle);
+        if (!n) return;
+        if (q === n) score = 100;
+        else if (q.indexOf(n) !== -1 || n.indexOf(q) !== -1) score = Math.max(score, Math.min(90, 40 + n.length));
+      });
+      if (score > 0) hits.push({ score, ask: fillTemplate(item.ask || '', previewTokens), answer: fillTemplate(item.answer || '', previewTokens), index });
+    });
+    hits.sort((a, b) => b.score - a.score);
+    return hits.slice(0, 5);
+  }
+  let sets = [];
+  try { sets = JSON.parse(document.getElementById('postReplySetsJson')?.textContent || '[]') || []; } catch (e) { sets = []; }
+  const setSelect = document.getElementById('postReplyMatchSet');
+  const queryBox = document.getElementById('postReplyMatchQuery');
+  const hitsBox = document.getElementById('postReplyMatchHits');
+  function renderHits() {
+    if (!hitsBox || !queryBox) return;
+    const set = sets.find((row) => row.id === (setSelect?.value || '')) || sets[0];
+    const hits = matchSet(set || { qa: [] }, queryBox.value);
+    if (!String(queryBox.value || '').trim()) {
+      hitsBox.textContent = '貼上留言後會顯示建議回答。';
+      hitsBox.classList.add('muted');
+      return;
+    }
+    hitsBox.classList.remove('muted');
+    if (!hits.length) {
+      hitsBox.textContent = '這句沒對到套組裡的問法。可到上面幫這套加上關鍵字。';
+      return;
+    }
+    hitsBox.innerHTML = hits.map((hit) => {
+      const ask = String(hit.ask || '').replace(/[&<>]/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+      const answer = String(hit.answer || '').replace(/[&<>]/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+      return '<div class="post-reply-hit"><b>Q：' + ask + '</b><pre>A：' + answer + '</pre><button type="button" class="secondary small copy-hit-answer">複製這則回答</button></div>';
+    }).join('');
+    hitsBox.querySelectorAll('.copy-hit-answer').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const text = (btn.previousElementSibling?.textContent || '').replace(/^A：/, '');
+        try { await navigator.clipboard.writeText(text); btn.textContent = '已複製'; setTimeout(() => btn.textContent = '複製這則回答', 1200); }
+        catch (e) {}
+      });
+    });
+  }
+  setSelect?.addEventListener('change', renderHits);
+  queryBox?.addEventListener('input', renderHits);
+})();
 document.querySelectorAll('.copy-reconcile-message').forEach((btn) => {
   btn.addEventListener('click', async () => {
     const text = btn.closest('.buyer-reconcile-card')?.querySelector('textarea')?.value || '';
@@ -14294,7 +14726,7 @@ function setOpsStaffPermissionSelection(selectAll) {
 }
 function setOpsStaffPermissionRole(role) {
   const presets = {
-    shelf: ['overview','products','product-categories','shopee-workspace','color-modules','stock-search','schedule','settlement'],
+    shelf: ['overview','products','product-categories','shopee-workspace','color-modules','stock-search','schedule','post-scripts','settlement'],
     ship: ['overview','members','member-create','customer-shipping','orders','settlement','settlement-edit','logistics','document-center'],
     warehouse: ['overview','stock-search','stock-in','inventory-count','inventory-transfer','finance-loss','finance-overage','warehouses','document-center'],
     finance: ['overview','document-center','finance-reconcile','finance-collection','finance-request','finance-bad-debt','finance-analytics','finance-report','finance-expense-categories','finance-fixed-expense','finance-fixed-asset','finance-mobile-asset']
