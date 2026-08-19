@@ -45,6 +45,7 @@ F:\Web\lingzanzan-staging\zhangzhang.html
 F:\Web\lingzanzan-staging\lingzanzan-computer-receipts.php   （轉呼叫寶輝那份）
 F:\Web\lingzanzan-staging\admin-order-tracking.html          （FIFO 出貨核對）
 F:\Web\lingzanzan-staging\assets\admin.js                    （2026-08-19 開出貨單卡住：?v=20260819-fifo-open-hang-1）
+F:\Web\lingzanzan-staging\assets\image-upload-paste.js       （所有圖片上傳欄可貼上／拖放）
 F:\Web\lingzanzan-staging\assets\admin-navigation.js
 F:\Web\paohui-portal-staging\index.html
 ```
