@@ -1,14 +1,15 @@
 # 張張管理後台（伺服器）
 
-獨立的電商營運後台。線上已掛在公司 PHT-SR（`F:\Web` / `PHT-Web`），**不必先登入寶輝總部**。
+獨立的電商營運後台。對外入口掛在 **www.lingzanzan.com**（領讚讚 IIS），作業檔仍在 PHT-SR 的 `F:\Web`，**不必先登入寶輝總部**。
 
 線上入口：
 
-- https://paohui.org/ （第五張卡「張張管理後台」）
-- https://paohui.org/zhangzhang/
-- https://baohui.paohui.org/one-dollar-auction/ （張張登入）
-- https://baohui.paohui.org/one-dollar-auction/operations.php
-- https://baohui.paohui.org/lingzanzan-computer-receipts.php （張張電腦已帶入）
+- https://www.lingzanzan.com/one-dollar-auction/ （張張登入，對外主網址）
+- https://www.lingzanzan.com/zhangzhang/
+- https://www.lingzanzan.com/zhangzhang.html
+- https://www.lingzanzan.com/lingzanzan-computer-receipts.php （張張電腦已帶入）
+- https://www.lingzanzan.com/admin.html （領讚讚後台側欄「張張／一元競標」）
+- https://paohui.org/ （第五張卡，連到 lingzanzan.com）
 
 本包另有一份 Node 可攜版，可在 Windows / Linux 用 `node server.js` 跑，資料存在本機 `data/db.json`。路徑對照見 `WEB-MAP.md`。
 
@@ -57,9 +58,9 @@ QNAP（`100.97.127.26`）另有 `WEB` 分享，與這台 IIS 不是同一份。�
 
 | WEB 內容 | 公開位址 |
 | --- | --- |
+| 張張登入（對外） | https://www.lingzanzan.com/one-dollar-auction/ |
+| 張張電腦已帶入 | https://www.lingzanzan.com/lingzanzan-computer-receipts.php |
 | paohui.org 張張卡片 | https://paohui.org/ |
-| 張張登入 | https://baohui.paohui.org/one-dollar-auction/ |
-| 張張電腦已帶入 | https://baohui.paohui.org/lingzanzan-computer-receipts.php |
 | 產品／會員／廠商／貨倉 JSON | https://baohui.paohui.org/one-dollar-auction/data/ |
 
 在**已連 VPN 的公司電腦**：

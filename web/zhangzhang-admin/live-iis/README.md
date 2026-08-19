@@ -1,6 +1,21 @@
-# 已套到 PHT-SR 的 PHP 登入修正
+# 已套到 PHT-SR 的張張入口
 
-不要把 `operations.php`（約 969KB）提交進 git。線上檔在 `F:\Web\baohui-staging\`，還原用 `*.bak-zhangzhang-login-20260818`。
+對外網址是 **https://www.lingzanzan.com/**。作業 PHP 仍在 `F:\Web\baohui-staging\one-dollar-auction\`，IIS 虛擬目錄接到領讚讚站。
+
+不要把 `operations.php`（約 969KB）或會員 JSON 提交進 git。
+
+## 領讚讚站
+
+- IIS：`LINGZANZAN-Staging` 虛擬目錄 `/one-dollar-auction`、`/zhangzhang`
+- `zhangzhang.html` 轉到 `/one-dollar-auction/`
+- `lingzanzan-computer-receipts.php` `require` 寶輝那份收據程式
+- `assets/admin-navigation.js` 側欄加「張張／一元競標」
+
+## 登入修正（`baohui-staging`）
+
+- 未登入改導 `/one-dollar-auction/`，不再導寶輝 `/admin.php`
+- 張張獨立登入的 `$_SESSION['user']` 不會被寶輝權限橋接蓋掉
+
 
 ## `one-dollar-auction/operations.php`
 
