@@ -6,7 +6,7 @@
  * SE181 這種還沒建成正式產品的集運款（豪鴻已收到）會打不到。
  * 有搜尋字時才載 freight tracking，開頁仍不先抓 7MB。
  *
- * Cache-bust: admin.js ?v=20260819-preorder-freight-search-1
+ * Cache-bust: admin.js ?v=20260819-preorder-freight-search-2
  */
 
 const fs = require("fs");
@@ -14,8 +14,8 @@ const path = require("path");
 
 const ROOT = process.env.LINGZANZAN_ROOT || "F:/Web/lingzanzan-staging";
 const ADMIN_JS = path.join(ROOT, "assets", "admin.js");
-const STAMP = "20260819-preorder-freight-search-1";
-const MARKER = "正在載入集運預報商品，完成後會顯示搜尋結果。";
+const STAMP = "20260819-preorder-freight-search-2";
+const MARKER = "state.freightTracking.__lingzanzanFreightNormalized === true";
 
 function backup(file, tag) {
   const dir = path.join(ROOT, "data", "audit");
@@ -80,8 +80,11 @@ const OLD = `    var searchText = String(input.value || '').trim();
       return;
     }`;
 
+const READY_OLD = `    var freightReady = !!(state.freightTracking && Array.isArray(state.freightTracking.items));`;
+const READY_NEW = `    var freightReady = !!(state.freightTracking && state.freightTracking.__lingzanzanFreightNormalized === true);`;
+
 const NEW = `    var searchText = String(input.value || '').trim();
-    var freightReady = !!(state.freightTracking && Array.isArray(state.freightTracking.items));
+    var freightReady = !!(state.freightTracking && state.freightTracking.__lingzanzanFreightNormalized === true);
     if (!catalogLoaded || (searchText && !freightReady)) {
       if (!searchText) {
         box.hidden = true;
@@ -107,12 +110,14 @@ if (!fs.existsSync(ADMIN_JS)) {
 
 console.log("backup js", backup(ADMIN_JS, "preorder-freight-search"));
 let src = fs.readFileSync(ADMIN_JS, "utf8");
-if (src.indexOf(MARKER) === -1) {
+if (src.indexOf("正在載入集運預報商品，完成後會顯示搜尋結果。") === -1) {
   src = replaceOnce(src, OLD, NEW, "preorder search loads freight forecast");
-  fs.writeFileSync(ADMIN_JS, src);
-  console.log("js written", src.length);
+} else if (src.indexOf(MARKER) === -1) {
+  src = replaceOnce(src, READY_OLD, READY_NEW, "freight ready uses loaded flag not empty array");
 } else {
   console.log("js already patched");
 }
+fs.writeFileSync(ADMIN_JS, src);
+console.log("js written", src.length);
 stampHtml(ROOT);
 console.log("LINGZANZAN preorder freight search:", STAMP);
