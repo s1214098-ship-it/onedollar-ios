@@ -1,0 +1,112 @@
+.haohong-logistics-page .panel-head {
+  align-items: flex-start;
+  gap: 16px;
+}
+.haohong-logistics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.haohong-logistics-status {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(240, 198, 94, .12);
+  color: #ffe29b;
+  font-weight: 800;
+}
+.haohong-logistics-tools {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.4fr) minmax(180px, .8fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin: 0 0 14px;
+}
+.haohong-logistics-tools label {
+  display: grid;
+  gap: 6px;
+  color: #ffd1d8;
+  font-weight: 800;
+}
+.haohong-logistics-tools input,
+.haohong-logistics-tools select {
+  min-height: 46px;
+  padding: 0 12px;
+}
+.haohong-logistics-modes {
+  display: flex;
+  gap: 8px;
+}
+.haohong-logistics-modes button {
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid #765764;
+  border-radius: 10px;
+  background: #2b232b;
+  color: #fff;
+  font-weight: 800;
+}
+.haohong-logistics-modes button.is-active {
+  border-color: #f0c65e;
+  background: #f0c65e;
+  color: #21170a;
+}
+.haohong-logistics-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.haohong-logistics-summary span {
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: #32282f;
+  color: #f3efe6;
+  font-weight: 800;
+  font-size: 13px;
+}
+.haohong-logistics-table-wrap {
+  overflow: auto;
+  border: 1px solid #4a3b43;
+  border-radius: 14px;
+}
+.haohong-logistics-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 980px;
+}
+.haohong-logistics-table th,
+.haohong-logistics-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+}
+.haohong-logistics-table th {
+  position: sticky;
+  top: 0;
+  background: #2a2127;
+  color: #f0c65e;
+  font-weight: 900;
+  z-index: 1;
+}
+.haohong-logistics-table tr:hover td {
+  background: rgba(240, 198, 94, .06);
+}
+.haohong-logistics-table .is-matched { color: #8af0cb; font-weight: 800; }
+.haohong-logistics-table .is-missing { color: #ff9aad; font-weight: 800; }
+.haohong-logistics-table .is-diff { color: #ffd166; font-weight: 800; }
+.haohong-logistics-empty {
+  margin: 0;
+  padding: 24px;
+  color: #ffd1d8;
+}
+@media (max-width: 860px) {
+  .haohong-logistics-tools,
+  .haohong-logistics-page .panel-head {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+  .haohong-logistics-modes { grid-column: 1 / -1; }
+}
