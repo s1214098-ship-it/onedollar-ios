@@ -50,6 +50,7 @@ header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-in
       <button class="btn btn-outline-primary btn-sm" id="connectGmailButton"><i class="bi bi-google me-1"></i>連接 Gmail</button>
       <button class="btn btn-outline-primary btn-sm d-none" id="syncGmailButton"><i class="bi bi-cloud-download me-1"></i>從 Gmail 抓信</button>
       <button class="btn btn-outline-secondary btn-sm d-none" id="gmailDisconnect" type="button">解除 Gmail 連線</button>
+      <a class="btn btn-outline-secondary btn-sm" href="accounting-gmail-organize.php">整理 Cursor 信件</a>
       <button class="btn btn-outline-secondary btn-sm" id="scanGmailButton"><i class="bi bi-folder2-open me-1"></i>掃描收件夾</button>
       <button class="btn btn-outline-secondary btn-sm" id="showUnprinted"><i class="bi bi-printer me-1"></i>未列印</button>
       <button class="btn btn-primary btn-sm" id="refreshButton"><i class="bi bi-arrow-clockwise me-1"></i>重新整理</button>

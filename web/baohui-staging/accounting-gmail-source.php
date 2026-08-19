@@ -13,6 +13,11 @@ interface AccountingMailSource
 final class GmailInvoiceSourceConfiguration
 {
     public const READONLY_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+    public const MODIFY_SCOPE = 'https://www.googleapis.com/auth/gmail.modify';
+    public const SETTINGS_SCOPE = 'https://www.googleapis.com/auth/gmail.settings.basic';
+    public const ORGANIZE_SCOPES = self::READONLY_SCOPE . ' ' . self::MODIFY_SCOPE . ' ' . self::SETTINGS_SCOPE;
+    public const CURSOR_LABEL = 'Cursor';
+    public const CURSOR_QUERY = '(from:notifications@github.com (cursor[bot] OR "cursor[bot]")) OR from:cursor[bot] OR from:(noreply@cursor.com OR mail.cursor.com OR notifications@cursor.sh OR cursor.com)';
     public const JIEYUAN_SENDER = '捷元ebill@gcnc-group.com';
     public const JIEYUAN_SUBJECT = '捷元電子對帳單';
     public const FOODPANDA_SENDER = 'info@mail.foodpanda.com.tw';
@@ -358,15 +363,16 @@ function acc_gmail_refresh_profile(): string
     return $email;
 }
 
-function acc_gmail_authorize_url(string $state): string
+function acc_gmail_authorize_url(string $state, string $scope = ''): string
 {
     $client = acc_gmail_load_client();
     if ($client === []) throw new RuntimeException('尚未設定 Google OAuth 用戶端');
+    if ($scope === '') $scope = GmailInvoiceSourceConfiguration::READONLY_SCOPE;
     return GmailInvoiceSourceConfiguration::AUTH_URL . '?' . http_build_query([
         'client_id' => $client['client_id'],
         'redirect_uri' => acc_gmail_redirect_uri(),
         'response_type' => 'code',
-        'scope' => GmailInvoiceSourceConfiguration::READONLY_SCOPE,
+        'scope' => $scope,
         'access_type' => 'offline',
         'include_granted_scopes' => 'true',
         'prompt' => 'consent',
@@ -564,4 +570,148 @@ function acc_select_vendor_parser(array $message, array $attachments): ?Accounti
         if ($parser->supports($message, $attachments)) return $parser;
     }
     return null;
+}
+
+function acc_gmail_granted_scopes(): array
+{
+    $scope = '';
+    try {
+        $access = acc_gmail_access_token();
+        $info = acc_gmail_http('GET', 'https://oauth2.googleapis.com/tokeninfo?access_token=' . rawurlencode($access));
+        $scope = trim((string)($info['scope'] ?? ''));
+    } catch (Throwable $e) {
+        $scope = '';
+    }
+    if ($scope === '') {
+        $scope = trim((string)(acc_gmail_load_token()['scope'] ?? ''));
+    }
+    if ($scope === '') {
+        return [];
+    }
+    $parts = preg_split('/\s+/', $scope);
+    return is_array($parts) ? $parts : [];
+}
+
+function acc_gmail_has_scope(string $scope): bool
+{
+    $scopes = acc_gmail_granted_scopes();
+    return in_array($scope, $scopes, true) || in_array('https://mail.google.com/', $scopes, true);
+}
+
+function acc_gmail_can_organize(): bool
+{
+    return acc_gmail_has_scope(GmailInvoiceSourceConfiguration::MODIFY_SCOPE);
+}
+
+function acc_gmail_api_get(string $path, array $query = []): array
+{
+    $url = GmailInvoiceSourceConfiguration::GMAIL_API . $path;
+    if ($query) $url .= (str_contains($url, '?') ? '&' : '?') . http_build_query($query);
+    return acc_gmail_http('GET', $url, ['Authorization' => 'Bearer ' . acc_gmail_access_token()]);
+}
+
+function acc_gmail_api_post(string $path, array $body): array
+{
+    return acc_gmail_http('POST', GmailInvoiceSourceConfiguration::GMAIL_API . $path, [
+        'Authorization' => 'Bearer ' . acc_gmail_access_token(),
+        'Content-Type' => 'application/json',
+    ], json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+}
+
+function acc_gmail_find_or_create_label(string $name): string
+{
+    $list = acc_gmail_api_get('/labels');
+    foreach ((array)($list['labels'] ?? []) as $label) {
+        if (!is_array($label)) continue;
+        if (strcasecmp((string)($label['name'] ?? ''), $name) === 0) {
+            return (string)($label['id'] ?? '');
+        }
+    }
+    $created = acc_gmail_api_post('/labels', [
+        'name' => $name,
+        'labelListVisibility' => 'labelShow',
+        'messageListVisibility' => 'show',
+    ]);
+    $id = trim((string)($created['id'] ?? ''));
+    if ($id === '') throw new RuntimeException('無法建立 Gmail 資料夾：' . $name);
+    return $id;
+}
+
+function acc_gmail_list_message_ids(string $query): array
+{
+    $ids = [];
+    $page = '';
+    do {
+        $params = ['q' => $query, 'maxResults' => 500];
+        if ($page !== '') $params['pageToken'] = $page;
+        $list = acc_gmail_api_get('/messages', $params);
+        foreach ((array)($list['messages'] ?? []) as $row) {
+            $id = trim((string)($row['id'] ?? ''));
+            if ($id !== '') $ids[] = $id;
+        }
+        $page = trim((string)($list['nextPageToken'] ?? ''));
+    } while ($page !== '');
+    return array_values(array_unique($ids));
+}
+
+function acc_gmail_ensure_cursor_filter(string $labelId): bool
+{
+    $query = GmailInvoiceSourceConfiguration::CURSOR_QUERY;
+    $existing = acc_gmail_api_get('/settings/filters');
+    $filters = $existing['filter'] ?? [];
+    if (isset($filters['id']) || isset($filters['criteria'])) {
+        $filters = [$filters];
+    }
+    foreach ((array)$filters as $filter) {
+        if (!is_array($filter)) continue;
+        $criteria = is_array($filter['criteria'] ?? null) ? $filter['criteria'] : [];
+        $action = is_array($filter['action'] ?? null) ? $filter['action'] : [];
+        $q = trim((string)($criteria['query'] ?? ''));
+        $adds = (array)($action['addLabelIds'] ?? []);
+        if ($q === $query && in_array($labelId, $adds, true)) return false;
+    }
+    acc_gmail_api_post('/settings/filters', [
+        'criteria' => ['query' => $query],
+        'action' => [
+            'addLabelIds' => [$labelId],
+            'removeLabelIds' => ['INBOX'],
+        ],
+    ]);
+    return true;
+}
+
+function acc_gmail_organize_cursor(): array
+{
+    if (!acc_gmail_can_organize()) {
+        throw new RuntimeException('Gmail 目前只有讀信權限，請先授權「整理 Cursor 信件」。');
+    }
+    $labelId = acc_gmail_find_or_create_label(GmailInvoiceSourceConfiguration::CURSOR_LABEL);
+    $filterCreated = false;
+    $filterError = '';
+    if (acc_gmail_has_scope(GmailInvoiceSourceConfiguration::SETTINGS_SCOPE)) {
+        try {
+            $filterCreated = acc_gmail_ensure_cursor_filter($labelId);
+        } catch (Throwable $e) {
+            $filterError = $e->getMessage();
+        }
+    }
+    $ids = acc_gmail_list_message_ids(GmailInvoiceSourceConfiguration::CURSOR_QUERY);
+    $moved = 0;
+    foreach (array_chunk($ids, 1000) as $chunk) {
+        acc_gmail_api_post('/messages/batchModify', [
+            'ids' => $chunk,
+            'addLabelIds' => [$labelId],
+            'removeLabelIds' => ['INBOX'],
+        ]);
+        $moved += count($chunk);
+    }
+    return [
+        'ok' => true,
+        'email' => acc_gmail_refresh_profile(),
+        'label' => GmailInvoiceSourceConfiguration::CURSOR_LABEL,
+        'label_id' => $labelId,
+        'filter_created' => $filterCreated,
+        'filter_error' => $filterError,
+        'moved' => $moved,
+    ];
 }

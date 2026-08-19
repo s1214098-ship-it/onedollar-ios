@@ -25,3 +25,10 @@
 - 不抓 Agoda；統一數網 `70537075` 不當捷元
 
 覆蓋 PHP 後，用後台帳號登入再開「電子發票記帳」→「連接 Gmail」／「捷元進貨比對」。
+
+Cursor 信件整理（同一個 `s1214098@gmail.com`）：
+
+- 後台：電子發票記帳 →「整理 Cursor 信件」，或直接開 `https://baohui.paohui.org/accounting-gmail-organize.php`
+- 第一次要再按一次 Google 授權（現有連線只有讀信，不能建資料夾）
+- 會建立 Gmail 資料夾 `Cursor`，把 cursor[bot]／GitHub Cursor 通知從收件匣移進去，並設自動篩選
+- 備用：Gmail 設定 → 篩選器 → 匯入 `gmail-filter-cursor.xml`

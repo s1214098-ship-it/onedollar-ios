@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns='http://www.w3.org/2005/Atom' xmlns:apps='http://schemas.google.com/apps/2006'>
+  <title>Mail Filters</title>
+  <entry>
+    <category term='filter'></category>
+    <title>Cursor 信件</title>
+    <content></content>
+    <apps:property name='hasTheWord' value='(from:notifications@github.com (cursor[bot] OR &quot;cursor[bot]&quot;)) OR from:cursor[bot] OR from:(noreply@cursor.com OR mail.cursor.com OR notifications@cursor.sh OR cursor.com)'/>
+    <apps:property name='label' value='Cursor'/>
+    <apps:property name='shouldArchive' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>
+</feed>

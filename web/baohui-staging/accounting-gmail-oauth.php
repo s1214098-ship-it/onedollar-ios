@@ -45,6 +45,19 @@ unset($_SESSION['gmail_oauth_state']);
 try {
     $token = acc_gmail_exchange_code($code);
     $email = trim((string)($token['email'] ?? acc_gmail_refresh_profile()));
+    if (str_starts_with($state, 'organize.')) {
+        try {
+            $result = acc_gmail_organize_cursor();
+            $n = (int)($result['moved'] ?? 0);
+            acc_oauth_page(
+                'Cursor 信件已收進資料夾',
+                ($email !== '' ? ('已授權信箱：' . $email . '。') : '')
+                . '已建立「Cursor」資料夾，並處理 ' . $n . ' 封信件。之後 cursor[bot] 新信會自動進去。'
+            );
+        } catch (Throwable $organizeError) {
+            acc_oauth_page('Gmail 已授權，但整理信件失敗', $organizeError->getMessage(), false);
+        }
+    }
     acc_oauth_page('Gmail 已連接', $email !== '' ? ('已授權信箱：' . $email) : '授權完成，可以回電子發票頁面抓信。', true);
 } catch (Throwable $e) {
     @file_put_contents(
