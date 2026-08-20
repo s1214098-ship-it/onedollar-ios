@@ -53,12 +53,27 @@
     return Object.keys(row || {}).map(function (key) { return String(row[key] == null ? '' : row[key]); }).join(' ').toLowerCase();
   }
 
+  function digitHit(haystack, q) {
+    var compact = String(q || '').trim().replace(/\s+/g, '');
+    var digits = compact.replace(/\D/g, '');
+    if (!/^\d+$/.test(compact) || digits.length < 4) return false;
+    var blob = String(haystack || '').replace(/\D/g, '');
+    var keys = [digits];
+    if (digits.length > 4) {
+      keys.push(digits.slice(-4), digits.slice(0, 4), digits.slice(0, -1));
+    }
+    return keys.some(function (key) { return key.length >= 4 && blob.indexOf(key) !== -1; });
+  }
+
   function filteredRows() {
     var q = String(($('[data-haohong-search]') || {}).value || '').trim().toLowerCase();
     var filter = String(($('[data-haohong-filter]') || {}).value || 'all');
     var rows = state.mode === 'packages' ? state.packages : state.batches;
     return rows.filter(function (row) {
-      if (q && hay(row).indexOf(q) === -1) return false;
+      if (q) {
+        var haystack = hay(row);
+        if (haystack.indexOf(q) === -1 && !digitHit(haystack, q)) return false;
+      }
       var label = String(row.compare || '');
       if (filter === 'matched') return label === '已對上' || label.indexOf('已帶入') !== -1;
       if (filter === 'remote-only') return label.indexOf('豪鴻有') !== -1;
