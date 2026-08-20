@@ -4440,6 +4440,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $reserveNeed = array_sum(array_map(function($job) { return max(1, (int)($job['quantity'] ?? 1)); }, $jobs));
         $availableNow = !empty($product['id']) ? stock_available($product) : 0;
+        $opsInitialTab = 'schedule';
         if (!$jobs || empty($product['id'])) {
             $notice = '排程建立失敗，請選擇產品並至少新增一筆工作排程。';
         } elseif (!empty($product['cloud_auction_locked'])) {
@@ -7083,6 +7084,24 @@ if (($_GET['partial'] ?? '') === 'ops_status') {
 .product-confirm-bar{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #dbe5f2;padding-top:12px}
 .schedule-product-preview.is-confirmed{border-color:#0f766e;background:#ecfdf5}
 @media(max-width:760px){.product-result-card{grid-template-columns:72px 1fr}.product-pick-action{grid-column:1/-1;width:100%}.product-confirm-bar{align-items:stretch;flex-direction:column}}
+.schedule-time-modal{position:fixed;inset:0;z-index:100050;background:rgba(15,23,42,.72);padding:18px;display:grid;place-items:center}
+.schedule-time-modal[hidden]{display:none!important}
+.schedule-time-dialog{width:min(720px,96vw);max-height:94vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(15,23,42,.28);padding:18px}
+.schedule-time-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.schedule-time-head b{font-size:22px;color:#0f172a}
+.schedule-time-head small{display:block;margin-top:4px;color:#64748b;font-weight:700}
+.schedule-time-product{display:grid;grid-template-columns:72px minmax(0,1fr);gap:12px;align-items:center;border:1px solid #dbe5f2;border-radius:12px;padding:10px;background:#f8fafc;margin-bottom:12px}
+.schedule-time-product img,.schedule-time-product .no-img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #dbe5f2;background:#fff;display:grid;place-items:center}
+.schedule-time-done{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px;max-height:140px;overflow:auto}
+.schedule-time-done li{display:flex;justify-content:space-between;gap:10px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-weight:700;color:#334155;background:#fff}
+.schedule-time-done li.is-current{border-color:#0f766e;background:#ecfdf5;color:#0f766e}
+.schedule-time-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:end}
+.schedule-time-form label{margin:0}
+.schedule-time-form .schedule-time-actions{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+.schedule-time-foot{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px}
+.schedule-time-foot button{min-height:42px}
+.schedule-job-builder.is-filled{outline:3px solid rgba(15,118,110,.28);outline-offset:2px}
+@media(max-width:640px){.schedule-time-form{grid-template-columns:1fr}.schedule-time-foot{justify-content:stretch}.schedule-time-foot button{flex:1 1 140px}}
 
 
 .settlement-flow-help{border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:12px;padding:14px;margin:12px 0 18px}
@@ -10190,7 +10209,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <div class="wide schedule-product-picker">
         <div class="picker-head">
           <strong>候選產品</strong>
-          <span class="muted">先按「選擇此產品」，確認正確後再帶入排程。</span>
+          <span class="muted">點產品後排定時間。</span>
         </div>
         <div id="scheduleProductResults" class="product-result-list">請先輸入產品關鍵字。</div>
         <div class="product-confirm-bar">
@@ -10240,6 +10259,34 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label>圖片備註<input name="schedule_image_note"></label>
       <button class="primary">建立排程並預約庫存</button>
     </form>
+    <div class="schedule-time-modal" id="scheduleTimeModal" hidden>
+      <div class="schedule-time-dialog" role="dialog" aria-modal="true" aria-labelledby="scheduleTimeModalTitle">
+        <div class="schedule-time-head">
+          <div>
+            <b id="scheduleTimeModalTitle">排定時間</b>
+            <small id="scheduleTimeModalStep"></small>
+          </div>
+          <button type="button" class="secondary small" id="scheduleTimeModalClose">關閉</button>
+        </div>
+        <div class="schedule-time-product" id="scheduleTimeModalProduct"></div>
+        <ol class="schedule-time-done" id="scheduleTimeModalDone"></ol>
+        <div class="schedule-time-form">
+          <label>上架日期<input id="scheduleTimePublishDate" type="date"></label>
+          <label>上架時間<input id="scheduleTimePublishTime" type="time"></label>
+          <label>截標日期<input id="scheduleTimeCloseDate" type="date"></label>
+          <label>截標時間<input id="scheduleTimeCloseTime" type="time"></label>
+          <div class="schedule-time-actions">
+            <button type="button" class="secondary small" data-schedule-time-close="12:59">12:59</button>
+            <button type="button" class="secondary small" data-schedule-time-close="23:59">23:59</button>
+          </div>
+        </div>
+        <div class="schedule-time-foot">
+          <button type="button" class="secondary" id="scheduleTimePrev">上一件</button>
+          <button type="button" class="secondary" id="scheduleTimeFinishEarly">先帶入已排的</button>
+          <button type="button" class="primary" id="scheduleTimeNext">下一件</button>
+        </div>
+      </div>
+    </div>
 
     <div class="section-head"><h2>排程上架工作</h2><span>上架序依「預定上架時間」由早到晚。Codex／人工發海賊團時照這個順序，系統不會自動發 Facebook。當日比對與執行稿在「臉書當日日報」。</span></div>
     <form method="get" class="inline-actions">
@@ -14505,6 +14552,156 @@ function productCardHtml(p, mode) {
 function findProductById(id) {
   return scheduleProducts.find(item => String(item.id || '') === String(id || ''));
 }
+function pad2(n) { return String(n).padStart(2, '0'); }
+function todayYmd(date) {
+  const d = date instanceof Date ? date : new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function defaultScheduleJob(fromJob) {
+  const publishDate = fromJob?.publish_date || todayYmd();
+  return {
+    publish_date: publishDate,
+    publish_time: fromJob?.publish_time || '20:00',
+    close_date: fromJob?.close_date || publishDate,
+    close_time: fromJob?.close_time || '23:59',
+    quantity: 1
+  };
+}
+let scheduleTimeWizard = null;
+function scheduleJobRowHtml(job, index) {
+  const row = defaultScheduleJob(job);
+  return `<div class="schedule-job-row" data-schedule-job-row>
+    <div class="schedule-job-index">${index + 1}</div>
+    <label class="schedule-publish-date">上架日期<input name="job_date[]" type="date" value="${escapeHtml(row.publish_date)}"></label>
+    <label class="schedule-publish-time">上架時間<input name="job_publish_time[]" type="time" value="${escapeHtml(row.publish_time)}"></label>
+    <label class="schedule-close-date">截標日期<input name="job_close_date[]" type="date" value="${escapeHtml(row.close_date)}"></label>
+    <label class="schedule-close-time">截標時間<input name="job_close_time[]" type="time" value="${escapeHtml(row.close_time)}"></label>
+    <label class="schedule-quantity">數量<input name="job_quantity[]" type="number" min="1" value="${escapeHtml(String(row.quantity || 1))}"></label>
+    <div class="schedule-job-actions">
+      <button type="button" class="secondary small schedule-row-close" data-time="12:59">12:59</button>
+      <button type="button" class="secondary small schedule-row-close" data-time="23:59">23:59</button>
+      <button type="button" class="danger small remove-schedule-job">刪除</button>
+    </div>
+  </div>`;
+}
+function replaceScheduleJobs(jobs) {
+  const box = document.getElementById('scheduleJobRows');
+  if (!box) return;
+  const list = (Array.isArray(jobs) && jobs.length) ? jobs.map(job => defaultScheduleJob(job)) : [defaultScheduleJob()];
+  box.innerHTML = list.map((job, index) => scheduleJobRowHtml(job, index)).join('');
+  renumberScheduleJobs();
+}
+function readScheduleTimeForm() {
+  const publishDate = document.getElementById('scheduleTimePublishDate')?.value || todayYmd();
+  return {
+    publish_date: publishDate,
+    publish_time: document.getElementById('scheduleTimePublishTime')?.value || '20:00',
+    close_date: document.getElementById('scheduleTimeCloseDate')?.value || publishDate,
+    close_time: document.getElementById('scheduleTimeCloseTime')?.value || '23:59',
+    quantity: 1
+  };
+}
+function writeScheduleTimeForm(job) {
+  const row = defaultScheduleJob(job);
+  const pub = document.getElementById('scheduleTimePublishDate');
+  const pubT = document.getElementById('scheduleTimePublishTime');
+  const close = document.getElementById('scheduleTimeCloseDate');
+  const closeT = document.getElementById('scheduleTimeCloseTime');
+  if (pub) pub.value = row.publish_date;
+  if (pubT) pubT.value = row.publish_time;
+  if (close) close.value = row.close_date || row.publish_date;
+  if (closeT) closeT.value = row.close_time;
+}
+function saveScheduleTimeCurrent() {
+  if (!scheduleTimeWizard) return;
+  const job = readScheduleTimeForm();
+  if (!job.close_date) job.close_date = job.publish_date;
+  scheduleTimeWizard.jobs[scheduleTimeWizard.index] = job;
+}
+function renderScheduleTimeWizard() {
+  if (!scheduleTimeWizard) return;
+  const { product, jobs, index } = scheduleTimeWizard;
+  const total = jobs.length;
+  const step = document.getElementById('scheduleTimeModalStep');
+  if (step) step.textContent = `第 ${index + 1} / ${total} 件`;
+  const nextBtn = document.getElementById('scheduleTimeNext');
+  const prevBtn = document.getElementById('scheduleTimePrev');
+  if (nextBtn) nextBtn.textContent = index >= total - 1 ? '帶入排程區' : '下一件';
+  if (prevBtn) prevBtn.disabled = index <= 0;
+  const productBox = document.getElementById('scheduleTimeModalProduct');
+  if (productBox) {
+    const images = Array.isArray(product.images) ? product.images : [];
+    productBox.innerHTML = `${images[0] ? `<img src="${escapeHtml(images[0])}" alt="">` : `<span class="no-img">無圖</span>`}<span><b>${escapeHtml(product.id || '')}</b><small>${escapeHtml(product.title || '')}</small><small>可用 ${scheduleProductAvailable(product)} 件</small></span>`;
+  }
+  const done = document.getElementById('scheduleTimeModalDone');
+  if (done) {
+    done.innerHTML = jobs.map((job, i) => {
+      const filled = job && job.publish_date;
+      const text = filled ? `${job.publish_date} ${job.publish_time} → ${job.close_date || job.publish_date} ${job.close_time}` : '尚未排定';
+      return `<li class="${i === index ? 'is-current' : ''}" data-schedule-time-index="${i}"><span>第 ${i + 1} 件</span><span>${escapeHtml(text)}</span></li>`;
+    }).join('');
+  }
+  writeScheduleTimeForm(jobs[index] || defaultScheduleJob(index > 0 ? jobs[index - 1] : null));
+}
+function closeScheduleTimeModal() {
+  const modal = document.getElementById('scheduleTimeModal');
+  if (modal) modal.hidden = true;
+  scheduleTimeWizard = null;
+}
+function openScheduleTimeModal(p) {
+  if (!p) return;
+  if (p.cloud_auction_locked) {
+    alert('此產品正在競標中，禁止重複排程上架。');
+    return;
+  }
+  const available = scheduleProductAvailable(p);
+  if (available <= 0) return;
+  const first = defaultScheduleJob();
+  scheduleTimeWizard = {
+    product: p,
+    index: 0,
+    jobs: Array.from({ length: available }, () => defaultScheduleJob(first))
+  };
+  const modal = document.getElementById('scheduleTimeModal');
+  if (modal) modal.hidden = false;
+  renderScheduleTimeWizard();
+  document.getElementById('scheduleTimePublishTime')?.focus();
+}
+function applyScheduleTimeJobs(jobs) {
+  const list = (jobs || []).filter(job => job && job.publish_date).map(job => defaultScheduleJob(job));
+  if (!list.length) return;
+  confirmScheduleProduct();
+  replaceScheduleJobs(list);
+  const text = document.getElementById('schedulePendingProductText');
+  const p = findProductById(pendingScheduleProductId);
+  if (text && p) text.textContent = `已確認帶入：${productDisplayValue(p)}，${list.length} 筆工作已進排程區。`;
+  closeScheduleTimeModal();
+  const builder = document.querySelector('.schedule-job-builder');
+  builder?.classList.add('is-filled');
+  builder?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  window.setTimeout(() => builder?.classList.remove('is-filled'), 1800);
+}
+function scheduleTimeNext() {
+  if (!scheduleTimeWizard) return;
+  saveScheduleTimeCurrent();
+  if (scheduleTimeWizard.index >= scheduleTimeWizard.jobs.length - 1) {
+    applyScheduleTimeJobs(scheduleTimeWizard.jobs);
+    return;
+  }
+  scheduleTimeWizard.index += 1;
+  renderScheduleTimeWizard();
+}
+function scheduleTimePrev() {
+  if (!scheduleTimeWizard || scheduleTimeWizard.index <= 0) return;
+  saveScheduleTimeCurrent();
+  scheduleTimeWizard.index -= 1;
+  renderScheduleTimeWizard();
+}
+function scheduleTimeFinishEarly() {
+  if (!scheduleTimeWizard) return;
+  saveScheduleTimeCurrent();
+  applyScheduleTimeJobs(scheduleTimeWizard.jobs.slice(0, scheduleTimeWizard.index + 1));
+}
 function setScheduleProduct(p) {
   pendingScheduleProductId = String(p.id || '');
   const confirm = document.getElementById('confirmScheduleProduct');
@@ -14513,6 +14710,7 @@ function setScheduleProduct(p) {
   if (text) text.textContent = `待確認：${productDisplayValue(p)}，可用庫存 ${scheduleProductAvailable(p)}`;
   renderScheduleProductResults();
   renderScheduleProductPreview(p, false);
+  openScheduleTimeModal(p);
 }
 function confirmScheduleProduct() {
   const p = findProductById(pendingScheduleProductId);
@@ -14811,6 +15009,46 @@ document.getElementById('scheduleProductSearch')?.addEventListener('keydown', (e
   if (product) setScheduleProduct(product);
 });
 document.getElementById('confirmScheduleProduct')?.addEventListener('click', confirmScheduleProduct);
+document.getElementById('scheduleTimeModalClose')?.addEventListener('click', closeScheduleTimeModal);
+document.getElementById('scheduleTimePrev')?.addEventListener('click', scheduleTimePrev);
+document.getElementById('scheduleTimeNext')?.addEventListener('click', scheduleTimeNext);
+document.getElementById('scheduleTimeFinishEarly')?.addEventListener('click', scheduleTimeFinishEarly);
+document.getElementById('scheduleTimeModal')?.addEventListener('click', (event) => {
+  if (event.target.id === 'scheduleTimeModal') closeScheduleTimeModal();
+});
+document.getElementById('scheduleTimeModalDone')?.addEventListener('click', (event) => {
+  const item = event.target.closest?.('[data-schedule-time-index]');
+  if (!item || !scheduleTimeWizard) return;
+  saveScheduleTimeCurrent();
+  scheduleTimeWizard.index = Number(item.dataset.scheduleTimeIndex || 0);
+  renderScheduleTimeWizard();
+});
+document.getElementById('scheduleTimeModal')?.addEventListener('click', (event) => {
+  const closeBtn = event.target.closest?.('[data-schedule-time-close]');
+  if (!closeBtn) return;
+  const input = document.getElementById('scheduleTimeCloseTime');
+  if (input) input.value = closeBtn.dataset.scheduleTimeClose || '23:59';
+});
+document.getElementById('scheduleTimePublishDate')?.addEventListener('change', () => {
+  const closeDate = document.getElementById('scheduleTimeCloseDate');
+  if (closeDate && !closeDate.dataset.touched) closeDate.value = document.getElementById('scheduleTimePublishDate')?.value || closeDate.value;
+});
+document.getElementById('scheduleTimeCloseDate')?.addEventListener('input', (event) => {
+  event.currentTarget.dataset.touched = '1';
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  const modal = document.getElementById('scheduleTimeModal');
+  if (!modal || modal.hidden) return;
+  event.preventDefault();
+  closeScheduleTimeModal();
+});
+document.getElementById('scheduleTimeModal')?.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  if (event.target.closest('button')) return;
+  event.preventDefault();
+  scheduleTimeNext();
+});
 document.getElementById('stockProductSearch')?.addEventListener('input', renderStockProductResults);
 document.getElementById('salesProductSearch')?.addEventListener('input', renderSalesProductResults);
 document.getElementById('stockProductSearch')?.addEventListener('keydown', (event) => {
@@ -15133,8 +15371,6 @@ function readPeriodControls(root) {
     if (cycle) {
       if (fromInput) fromInput.value = cycle.from;
       if (toInput) toInput.value = cycle.to;
-      const hint = root.parentElement?.querySelector('.js-period-label') || root.querySelector('.js-period-label');
-      if (hint) hint.textContent = '目前月結週期：' + cycle.label;
       return { mode, from: cycle.from, to: cycle.to, basis };
     }
   }
@@ -15167,13 +15403,11 @@ function syncBillingCreatePeriod() {
   const monthInput = document.getElementById('billingCycleMonth');
   const fromInput = document.getElementById('billingPeriodFrom');
   const toInput = document.getElementById('billingPeriodTo');
-  const hint = document.getElementById('billingPeriodLabel');
   if (type === 'monthly' && monthInput?.value) {
     const cycle = baohuiMonthlyCycle(monthInput.value);
     if (cycle && fromInput && toInput) {
       fromInput.value = cycle.from;
       toInput.value = cycle.to;
-      if (hint) hint.textContent = '目前月結週期：' + cycle.label;
     }
   }
   refreshFinanceDocumentPickers();
