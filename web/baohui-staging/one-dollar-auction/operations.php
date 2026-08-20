@@ -4,6 +4,7 @@ require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'member-sync-bridge.php';
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-document-no.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'document-print-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'monthly-settlement-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-color-variants-lib.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
@@ -480,6 +481,20 @@ function upload_images($field, $prefix, $folder) {
     }
     return $saved;
 }
+function upload_named_image_map($field, $prefix, $folder) {
+    $saved = [];
+    if (empty($_FILES[$field]['name']) || !is_array($_FILES[$field]['name'])) return $saved;
+    foreach ($_FILES[$field]['name'] as $code => $name) {
+        $code = normalize_barcode_color_code($code);
+        if ($code === '' || !$name || empty($_FILES[$field]['tmp_name'][$code]) || !is_uploaded_file($_FILES[$field]['tmp_name'][$code])) continue;
+        $ext = uploaded_image_ext($name, $_FILES[$field]['type'][$code] ?? '');
+        if ($ext === '') continue;
+        $safe = preg_replace('/[^A-Za-z0-9_-]+/', '-', $prefix . '-' . $code);
+        $relative = $folder . '/' . $safe . '-' . time() . '.' . $ext;
+        if (move_uploaded_file($_FILES[$field]['tmp_name'][$code], __DIR__ . '/' . $relative)) $saved[$code] = $relative;
+    }
+    return $saved;
+}
 function apply_product_uploaded_images(array &$product, $prefix, $mainField, $extraField) {
     $changed = false;
     $main = upload_image($mainField, $prefix . '-main', 'uploads/products');
@@ -802,6 +817,62 @@ function import_product_rows($rows, $products) {
 function product_by_id($products, $id) {
     foreach ($products as $p) if (($p['id'] ?? '') === $id) return $p;
     return [];
+}
+function find_product_index_by_serial_color($products, $serial, $colorCode) {
+    $serial = normalize_barcode_prefix($serial);
+    $colorCode = first_product_code($colorCode);
+    foreach ($products as $i => $product) {
+        if (!is_array($product)) continue;
+        if (product_serial_base($product) !== $serial) continue;
+        if (first_product_code($product['color_code'] ?? '') === $colorCode) return $i;
+    }
+    return -1;
+}
+function upsert_product_row(&$products, $row) {
+    $id = (string)($row['id'] ?? '');
+    if ($id === '') {
+        $products[] = $row;
+        return;
+    }
+    foreach ($products as &$product) {
+        if (($product['id'] ?? '') === $id) {
+            $product = $row;
+            return;
+        }
+    }
+    unset($product);
+    $products[] = $row;
+}
+function append_product_create_inbound(&$stockMovements, $product, $qty, $note = '產品建檔同時入庫') {
+    $qty = max(0, (int)$qty);
+    if ($qty <= 0) return '';
+    $stockDocNo = next_inventory_doc_no('JH', $stockMovements);
+    $cost = (float)($product['cost'] ?? 0);
+    $stockMovements[] = [
+        'id' => uid('stk_'),
+        'type' => '進貨入庫單',
+        'document_no' => $stockDocNo,
+        'source_doc_no' => $stockDocNo,
+        'source_doc_type' => '進貨入庫單',
+        'date' => date('Y-m-d'),
+        'document_date' => date('Y-m-d'),
+        'product_id' => $product['id'] ?? '',
+        'barcode' => $product['barcode'] ?? '',
+        'product_title' => $product['title'] ?? '',
+        'color' => $product['color'] ?? '',
+        'color_code' => $product['color_code'] ?? '',
+        'size' => $product['size'] ?? '',
+        'size_code' => $product['size_code'] ?? '',
+        'spec' => $product['spec'] ?? '',
+        'qty' => $qty,
+        'unit_cost' => $cost,
+        'amount' => $cost * $qty,
+        'total_amount' => $cost * $qty,
+        'note' => $note,
+        'operator' => function_exists('current_operator') ? current_operator() : 'admin',
+        'created_at' => date('c'),
+    ];
+    return $stockDocNo;
 }
 function product_by_key($products, $key) {
     $idx = find_product_key($products, $key);
@@ -1457,8 +1528,10 @@ function next_inventory_doc_no($prefix, $rows) {
     $base = $prefix . '-' . date('Ymd') . '-';
     $max = 0;
     foreach ($rows as $row) {
-        $doc = (string)($row['doc_no'] ?? '');
-        if (strpos($doc, $base) === 0) $max = max($max, (int)substr($doc, strlen($base)));
+        foreach (['doc_no', 'document_no'] as $key) {
+            $doc = (string)($row[$key] ?? '');
+            if (strpos($doc, $base) === 0) $max = max($max, (int)substr($doc, strlen($base)));
+        }
     }
     return $base . str_pad((string)($max + 1), 3, '0', STR_PAD_LEFT);
 }
@@ -1853,7 +1926,9 @@ $marketplaceCategoryMappings = read_data('marketplace_category_mappings');
 $marketplaceListingDrafts = read_data('marketplace_listing_drafts');
 $marketplaceMallCandidates = read_data('marketplace_mall_candidates');
 $productSpecs = normalize_spec_options(read_data('product_specs'));
-foreach (['members', 'returns', 'repair_documents', 'suppliers', 'stock_movements', 'product_categories', 'delivery_notes', 'payment_records', 'finance_expense_categories', 'finance_other_income', 'collection_receipts', 'billing_requests', 'bad_debts', 'fixed_expenses', 'fixed_expense_payments', 'fixed_assets', 'mobile_assets', 'mobile_asset_movements', 'warehouses', 'company_profile', 'color_modules', 'ops_staff_permissions', 'document_workflows', 'inventory_counts', 'inventory_transfers', 'inventory_adjustments', 'purchase_batches', 'purchase_cost_audits', 'purchase_cost_rules', 'marketplace_category_mappings', 'marketplace_listing_drafts', 'marketplace_mall_candidates', 'product_specs', 'post_reply_sets'] as $name) if (!file_exists(data_path($name))) write_data($name, []);
+$colorCodeImages = read_data('color_code_images');
+if (!is_array($colorCodeImages)) $colorCodeImages = [];
+foreach (['members', 'returns', 'repair_documents', 'suppliers', 'stock_movements', 'product_categories', 'delivery_notes', 'payment_records', 'finance_expense_categories', 'finance_other_income', 'collection_receipts', 'billing_requests', 'bad_debts', 'fixed_expenses', 'fixed_expense_payments', 'fixed_assets', 'mobile_assets', 'mobile_asset_movements', 'warehouses', 'company_profile', 'color_modules', 'color_code_images', 'ops_staff_permissions', 'document_workflows', 'inventory_counts', 'inventory_transfers', 'inventory_adjustments', 'purchase_batches', 'purchase_cost_audits', 'purchase_cost_rules', 'marketplace_category_mappings', 'marketplace_listing_drafts', 'marketplace_mall_candidates', 'product_specs', 'post_reply_sets'] as $name) if (!file_exists(data_path($name))) write_data($name, []);
 if (marketplace_seed_category_mappings($marketplaceCategoryMappings, $productCategories, function_exists('current_operator') ? current_operator() : 'system')) {
     write_data('marketplace_category_mappings', $marketplaceCategoryMappings);
 }
@@ -3378,122 +3453,165 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $publishStorefront = false;
             $notice = '已儲存產品，但依公司上架規則阻擋此類外部自有組裝主機。';
         }
-        $productColorCode = trim($_POST['color_code'] ?? ($existing['color_code'] ?? ''));
         $productSizeCode = trim($_POST['size_code'] ?? ($existing['size_code'] ?? ''));
         $serialBase = product_serial_base(array_merge($existing, [
             'id' => $id,
             'original_product_code' => $existing['original_product_code'] ?? ($editingId === '' ? $id : ''),
         ]));
         if ($serialBase === '') $serialBase = $id;
-        $productBarcode = build_product_cost_barcode($serialBase, $productCost, $productColorCode);
-        if ($editingId === '') $id = $productBarcode !== '' ? $productBarcode : $serialBase;
-        $row = [
-            'id' => $id,
-            'barcode' => $productBarcode,
-            'original_product_code' => $serialBase,
-            'title' => $postedTitle,
-            'product_name' => trim($_POST['product_name'] ?? ($_POST['title'] ?? '')),
-            'department' => trim($_POST['department'] ?? ($existing['department'] ?? '電腦部門')),
-            'color_module' => trim($_POST['color_module'] ?? '') ?: 'cm_clothes_shared',
-            'color' => trim($_POST['color'] ?? ''),
-            'color_code' => trim($_POST['color_code'] ?? ''),
-            'size' => trim($_POST['size'] ?? ''),
-            'size_code' => trim($_POST['size_code'] ?? ''),
-            'barcode_cost' => $productCost,
-            'purchase_source' => $purchaseSource,
-            'purchase_source_currency' => $purchaseSourceCurrency,
-            'purchase_source_unit_cost' => $purchaseSourceUnitCost,
-            'purchase_exchange_rate' => $purchaseExchangeRate,
-            'category_group' => $postedCategoryGroup,
-            'product_condition' => (trim($_POST['product_condition'] ?? ($existing['product_condition'] ?? '')) ?: '二手品'),
-            'category_type' => $postedCategoryType,
-            'category_brand' => $postedCategoryBrand,
-            'category_spec' => $postedCategorySpec,
-            'spec' => trim($_POST['spec'] ?? ''),
-            'warehouse_name' => trim($_POST['warehouse_name'] ?? ''),
-            'shelf_code' => normalize_shelf_code($_POST['shelf_code'] ?? ''),
-            'warehouse_location' => (normalize_shelf_code($_POST['shelf_code'] ?? '') === '')
-                ? ''
-                : normalize_warehouse_layer($_POST['warehouse_location'] ?? '', $_POST['shelf_code'] ?? ''),
-            'description_source' => trim($_POST['description_source'] ?? ''),
-            'description' => trim($_POST['description'] ?? '') !== ''
-                ? trim($_POST['description'] ?? '')
-                : trim($_POST['description_source'] ?? ''),
-            'cost' => $productCost,
-            'latest_cost' => (float)($existing['latest_cost'] ?? $productCost),
-            'latest_cost_batch_id' => $existing['latest_cost_batch_id'] ?? '',
-            'latest_cost_formula' => $existing['latest_cost_formula'] ?? '',
-            'latest_cost_updated_at' => $existing['latest_cost_updated_at'] ?? '',
-            'latest_cost_updated_by' => $existing['latest_cost_updated_by'] ?? '',
-            'cost_version' => (int)($existing['cost_version'] ?? 0),
-            'sale_price' => $salePrice,
-            'reference_price' => $referencePrice,
-            'reference_source' => $referenceSource,
-            'reference_url' => $referenceUrl,
-            'reference_checked_at' => $referenceCheckedAt,
-            'publish_storefront' => $publishStorefront,
-            'public_image_approved' => !empty($_POST['public_image_approved']),
-            'stock_total' => $requestedStock,
-            'stock_reserved' => (int)($existing['stock_reserved'] ?? 0),
-            'stock_sold' => (int)($existing['stock_sold'] ?? 0),
-            'cloud_auction_reserved' => (int)($existing['cloud_auction_reserved'] ?? 0),
-            'cloud_auction_locked' => !empty($existing['cloud_auction_locked']),
-            'cloud_inventory_source' => $existing['cloud_inventory_source'] ?? '',
-            'cloud_inventory_source_row' => $existing['cloud_inventory_source_row'] ?? 0,
-            'cloud_inventory_listed_date' => $existing['cloud_inventory_listed_date'] ?? '',
-            'cloud_inventory_remaining' => $existing['cloud_inventory_remaining'] ?? 0,
-            'cloud_inventory_shelves' => $existing['cloud_inventory_shelves'] ?? [],
-            'cloud_inventory_balance_valid' => $existing['cloud_inventory_balance_valid'] ?? true,
-            'cloud_confirmed_sales' => $existing['cloud_confirmed_sales'] ?? [],
-            'cloud_pending_shipments' => $existing['cloud_pending_shipments'] ?? [],
-            'cloud_active_auctions' => $existing['cloud_active_auctions'] ?? [],
-            'cloud_sync_updated_at' => $existing['cloud_sync_updated_at'] ?? '',
-            'start_price' => (float)($existing['start_price'] ?? 1),
-            'bid_step' => (float)($existing['bid_step'] ?? 10),
-            'image' => $main,
-            'extra_images' => array_values(array_unique($extra)),
-            'status' => $_POST['status'] ?? '可排程',
-            'created_at' => $existing['created_at'] ?? date('c'),
-            'updated_at' => date('c'),
-        ];
-        $found = false;
-        foreach ($products as &$p) if (($p['id'] ?? '') === $id) { $p = $row; $found = true; break; }
-        unset($p);
-        if (!$found) $products[] = $row;
-        write_data('products', $products);
-        if ($editingId === '' && $initialQty > 0) {
-            $stockDocNo = next_inventory_doc_no('JH', $stockMovements);
-            $stockMovements[] = [
-                'id' => uid('stk_'),
-                'type' => '進貨入庫單',
-                'document_no' => $stockDocNo,
-                'source_doc_no' => $stockDocNo,
-                'source_doc_type' => '進貨入庫單',
-                'date' => date('Y-m-d'),
-                'document_date' => date('Y-m-d'),
-                'product_id' => $id,
-                'barcode' => $productBarcode,
-                'product_title' => $postedTitle,
-                'color' => $row['color'] ?? '',
-                'color_code' => $row['color_code'] ?? '',
-                'size' => $row['size'] ?? '',
-                'size_code' => $row['size_code'] ?? '',
-                'spec' => $row['spec'] ?? '',
-                'qty' => $initialQty,
-                'unit_cost' => $productCost,
-                'amount' => $productCost * $initialQty,
-                'total_amount' => $productCost * $initialQty,
-                'note' => '產品建檔同時入庫',
-                'operator' => current_operator(),
-                'created_at' => date('c'),
-            ];
-            write_data('stock_movements', $stockMovements);
+        $colorVariants = parse_posted_color_variants($_POST, $initialQty);
+        $colorThumbs = upload_named_image_map('color_thumb', $serialBase . '-color', 'uploads/products');
+        $colorCodeImages = read_data('color_code_images');
+        if (!is_array($colorCodeImages)) $colorCodeImages = [];
+        if ($colorThumbs) {
+            $colorCodeImages = upsert_color_code_image_rows($colorCodeImages, $colorThumbs);
+            write_data('color_code_images', $colorCodeImages);
         }
+        $colorThumbLibrary = color_code_image_lookup($colorCodeImages);
+        $editingColorCode = $editingId !== '' ? first_product_code($existing['color_code'] ?? '') : '';
+        $bindEditingIndex = -1;
+        if ($editingId !== '') {
+            if ($editingColorCode !== '') {
+                foreach ($colorVariants as $variantIndex => $variant) {
+                    if (first_product_code($variant['code'] ?? '') === $editingColorCode) {
+                        $bindEditingIndex = $variantIndex;
+                        break;
+                    }
+                }
+            }
+            if ($bindEditingIndex < 0) $bindEditingIndex = 0;
+        }
+        $primaryId = $editingId !== '' ? $editingId : '';
+        $createdSkuCount = 0;
+        $inboundTotal = 0;
+        $inboundChanged = false;
+        $row = [];
+        foreach ($colorVariants as $variantIndex => $variant) {
+            $variantCode = first_product_code($variant['code'] ?? '');
+            $variantName = trim((string)($variant['name'] ?? ''));
+            $variantQty = max(0, (int)($variant['qty'] ?? 0));
+            $assignToEditing = $editingId !== '' && $variantIndex === $bindEditingIndex;
+            $existingRow = [];
+            $isNewSku = false;
+            $skuId = '';
+            if ($assignToEditing) {
+                $skuId = $editingId;
+                $existingRow = product_by_id($products, $skuId);
+                if (empty($existingRow)) $existingRow = $existing;
+            } else {
+                $siblingIdx = find_product_index_by_serial_color($products, $serialBase, $variantCode);
+                if ($siblingIdx >= 0) {
+                    if (!empty($colorThumbs[$variantCode])) {
+                        $products[$siblingIdx]['color_image'] = $colorThumbs[$variantCode];
+                        $products[$siblingIdx]['updated_at'] = date('c');
+                    }
+                    continue;
+                }
+                $isNewSku = true;
+            }
+            $productBarcode = build_product_cost_barcode($serialBase, $productCost, $variantCode);
+            if ($isNewSku) {
+                $skuId = $productBarcode !== '' ? $productBarcode : ($serialBase . $variantCode);
+                $clash = product_by_id($products, $skuId);
+                if (!empty($clash) && (string)($clash['id'] ?? '') !== (string)$editingId) {
+                    continue;
+                }
+                $existingRow = [];
+            } elseif ($skuId === '') {
+                $skuId = $productBarcode !== '' ? $productBarcode : $serialBase;
+            }
+            $requestedStock = $isNewSku ? $variantQty : max(0, (int)($existingRow['stock_total'] ?? 0));
+            $row = [
+                'id' => $skuId,
+                'barcode' => $productBarcode,
+                'original_product_code' => $serialBase,
+                'title' => $postedTitle,
+                'product_name' => trim($_POST['product_name'] ?? ($_POST['title'] ?? '')),
+                'department' => trim($_POST['department'] ?? ($existingRow['department'] ?? ($existing['department'] ?? '電腦部門'))),
+                'color_module' => trim($_POST['color_module'] ?? '') ?: 'cm_clothes_shared',
+                'color' => $variantName,
+                'color_code' => $variantCode,
+                'color_image' => $colorThumbs[$variantCode] ?? ($existingRow['color_image'] ?? ($colorThumbLibrary[$variantCode] ?? '')),
+                'size' => trim($_POST['size'] ?? ($existingRow['size'] ?? '')),
+                'size_code' => trim($_POST['size_code'] ?? ($existingRow['size_code'] ?? $productSizeCode)),
+                'barcode_cost' => $productCost,
+                'purchase_source' => $purchaseSource,
+                'purchase_source_currency' => $purchaseSourceCurrency,
+                'purchase_source_unit_cost' => $purchaseSourceUnitCost,
+                'purchase_exchange_rate' => $purchaseExchangeRate,
+                'category_group' => $postedCategoryGroup,
+                'product_condition' => (trim($_POST['product_condition'] ?? ($existingRow['product_condition'] ?? ($existing['product_condition'] ?? ''))) ?: '二手品'),
+                'category_type' => $postedCategoryType,
+                'category_brand' => $postedCategoryBrand,
+                'category_spec' => $postedCategorySpec,
+                'spec' => trim($_POST['spec'] ?? ''),
+                'warehouse_name' => trim($_POST['warehouse_name'] ?? ''),
+                'shelf_code' => normalize_shelf_code($_POST['shelf_code'] ?? ''),
+                'warehouse_location' => (normalize_shelf_code($_POST['shelf_code'] ?? '') === '')
+                    ? ''
+                    : normalize_warehouse_layer($_POST['warehouse_location'] ?? '', $_POST['shelf_code'] ?? ''),
+                'description_source' => trim($_POST['description_source'] ?? ''),
+                'description' => trim($_POST['description'] ?? '') !== ''
+                    ? trim($_POST['description'] ?? '')
+                    : trim($_POST['description_source'] ?? ''),
+                'cost' => $productCost,
+                'latest_cost' => (float)($existingRow['latest_cost'] ?? $productCost),
+                'latest_cost_batch_id' => $existingRow['latest_cost_batch_id'] ?? '',
+                'latest_cost_formula' => $existingRow['latest_cost_formula'] ?? '',
+                'latest_cost_updated_at' => $existingRow['latest_cost_updated_at'] ?? '',
+                'latest_cost_updated_by' => $existingRow['latest_cost_updated_by'] ?? '',
+                'cost_version' => (int)($existingRow['cost_version'] ?? 0),
+                'sale_price' => $salePrice,
+                'reference_price' => $referencePrice,
+                'reference_source' => $referenceSource,
+                'reference_url' => $referenceUrl,
+                'reference_checked_at' => $referenceCheckedAt,
+                'publish_storefront' => $publishStorefront,
+                'public_image_approved' => !empty($_POST['public_image_approved']),
+                'stock_total' => $requestedStock,
+                'stock_reserved' => (int)($existingRow['stock_reserved'] ?? 0),
+                'stock_sold' => (int)($existingRow['stock_sold'] ?? 0),
+                'cloud_auction_reserved' => (int)($existingRow['cloud_auction_reserved'] ?? 0),
+                'cloud_auction_locked' => !empty($existingRow['cloud_auction_locked']),
+                'cloud_inventory_source' => $existingRow['cloud_inventory_source'] ?? '',
+                'cloud_inventory_source_row' => $existingRow['cloud_inventory_source_row'] ?? 0,
+                'cloud_inventory_listed_date' => $existingRow['cloud_inventory_listed_date'] ?? '',
+                'cloud_inventory_remaining' => $existingRow['cloud_inventory_remaining'] ?? 0,
+                'cloud_inventory_shelves' => $existingRow['cloud_inventory_shelves'] ?? [],
+                'cloud_inventory_balance_valid' => $existingRow['cloud_inventory_balance_valid'] ?? true,
+                'cloud_confirmed_sales' => $existingRow['cloud_confirmed_sales'] ?? [],
+                'cloud_pending_shipments' => $existingRow['cloud_pending_shipments'] ?? [],
+                'cloud_active_auctions' => $existingRow['cloud_active_auctions'] ?? [],
+                'cloud_sync_updated_at' => $existingRow['cloud_sync_updated_at'] ?? '',
+                'start_price' => (float)($existingRow['start_price'] ?? 1),
+                'bid_step' => (float)($existingRow['bid_step'] ?? 10),
+                'image' => $main !== '' ? $main : ($existingRow['image'] ?? ''),
+                'extra_images' => array_values(array_unique($extra ?: ($existingRow['extra_images'] ?? []))),
+                'status' => $_POST['status'] ?? ($existingRow['status'] ?? '可排程'),
+                'created_at' => $existingRow['created_at'] ?? date('c'),
+                'updated_at' => date('c'),
+            ];
+            upsert_product_row($products, $row);
+            if ($isNewSku) $createdSkuCount++;
+            if ($isNewSku && $variantQty > 0) {
+                append_product_create_inbound($stockMovements, $row, $variantQty);
+                $inboundTotal += $variantQty;
+                $inboundChanged = true;
+            }
+            if ($primaryId === '') $primaryId = $skuId;
+        }
+        write_data('products', $products);
+        if ($inboundChanged) write_data('stock_movements', $stockMovements);
         if (remember_product_spec($productSpecs, $row['spec'] ?? '')) write_data('product_specs', $productSpecs);
-        if (empty($notice)) $notice = $editingId === '' && $initialQty > 0
-            ? ('商品已儲存，並入庫 ' . $initialQty . ' 件。')
-            : '商品已儲存。';
-        header('Location: operations.php?edit_product=' . rawurlencode((string)$id) . '&product_saved=1#products');
+        $skuCount = max(1, count($colorVariants));
+        if (empty($notice)) {
+            if ($inboundTotal > 0 && $skuCount > 1) $notice = '商品已儲存，共 ' . $skuCount . ' 色，並入庫 ' . $inboundTotal . ' 件。';
+            elseif ($inboundTotal > 0) $notice = '商品已儲存，並入庫 ' . $inboundTotal . ' 件。';
+            elseif ($createdSkuCount > 1 || $skuCount > 1) $notice = '商品已儲存，共 ' . $skuCount . ' 色。';
+            else $notice = '商品已儲存。';
+        }
+        if ($primaryId === '') $primaryId = $id;
+        header('Location: operations.php?edit_product=' . rawurlencode((string)$primaryId) . '&product_saved=1&color_skus=' . (int)$skuCount . '&inbound=' . (int)$inboundTotal . '#products');
         exit;
         }
     }
@@ -6457,8 +6575,24 @@ $editProductId = trim((string)($_GET['edit_product'] ?? ''));
 $editProduct = $editProductId !== '' ? (product_by_id($products, $editProductId) ?: product_by_key($products, $editProductId)) : [];
 $isEditingProduct = !empty($editProduct);
 if ($isEditingProduct) $opsInitialTab = 'products';
+$productColorThumbMap = color_code_image_lookup($colorCodeImages);
+if ($isEditingProduct) {
+    $editSerialForThumbs = product_serial_base($editProduct);
+    foreach ($products as $thumbProduct) {
+        if (!is_array($thumbProduct)) continue;
+        if ($editSerialForThumbs !== '' && product_serial_base($thumbProduct) !== $editSerialForThumbs) continue;
+        $thumbCode = first_product_code($thumbProduct['color_code'] ?? '');
+        $thumbImage = trim((string)($thumbProduct['color_image'] ?? ''));
+        if ($thumbCode !== '' && $thumbImage !== '') $productColorThumbMap[$thumbCode] = $thumbImage;
+    }
+}
 if ($notice === '' && isset($_GET['product_saved'])) {
-    $notice = '商品已儲存，可以繼續改名稱、分類、倉位與圖片。';
+    $savedSkuCount = max(0, (int)($_GET['color_skus'] ?? 0));
+    $savedInbound = max(0, (int)($_GET['inbound'] ?? 0));
+    if ($savedInbound > 0 && $savedSkuCount > 1) $notice = '商品已儲存，共 ' . $savedSkuCount . ' 色，並入庫 ' . $savedInbound . ' 件。';
+    elseif ($savedInbound > 0) $notice = '商品已儲存，並入庫 ' . $savedInbound . ' 件。';
+    elseif ($savedSkuCount > 1) $notice = '商品已儲存，共 ' . $savedSkuCount . ' 色。';
+    else $notice = '商品已儲存。';
     $opsInitialTab = 'products';
 }
 $productListQ = trim((string)($_GET['product_q'] ?? ''));
@@ -6914,7 +7048,12 @@ if (($_GET['partial'] ?? '') === 'ops_status') {
 .warehouse-tag{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(243,189,79,.45);background:rgba(243,189,79,.12);color:#f7c65d;border-radius:999px;padding:7px 10px;font-weight:800}
 .warehouse-tag button{border:0;background:#f7c65d;color:#1b121c;border-radius:50%;width:20px;height:20px;font-weight:900;cursor:pointer}
 .warehouse-note{border:1px solid rgba(80,220,210,.5);background:rgba(80,220,210,.08);color:#b9fffb;border-radius:12px;padding:12px;margin:14px 0}
-.ops-sync-pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;padding:8px 12px;color:#334155;font-size:13px;font-weight:700;white-space:nowrap}.product-code-picker{border:1px solid #d8e0ea;border-radius:10px;padding:10px;background:#f8fafc;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;grid-column:span 2;min-width:0;max-width:100%}.product-code-picker label{margin:0;min-width:0}.product-code-picker select,.product-code-picker input,.product-code-picker .button-like{max-width:100%}.product-code-picker .button-like{white-space:nowrap}.product-picked-list{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;min-height:32px}.product-picked-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;padding:6px 10px;font-weight:800;color:#0f172a}.product-picked-chip b{color:#0f766e}.product-picked-chip button{border:0;background:#e2e8f0;border-radius:50%;width:20px;height:20px;cursor:pointer;font-weight:900;color:#334155}.product-code-palette{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;min-height:36px}.product-code-swatch{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:8px 12px;font-weight:800;color:#0f172a;cursor:pointer;line-height:1.2}.product-code-swatch.is-on{background:#0f766e;color:#fff;border-color:#0f766e}.product-picked-chip input[type=number]{width:72px;min-height:30px;border:1px solid #cbd5e1;border-radius:8px;padding:2px 6px;font-weight:800}.product-code-picker select[size]{min-height:148px;height:auto;width:100%}@media(max-width:760px){.product-code-picker{grid-template-columns:1fr;grid-column:1/-1}.product-code-picker .button-like{width:100%}}.ops-sync-pill.is-error{border-color:#fecaca;color:#b91c1c;background:#fff1f2}.warehouse-workflow-note{margin:12px 0;padding:12px 14px;border-left:5px solid #0f766e;background:#ecfdf5;border-radius:8px;color:#064e3b}.warehouse-advanced-add{margin:10px 0 14px;border:1px solid #d8e0ea;border-radius:10px;background:#fff;padding:10px}.warehouse-advanced-add summary{cursor:pointer;font-weight:800}.inline-layer-form{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:8px}.inline-layer-form input{width:150px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px}.warehouse-tree-tools{display:grid;grid-template-columns:minmax(160px,0.7fr) minmax(180px,0.8fr) minmax(220px,1fr);gap:10px;align-items:end;margin:14px 0}.warehouse-tree-tools .muted{grid-column:1/-1}.warehouse-layer-add-form,.warehouse-advanced-add .mini-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}.warehouse-layer-add-form button,.warehouse-advanced-add .mini-form button{grid-column:1/-1;width:100%}.warehouse-tree{display:grid;gap:14px;margin:14px 0 18px}.warehouse-tree-card{border:1px solid #d8e0ea;border-left:8px solid #0f766e;border-radius:12px;background:#fff;overflow:hidden}.warehouse-tree-head{display:flex;justify-content:space-between;gap:12px;align-items:center;background:#f0fdfa;padding:12px 14px;border-bottom:1px solid #d8e0ea}.warehouse-tree-head h3{margin:0}.warehouse-tree-shelf{display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;padding:12px 14px;border-top:1px solid #eef2f7}.warehouse-tree-shelf:first-of-type{border-top:0}.warehouse-tree-shelf b{color:#0f172a}.warehouse-layer-tags{display:flex;gap:8px;flex-wrap:wrap}.warehouse-layer-tag{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:999px;padding:5px 10px;font-weight:800}.warehouse-empty{padding:14px;color:#64748b}.warehouse-tree-card.is-hidden{display:none}.warehouse-raw-details{margin-top:16px;border:1px solid #d8e0ea;border-radius:10px;background:#fff;padding:12px}.warehouse-raw-details summary{cursor:pointer;font-weight:800;color:#0f172a}.warehouse-raw-details[open]{box-shadow:0 10px 24px rgba(15,23,42,.06)}@media(max-width:760px){.warehouse-tree-tools,.warehouse-tree-shelf,.warehouse-layer-add-form,.warehouse-advanced-add .mini-form{grid-template-columns:1fr}.warehouse-layer-add-form select,.warehouse-layer-add-form input,.warehouse-advanced-add select,.warehouse-advanced-add input,.warehouse-tree-tools select,.warehouse-tree-tools input{width:100%;max-width:100%;min-height:42px}.ops-shell{grid-template-columns:1fr}.ops-sync-pill{margin-top:8px}}
+.product-picked-chip{border-radius:18px;padding:6px 8px 6px 10px;position:relative}
+.product-color-thumb{width:38px;height:28px;border-radius:999px;background:#e2e8f0;border:1px solid #cbd5e1;overflow:hidden;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;margin:0;padding:0;position:relative}
+.product-color-thumb img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.product-color-thumb input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}
+.product-code-swatch{display:inline-flex;align-items:center;gap:8px}
+.product-code-swatch .product-color-thumb{width:26px;height:20px;cursor:inherit;pointer-events:none}.product-code-picker{border:1px solid #d8e0ea;border-radius:10px;padding:10px;background:#f8fafc;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;grid-column:span 2;min-width:0;max-width:100%}.product-code-picker label{margin:0;min-width:0}.product-code-picker select,.product-code-picker input,.product-code-picker .button-like{max-width:100%}.product-code-picker .button-like{white-space:nowrap}.product-picked-list{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;min-height:32px}.product-picked-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;padding:6px 10px;font-weight:800;color:#0f172a}.product-picked-chip b{color:#0f766e}.product-picked-chip button{border:0;background:#e2e8f0;border-radius:50%;width:20px;height:20px;cursor:pointer;font-weight:900;color:#334155}.product-code-palette{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;min-height:36px}.product-code-swatch{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:8px 12px;font-weight:800;color:#0f172a;cursor:pointer;line-height:1.2}.product-code-swatch.is-on{background:#0f766e;color:#fff;border-color:#0f766e}.product-picked-chip input[type=number]{width:72px;min-height:30px;border:1px solid #cbd5e1;border-radius:8px;padding:2px 6px;font-weight:800}.product-code-picker select[size]{min-height:148px;height:auto;width:100%}@media(max-width:760px){.product-code-picker{grid-template-columns:1fr;grid-column:1/-1}.product-code-picker .button-like{width:100%}}.ops-sync-pill.is-error{border-color:#fecaca;color:#b91c1c;background:#fff1f2}.warehouse-workflow-note{margin:12px 0;padding:12px 14px;border-left:5px solid #0f766e;background:#ecfdf5;border-radius:8px;color:#064e3b}.warehouse-advanced-add{margin:10px 0 14px;border:1px solid #d8e0ea;border-radius:10px;background:#fff;padding:10px}.warehouse-advanced-add summary{cursor:pointer;font-weight:800}.inline-layer-form{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:8px}.inline-layer-form input{width:150px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px}.warehouse-tree-tools{display:grid;grid-template-columns:minmax(160px,0.7fr) minmax(180px,0.8fr) minmax(220px,1fr);gap:10px;align-items:end;margin:14px 0}.warehouse-tree-tools .muted{grid-column:1/-1}.warehouse-layer-add-form,.warehouse-advanced-add .mini-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}.warehouse-layer-add-form button,.warehouse-advanced-add .mini-form button{grid-column:1/-1;width:100%}.warehouse-tree{display:grid;gap:14px;margin:14px 0 18px}.warehouse-tree-card{border:1px solid #d8e0ea;border-left:8px solid #0f766e;border-radius:12px;background:#fff;overflow:hidden}.warehouse-tree-head{display:flex;justify-content:space-between;gap:12px;align-items:center;background:#f0fdfa;padding:12px 14px;border-bottom:1px solid #d8e0ea}.warehouse-tree-head h3{margin:0}.warehouse-tree-shelf{display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;padding:12px 14px;border-top:1px solid #eef2f7}.warehouse-tree-shelf:first-of-type{border-top:0}.warehouse-tree-shelf b{color:#0f172a}.warehouse-layer-tags{display:flex;gap:8px;flex-wrap:wrap}.warehouse-layer-tag{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:999px;padding:5px 10px;font-weight:800}.warehouse-empty{padding:14px;color:#64748b}.warehouse-tree-card.is-hidden{display:none}.warehouse-raw-details{margin-top:16px;border:1px solid #d8e0ea;border-radius:10px;background:#fff;padding:12px}.warehouse-raw-details summary{cursor:pointer;font-weight:800;color:#0f172a}.warehouse-raw-details[open]{box-shadow:0 10px 24px rgba(15,23,42,.06)}@media(max-width:760px){.warehouse-tree-tools,.warehouse-tree-shelf,.warehouse-layer-add-form,.warehouse-advanced-add .mini-form{grid-template-columns:1fr}.warehouse-layer-add-form select,.warehouse-layer-add-form input,.warehouse-advanced-add select,.warehouse-advanced-add input,.warehouse-tree-tools select,.warehouse-tree-tools input{width:100%;max-width:100%;min-height:42px}.ops-shell{grid-template-columns:1fr}.ops-sync-pill{margin-top:8px}}
 .stock-filter-grid{display:grid;grid-template-columns:1.4fr repeat(3,minmax(0,1fr));gap:12px}
 @media(max-width:900px){.warehouse-grid,.warehouse-manage-grid,.stock-filter-grid{grid-template-columns:1fr}}
 .ops-wrap,.ops-card,.product-form{min-width:0}
@@ -8208,7 +8347,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
   <section class="ops-card ops-tab" id="products">
     <h2><?= $isEditingProduct ? '編輯產品' : '產品建檔' ?></h2>
-    <p class="muted"><?= $isEditingProduct ? '這筆已建檔，可以直接改名稱、分類、顏色尺寸、倉位與圖片，再按「儲存產品修改」。' : '此頁只建立產品主檔：分類英文編號、列印條碼、名稱、顏色尺寸、成本、倉位與圖片。實際補庫存請到「進貨單據」，系統會留下進貨紀錄。' ?></p>
+    <p class="muted"><?= $isEditingProduct ? '這筆已建檔，可以直接改名稱、分類、顏色尺寸、倉位與圖片，再按「儲存產品修改」。加選顏色並填數量後儲存，會另建該色條碼並入庫。' : '選顏色、在色塊填數量後儲存，會依顏色建條碼並入庫。' ?></p>
     <div class="form-actions"><a class="button-like" href="#stock-in" data-jump-tab="stock-in">去進貨單據</a><a class="button-like" href="#suppliers" data-jump-tab="suppliers">去廠商建檔</a></div>
     <form method="post" enctype="multipart/form-data" class="product-form" id="productMasterForm" autocomplete="off" action="operations.php#products">
       <input type="hidden" name="action" value="save_product">
@@ -8280,6 +8419,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         <button type="button" class="button-like" id="addProductColorPair">加入顏色</button>
         <input type="hidden" name="color" id="productColorInput" value="<?=h($editProduct['color'] ?? '')?>">
         <input type="hidden" name="color_code" id="productColorCodeInput" value="<?=h($editProduct['color_code'] ?? '')?>">
+        <input type="hidden" name="color_variants" id="productColorVariantsInput" value="">
         <div class="product-code-palette" id="productColorPalette"></div>
         <div class="product-picked-list" id="productColorPicked"></div>
       </div>
@@ -8293,7 +8433,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         <div class="product-code-palette" id="productSizePalette"></div>
         <div class="product-picked-list" id="productSizePicked"></div>
       </div>
-      <label>建檔數量<input name="initial_stock_qty" id="productInitialQty" type="number" min="0" step="1" value="<?=h($isEditingProduct ? (int)($editProduct['stock_total'] ?? 0) : 0)?>" <?=$isEditingProduct?'readonly':''?>><small class="muted"><?= $isEditingProduct ? '已建檔數量請用下面「條碼快速入庫」或進貨單據加減。' : '每個已選顏色可填數量，會加總到這裡；0 表示只建檔、稍後再入庫。' ?></small></label>
+      <label>建檔數量<input name="initial_stock_qty" id="productInitialQty" type="number" min="0" step="1" value="<?=h($isEditingProduct ? (int)($editProduct['stock_total'] ?? 0) : 0)?>" <?=$isEditingProduct?'readonly':''?>><small class="muted"><?= $isEditingProduct ? '已建檔數量請用下面「條碼快速入庫」或進貨單據加減。' : '各顏色數量會加總到這裡；儲存時依顏色入庫，0 表示只建檔。' ?></small></label>
       <div class="spec-combo" id="productSpecCombo">
         <div class="spec-combo-head">
           <label>規格<input name="spec" id="productSpecInput" placeholder="容量、材質、版本等，可打字或挑選" value="<?=h($editProduct['spec'] ?? '')?>" autocomplete="off"><small class="muted">可選清單或直接打字；離開欄位會自動記住，下次就能挑。</small></label>
@@ -12844,6 +12984,7 @@ const productCategoryRules = <?php echo json_encode($productCategoryRulesForJs, 
 const stockCategoryRules = <?php echo json_encode($stockCategoryRulesForJs, json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const salesCustomerDirectory = <?php echo json_encode(member_contact_directory($members), json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const productColorCodeMap = <?php echo json_encode($barcodeColorCodes, json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
+const productColorThumbMap = <?php echo json_encode($productColorThumbMap ?? [], json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const productSizeCodeMap = <?php echo json_encode($barcodeSizeCodes, json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const departmentWarehouseMap = <?php echo json_encode(department_warehouse_map(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 const warehouseTreeData = <?php echo json_encode(warehouse_tree($warehouses), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
@@ -13253,7 +13394,15 @@ function refreshColorSizeOptions() {
     return pairs;
   };
   const useShared = !module || String(module.id || '') === 'cm_clothes_shared';
-  const colorPairs = fill(colorSelect, useShared && moduleSelect.value === 'cm_clothes_shared' ? Object.values(productColorCodeMap || {}) : (module ? module.colors : []), productColorCodeMap, '請選擇模組顏色');
+  const sortColorValues = (values, map) => uniqueClean(values || []).slice().sort((a, b) => {
+    const ac = String(codeForName(map, a) || '').replace(/[^A-Za-z0-9]/g, '');
+    const bc = String(codeForName(map, b) || '').replace(/[^A-Za-z0-9]/g, '');
+    if (ac === bc) return String(a).localeCompare(String(b), 'zh-Hant');
+    if (/^\d+$/.test(ac) && /^\d+$/.test(bc)) return Number(ac) - Number(bc);
+    return ac.localeCompare(bc, 'zh-Hant', { numeric: true });
+  });
+  const colorSource = useShared && moduleSelect.value === 'cm_clothes_shared' ? Object.values(productColorCodeMap || {}) : (module ? module.colors : []);
+  const colorPairs = fill(colorSelect, sortColorValues(colorSource, productColorCodeMap), productColorCodeMap, '請選擇模組顏色');
   const sizePairs = fill(sizeSelect, useShared && moduleSelect.value === 'cm_clothes_shared' ? Object.values(productSizeCodeMap || {}) : (module ? module.sizes : []), productSizeCodeMap, '請選擇模組尺寸');
   if (window.productColorPicker && typeof window.productColorPicker.setChoices === 'function') window.productColorPicker.setChoices(colorPairs);
   if (window.productSizePicker && typeof window.productSizePicker.setChoices === 'function') window.productSizePicker.setChoices(sizePairs);
@@ -13705,8 +13854,13 @@ function setupProductCategoryCascade() {
     const typeCode = String(matchedRule?.type_code || categoryTypeCodeMap[type] || (type ? 'ITEM' : '')).trim();
     const serial = isEditing ? existingSerial : String(matchedRule?.next_serial || (typeCode ? typeCode + '001' : ''));
     const cost = document.getElementById('productCostInput')?.value || 0;
-    const color = firstPickedCode(document.getElementById('productColorCodeInput')?.value || '');
-    const preview = printedBarcode(serial, cost, color);
+    const colorCodes = String(document.getElementById('productColorCodeInput')?.value || '')
+      .split(/[、,，\s]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const previews = (colorCodes.length ? colorCodes : ['']).map((color) => printedBarcode(serial, cost, color)).filter(Boolean);
+    const preview = previews[0] || '';
+    const previewAll = previews.join('、');
     if (serialInput) {
       serialInput.value = serial;
       serialInput.dataset.systemValue = serial;
@@ -13723,10 +13877,12 @@ function setupProductCategoryCascade() {
       submit.disabled = !isEditing;
       return;
     }
-    barcodeInput.value = preview;
+    barcodeInput.value = previewAll || preview;
     barcodeHint.textContent = isEditing
-      ? ('流水 ' + serial + ' 保留；列印條碼依成本與顏色更新為 ' + preview + '。')
-      : ('目前編號 ' + (preview || (serial + 'P成本＋顏色碼')) + '。手打的分類／品牌／細分類可按旁邊儲存，下次就能選。');
+      ? ('流水 ' + serial + ' 保留；列印條碼依成本與顏色更新為 ' + (previewAll || preview) + '。')
+      : (previews.length > 1
+        ? ('目前 ' + previews.length + ' 色：' + previewAll + '。')
+        : ('目前編號 ' + (preview || (serial + 'P成本＋顏色碼')) + '。'));
     submit.disabled = false;
   };
   window.refreshProductIdentityPreview = updateBarcodePreview;
@@ -14039,21 +14195,71 @@ function escapeHtml(value) {
 function splitPickedValues(value) {
   return String(value || '').split(/[、,，\n]/).map((item) => item.trim()).filter(Boolean);
 }
+function compareColorCodes(a, b) {
+  const ac = String(a || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const bc = String(b || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  if (ac === bc) return 0;
+  if (!ac) return 1;
+  if (!bc) return -1;
+  if (/^\d+$/.test(ac) && /^\d+$/.test(bc)) return Number(ac) - Number(bc);
+  return ac.localeCompare(bc, 'zh-Hant', { numeric: true });
+}
+function colorThumbUrl(code, localUrl) {
+  if (localUrl) return localUrl;
+  const key = String(code || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  return (window.productColorThumbMap && window.productColorThumbMap[key])
+    || (window.productColorThumbMap && window.productColorThumbMap[code])
+    || (productColorThumbMap && (productColorThumbMap[key] || productColorThumbMap[code]))
+    || '';
+}
+function colorThumbMarkup(code, localUrl, interactive) {
+  const src = colorThumbUrl(code, localUrl);
+  const img = src ? '<img src="' + escapeHtml(src) + '" alt="">' : '';
+  if (!interactive) return '<span class="product-color-thumb">' + img + '</span>';
+  const fieldName = 'color_thumb[' + String(code || '').replace(/[^A-Za-z0-9]/g, '') + ']';
+  return '<label class="product-color-thumb" title="上傳顏色縮圖"><input type="file" name="' + escapeHtml(fieldName) + '" accept="image/*" data-color-thumb="' + encodeURIComponent(code || '') + '">' + img + '</label>';
+}
 function setupProductCodePicker(config) {
   const select = document.getElementById(config.selectId);
   const add = document.getElementById(config.addId);
   const nameInput = document.getElementById(config.nameInputId);
   const codeInput = document.getElementById(config.codeInputId);
+  const variantsInput = document.getElementById(config.variantsInputId || '');
   const list = document.getElementById(config.listId);
   const palette = document.getElementById(config.paletteId || '');
   const qtyTotal = document.getElementById(config.qtyTotalId || '');
   const trackQty = !!config.trackQty;
+  const sortByCode = !!config.sortByCode;
+  const withThumbs = !!config.withThumbs;
+  const defaultQty = Number.isFinite(Number(config.defaultQty)) ? Math.max(0, Number(config.defaultQty)) : 1;
   if (!select || !add || !nameInput || !codeInput || !list) return null;
   let items = [];
   let choices = [];
+  const sortItems = () => {
+    if (!sortByCode) return;
+    items.sort((a, b) => compareColorCodes(a.code, b.code) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant'));
+  };
+  const restoreThumbFiles = () => {
+    if (!withThumbs) return;
+    list.querySelectorAll('input[data-color-thumb]').forEach((input) => {
+      const code = decodeURIComponent(input.dataset.colorThumb || '');
+      const item = items.find((row) => String(row.code || '') === code);
+      if (!item || !item.file || typeof DataTransfer === 'undefined') return;
+      const transfer = new DataTransfer();
+      transfer.items.add(item.file);
+      input.files = transfer.files;
+    });
+  };
   const syncInputs = () => {
     nameInput.value = items.map((item) => item.name).join('、');
     codeInput.value = items.map((item) => item.code).join('、');
+    if (variantsInput) {
+      variantsInput.value = JSON.stringify(items.map((item) => ({
+        code: item.code || '',
+        name: item.name || '',
+        qty: Math.max(0, Number(item.qty) || 0)
+      })));
+    }
     if (trackQty && qtyTotal && !qtyTotal.readOnly) {
       const total = items.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
       qtyTotal.value = String(total);
@@ -14065,18 +14271,23 @@ function setupProductCodePicker(config) {
       palette.innerHTML = '<span class="muted">請先選顏色尺碼類別。</span>';
       return;
     }
-    palette.innerHTML = choices.map((item) => {
+    const sortedChoices = sortByCode ? choices.slice().sort((a, b) => compareColorCodes(a.code, b.code) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant')) : choices;
+    palette.innerHTML = sortedChoices.map((item) => {
       const on = items.some((picked) => picked.code === item.code && picked.name === item.name);
-      return '<button type="button" class="product-code-swatch' + (on ? ' is-on' : '') + '" data-code="' + encodeURIComponent(item.code || '') + '" data-name="' + encodeURIComponent(item.name || '') + '">' + escapeHtml((item.code ? item.code + '　' : '') + item.name) + '</button>';
+      const thumb = withThumbs ? colorThumbMarkup(item.code, '', false) : '';
+      return '<button type="button" class="product-code-swatch' + (on ? ' is-on' : '') + '" data-code="' + encodeURIComponent(item.code || '') + '" data-name="' + encodeURIComponent(item.name || '') + '">' + thumb + escapeHtml((item.code ? item.code + '　' : '') + item.name) + '</button>';
     }).join('');
   };
   const render = () => {
+    sortItems();
     list.innerHTML = items.map((item, index) => {
       const qtyField = trackQty
         ? '<input type="number" min="0" step="1" value="' + Math.max(0, Number(item.qty) || 0) + '" data-qty-index="' + index + '" aria-label="數量">'
         : '';
-      return '<span class="product-picked-chip"><b>' + escapeHtml(item.code) + '</b>' + escapeHtml(item.name) + qtyField + '<button type="button" data-remove="' + index + '">×</button></span>';
+      const thumb = withThumbs ? colorThumbMarkup(item.code, item.preview || '', true) : '';
+      return '<span class="product-picked-chip" data-color-code="' + encodeURIComponent(item.code || '') + '"><b>' + escapeHtml(item.code) + '</b>' + escapeHtml(item.name) + qtyField + thumb + '<button type="button" data-remove="' + index + '">×</button></span>';
     }).join('');
+    restoreThumbFiles();
     syncInputs();
     renderPalette();
     if (typeof window.refreshProductIdentityPreview === 'function') window.refreshProductIdentityPreview();
@@ -14089,7 +14300,7 @@ function setupProductCodePicker(config) {
     for (let i = 0; i < count; i += 1) {
       const code = codes[i] || '';
       const name = names[i] || config.map[code] || '';
-      if (code || name) items.push({ code, name, qty: 1 });
+      if (code || name) items.push({ code, name, qty: defaultQty, preview: colorThumbUrl(code, ''), file: null });
     }
     render();
   };
@@ -14103,7 +14314,13 @@ function setupProductCodePicker(config) {
       render();
       return;
     }
-    items.push({ code, name, qty: trackQty ? Math.max(0, Number(qty == null ? 1 : qty) || 0) : 1 });
+    items.push({
+      code,
+      name,
+      qty: trackQty ? Math.max(0, Number(qty == null ? 1 : qty) || 0) : 1,
+      preview: colorThumbUrl(code, ''),
+      file: null
+    });
     render();
   };
   const takeSelectValue = () => {
@@ -14130,6 +14347,18 @@ function setupProductCodePicker(config) {
     items[index].qty = Math.max(0, Number(field.value) || 0);
     syncInputs();
   });
+  list.addEventListener('change', (event) => {
+    const input = event.target.closest('input[data-color-thumb]');
+    if (!input || !input.files || !input.files[0]) return;
+    const code = decodeURIComponent(input.dataset.colorThumb || '');
+    const item = items.find((row) => String(row.code || '') === code);
+    if (!item) return;
+    item.file = input.files[0];
+    item.preview = URL.createObjectURL(item.file);
+    const img = input.parentElement?.querySelector('img');
+    if (img) img.src = item.preview;
+    else input.parentElement?.insertAdjacentHTML('beforeend', '<img src="' + item.preview + '" alt="">');
+  });
   palette?.addEventListener('click', (event) => {
     const swatch = event.target.closest('.product-code-swatch');
     if (!swatch) return;
@@ -14140,6 +14369,27 @@ function setupProductCodePicker(config) {
     else addPair(code, name, 1);
     render();
   });
+  list.addEventListener('paste', async (event) => {
+    if (!withThumbs) return;
+    const files = Array.from(event.clipboardData?.files || []).filter((file) => String(file.type || '').startsWith('image/'));
+    if (!files.length) return;
+    event.preventDefault();
+    const chip = event.target.closest('.product-picked-chip');
+    const code = chip ? decodeURIComponent(chip.dataset.colorCode || '') : (items[items.length - 1]?.code || '');
+    const item = items.find((row) => String(row.code || '') === code) || items[items.length - 1];
+    if (!item) return;
+    const input = list.querySelector('input[data-color-thumb="' + encodeURIComponent(item.code || '') + '"]');
+    item.file = files[0];
+    item.preview = URL.createObjectURL(item.file);
+    if (input && typeof DataTransfer !== 'undefined') {
+      const transfer = new DataTransfer();
+      transfer.items.add(item.file);
+      input.files = transfer.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+      render();
+    }
+  });
   normalizeInitial();
   return {
     addPair,
@@ -14149,7 +14399,8 @@ function setupProductCodePicker(config) {
     clear: () => { items = []; render(); }
   };
 }
-window.productColorPicker = setupProductCodePicker({ selectId: 'productColorPairSelect', addId: 'addProductColorPair', nameInputId: 'productColorInput', codeInputId: 'productColorCodeInput', listId: 'productColorPicked', paletteId: 'productColorPalette', qtyTotalId: 'productInitialQty', trackQty: true, map: legacyBarcodeColorCodes });
+window.productColorThumbMap = productColorThumbMap;
+window.productColorPicker = setupProductCodePicker({ selectId: 'productColorPairSelect', addId: 'addProductColorPair', nameInputId: 'productColorInput', codeInputId: 'productColorCodeInput', variantsInputId: 'productColorVariantsInput', listId: 'productColorPicked', paletteId: 'productColorPalette', qtyTotalId: 'productInitialQty', trackQty: true, sortByCode: true, withThumbs: true, defaultQty: document.querySelector('#productMasterForm input[name="editing_product_id"]')?.value ? 0 : 1, map: legacyBarcodeColorCodes });
 window.productSizePicker = setupProductCodePicker({ selectId: 'productSizePairSelect', addId: 'addProductSizePair', nameInputId: 'productSizeInput', codeInputId: 'productSizeCodeInput', listId: 'productSizePicked', paletteId: 'productSizePalette', map: legacyBarcodeSizeCodes });
 const productColorPicker = window.productColorPicker;
 const productSizePicker = window.productSizePicker;
