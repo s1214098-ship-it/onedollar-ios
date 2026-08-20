@@ -710,6 +710,7 @@
       '.quote-history-row .quote-history-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}' +
       '.quote-history-row .quote-history-price{color:#15803d;font-weight:800;margin-right:4px}' +
       '@media(max-width:760px){.quote-history-row{grid-template-columns:1fr}.quote-history-row .quote-history-actions{justify-content:flex-start}}' +
+      '#coolpcQuoteFrame{width:100%;min-height:780px;height:78vh;border:1px solid #dbe5f2;border-radius:10px;background:#fff}' +
       '</style>' +
       '<h4 class="mb-4">寶輝科技正式估價單</h4>' +
       '<div class="alert alert-info">估價單號自動產生 VAL-當天日期-流水號。清單按「轉現貨出貨單」後，出貨單也是 VAL-日期-流水；正規銷售出庫單是 SELL-日期-流水。客戶與品項會進銷售出庫單，可列印、篩選、修正。</div>' +
@@ -753,6 +754,13 @@
             '</div>' +
           '</div>' +
           '<div class="small text-muted">第一年硬體代送費 800 元（一年內非人為處理）。組裝費用 1,500 元另計。第二年硬體維護 800 元、第三年 500 元為選購，可加可不加。</div>' +
+        '</div>' +
+        '<div class="border rounded p-3 my-3 bg-white" id="coolpcQuoteBox">' +
+          '<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">' +
+            '<h6 class="mb-0">原價屋報價</h6>' +
+            '<a class="btn btn-sm btn-outline-primary" href="https://coolpc.com.tw/evaluate.php" target="_blank" rel="noopener">開原價屋官網</a>' +
+          '</div>' +
+          '<iframe id="coolpcQuoteFrame" title="原價屋線上估價" src="https://coolpc.com.tw/evaluate.php"></iframe>' +
         '</div>' +
         '<div class="border rounded p-3 my-3 bg-light">' +
           '<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">' +

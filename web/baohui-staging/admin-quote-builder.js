@@ -226,7 +226,7 @@
     const slot = findSlot(catalog, state.activeSlotId);
     box.innerHTML =
       '<div class="qb-head">' +
-        "<div><h6>原價屋報價</h6></div>" +
+        "<div><h6>寶輝組裝估價</h6></div>" +
         '<div id="quoteBuilderTotal">尚未選件</div>' +
       "</div>" +
       pickedHtml(catalog) +
@@ -358,7 +358,7 @@
       const box = document.createElement("div");
       box.id = "quoteBuilderBox";
       box.className = "alert alert-warning";
-      box.textContent = "原價屋報價選單載入失敗：" + (err && err.message ? err.message : "請重新登入");
+      box.textContent = "寶輝組裝估價選單載入失敗：" + (err && err.message ? err.message : "請重新登入");
       wrap.parentNode.insertBefore(box, wrap);
     }
   }
