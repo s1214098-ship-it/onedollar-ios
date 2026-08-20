@@ -43,7 +43,7 @@
   }
 
   function compareClass(label) {
-    if (label === '已簽收完成') return 'is-signed-done';
+    if (label === '已簽收完成' || label === '已簽收') return 'is-signed-done';
     if (label === '已對上' || (label && label.indexOf('已帶入') !== -1)) return 'is-matched';
     if (label && (label.indexOf('未帶入') !== -1 || label.indexOf('未建檔') !== -1)) return 'is-missing';
     if (label && (label.indexOf('不同') !== -1 || label.indexOf('沒有') !== -1)) return 'is-diff';
@@ -57,6 +57,22 @@
     }).join(' ');
     if (/待[簽签]收|未[簽签]收/.test(blob)) return false;
     return /已[簽签]收/.test(blob) || blob.indexOf('已簽收完成') !== -1;
+  }
+
+  function isWaitingRow(row) {
+    var blob = [row && row.haohongStatus, row && row.packageStatus, row && row.localStatus].map(function (value) {
+      return String(value || '');
+    }).join(' ');
+    return /待[簽签]收|未[簽签]收/.test(blob);
+  }
+
+  function statusPill(row, raw) {
+    var signed = isSignedRow(row);
+    var text = String(raw == null ? '' : raw);
+    if (signed) return '<span class="haohong-status-pill is-signed">已簽收</span>';
+    if (isWaitingRow(row) || /待[簽签]收|未[簽签]收/.test(text)) return '<span class="haohong-status-pill is-wait">待簽收</span>';
+    if (/已[簽签]收/.test(text) || text.indexOf('已簽收完成') !== -1) return '<span class="haohong-status-pill is-signed">已簽收</span>';
+    return text ? escapeHtml(text) : '<span class="haohong-status-pill is-wait">未簽收</span>';
   }
 
   function statusFilterValue() {
@@ -140,7 +156,7 @@
         return false;
       }
       var label = String(row.compare || '');
-      if (filter === 'matched') return label === '已對上' || label.indexOf('已帶入') !== -1 || label === '已簽收完成';
+    if (filter === 'matched') return label === '已對上' || label.indexOf('已帶入') !== -1 || label === '已簽收完成' || label === '已簽收';
       if (filter === 'remote-only') return !signed && label.indexOf('豪鴻有') !== -1;
       if (filter === 'local-only') return !signed && label.indexOf('後台有') !== -1 && label.indexOf('沒有') !== -1;
       if (filter === 'diff') return !signed && label.indexOf('不同') !== -1;
@@ -164,9 +180,9 @@
           var hit = queryHitsPackage(pkg, q);
           return '<tr><td class="' + (hit ? 'haohong-hit-tracking' : '') + '">' + escapeHtml(pkg.trackingNo || '') +
             '</td><td>' + escapeHtml(pkg.productName || '') +
-            '</td><td>' + escapeHtml(pkg.packageStatus || '已簽收完成') +
+            '</td><td>' + statusPill(pkg, pkg.packageStatus) +
             '</td><td>' + escapeHtml([pkg.backendCode, pkg.backendProduct].filter(Boolean).join(' ')) +
-            '</td><td class="is-signed-done">已簽收完成</td></tr>';
+            '</td><td class="is-signed-done">已簽收</td></tr>';
         }).join('') + '</tbody></table>';
     }
     var missing = pkgs.filter(function (pkg) { return String(pkg.compare || '').indexOf('未建檔') !== -1; }).length;
@@ -178,7 +194,7 @@
         var hit = queryHitsPackage(pkg, q);
         return '<tr><td class="' + (hit ? 'haohong-hit-tracking' : '') + '">' + escapeHtml(pkg.trackingNo || '') +
           '</td><td>' + escapeHtml(pkg.productName || '') +
-          '</td><td>' + escapeHtml(pkg.packageStatus || '') +
+          '</td><td>' + statusPill(pkg, pkg.packageStatus) +
           '</td><td>' + escapeHtml([pkg.backendCode, pkg.backendProduct].filter(Boolean).join(' ')) +
           '</td><td class="' + compareClass(pkg.compare) + '">' + escapeHtml(pkg.compare || '') + '</td></tr>';
       }).join('') + '</tbody></table>';
@@ -216,10 +232,10 @@
       html = '<table class="haohong-logistics-table"><thead><tr>' +
         '<th>物流單號</th><th>批號</th><th>豪鴻品名</th><th>豪鴻狀態</th><th>倉別</th><th>計費重</th><th>後台商品</th><th>比對</th>' +
         '</tr></thead><tbody>' + rows.map(function (row) {
-          return '<tr><td class="' + (queryHitsPackage(row, q) ? 'haohong-hit-tracking' : '') + '">' + escapeHtml(row.trackingNo) + '</td><td>' + escapeHtml(row.batchNo) + '</td><td>' + escapeHtml(row.productName) +
-            '</td><td>' + escapeHtml(row.packageStatus) + '</td><td>' + escapeHtml(row.warehouse) +
+          return '<tr class="' + (isSignedRow(row) ? 'is-signed-row' : (isWaitingRow(row) ? 'is-wait-row' : '')) + '"><td class="' + (queryHitsPackage(row, q) ? 'haohong-hit-tracking' : '') + '">' + escapeHtml(row.trackingNo) + '</td><td>' + escapeHtml(row.batchNo) + '</td><td>' + escapeHtml(row.productName) +
+            '</td><td>' + statusPill(row, row.packageStatus) + '</td><td>' + escapeHtml(row.warehouse) +
             '</td><td>' + escapeHtml(row.billedWeightKg || 0) + ' kg</td><td>' + escapeHtml([row.backendCode, row.backendProduct].filter(Boolean).join(' ')) +
-            '</td><td class="' + compareClass(row.compare) + '">' + escapeHtml(row.compare) + '</td></tr>';
+            '</td><td class="' + compareClass(row.compare) + '">' + escapeHtml(isSignedRow(row) ? '已簽收' : row.compare) + '</td></tr>';
         }).join('') + '</tbody></table>';
     } else {
       html = '<table class="haohong-logistics-table"><thead><tr>' +
@@ -228,15 +244,16 @@
           var id = batchId(row);
           var open = isBatchOpen(row, q);
           var count = packagesForBatch(row).length;
-          var main = '<tr class="haohong-batch-row' + (open ? ' is-open' : '') + '">' +
-            '<td><button type="button" class="haohong-batch-toggle" data-haohong-expand="' + escapeHtml(id) + '" aria-expanded="' + (open ? 'true' : 'false') + '"><span class="haohong-batch-chevron"></span><b>' + escapeHtml(row.batchNo) + '</b><small>' + count + ' 筆物流</small></button></td>' +
-            '<td>' + escapeHtml(row.haohongStatus) +
+          var signed = isSignedRow(row);
+          var main = '<tr class="haohong-batch-row' + (open ? ' is-open' : '') + (signed ? ' is-signed-row' : (isWaitingRow(row) ? ' is-wait-row' : '')) + '">' +
+            '<td><button type="button" class="haohong-batch-toggle" data-haohong-expand="' + escapeHtml(id) + '" aria-expanded="' + (open ? 'true' : 'false') + '"><span class="haohong-batch-chevron"></span><b>' + escapeHtml(row.batchNo) + '</b><small>' + (signed ? '已簽收 · ' : (isWaitingRow(row) ? '待簽收 · ' : '')) + count + ' 筆物流</small></button></td>' +
+            '<td>' + statusPill(row, row.haohongStatus) +
             '</td><td>' + escapeHtml(String(row.orderDate || '').replace('T', ' ').slice(0, 16)) +
             '</td><td>' + escapeHtml(row.transferOrderNo) + '</td><td>' + escapeHtml(row.remotePackageCount) +
             '</td><td>' + escapeHtml(row.remoteBilledKg || 0) + ' kg</td><td>NT$' + escapeHtml(row.remoteFeeTwd || 0) +
             '</td><td>' + (row.inBackend ? escapeHtml(row.localId || '已帶入') : '未帶入') +
-            '</td><td>' + escapeHtml(row.localStatus) +
-            '</td><td class="' + compareClass(row.compare) + '">' + escapeHtml(row.compare) + '</td></tr>';
+            '</td><td>' + statusPill(row, row.localStatus) +
+            '</td><td class="' + compareClass(signed ? '已簽收完成' : row.compare) + '">' + escapeHtml(signed ? '已簽收' : row.compare) + '</td></tr>';
           var detail = open
             ? '<tr class="haohong-batch-detail-row"><td colspan="10"><div class="haohong-batch-detail">' + renderBatchPackages(row, q) + '</div></td></tr>'
             : '';

@@ -39,8 +39,15 @@ function hh_table_order_signed($status): bool {
     return (bool)preg_match('/已[簽签]收/u', $text) || strpos($text, '已簽收完成') !== false;
 }
 
+function hh_table_status_display($status, bool $forceSigned = false): string {
+    if ($forceSigned || hh_table_order_signed($status)) return '已簽收';
+    $text = trim((string)($status ?? ''));
+    if (preg_match('/待[簽签]收|未[簽签]收/u', $text)) return '待簽收';
+    return $text !== '' ? hh_table_text($text, 80) : '未簽收';
+}
+
 function hh_table_compare_label(bool $signed, string $unsigned): string {
-    return $signed ? '已簽收完成' : $unsigned;
+    return $signed ? '已簽收' : $unsigned;
 }
 
 function hh_table_request_token(): string {
@@ -194,7 +201,7 @@ foreach ($remoteOrders as $order) {
     $batchesOut[] = [
         'batchNo' => $orderCode ?: $orderId,
         'haohongOrderId' => $orderId,
-        'haohongStatus' => hh_table_text($order['status'] ?? '', 80),
+        'haohongStatus' => hh_table_status_display($order['status'] ?? '', $signed),
         'orderDate' => hh_table_text($order['orderDate'] ?? '', 40),
         'transferOrderNo' => hh_table_text($order['transferOrderNo'] ?? '', 80),
         'remotePackageCount' => (int)($order['packageCount'] ?? $remoteCount),
@@ -203,7 +210,7 @@ foreach ($remoteOrders as $order) {
         'remoteFeeTwd' => (float)($order['shippingFeeTwd'] ?? 0),
         'inBackend' => $local !== null,
         'localId' => $local['id'] ?? '',
-        'localStatus' => $signed ? '已簽收完成' : ($local['status'] ?? ''),
+        'localStatus' => $signed ? '已簽收' : ($local['status'] ?? ''),
         'localPackageCount' => $local['packageCount'] ?? 0,
         'localItemCount' => $local['itemCount'] ?? 0,
         'localFeeTwd' => $local['shippingFeeTwd'] ?? 0,
@@ -232,7 +239,7 @@ foreach ($localBatches as $batch) {
             'remoteFeeTwd' => 0,
             'inBackend' => true,
             'localId' => $batch['id'],
-            'localStatus' => hh_table_order_signed($batch['status']) ? '已簽收完成' : $batch['status'],
+            'localStatus' => hh_table_order_signed($batch['status']) ? '已簽收' : $batch['status'],
             'localPackageCount' => $batch['packageCount'],
             'localItemCount' => $batch['itemCount'],
             'localFeeTwd' => $batch['shippingFeeTwd'],
@@ -256,7 +263,7 @@ foreach ($localBatches as $batch) {
             'remoteFeeTwd' => (float)$batch['shippingFeeTwd'],
             'inBackend' => true,
             'localId' => $batch['id'],
-            'localStatus' => hh_table_order_signed($batch['status']) ? '已簽收完成' : $batch['status'],
+            'localStatus' => hh_table_order_signed($batch['status']) ? '已簽收' : $batch['status'],
             'localPackageCount' => $batch['packageCount'],
             'localItemCount' => $batch['itemCount'],
             'localFeeTwd' => $batch['shippingFeeTwd'],
@@ -296,7 +303,7 @@ foreach ($remotePackages as $pkg) {
         'productName' => hh_table_text($pkg['productName'] ?? '', 200),
         'warehouse' => hh_table_text($pkg['warehouse'] ?? '', 80),
         'receivedAt' => hh_table_text($pkg['receivedAt'] ?? '', 40),
-        'packageStatus' => hh_table_text($pkg['packageStatus'] ?? '', 80),
+        'packageStatus' => (isset($signedTracks[$key]) || isset($signedBatchNos[$batchNo])) ? '已簽收' : hh_table_status_display($pkg['packageStatus'] ?? ''),
         'quantity' => (int)($pkg['quantity'] ?? 1),
         'actualWeightKg' => (float)($pkg['actualWeightKg'] ?? 0),
         'volumeWeightKg' => (float)($pkg['volumeWeightKg'] ?? 0),
@@ -329,7 +336,8 @@ foreach ($remoteOrders as $order) {
             if ($batchNo !== '' && hh_table_text($existing['batchNo'] ?? '', 80) === '') $existing['batchNo'] = $batchNo;
             if (hh_table_order_signed($order['status'] ?? '')) {
                 $existing['signed'] = true;
-                $existing['compare'] = '已簽收完成';
+                $existing['compare'] = '已簽收';
+                $existing['packageStatus'] = '已簽收';
             }
             break;
         }
@@ -342,7 +350,7 @@ foreach ($remoteOrders as $order) {
             'productName' => $name !== '' ? $name : '豪鴻訂單有單、品名空白',
             'warehouse' => hh_table_text($pkg['warehouse'] ?? '', 80),
             'receivedAt' => hh_table_text($pkg['receivedAt'] ?? '', 40),
-            'packageStatus' => hh_table_text($order['status'] ?? '', 80),
+            'packageStatus' => hh_table_status_display($order['status'] ?? '', hh_table_order_signed($order['status'] ?? '')),
             'quantity' => (int)($pkg['quantity'] ?? 1),
             'actualWeightKg' => (float)($pkg['actualWeightKg'] ?? 0),
             'volumeWeightKg' => (float)($pkg['volumeWeightKg'] ?? 0),
@@ -422,7 +430,7 @@ foreach ($batchesOut as &$batch) {
                 'productName' => $hasItem ? hh_table_text($hits[0]['productName'] ?? '', 200) : ($batchSigned ? '已簽收完成' : '後台尚未建檔'),
                 'warehouse' => '',
                 'receivedAt' => '',
-                'packageStatus' => $batchSigned ? '已簽收完成' : ($hasItem ? hh_table_text($hits[0]['trackingStatus'] ?? '', 80) : ''),
+                'packageStatus' => $batchSigned ? '已簽收' : ($hasItem ? hh_table_text($hits[0]['trackingStatus'] ?? '', 80) : ''),
                 'quantity' => $hasItem ? (int)($hits[0]['quantity'] ?? 1) : 1,
                 'actualWeightKg' => 0,
                 'volumeWeightKg' => 0,

@@ -108,6 +108,33 @@
 }
 .haohong-logistics-table .is-matched { color: #8af0cb; font-weight: 800; }
 .haohong-logistics-table .is-signed-done { color: #9ad7ff; font-weight: 800; }
+.haohong-status-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.haohong-status-pill.is-signed {
+  background: #16382d;
+  color: #8af0cb;
+  border: 1px solid #3d8f74;
+}
+.haohong-status-pill.is-wait {
+  background: #3d2f12;
+  color: #ffd06a;
+  border: 1px solid #b8892d;
+}
+.haohong-logistics-table tr.is-signed-row > td,
+.haohong-batch-row.is-signed-row > td {
+  background: rgba(56, 160, 120, .08);
+}
+.haohong-logistics-table tr.is-wait-row > td,
+.haohong-batch-row.is-wait-row > td {
+  background: rgba(240, 198, 94, .05);
+}
 .haohong-logistics-table .is-missing { color: #ff9aad; font-weight: 800; }
 .haohong-logistics-table .is-diff { color: #ffd166; font-weight: 800; }
 .haohong-batch-toggle {
