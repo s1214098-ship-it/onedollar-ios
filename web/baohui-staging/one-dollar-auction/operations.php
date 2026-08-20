@@ -166,8 +166,9 @@ if (empty($_SESSION['user'])) {
 
 $dataDir = __DIR__ . '/data';
 $productUploadDir = __DIR__ . '/uploads/products';
+$specUploadDir = __DIR__ . '/uploads/specs';
 $scheduleUploadDir = __DIR__ . '/uploads/schedules';
-foreach ([$dataDir, $productUploadDir, $scheduleUploadDir] as $dir) {
+foreach ([$dataDir, $productUploadDir, $specUploadDir, $scheduleUploadDir] as $dir) {
     if (!is_dir($dir)) mkdir($dir, 0775, true);
 }
 
@@ -3325,6 +3326,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($upExtra) $extra[] = $upExtra;
         foreach ($multi as $img) $extra[] = $img;
         $requestedStock = max(0, (int)($existing['stock_total'] ?? 0));
+        $initialQty = max(0, (int)($_POST['initial_stock_qty'] ?? 0));
+        if ($editingId === '') $requestedStock = $initialQty;
         $purchaseSource = trim((string)($_POST['purchase_source'] ?? ($existing['purchase_source'] ?? '其他'))) ?: '其他';
         ensure_named_supplier($suppliers, $purchaseSource);
         // Product master costs are recorded in CNY; cost/latest_cost remain TWD for accounting and barcode output.
@@ -3436,8 +3439,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         unset($p);
         if (!$found) $products[] = $row;
         write_data('products', $products);
+        if ($editingId === '' && $initialQty > 0) {
+            $stockDocNo = next_inventory_doc_no('JH', $stockMovements);
+            $stockMovements[] = [
+                'id' => uid('stk_'),
+                'type' => '進貨入庫單',
+                'document_no' => $stockDocNo,
+                'source_doc_no' => $stockDocNo,
+                'source_doc_type' => '進貨入庫單',
+                'date' => date('Y-m-d'),
+                'document_date' => date('Y-m-d'),
+                'product_id' => $id,
+                'barcode' => $productBarcode,
+                'product_title' => $postedTitle,
+                'color' => $row['color'] ?? '',
+                'color_code' => $row['color_code'] ?? '',
+                'size' => $row['size'] ?? '',
+                'size_code' => $row['size_code'] ?? '',
+                'spec' => $row['spec'] ?? '',
+                'qty' => $initialQty,
+                'unit_cost' => $productCost,
+                'amount' => $productCost * $initialQty,
+                'total_amount' => $productCost * $initialQty,
+                'note' => '產品建檔同時入庫',
+                'operator' => current_operator(),
+                'created_at' => date('c'),
+            ];
+            write_data('stock_movements', $stockMovements);
+        }
         if (remember_product_spec($productSpecs, $row['spec'] ?? '')) write_data('product_specs', $productSpecs);
-        if (empty($notice)) $notice = '商品已儲存。';
+        if (empty($notice)) $notice = $editingId === '' && $initialQty > 0
+            ? ('商品已儲存，並入庫 ' . $initialQty . ' 件。')
+            : '商品已儲存。';
         header('Location: operations.php?edit_product=' . rawurlencode((string)$id) . '&product_saved=1#products');
         exit;
         }
@@ -6801,7 +6834,7 @@ if (($_GET['partial'] ?? '') === 'ops_status') {
 .warehouse-tag{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(243,189,79,.45);background:rgba(243,189,79,.12);color:#f7c65d;border-radius:999px;padding:7px 10px;font-weight:800}
 .warehouse-tag button{border:0;background:#f7c65d;color:#1b121c;border-radius:50%;width:20px;height:20px;font-weight:900;cursor:pointer}
 .warehouse-note{border:1px solid rgba(80,220,210,.5);background:rgba(80,220,210,.08);color:#b9fffb;border-radius:12px;padding:12px;margin:14px 0}
-.ops-sync-pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;padding:8px 12px;color:#334155;font-size:13px;font-weight:700;white-space:nowrap}.product-code-picker{border:1px solid #d8e0ea;border-radius:10px;padding:10px;background:#f8fafc;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;grid-column:span 2;min-width:0;max-width:100%}.product-code-picker label{margin:0;min-width:0}.product-code-picker select,.product-code-picker input,.product-code-picker .button-like{max-width:100%}.product-code-picker .button-like{white-space:nowrap}.product-picked-list{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;min-height:32px}.product-picked-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;padding:6px 10px;font-weight:800;color:#0f172a}.product-picked-chip b{color:#0f766e}.product-picked-chip button{border:0;background:#e2e8f0;border-radius:50%;width:20px;height:20px;cursor:pointer;font-weight:900;color:#334155}@media(max-width:760px){.product-code-picker{grid-template-columns:1fr;grid-column:1/-1}.product-code-picker .button-like{width:100%}}.ops-sync-pill.is-error{border-color:#fecaca;color:#b91c1c;background:#fff1f2}.warehouse-workflow-note{margin:12px 0;padding:12px 14px;border-left:5px solid #0f766e;background:#ecfdf5;border-radius:8px;color:#064e3b}.warehouse-advanced-add{margin:10px 0 14px;border:1px solid #d8e0ea;border-radius:10px;background:#fff;padding:10px}.warehouse-advanced-add summary{cursor:pointer;font-weight:800}.inline-layer-form{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:8px}.inline-layer-form input{width:150px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px}.warehouse-tree-tools{display:grid;grid-template-columns:minmax(160px,0.7fr) minmax(180px,0.8fr) minmax(220px,1fr);gap:10px;align-items:end;margin:14px 0}.warehouse-tree-tools .muted{grid-column:1/-1}.warehouse-layer-add-form,.warehouse-advanced-add .mini-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}.warehouse-layer-add-form button,.warehouse-advanced-add .mini-form button{grid-column:1/-1;width:100%}.warehouse-tree{display:grid;gap:14px;margin:14px 0 18px}.warehouse-tree-card{border:1px solid #d8e0ea;border-left:8px solid #0f766e;border-radius:12px;background:#fff;overflow:hidden}.warehouse-tree-head{display:flex;justify-content:space-between;gap:12px;align-items:center;background:#f0fdfa;padding:12px 14px;border-bottom:1px solid #d8e0ea}.warehouse-tree-head h3{margin:0}.warehouse-tree-shelf{display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;padding:12px 14px;border-top:1px solid #eef2f7}.warehouse-tree-shelf:first-of-type{border-top:0}.warehouse-tree-shelf b{color:#0f172a}.warehouse-layer-tags{display:flex;gap:8px;flex-wrap:wrap}.warehouse-layer-tag{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:999px;padding:5px 10px;font-weight:800}.warehouse-empty{padding:14px;color:#64748b}.warehouse-tree-card.is-hidden{display:none}.warehouse-raw-details{margin-top:16px;border:1px solid #d8e0ea;border-radius:10px;background:#fff;padding:12px}.warehouse-raw-details summary{cursor:pointer;font-weight:800;color:#0f172a}.warehouse-raw-details[open]{box-shadow:0 10px 24px rgba(15,23,42,.06)}@media(max-width:760px){.warehouse-tree-tools,.warehouse-tree-shelf,.warehouse-layer-add-form,.warehouse-advanced-add .mini-form{grid-template-columns:1fr}.warehouse-layer-add-form select,.warehouse-layer-add-form input,.warehouse-advanced-add select,.warehouse-advanced-add input,.warehouse-tree-tools select,.warehouse-tree-tools input{width:100%;max-width:100%;min-height:42px}.ops-shell{grid-template-columns:1fr}.ops-sync-pill{margin-top:8px}}
+.ops-sync-pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;padding:8px 12px;color:#334155;font-size:13px;font-weight:700;white-space:nowrap}.product-code-picker{border:1px solid #d8e0ea;border-radius:10px;padding:10px;background:#f8fafc;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;grid-column:span 2;min-width:0;max-width:100%}.product-code-picker label{margin:0;min-width:0}.product-code-picker select,.product-code-picker input,.product-code-picker .button-like{max-width:100%}.product-code-picker .button-like{white-space:nowrap}.product-picked-list{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;min-height:32px}.product-picked-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;padding:6px 10px;font-weight:800;color:#0f172a}.product-picked-chip b{color:#0f766e}.product-picked-chip button{border:0;background:#e2e8f0;border-radius:50%;width:20px;height:20px;cursor:pointer;font-weight:900;color:#334155}.product-code-palette{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;min-height:36px}.product-code-swatch{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:8px 12px;font-weight:800;color:#0f172a;cursor:pointer;line-height:1.2}.product-code-swatch.is-on{background:#0f766e;color:#fff;border-color:#0f766e}.product-picked-chip input[type=number]{width:72px;min-height:30px;border:1px solid #cbd5e1;border-radius:8px;padding:2px 6px;font-weight:800}.product-code-picker select[size]{min-height:148px;height:auto;width:100%}@media(max-width:760px){.product-code-picker{grid-template-columns:1fr;grid-column:1/-1}.product-code-picker .button-like{width:100%}}.ops-sync-pill.is-error{border-color:#fecaca;color:#b91c1c;background:#fff1f2}.warehouse-workflow-note{margin:12px 0;padding:12px 14px;border-left:5px solid #0f766e;background:#ecfdf5;border-radius:8px;color:#064e3b}.warehouse-advanced-add{margin:10px 0 14px;border:1px solid #d8e0ea;border-radius:10px;background:#fff;padding:10px}.warehouse-advanced-add summary{cursor:pointer;font-weight:800}.inline-layer-form{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:8px}.inline-layer-form input{width:150px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px}.warehouse-tree-tools{display:grid;grid-template-columns:minmax(160px,0.7fr) minmax(180px,0.8fr) minmax(220px,1fr);gap:10px;align-items:end;margin:14px 0}.warehouse-tree-tools .muted{grid-column:1/-1}.warehouse-layer-add-form,.warehouse-advanced-add .mini-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}.warehouse-layer-add-form button,.warehouse-advanced-add .mini-form button{grid-column:1/-1;width:100%}.warehouse-tree{display:grid;gap:14px;margin:14px 0 18px}.warehouse-tree-card{border:1px solid #d8e0ea;border-left:8px solid #0f766e;border-radius:12px;background:#fff;overflow:hidden}.warehouse-tree-head{display:flex;justify-content:space-between;gap:12px;align-items:center;background:#f0fdfa;padding:12px 14px;border-bottom:1px solid #d8e0ea}.warehouse-tree-head h3{margin:0}.warehouse-tree-shelf{display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;padding:12px 14px;border-top:1px solid #eef2f7}.warehouse-tree-shelf:first-of-type{border-top:0}.warehouse-tree-shelf b{color:#0f172a}.warehouse-layer-tags{display:flex;gap:8px;flex-wrap:wrap}.warehouse-layer-tag{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:999px;padding:5px 10px;font-weight:800}.warehouse-empty{padding:14px;color:#64748b}.warehouse-tree-card.is-hidden{display:none}.warehouse-raw-details{margin-top:16px;border:1px solid #d8e0ea;border-radius:10px;background:#fff;padding:12px}.warehouse-raw-details summary{cursor:pointer;font-weight:800;color:#0f172a}.warehouse-raw-details[open]{box-shadow:0 10px 24px rgba(15,23,42,.06)}@media(max-width:760px){.warehouse-tree-tools,.warehouse-tree-shelf,.warehouse-layer-add-form,.warehouse-advanced-add .mini-form{grid-template-columns:1fr}.warehouse-layer-add-form select,.warehouse-layer-add-form input,.warehouse-advanced-add select,.warehouse-advanced-add input,.warehouse-tree-tools select,.warehouse-tree-tools input{width:100%;max-width:100%;min-height:42px}.ops-shell{grid-template-columns:1fr}.ops-sync-pill{margin-top:8px}}
 .stock-filter-grid{display:grid;grid-template-columns:1.4fr repeat(3,minmax(0,1fr));gap:12px}
 @media(max-width:900px){.warehouse-grid,.warehouse-manage-grid,.stock-filter-grid{grid-template-columns:1fr}}
 .ops-wrap,.ops-card,.product-form{min-width:0}
@@ -8121,12 +8154,13 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label>部門<select name="department" id="productDepartmentSelect" data-current="<?=h($editProduct['department'] ?? '電腦部門')?>"><?php foreach($departmentOptions as $dept): ?><option value="<?=h($dept)?>" <?=($editProduct['department'] ?? '電腦部門')===$dept?'selected':''?>><?=h($dept)?></option><?php endforeach; ?></select></label>
       <div class="color-module-picker">
         <div class="color-module-picker-head">
-          <label>顏色尺碼類別<select name="color_module" id="colorModuleSelect" required>
+          <?php $editColorModule = trim((string)($editProduct['color_module'] ?? '')); if ($editColorModule === '') $editColorModule = 'cm_clothes_shared'; ?>
+          <label>顏色尺碼類別<select name="color_module" id="colorModuleSelect">
             <option value="">請選擇顏色尺碼模組</option>
             <?php foreach($colorModules as $module): ?>
-              <option value="<?=h($module['id'] ?? '')?>" <?=($editProduct['color_module'] ?? '')===($module['id'] ?? '')?'selected':''?>><?=h($module['name'] ?? '')?></option>
+              <option value="<?=h($module['id'] ?? '')?>" <?=$editColorModule===($module['id'] ?? '')?'selected':''?>><?=h($module['name'] ?? '')?></option>
             <?php endforeach; ?>
-          </select><small class="muted">選模組後，下面顏色／尺寸只帶這個面板。沒有的類別按右邊新增。</small></label>
+          </select><small class="muted">一進來就會帶出顏色與尺寸色塊，直接點選即可，不必再另開下拉視窗。</small></label>
           <button type="button" class="button-like" id="toggleAddColorModule">新增模組面板</button>
         </div>
         <div class="color-module-add-panel" id="addColorModulePanel" hidden>
@@ -8142,23 +8176,26 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         </div>
       </div>
       <div class="product-code-picker">
-        <label>顏色 / 顏色碼<select id="productColorPairSelect">
+        <label>顏色 / 顏色碼<select id="productColorPairSelect" size="6">
           <option value="">請先選顏色尺碼類別</option>
-        </select></label>
+        </select><small class="muted">可直接點色塊，或在清單點一下就加入。</small></label>
         <button type="button" class="button-like" id="addProductColorPair">加入顏色</button>
         <input type="hidden" name="color" id="productColorInput" value="<?=h($editProduct['color'] ?? '')?>">
         <input type="hidden" name="color_code" id="productColorCodeInput" value="<?=h($editProduct['color_code'] ?? '')?>">
+        <div class="product-code-palette" id="productColorPalette"></div>
         <div class="product-picked-list" id="productColorPicked"></div>
       </div>
       <div class="product-code-picker">
-        <label>尺寸 / 尺寸碼<select id="productSizePairSelect">
+        <label>尺寸 / 尺寸碼<select id="productSizePairSelect" size="6">
           <option value="">請先選顏色尺碼類別</option>
         </select></label>
         <button type="button" class="button-like" id="addProductSizePair">加入尺寸</button>
         <input type="hidden" name="size" id="productSizeInput" value="<?=h($editProduct['size'] ?? '')?>">
         <input type="hidden" name="size_code" id="productSizeCodeInput" value="<?=h($editProduct['size_code'] ?? '')?>">
+        <div class="product-code-palette" id="productSizePalette"></div>
         <div class="product-picked-list" id="productSizePicked"></div>
       </div>
+      <label>建檔數量<input name="initial_stock_qty" id="productInitialQty" type="number" min="0" step="1" value="<?=h($isEditingProduct ? (int)($editProduct['stock_total'] ?? 0) : 0)?>" <?=$isEditingProduct?'readonly':''?>><small class="muted"><?= $isEditingProduct ? '已建檔數量請用下面「條碼快速入庫」或進貨單據加減。' : '每個已選顏色可填數量，會加總到這裡；0 表示只建檔、稍後再入庫。' ?></small></label>
       <div class="spec-combo" id="productSpecCombo">
         <div class="spec-combo-head">
           <label>規格<input name="spec" id="productSpecInput" placeholder="容量、材質、版本等，可打字或挑選" value="<?=h($editProduct['spec'] ?? '')?>" autocomplete="off"><small class="muted">可選清單或直接打字；離開欄位會自動記住，下次就能挑。</small></label>
@@ -12818,6 +12855,10 @@ function refreshColorSizeOptions() {
   const colorSelect = document.getElementById('productColorPairSelect');
   const sizeSelect = document.getElementById('productSizePairSelect');
   if (!moduleSelect || !colorSelect || !sizeSelect) return;
+  if (!moduleSelect.value) {
+    const shared = [...moduleSelect.options].find((option) => option.value === 'cm_clothes_shared');
+    if (shared) moduleSelect.value = 'cm_clothes_shared';
+  }
   const module = colorModules.find((item) => String(item.id || '') === moduleSelect.value);
   const normalizeName = (value) => String(value || '').toLowerCase().replace(/[\s/\-_+]/g, '');
   const codeForName = (map, name) => {
@@ -12835,6 +12876,7 @@ function refreshColorSizeOptions() {
     return prefix ? prefix[0] : '';
   };
   const fill = (node, values, map, placeholder) => {
+    const pairs = [];
     node.innerHTML = '';
     const empty = document.createElement('option');
     empty.value = '';
@@ -12846,11 +12888,15 @@ function refreshColorSizeOptions() {
       option.value = `${code}|${value}`;
       option.textContent = code ? `${code}　${value}` : value;
       node.appendChild(option);
+      pairs.push({ code, name: value });
     });
+    return pairs;
   };
   const useShared = !module || String(module.id || '') === 'cm_clothes_shared';
-  fill(colorSelect, useShared && moduleSelect.value === 'cm_clothes_shared' ? Object.values(productColorCodeMap || {}) : (module ? module.colors : []), productColorCodeMap, '請選擇模組顏色');
-  fill(sizeSelect, useShared && moduleSelect.value === 'cm_clothes_shared' ? Object.values(productSizeCodeMap || {}) : (module ? module.sizes : []), productSizeCodeMap, '請選擇模組尺寸');
+  const colorPairs = fill(colorSelect, useShared && moduleSelect.value === 'cm_clothes_shared' ? Object.values(productColorCodeMap || {}) : (module ? module.colors : []), productColorCodeMap, '請選擇模組顏色');
+  const sizePairs = fill(sizeSelect, useShared && moduleSelect.value === 'cm_clothes_shared' ? Object.values(productSizeCodeMap || {}) : (module ? module.sizes : []), productSizeCodeMap, '請選擇模組尺寸');
+  if (window.productColorPicker && typeof window.productColorPicker.setChoices === 'function') window.productColorPicker.setChoices(colorPairs);
+  if (window.productSizePicker && typeof window.productSizePicker.setChoices === 'function') window.productSizePicker.setChoices(sizePairs);
 }
 document.getElementById('colorModuleSelect')?.addEventListener('change', refreshColorSizeOptions);
 refreshColorSizeOptions();
@@ -13639,15 +13685,40 @@ function setupProductCodePicker(config) {
   const nameInput = document.getElementById(config.nameInputId);
   const codeInput = document.getElementById(config.codeInputId);
   const list = document.getElementById(config.listId);
+  const palette = document.getElementById(config.paletteId || '');
+  const qtyTotal = document.getElementById(config.qtyTotalId || '');
+  const trackQty = !!config.trackQty;
   if (!select || !add || !nameInput || !codeInput || !list) return null;
   let items = [];
+  let choices = [];
   const syncInputs = () => {
     nameInput.value = items.map((item) => item.name).join('、');
     codeInput.value = items.map((item) => item.code).join('、');
+    if (trackQty && qtyTotal && !qtyTotal.readOnly) {
+      const total = items.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
+      qtyTotal.value = String(total);
+    }
+  };
+  const renderPalette = () => {
+    if (!palette) return;
+    if (!choices.length) {
+      palette.innerHTML = '<span class="muted">請先選顏色尺碼類別。</span>';
+      return;
+    }
+    palette.innerHTML = choices.map((item) => {
+      const on = items.some((picked) => picked.code === item.code && picked.name === item.name);
+      return '<button type="button" class="product-code-swatch' + (on ? ' is-on' : '') + '" data-code="' + encodeURIComponent(item.code || '') + '" data-name="' + encodeURIComponent(item.name || '') + '">' + escapeHtml((item.code ? item.code + '　' : '') + item.name) + '</button>';
+    }).join('');
   };
   const render = () => {
-    list.innerHTML = items.map((item, index) => '<span class="product-picked-chip"><b>' + escapeHtml(item.code) + '</b>' + escapeHtml(item.name) + '<button type="button" data-remove="' + index + '">×</button></span>').join('');
+    list.innerHTML = items.map((item, index) => {
+      const qtyField = trackQty
+        ? '<input type="number" min="0" step="1" value="' + Math.max(0, Number(item.qty) || 0) + '" data-qty-index="' + index + '" aria-label="數量">'
+        : '';
+      return '<span class="product-picked-chip"><b>' + escapeHtml(item.code) + '</b>' + escapeHtml(item.name) + qtyField + '<button type="button" data-remove="' + index + '">×</button></span>';
+    }).join('');
     syncInputs();
+    renderPalette();
     if (typeof window.refreshProductIdentityPreview === 'function') window.refreshProductIdentityPreview();
   };
   const normalizeInitial = () => {
@@ -13658,36 +13729,71 @@ function setupProductCodePicker(config) {
     for (let i = 0; i < count; i += 1) {
       const code = codes[i] || '';
       const name = names[i] || config.map[code] || '';
-      if (code || name) items.push({ code, name });
+      if (code || name) items.push({ code, name, qty: 1 });
     }
     render();
   };
-  const addPair = (code, name) => {
+  const addPair = (code, name, qty) => {
     code = String(code || '').trim();
     name = String(name || '').trim();
     if (!code && !name) return;
-    if (items.some((item) => item.code === code && item.name === name)) return;
-    items.push({ code, name });
+    const existing = items.find((item) => item.code === code && item.name === name);
+    if (existing) {
+      if (trackQty && qty != null) existing.qty = Math.max(0, Number(qty) || 0);
+      render();
+      return;
+    }
+    items.push({ code, name, qty: trackQty ? Math.max(0, Number(qty == null ? 1 : qty) || 0) : 1 });
     render();
   };
-  add.addEventListener('click', () => {
+  const takeSelectValue = () => {
     const raw = select.value || '';
     if (!raw) return;
     const parts = raw.split('|');
     addPair(parts[0] || '', parts.slice(1).join('|') || config.map[parts[0]] || '');
     select.value = '';
-  });
+  };
+  add.addEventListener('click', takeSelectValue);
+  select.addEventListener('change', takeSelectValue);
+  select.addEventListener('dblclick', takeSelectValue);
   list.addEventListener('click', (event) => {
     const btn = event.target.closest('[data-remove]');
     if (!btn) return;
     items.splice(Number(btn.dataset.remove), 1);
     render();
   });
+  list.addEventListener('input', (event) => {
+    const field = event.target.closest('[data-qty-index]');
+    if (!field) return;
+    const index = Number(field.dataset.qtyIndex);
+    if (!items[index]) return;
+    items[index].qty = Math.max(0, Number(field.value) || 0);
+    syncInputs();
+  });
+  palette?.addEventListener('click', (event) => {
+    const swatch = event.target.closest('.product-code-swatch');
+    if (!swatch) return;
+    const code = decodeURIComponent(swatch.dataset.code || '');
+    const name = decodeURIComponent(swatch.dataset.name || '');
+    const existing = items.findIndex((item) => item.code === code && item.name === name);
+    if (existing >= 0) items.splice(existing, 1);
+    else addPair(code, name, 1);
+    render();
+  });
   normalizeInitial();
-  return { addPair, render, getItems: () => items.slice(), clear: () => { items = []; render(); } };
+  return {
+    addPair,
+    render,
+    getItems: () => items.slice(),
+    setChoices: (next) => { choices = Array.isArray(next) ? next : []; renderPalette(); },
+    clear: () => { items = []; render(); }
+  };
 }
-const productColorPicker = setupProductCodePicker({ selectId: 'productColorPairSelect', addId: 'addProductColorPair', nameInputId: 'productColorInput', codeInputId: 'productColorCodeInput', listId: 'productColorPicked', map: legacyBarcodeColorCodes });
-const productSizePicker = setupProductCodePicker({ selectId: 'productSizePairSelect', addId: 'addProductSizePair', nameInputId: 'productSizeInput', codeInputId: 'productSizeCodeInput', listId: 'productSizePicked', map: legacyBarcodeSizeCodes });
+window.productColorPicker = setupProductCodePicker({ selectId: 'productColorPairSelect', addId: 'addProductColorPair', nameInputId: 'productColorInput', codeInputId: 'productColorCodeInput', listId: 'productColorPicked', paletteId: 'productColorPalette', qtyTotalId: 'productInitialQty', trackQty: true, map: legacyBarcodeColorCodes });
+window.productSizePicker = setupProductCodePicker({ selectId: 'productSizePairSelect', addId: 'addProductSizePair', nameInputId: 'productSizeInput', codeInputId: 'productSizeCodeInput', listId: 'productSizePicked', paletteId: 'productSizePalette', map: legacyBarcodeSizeCodes });
+const productColorPicker = window.productColorPicker;
+const productSizePicker = window.productSizePicker;
+refreshColorSizeOptions();
 function parseLegacyAuctionBarcode(raw) {
   const barcode = String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   const pIndex = barcode.indexOf('P');
