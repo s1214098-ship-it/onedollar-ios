@@ -202,7 +202,7 @@ function toPeerRow(partial, existing) {
 }
 
 async function syncPacific(summary) {
-  const maxPages = Math.max(1, Number(process.env.PACIFIC_MAX_PAGES || 40));
+  const maxPages = Math.max(1, Number(process.env.PACIFIC_MAX_PAGES || 80));
   const areas = clean(process.env.PACIFIC_AREAS || HOME_TOWNS.join("+"));
   const rows = [];
   const payload = {
@@ -352,7 +352,7 @@ async function fetchSinyiDetail(id) {
 
 async function syncSinyi(summary) {
   const maxPages = Math.max(1, Number(process.env.SINYI_MAX_PAGES || 25));
-  const detailMax = Math.max(1, Number(process.env.SINYI_DETAIL_MAX || 80));
+  const detailMax = Math.max(1, Number(process.env.SINYI_DETAIL_MAX || 200));
   const ids = [];
   const seen = new Set();
   for (let page = 1; page <= maxPages; page += 1) {
@@ -428,7 +428,6 @@ function parseC21Cards(html, storeId) {
     if (!idMatch) continue;
     const title = clean((block.match(/recbox__title[^>]*>([^<]+)/i) || [])[1]);
     const info = clean(block.replace(/<[^>]+>/g, " "));
-    if (!isYilan(title + info)) continue;
     const loc = parseYilanAddress(title + info);
     const priceMatch = info.match(/(\d[\d,]*)\s*萬/);
     const img = (block.match(/url\('?(https:\/\/www\.century21\.com\.tw\/uploads\/[^')\s]+)/i) || [])[1];
