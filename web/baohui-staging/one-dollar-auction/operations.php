@@ -3441,6 +3441,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         write_data('products', $products);
         if (remember_product_spec($productSpecs, $row['spec'] ?? '')) write_data('product_specs', $productSpecs);
         if (empty($notice)) $notice = '商品已儲存。';
+        header('Location: operations.php?edit_product=' . rawurlencode((string)$id) . '&product_saved=1#products');
+        exit;
         }
     }
 
@@ -6342,8 +6344,13 @@ foreach ($products as $productRow) {
     $stockCategoryRulesForJs[] = $rule;
 }
 $editProductId = trim((string)($_GET['edit_product'] ?? ''));
-$editProduct = $editProductId !== '' ? product_by_id($products, $editProductId) : [];
+$editProduct = $editProductId !== '' ? (product_by_id($products, $editProductId) ?: product_by_key($products, $editProductId)) : [];
 $isEditingProduct = !empty($editProduct);
+if ($isEditingProduct) $opsInitialTab = 'products';
+if ($notice === '' && isset($_GET['product_saved'])) {
+    $notice = '商品已儲存，可以繼續改名稱、分類、倉位與圖片。';
+    $opsInitialTab = 'products';
+}
 $productListQ = trim((string)($_GET['product_q'] ?? ''));
 $productListCondition = trim((string)($_GET['product_condition'] ?? ''));
 $productListLimit = 10;
@@ -7639,6 +7646,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     var focusShipping = document.body.getAttribute('data-ops-open-shipping') === '1';
     for (var i = 0; i < shippingKeys.length; i++) if (params.has(shippingKeys[i])) focusShipping = true;
     if (focusShipping) return 'customer-shipping';
+    if (params.has('edit_product')) return 'products';
     var postedTab = document.body.getAttribute('data-ops-open-tab') || '';
     if (postedTab) return tabAliases[postedTab] || postedTab;
     var qTab = params.get('tab') || '';
@@ -8071,10 +8079,10 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
   </section>
 
   <section class="ops-card ops-tab" id="products">
-    <h2>產品建檔</h2>
-    <p class="muted">此頁只建立產品主檔：分類英文編號、列印條碼、名稱、顏色尺寸、成本、倉位與圖片。實際補庫存請到「進貨單據」，系統會留下進貨紀錄。</p>
+    <h2><?= $isEditingProduct ? '編輯產品' : '產品建檔' ?></h2>
+    <p class="muted"><?= $isEditingProduct ? '這筆已建檔，可以直接改名稱、分類、顏色尺寸、倉位與圖片，再按「儲存產品修改」。' : '此頁只建立產品主檔：分類英文編號、列印條碼、名稱、顏色尺寸、成本、倉位與圖片。實際補庫存請到「進貨單據」，系統會留下進貨紀錄。' ?></p>
     <div class="form-actions"><a class="button-like" href="#stock-in" data-jump-tab="stock-in">去進貨單據</a><a class="button-like" href="#suppliers" data-jump-tab="suppliers">去廠商建檔</a></div>
-    <form method="post" enctype="multipart/form-data" class="product-form" id="productMasterForm" autocomplete="off">
+    <form method="post" enctype="multipart/form-data" class="product-form" id="productMasterForm" autocomplete="off" action="operations.php#products">
       <input type="hidden" name="action" value="save_product">
       <input type="hidden" name="editing_product_id" value="<?=h($editProduct['id'] ?? '')?>">
       <div class="wide alert product-serial-note">編號格式：分類大綱英文碼＋流水＋P＋成本＋顏色碼。P 是排序分隔，一定要在成本前面。例如主機 COMPUTER → <b>COM001P15096</b>，COM001 是流水、P150 是成本、96 是顏色碼。儲存後可直接列印條碼。</div>
@@ -9684,7 +9692,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     <div class="section-head">
       <div>
         <h2>庫存管理</h2>
-        <p class="muted">可查詢產品、倉庫、貨架編號與倉位；也能快速篩出沒有主圖的商品，直接補主圖與多張細圖。每頁固定 10 筆，避免整頁載入太慢。</p>
+        <p class="muted">這裡方便查庫存、補圖、改成本、列印條碼。要改名稱、分類、顏色尺寸或倉位，請按「編輯產品」。</p>
       </div>
     </div>
 
@@ -9830,6 +9838,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
             </div>
             <?php if(!empty($p['cloud_auction_locked'])): ?><div class="ops-alert"><b>競標中鎖倉</b>：已有雲端競標場次，禁止重複排程上架。</div><?php endif; ?>
             <div class="barcode-print-actions">
+              <a class="button-like" href="operations.php?edit_product=<?=urlencode($p['id']??'')?>#products">編輯產品</a>
               <a class="label-40" target="_blank" rel="noopener" href="operations.php?print_cost_barcode=<?=urlencode($p['id']??'')?>&label_size=40x30">列印 40×30 mm</a>
               <a class="label-30" target="_blank" rel="noopener" href="operations.php?print_cost_barcode=<?=urlencode($p['id']??'')?>&label_size=30x30">列印 30×30 mm</a>
             </div>
