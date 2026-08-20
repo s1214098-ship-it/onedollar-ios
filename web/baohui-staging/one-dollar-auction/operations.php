@@ -1,19 +1,11 @@
 <?php
+require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-embed-auth-lib.php';
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'member-sync-bridge.php';
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-document-no.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
-session_name('BAOHUI_ADMIN');
-ini_set('session.gc_maxlifetime', '86400');
-session_set_cookie_params([
-    'lifetime' => 86400,
-    'path' => '/',
-    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
-    'httponly' => true,
-    'samesite' => 'Lax',
-]);
-session_start();
+baohui_ops_boot_hq_session();
 
 function baohui_main_data(): array {
     $db = dirname(__DIR__) . '/data/baohui.sqlite';
@@ -127,8 +119,19 @@ function baohui_is_embed_request(): bool
         || (stripos((string)($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''), 'iframe') !== false);
 }
 
+function baohui_ops_login_required_page(bool $embed): void {
+    if ($embed) {
+        http_response_code(401);
+        echo '<!doctype html><meta charset="utf-8"><div style="font-family:Arial, sans-serif;padding:32px;color:#0f172a"><h2>請先登入寶輝後台</h2><p>庫存管理、產品建檔都在寶輝總部作業。張張只會把產品串連過來，不需要另開張張登入頁。</p><p>請到 <a href="/admin.php" target="_top">寶輝登入頁</a> 登入後，再從左側「電商營運管理」進入。</p></div><script>(function(){try{if(window.parent&&window.parent!==window){window.parent.postMessage({type:"baohui-ops-auth-needed"},"*");}}catch(e){}})();</script>';
+        exit;
+    }
+    header('Location: /admin.php');
+    exit;
+}
+
 function baohui_bridge_one_dollar_user(): void {
-    // 張張獨立登入：已有 one-dollar-auction 的 $_SESSION['user']、且不是寶輝總部 session 時，不要改寫也不要踢去權限頁
+    // 若有人直接開 /one-dollar-auction/ 的舊登入，不要改寫已存在的作業 user。
+    // 寶輝總部 iframe 必須用寶輝登入；張張只負責把產品串連過來。
     if (!empty($_SESSION['user']) && is_array($_SESSION['user']) && empty($_SESSION['baohui_logged_in'])) {
         return;
     }
@@ -158,13 +161,7 @@ baohui_bridge_one_dollar_user();
 date_default_timezone_set('Asia/Taipei');
 $isEmbed = baohui_is_embed_request();
 if (empty($_SESSION['user'])) {
-    if ($isEmbed) {
-            http_response_code(401);
-            echo '<!doctype html><meta charset="utf-8"><div style="font-family:Arial, sans-serif;padding:32px;color:#0f172a"><h2>請先登入張張管理後台</h2><p>請到 <a href="/one-dollar-auction/">張張登入頁</a> 登入後再進入。也可從寶輝總部左側「電商營運管理」進入。</p></div>';
-            exit;
-        }
-    header('Location: /one-dollar-auction/');
-    exit;
+    baohui_ops_login_required_page($isEmbed);
 }
 
 $dataDir = __DIR__ . '/data';
