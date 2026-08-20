@@ -3760,6 +3760,7 @@ input[list*="List"],input[list]{
       <button class="blue" onclick="showObjectAreaPicker('p')">選擇物件區域</button>
       <button class="green" onclick="searchProperty()">查詢</button>
       <button class="gray" onclick="resetProperty()">重置</button>
+      <button class="orange" onclick="reloadOwnPropertyPhotos()">重載自有物件照片</button>
       <button class="orange" onclick="clearPropertyForm()">清空物件內容</button>
     </div>
     <div class="target-area-tools object-area-tools">
@@ -7151,7 +7152,9 @@ function show(id,el){
     if(pageId==="customer")refreshCustList();
     if(pageId==="prop"){
         refreshPropertySelect();
-        refreshObjectRoadFilter("p");searchProperty();
+        refreshObjectRoadFilter("p");
+        hydratePropertyPhotosFromSameStore({silent:true});
+        searchProperty();
     }
     if(pageId==="permission")loadPermissionInfo();
     if(pageId==="passwordMemo"){ clearPasswordMemoForm(); renderPasswordMemo(); }
@@ -9289,6 +9292,7 @@ function getTodayAiImportCount(){
     }catch(e){ return 0; }
 }
 function readDashboardStorageList(key){
+    if(key === "properties") return getPropertyItems();
     let localRows = [];
     try{
         const parsed = JSON.parse(localStorage.getItem(key) || "[]");
@@ -9499,11 +9503,108 @@ function updatePriceReviewItem(scope, idx){
   loadDashboard();
   alert("價格已更新，並已解除價格審核標記");
 }
-function findPropertyForObject(item){ const props=JSON.parse(localStorage.getItem("properties")||"[]"); const keys=[item&&item.contractNo,item&&item.id,item&&item.targetId].filter(v=>String(v||"").trim()); return props.find(p=>keys.some(k=>String(p.contractNo||"")===String(k)))||null; }
+function propertyPhotoScore(item){
+  return collectObjectImageSources(item || {}).filter(isProductPhotoSrc).length;
+}
+function propertyIdentityKey(item){
+  const keys = listingIdentityKeys(item || {});
+  if(keys.length) return keys.slice().sort().join("|");
+  return [item && item.title, item && item.addressDetail, item && item.address].filter(Boolean).join("|") || "";
+}
+function getPropertyItems(){
+  let localRows = [];
+  try{
+    const parsed = JSON.parse(localStorage.getItem("properties") || "[]");
+    localRows = Array.isArray(parsed) ? parsed : [];
+  }catch(e){ localRows = []; }
+  const sharedRows = typeof parseSharedListValue === "function"
+    ? parseSharedListValue(window.HUOMANGE_SHARED_DATA ? window.HUOMANGE_SHARED_DATA.properties : null)
+    : [];
+  const best = new Map();
+  function consider(item){
+    if(!item) return;
+    const key = propertyIdentityKey(item);
+    if(!key) return;
+    const prev = best.get(key);
+    if(!prev || propertyPhotoScore(item) > propertyPhotoScore(prev)) best.set(key, item);
+  }
+  sharedRows.forEach(consider);
+  localRows.forEach(consider);
+  const seen = new Set();
+  const merged = [];
+  localRows.concat(sharedRows).forEach(function(item){
+    const key = propertyIdentityKey(item);
+    if(!key || seen.has(key)) return;
+    seen.add(key);
+    merged.push(best.get(key) || item);
+  });
+  return merged;
+}
+function hydratePropertyPhotosFromSameStore(options){
+  options = options || {};
+  const props = getPropertyItems();
+  const pools = [];
+  try{ pools.push(getSameStoreItems()); }catch(e){}
+  try{ pools.push(getBorrowItems()); }catch(e){}
+  const related = pools.flat().filter(Boolean);
+  let filled = 0;
+  const next = props.map(function(item){
+    if(propertyPhotoScore(item)) return item;
+    const keys = new Set(listingIdentityKeys(item));
+    const addr = listingAddressKey(item);
+    let best = null;
+    let bestScore = 0;
+    related.forEach(function(row){
+      const idHit = listingIdentityKeys(row).some(function(k){ return keys.has(k); });
+      const addrHit = listingAddressesMatch(addr, listingAddressKey(row));
+      if(!idHit && !addrHit) return;
+      const photos = collectObjectImageSources(row).filter(isProductPhotoSrc);
+      if(photos.length > bestScore){
+        bestScore = photos.length;
+        best = photos;
+      }
+    });
+    if(!best || !best.length) return item;
+    filled++;
+    return Object.assign({}, item, {
+      images: best.map(function(src, idx){ return {name:"物件照片" + String(idx + 1).padStart(2, "0"), data:src}; }),
+      updatedAt: new Date().toISOString()
+    });
+  });
+  if(filled){
+    localStorage.setItem("properties", JSON.stringify(next));
+    if(window.HUOMANGE_SHARED_DATA) window.HUOMANGE_SHARED_DATA.properties = next;
+    if(typeof flushSharedStorageNow === "function") flushSharedStorageNow();
+  }
+  if(!options.silent){
+    alert(filled ? ("已從同店／異店補上 " + filled + " 筆自有物件照片，請再看一次列表。") : "目前沒有可從同店／異店對到的自有物件照片。");
+  }
+  return filled;
+}
+function reloadOwnPropertyPhotos(){
+  hydratePropertyPhotosFromSameStore({silent:false});
+  searchProperty();
+}
+window.reloadOwnPropertyPhotos = reloadOwnPropertyPhotos;
+function findPropertyForObject(item){
+  const props = getPropertyItems();
+  const keys = listingIdentityKeys(item || {});
+  return props.find(p => listingIdentityKeys(p).some(k => keys.includes(k))) || null;
+}
 function listingIdentityKeys(item){
-  return [item&&item.contractNo,item&&item.publicNo,item&&item.id,item&&item.externalId,item&&item.showCaseNo,item&&item.caseId]
-    .map(function(v){ return String(v||"").trim(); })
-    .filter(Boolean);
+  const raw = [item&&item.contractNo,item&&item.publicNo,item&&item.ycNo,item&&item.id,item&&item.externalId,item&&item.showCaseNo,item&&item.caseId];
+  const url = String((item&&item.sourceUrl)||"");
+  const house = url.match(/\/house\/(\d+)/i);
+  if(house) raw.push(house[1]);
+  const keys = [];
+  raw.forEach(function(v){
+    const s = String(v||"").trim();
+    if(!s) return;
+    keys.push(s);
+    const yc = s.match(/YC\d+/i);
+    if(yc) keys.push(yc[0].toUpperCase());
+  });
+  return keys.filter(function(v, idx, arr){ return arr.indexOf(v) === idx; });
 }
 function listingAddressKey(item){
   return String([
@@ -9587,12 +9688,12 @@ function collectObjectImageSources(item){
   });
 }
 function getObjectImages(item){
-  const own=collectObjectImageSources(item);
+  const own=collectObjectImageSources(item).filter(isProductPhotoSrc);
   if(own.length) return own;
   const prop=findPropertyForObject(item||{});
-  const fromProp=collectObjectImageSources(prop);
+  const fromProp=collectObjectImageSources(prop).filter(isProductPhotoSrc);
   if(fromProp.length) return fromProp;
-  return collectObjectImageSources(findRelatedListing(item||{}) || {});
+  return collectObjectImageSources(findRelatedListing(item||{}) || {}).filter(isProductPhotoSrc);
 }
 function getObjectThumbImages(item){
   return getObjectImages(item || {}).map(compactExternalImageUrl).filter(Boolean);
@@ -9715,7 +9816,13 @@ function getObjectGalleryRef(item){
   }
   return item.contractNo || item.id || item.targetId || "";
 }
-function objectThumbHtml(item, altText){ const images=getObjectImages(item||{}); if(!images.length) return '<div class="object-list-thumb placeholder">\u5c1a\u672a<br>\u4e0a\u50b3\u7167\u7247</div>'; const src=compactExternalImageUrl(images[0]); const ref=getObjectGalleryRef(item||{}); return '<img class="object-list-thumb" src="'+htmlEscape(src)+'" alt="'+htmlEscape(altText||"\u7269\u4ef6\u7167\u7247")+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;object-list-thumb placeholder&quot;>照片<br>載入失敗</div>\'" onclick="event.preventDefault();event.stopPropagation();showPropertyGallery(\''+htmlEscape(ref)+'\')">'; }
+function objectThumbHtml(item, altText){
+  const images=getProductPhotos(item||{});
+  if(!images.length) return '<div class="object-list-thumb property-list-thumb placeholder">尚未<br>上傳照片</div>';
+  const src=compactExternalImageUrl(images[0]);
+  const ref=getObjectGalleryRef(item||{});
+  return '<img class="object-list-thumb property-list-thumb" src="'+htmlEscape(src)+'" alt="'+htmlEscape(altText||"物件照片")+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;object-list-thumb property-list-thumb placeholder&quot;>照片<br>載入失敗</div>\'" onclick="event.preventDefault();event.stopPropagation();showPropertyGallery(\''+htmlEscape(ref)+'\')">';
+}
 function dashboardItemRow(item,type){
   const expire=dashboardExpireInfo(item);
   const rowClass=expire.state==="expired"?" expired":expire.state==="soon"?" expire-soon":"";
@@ -12052,7 +12159,13 @@ function searchProperty(){
     const filterRoad = document.getElementById("p_filterRoad")?.value || "all";
     const partyRole = "seller";
     const keyword = (document.getElementById("p_title").value || "").trim().toLowerCase();
-    const list = JSON.parse(localStorage.getItem("properties") || "[]").map((item, idx) => ({...item, _idx: idx}));
+    const stored = JSON.parse(localStorage.getItem("properties") || "[]");
+    const richer = new Map(getPropertyItems().map(function(item){ return [propertyIdentityKey(item), item]; }));
+    const list = stored.map(function(item, idx){
+      const better = richer.get(propertyIdentityKey(item));
+      const use = better && propertyPhotoScore(better) > propertyPhotoScore(item) ? better : item;
+      return Object.assign({}, use, {_idx: idx});
+    });
     const now = new Date().getTime();
     const month = 30*24*60*60*1000;
     let f = list;
