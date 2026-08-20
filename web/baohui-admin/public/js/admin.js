@@ -366,12 +366,12 @@ function renderInvoices() {
 
 function renderCustoms() {
   const rows = state.data.customsDutyEntries.map((c) => `<tr><td>${esc(c.date)}</td><td>${esc(c.number)}</td><td>${esc(c.broker)}</td><td>${esc(c.productCost)}</td><td>${esc(c.fee)}</td><td>${esc(c.note)}</td></tr>`).join("");
-  return `<div class="form-card"><h3>關稅單號</h3><p class="muted">手續費一筆 30 元；少給快遞視為正常，產品成本以快遞收費為準。</p>
+  return `<div class="form-card"><h3>關稅單號</h3><p class="muted">核實＝關貿收費−快遞收費。正數是快遞少收（我少給），負數是我多給。30 元是每筆關貿手續費，要計入產品成本。</p>
     <div class="row">
       <div><label>日期</label><input id="cuDate" type="date"></div>
       <div><label>關稅號碼</label><input id="cuNo"></div>
       <div><label>報關行</label><input id="cuBroker"></div>
-      <div><label>產品成本（快遞收費）</label><input id="cuCost" type="number"></div>
+      <div><label>產品成本（快遞＋關貿手續費 30）</label><input id="cuCost" type="number"></div>
       <div class="full"><label>備註</label><input id="cuNote"></div>
     </div>
     <button class="btn btn-primary" style="margin-top:12px" data-add-customs>新增</button></div>

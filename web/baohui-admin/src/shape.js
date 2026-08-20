@@ -192,7 +192,7 @@ export const PAGES = [
   { id: "punishSystem", label: "獎懲制度", hint: "獎懲、扣點與年度考核。", group: "人資" },
   { id: "salaryReports", label: "薪資報表", hint: "薪資結算與報表。", group: "人資" },
   { id: "electronicInvoices", label: "電子發票記帳", hint: "電子發票匯入、列印、入帳與往來戶。", group: "財務" },
-  { id: "customsDuty", label: "關稅系統 / 關稅單號", hint: "關稅號碼核對。手續費一筆 30 元。", group: "財務" },
+  { id: "customsDuty", label: "關稅系統 / 關稅單號", hint: "關貿收費對快遞。手續費每筆關貿 30 元計入產品成本。", group: "財務" },
   { id: "hardwareMarket", label: "硬體行情", hint: "記憶體與硬體行情參考。", group: "採購" },
   { id: "cryptoMarket", label: "虛擬貨幣行情預測", hint: "虛擬貨幣與總經行情預測。", group: "採購" },
   { id: "quotes", label: "報價管理", hint: "維修、專案與回收報價單。", group: "營運" },
