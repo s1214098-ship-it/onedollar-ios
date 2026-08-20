@@ -10,7 +10,7 @@
       label: 'Telepon / nomor resi',
       placeholder: '0812… atau nomor resi',
       submit: 'Cek sekarang',
-      hint: 'Buka daftar hitam di bawah, tidak perlu telepon dulu. Atau ketik telepon / nama / resi.',
+      hint: 'Di bawah ada Ambil / Kirim / Tidak ada data. Atau ketik telepon / nama / resi.',
       addhome: 'Di HP: buka tautan ini → bagikan → Tambah ke Layar Utama. Nanti cukup ketuk ikon.',
       recent: 'Baru dicari',
       searching: 'Mencari…',
@@ -68,9 +68,19 @@
       reason: 'Alasan',
       riskEmpty: 'Tidak ada.',
       tabPickup: 'Ambil',
+      tabTransit: 'Kirim',
+      tabNoData: 'Tidak ada data',
       tabBlacklist: 'Daftar hitam',
       tabReturned: 'Return',
       blacklistListHint: 'Seluruh daftar hitam. Tidak perlu cari telepon dulu. Order baru akan ditahan.',
+      transitTitle: 'Sedang dikirim',
+      transitHint: 'Sudah ada resi. Status dari situs kurir, belum sampai toko.',
+      pendingTitle: 'Belum dikirim',
+      pendingHint: 'Nomor resi sudah ada, belum masuk toko kurir.',
+      noDataTitle: 'Tidak ketemu di situs kurir',
+      noDataHint: 'Bos akan cek lagi. Jangan bilang ke pelanggan sudah dikirim.',
+      transitEmpty: 'Tidak ada yang sedang dikirim.',
+      noDataEmpty: 'Semua resi sudah ada status.',
       states: {
         pending: 'Menunggu dikirim',
         ready: 'Siap dikirim',
@@ -88,7 +98,7 @@
       label: '電話／物流單號',
       placeholder: '電話或物流單號',
       submit: '立刻查貨',
-      hint: '下面有黑名單整份清單，不用先打電話。也可以搜電話、姓名、物流單號或退貨過的客人。',
+      hint: '下面有待取、配送中、官網無資料。也可以搜電話、姓名、物流單號。',
       addhome: '手機：打開這個網址 → 分享 → 加入主畫面。以後點圖示就能查。',
       recent: '最近查過',
       searching: '查詢中…',
@@ -146,9 +156,19 @@
       reason: '原因',
       riskEmpty: '目前沒有。',
       tabPickup: '待取',
+      tabTransit: '配送中',
+      tabNoData: '無資料',
       tabBlacklist: '黑名單',
       tabReturned: '退貨過',
       blacklistListHint: '整份黑名單，不用先打電話。之後打單會擋，要管理後台才能解除。',
+      transitTitle: '配送中',
+      transitHint: '已有物流單號。下面是官網貨態，還沒到門市。',
+      pendingTitle: '尚未寄件',
+      pendingHint: '單號有了，還沒進寄件門市。',
+      noDataTitle: '官網查不到',
+      noDataHint: '這幾筆官網沒貨態，老闆會再查。業務先不要跟客人說已經寄出。',
+      transitEmpty: '現在沒有配送中的包裹。',
+      noDataEmpty: '每筆單號都有貨態。',
       states: {
         pending: '待出貨',
         ready: '待出貨',
@@ -338,6 +358,19 @@
     var date = String(row.pickupDeadline || '').slice(0, 10);
     return copy.leftover + days + copy.days + (date ? ' (' + date.slice(5).replace('-', '/') + ')' : '');
   }
+  function officialText(row) {
+    var raw = String(row.latestReport || '').trim();
+    raw = raw.replace(/^官方物流｜[^｜]+｜[^｜]+｜/, '');
+    return raw || stateLabel(row);
+  }
+  function reportLineHtml(row) {
+    var copy = t();
+    if (row.state === 'arrived_store') {
+      return '<p class="cek-batas">' + esc(copy.deadline) + ': ' + esc(batasText(row)) + '</p>';
+    }
+    var when = String(row.latestReportAt || '').replace('T', ' ').slice(0, 16);
+    return '<p class="cek-status-line">' + esc(copy.report) + ': ' + esc(officialText(row)) + (when ? ' · ' + esc(when) : '') + '</p>';
+  }
   function simpleCardHtml(row, danger) {
     var copy = t();
     var phone = digits(row.phone);
@@ -358,14 +391,16 @@
         }).join('') +
       '</div>';
     }
-    return '<article class="cek-simple' + (danger ? ' is-danger' : '') + (row.blacklisted ? ' is-blacklisted' : '') + '">' +
+    var nodata = row.kind === 'no_data' || row.resultType === 'official_no_data';
+    return '<article class="cek-simple' + (danger ? ' is-danger' : '') + (row.blacklisted ? ' is-blacklisted' : '') + (nodata ? ' is-nodata' : '') + '">' +
       photos +
       '<b class="cek-name">' + esc(row.customerName || '-') + tagsHtml(row) + '</b>' +
       '<p>' + esc(row.phone || copy.noPhone) + '</p>' +
       codHtml(row) +
+      '<p>' + esc(copy.carrier) + ': ' + esc(row.carrier || '-') + '</p>' +
       '<p>' + esc(copy.toko) + ': ' + esc(store || '-') + '</p>' +
       '<p>' + esc(copy.tracking) + ': ' + esc(tracking || copy.noTracking) + '</p>' +
-      '<p class="cek-batas">' + esc(copy.deadline) + ': ' + esc(batasText(row)) + '</p>' +
+      reportLineHtml(row) +
       (products ? '<p>' + esc(copy.barang) + ': ' + esc(products) + '</p>' : '') +
       '<div class="cek-actions">' +
         (phone ? '<a class="is-call" href="tel:' + esc(phone) + '">' + esc(copy.call) + '</a>' : '<span></span>') +
@@ -416,7 +451,7 @@
   var boardTab = (function () {
     try {
       var saved = localStorage.getItem(TAB_KEY);
-      if (saved === 'blacklist' || saved === 'returned' || saved === 'pickup') return saved;
+      if (saved === 'blacklist' || saved === 'returned' || saved === 'pickup' || saved === 'transit' || saved === 'nodata') return saved;
     } catch (error) {}
     return 'pickup';
   })();
@@ -426,10 +461,14 @@
     var copy = t();
     var data = boardCache;
     var pickN = data ? ((data.returning || []).length + (data.waiting || []).length) : 0;
+    var shipN = data ? ((data.inTransit || []).length + (data.pendingShip || []).length) : 0;
+    var noN = data && Array.isArray(data.noData) ? data.noData.length : 0;
     var blackN = data && Array.isArray(data.blacklist) ? data.blacklist.length : 0;
     var retN = data && Array.isArray(data.returnedCustomers) ? data.returnedCustomers.length : 0;
     var tabs = [
       ['pickup', copy.tabPickup, pickN],
+      ['transit', copy.tabTransit, shipN],
+      ['nodata', copy.tabNoData, noN],
       ['blacklist', copy.tabBlacklist, blackN],
       ['returned', copy.tabReturned, retN]
     ];
@@ -440,7 +479,7 @@
   }
   function setBoardTab(tab, opts) {
     opts = opts || {};
-    if (tab !== 'blacklist' && tab !== 'returned') tab = 'pickup';
+    if (tab !== 'blacklist' && tab !== 'returned' && tab !== 'transit' && tab !== 'nodata') tab = 'pickup';
     boardTab = tab;
     try { localStorage.setItem(TAB_KEY, tab); } catch (error) {}
     if (opts.clearSearch) {
@@ -470,8 +509,30 @@
     }
     var returning = Array.isArray(data.returning) ? data.returning : [];
     var waiting = Array.isArray(data.waiting) ? data.waiting : [];
+    var inTransit = Array.isArray(data.inTransit) ? data.inTransit : [];
+    var pendingShip = Array.isArray(data.pendingShip) ? data.pendingShip : [];
+    var noData = Array.isArray(data.noData) ? data.noData : [];
     var blacklist = Array.isArray(data.blacklist) ? data.blacklist : [];
     var returned = Array.isArray(data.returnedCustomers) ? data.returnedCustomers : [];
+    if (boardTab === 'transit') {
+      if (!inTransit.length && !pendingShip.length) {
+        box.innerHTML = '<h2>' + esc(copy.transitTitle) + '</h2><p class="cek-board-status">' + esc(copy.transitEmpty) + '</p>';
+        return;
+      }
+      box.innerHTML =
+        '<h2>' + esc(copy.transitTitle) + ' (' + (inTransit.length + pendingShip.length) + ')</h2>' +
+        boardBlockHtml('is-transit', copy.transitTitle, copy.transitHint, inTransit, function (row) { return simpleCardHtml(row, false); }) +
+        boardBlockHtml('', copy.pendingTitle, copy.pendingHint, pendingShip, function (row) { return simpleCardHtml(row, false); });
+      return;
+    }
+    if (boardTab === 'nodata') {
+      box.innerHTML = '<h2>' + esc(copy.noDataTitle) + ' (' + noData.length + ')</h2>' +
+        '<p class="cek-board-status">' + esc(copy.noDataHint) + '</p>' +
+        (noData.length
+          ? noData.map(function (row) { return simpleCardHtml(row, true); }).join('')
+          : '<p class="cek-board-empty">' + esc(copy.noDataEmpty) + '</p>');
+      return;
+    }
     if (boardTab === 'blacklist') {
       box.innerHTML = '<h2>' + esc(copy.blacklistTitle) + ' (' + blacklist.length + ')</h2>' +
         '<p class="cek-board-status">' + esc(copy.blacklistListHint) + '</p>' +
@@ -721,6 +782,9 @@
         if (boardCache) {
           stamp(boardCache.returning);
           stamp(boardCache.waiting);
+          stamp(boardCache.inTransit);
+          stamp(boardCache.pendingShip);
+          stamp(boardCache.noData);
           stamp(boardCache.blacklist);
           stamp(boardCache.returnedCustomers);
           var already = false;

@@ -131,12 +131,13 @@ body {
 }
 
 .cek-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 0 0 14px;
 }
 .cek-tabs button {
+  flex: 1 1 calc(33.33% - 8px);
   min-height: 48px;
   padding: 0 8px;
   border: 1px solid var(--line);
@@ -154,6 +155,11 @@ body {
 .cek-tabs button[data-cek-tab="blacklist"].is-active {
   background: #ff8aa5;
   border-color: #ff8aa5;
+}
+.cek-tabs button[data-cek-tab="nodata"].is-active {
+  background: #7ee0c8;
+  border-color: #7ee0c8;
+  color: #10221c;
 }
 
 .cek-card {
@@ -333,8 +339,10 @@ body {
   font-weight: 800;
 }
 .cek-board-block.is-return h3,
-.cek-board-block.is-blacklist h3 { color: var(--rose); }
+.cek-board-block.is-blacklist h3,
+.cek-board-block.is-nodata h3 { color: var(--rose); }
 .cek-board-block.is-returned h3 { color: var(--gold); }
+.cek-board-block.is-transit h3 { color: var(--teal); }
 .cek-simple {
   display: grid;
   gap: 4px;
@@ -383,6 +391,8 @@ body {
 }
 .cek-simple .cek-batas { color: var(--gold); }
 .cek-simple.is-danger .cek-batas { color: var(--rose); }
+.cek-simple .cek-status-line { color: var(--teal); }
+.cek-simple.is-nodata .cek-status-line { color: var(--rose); }
 .cek-simple .cek-actions { margin-top: 8px; }
 
 .cek-photos {
