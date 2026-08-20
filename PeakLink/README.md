@@ -35,25 +35,33 @@ Windows 遠端協助軟體：給客戶用的一般遠端，以及 Taliscale（Ta
 
 請自行準備一台 VPS 跑 `peaklink-server`，並用 Nginx／Caddy 做 TLS 反代到 8787。
 
-## Windows 使用
+## Windows 安裝檔
+
+安裝檔由 GitHub Actions 在 Windows 上打包，產出：
+
+- `PeakLink-Setup-1.0.0.exe`：雙擊安裝（不需系統管理員，裝到使用者目錄）
+- `PeakLink-Portable-1.0.0.zip`：免安裝解壓即用
+
+在此 PR／Actions 下載：**PeakLink-Windows-Setup** artifact。
+
+本機（Windows）自行打包：
+
+```powershell
+cd PeakLink
+# 可選：choco install innosetup
+.\scripts\build-windows.ps1
+```
+
+安裝後啟動「峰連遠端」即可當免費用戶。會員把 `.peaklic` 用啟動器「匯入授權」。
+
+## Windows 開發執行
 
 ```powershell
 cd PeakLink
 py -3.12 -m venv .venv
 .\.venv\Scripts\pip install -e ".[desktop]"
-peaklink-server          # 先在中繼機開這個
-peaklink-app             # 被控端／操作端啟動器
-peaklink-host            # 只開被控端
-peaklink-viewer          # 只開操作端
+peaklink-app
 ```
-
-打包成免安裝 Python 的 exe（在 Windows 上執行）：
-
-```powershell
-.\scripts\build-windows.ps1
-```
-
-產生的 `dist\PeakLink.exe` 可直接發給免費用戶。會員把你發行的 `.peaklic` 用啟動器「匯入授權」即可。
 
 ## 發行會員授權（你收款後）
 

@@ -330,15 +330,20 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 )
 
 
+def serve(host: str = "0.0.0.0", port: int = DEFAULT_RELAY_PORT) -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    import uvicorn
+
+    # 用 app 物件而不是字串路徑，PyInstaller 打包後才找得到。
+    uvicorn.run(app, host=host, port=port, reload=False, log_level="info")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=f"{APP_NAME} 中繼伺服器")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=DEFAULT_RELAY_PORT)
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    import uvicorn
-
-    uvicorn.run("peaklink.server.app:app", host=args.host, port=args.port, reload=False)
+    serve(args.host, args.port)
 
 
 if __name__ == "__main__":
