@@ -6,7 +6,7 @@
   <title>LINGZANZAN｜電腦產品同步建檔</title>
   <link rel="icon" href="./assets/brand-icon-192.png">
   <link rel="stylesheet" href="./assets/admin-navigation.css?v=20260820-computer-sync-1" data-admin-navigation-style>
-  <link rel="stylesheet" href="./assets/admin-products-computer.css?v=20260820-computer-sync-1">
+  <link rel="stylesheet" href="./assets/admin-products-computer.css?v=20260820-computer-photos-1">
 </head>
 <body>
   <div class="login-gate" data-login-gate>
@@ -55,6 +55,15 @@
             <input type="hidden" name="expected_version" value="0">
             <fieldset>
               <legend>第一步｜到貨必填</legend>
+              <label class="wide computer-thumb-field">縮圖
+                <input type="file" accept="image/*" data-thumbnail-input>
+                <small>清單左側會顯示這張。可貼上；沒指定時會用明細照片第一張。</small>
+                <div class="computer-thumb-preview" data-thumbnail-preview></div>
+                <div class="computer-thumb-actions">
+                  <button type="button" data-paste-thumbnail>貼上縮圖</button>
+                  <button type="button" data-clear-thumbnail>移除縮圖</button>
+                </div>
+              </label>
               <label class="wide">商品名稱<input name="title" required placeholder="例如：商務筆電 14 吋"></label>
               <label>分類
                 <input name="category" list="computer-category-options" data-category-select required placeholder="可選或手打，會同步張張電腦分類">
@@ -135,17 +144,17 @@
             </details>
 
             <details open>
-              <summary>產品圖／顏色</summary>
+              <summary>產品圖／明細照片</summary>
               <div class="media-section">
                 <div class="media-command-row">
-                  <label>產品詳細圖
+                  <label>明細照片
                     <input type="file" accept="image/*" multiple data-detail-image-input>
                   </label>
-                  <button type="button" data-paste-detail>貼上詳細圖</button>
+                  <button type="button" data-paste-detail>貼上明細照片</button>
                 </div>
                 <div class="image-paste-zone" tabindex="0" data-detail-paste-zone>
-                  <b>把產品圖拖進來，或點這裡 Ctrl+V</b>
-                  <span>可一次多張</span>
+                  <b>把明細照片拖進來，或點這裡 Ctrl+V</b>
+                  <span>可一次多張，會跟縮圖一起同步到張張</span>
                 </div>
                 <div class="image-grid" data-detail-image-list></div>
                 <div class="color-builder">
@@ -216,7 +225,11 @@
     </main>
   </div>
 
-  <script src="./assets/admin-products-computer.js?v=20260820-computer-sync-1" defer></script>
+  <div class="computer-photo-overlay" hidden data-computer-photo-overlay>
+    <button type="button" data-computer-photo-close>關閉</button>
+    <img alt="商品照片" data-computer-photo-full>
+  </div>
+  <script src="./assets/admin-products-computer.js?v=20260820-computer-photos-1" defer></script>
   <script src="./assets/admin-navigation.js?v=20260820-computer-sync-1" defer data-admin-navigation-script></script>
   <script src="./assets/image-upload-paste.js?v=20260819-image-paste-1" defer></script>
 </body>
