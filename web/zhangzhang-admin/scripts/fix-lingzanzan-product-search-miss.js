@@ -35,7 +35,7 @@ function backup(file, tag) {
 }
 
 function replaceOnce(src, oldStr, newStr, label) {
-  if (src.indexOf(newStr) !== -1 && src.indexOf(oldStr) === -1) {
+  if (src.indexOf(newStr) !== -1) {
     console.log("already:", label);
     return src;
   }
@@ -412,6 +412,15 @@ function stampAssets() {
   console.log("html stamped", n);
 }
 
+function dedupeRefresh(src) {
+  const next = src.replace(
+    /(\r?\n[ \t]*refreshProductSearchMissHints\(productQueryRaw, totalFilteredProducts\);){2,}/g,
+    "\n    refreshProductSearchMissHints(productQueryRaw, totalFilteredProducts);"
+  );
+  if (next !== src) console.log("deduped refreshProductSearchMissHints");
+  return next;
+}
+
 if (!fs.existsSync(path.join(ROOT, "assets"))) {
   console.log("Not on PHT-SR");
   process.exit(0);
@@ -422,7 +431,7 @@ copyApi();
 const forwarder = path.join(ROOT, "assets", "admin-product-forwarder-cost-8.js");
 console.log("backup js", backup(forwarder, "product-search"));
 let fwd = fs.readFileSync(forwarder, "utf8");
-fwd = patchForwarder(fwd);
+fwd = dedupeRefresh(patchForwarder(fwd));
 fs.writeFileSync(forwarder, fwd);
 console.log("forwarder written", fwd.length);
 
@@ -430,7 +439,7 @@ const adminJs = path.join(ROOT, "assets", "admin.js");
 if (fs.existsSync(adminJs)) {
   console.log("backup admin.js", backup(adminJs, "product-search"));
   let js = fs.readFileSync(adminJs, "utf8");
-  js = patchAdminJs(js);
+  js = dedupeRefresh(patchAdminJs(js));
   fs.writeFileSync(adminJs, js);
   console.log("admin.js written", js.length);
 }
