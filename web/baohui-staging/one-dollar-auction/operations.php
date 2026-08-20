@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-document-no.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'document-print-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'monthly-settlement-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-color-variants-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-archive-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-data-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-product-index-lib.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -507,7 +508,7 @@ function render_photo_capture_fields($mainName, $extraField, $options = []) {
     ?>
     <div class="<?=h($class)?>">
       <b><?=h($title)?></b>
-      <p class="muted"><?=h($hint)?></p>
+      <?php if(trim((string)$hint) !== ''): ?><p class="muted"><?=h($hint)?></p><?php endif; ?>
       <div class="photo-capture-grid">
         <div class="photo-capture-col">
           <span><?=h($mainLabel)?></span>
@@ -3591,6 +3592,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'created_at' => $existingRow['created_at'] ?? date('c'),
                 'updated_at' => date('c'),
             ];
+            $row = apply_product_computer_spec($row, $_POST, $existingRow ?: $existing);
             upsert_product_row($products, $row);
             if ($isNewSku) $createdSkuCount++;
             if ($isNewSku && $variantQty > 0) {
@@ -7035,6 +7037,49 @@ if (($_GET['partial'] ?? '') === 'ops_status') {
 .bulk-actions{display:flex;justify-content:flex-end;gap:10px;margin:8px 0}
 .bulk-actions.bottom{margin-top:10px}
 .product-check,#checkAllProducts{width:18px;height:18px}
+#products.ops-card{padding:18px}
+.product-page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.product-page-head h2{margin:0;font-size:28px}
+.product-page-head p{margin:6px 0 0;color:#64748b;font-weight:700}
+.product-workspace{display:grid;grid-template-columns:minmax(420px,.92fr) minmax(420px,1.08fr);gap:18px;align-items:start}
+.product-form-panel,.product-list-panel{border:1px solid #d8e0ea;background:#fff;border-radius:16px;padding:18px;min-width:0}
+.product-form-panel>header,.product-list-panel>header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:2px}
+.product-form-panel>header h3,.product-list-panel>header h3{margin:0;font-size:18px}
+.product-form-panel>header p,.product-list-panel>header p{margin:6px 0 0;color:#64748b}
+#productMasterForm.product-form,#productMasterForm{display:flex;flex-direction:column;gap:0;align-items:stretch;grid-template-columns:none}
+#productMasterForm>.product-step,#productMasterForm>.submit-actions{min-width:0;max-width:100%}
+.product-step{border:1px solid #d8e0ea;border-radius:14px;margin:14px 0 0;padding:14px 14px 16px;background:#f8fafc;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.product-step>legend,.product-step>summary{grid-column:1/-1;color:#0f766e;font-weight:850;padding:0 4px}
+.product-step>summary{cursor:pointer;list-style:none}
+.product-step>summary::-webkit-details-marker{display:none}
+.product-step label{display:grid;gap:6px;margin:0;color:#475569;font-size:13px;font-weight:700}
+.product-step .wide,.product-step .spec-combo,.product-step .color-module-picker,.product-step .product-code-picker,.product-step .photo-capture-box,.product-step .form-actions,.product-step .product-image-preview,.product-step .product-upload-preview,.product-step .computer-detail-grid{grid-column:1/-1}
+.product-step .spec-combo:not(.is-wide){grid-column:auto}
+.computer-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.computer-spec-nested{grid-column:1/-1;border:1px solid #d8e0ea;border-radius:12px;padding:12px;background:#fff}
+.computer-spec-nested[hidden]{display:none!important}
+.computer-spec-nested>summary{cursor:pointer;color:#0f766e;font-weight:800}
+.product-barcode-output{display:block;min-height:42px;padding:10px 12px;border-left:3px solid #facc15;background:#fff;color:#334155;border-radius:0 10px 10px 0;font-weight:800}
+#productMasterForm .product-code-picker{grid-template-columns:minmax(0,1fr) auto;background:#fff;border-radius:12px}
+#productMasterForm .product-code-picker select{min-height:42px;height:auto}
+#productMasterSubmit.primary-action{width:100%;min-height:48px;margin-top:4px;font-size:17px;font-weight:850;background:#0f766e;color:#fff;border:0;border-radius:12px;cursor:pointer}
+.product-list-filter{display:grid;grid-template-columns:minmax(0,1.4fr) 140px auto;gap:10px;align-items:end;margin:14px 0}
+.product-item{display:grid;grid-template-columns:22px 72px minmax(0,1fr) 130px auto;gap:12px;align-items:center;padding:14px 0;border-top:1px solid #e2e8f0}
+.product-item:first-of-type{border-top:0}
+.product-item-thumb{width:72px;height:72px;border-radius:12px;overflow:hidden;border:1px solid #d8e0ea;background:#f8fafc;display:grid;place-items:center;color:#94a3b8;font-size:12px;font-weight:800}
+.product-item-thumb img{width:100%;height:100%;object-fit:cover}
+.product-item-main span{color:#0f766e;font-weight:850;font-size:13px}
+.product-item-main h3{margin:4px 0 0;font-size:16px;line-height:1.35}
+.product-item-main p{margin:4px 0 0;color:#64748b;font-size:13px}
+.product-item-stock,.product-item-state{display:grid;gap:3px}
+.product-item-stock small,.product-item-state small{color:#64748b;font-size:12px}
+.product-item-state em{color:#0f766e;font-style:normal;font-weight:800}
+.product-item-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.product-side-tools{margin-top:16px;border:1px solid #d8e0ea;border-radius:12px;background:#fff;padding:12px}
+.product-side-tools>summary{cursor:pointer;font-weight:800;color:#0f172a}
+.submit-actions{display:grid;gap:10px;margin-top:14px}
+@media(max-width:1100px){.product-workspace{grid-template-columns:1fr}.product-list-filter{grid-template-columns:1fr}}
+@media(max-width:720px){.product-step,.computer-detail-grid{grid-template-columns:1fr}.product-step .spec-combo:not(.is-wide){grid-column:1/-1}.product-item{grid-template-columns:22px 72px minmax(0,1fr)}.product-item-stock,.product-item-state,.product-item-actions{grid-column:2/-1}}
 
 .warehouse-panel{background:#1b121c;color:#f7e9d7;border:1px solid rgba(245,190,83,.35);border-radius:16px;padding:22px;box-shadow:0 18px 40px rgba(0,0,0,.18)}
 .warehouse-panel h2{margin-top:0;color:#fff}
@@ -8346,271 +8391,306 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
   </section>
 
   <section class="ops-card ops-tab" id="products">
-    <h2><?= $isEditingProduct ? '編輯產品' : '產品建檔' ?></h2>
-    <p class="muted"><?= $isEditingProduct ? '這筆已建檔，可以直接改名稱、分類、顏色尺寸、倉位與圖片，再按「儲存產品修改」。加選顏色並填數量後儲存，會另建該色條碼並入庫。' : '選顏色、在色塊填數量後儲存，會依顏色建條碼並入庫。' ?></p>
-    <div class="form-actions"><a class="button-like" href="#stock-in" data-jump-tab="stock-in">去進貨單據</a><a class="button-like" href="#suppliers" data-jump-tab="suppliers">去廠商建檔</a></div>
-    <form method="post" enctype="multipart/form-data" class="product-form" id="productMasterForm" autocomplete="off" action="operations.php#products">
-      <input type="hidden" name="action" value="save_product">
-      <input type="hidden" name="editing_product_id" value="<?=h($editProduct['id'] ?? '')?>">
-      <div class="wide alert product-serial-note">編號格式：分類大綱英文碼＋流水＋P＋成本＋顏色碼。P 是排序分隔，一定要在成本前面。例如主機 COMPUTER → <b>COM001P15096</b>，COM001 是流水、P150 是成本、96 是顏色碼。儲存後可直接列印條碼。</div>
-      <?php
-        $editSerial = $isEditingProduct ? product_serial_base($editProduct) : '';
-        $editPrintedBarcode = $isEditingProduct ? latest_cost_barcode($editProduct) : '';
-      ?>
-      <input type="hidden" name="id" id="productSerialInput" value="<?=h($editSerial ?: ($editProduct['id'] ?? ''))?>" data-system-value="<?=h($editSerial ?: ($editProduct['id'] ?? ''))?>" data-existing="<?=h($editSerial ?: ($editProduct['id'] ?? ''))?>">
-      <label>產品編號 / 列印條碼<input name="barcode" id="productBarcodeInput" placeholder="例如 COM001P15096" value="<?=h($editPrintedBarcode ?: ($editProduct['barcode'] ?? ''))?>" data-existing="<?=h($editPrintedBarcode ?: ($editProduct['barcode'] ?? ''))?>" readonly><small class="muted" id="productBarcodeHint">先選主大綱與分類大綱、填成本、加入顏色後自動組成。格式固定為 英文流水 + P + 成本 + 顏色碼。</small></label>
-      <label>產品名稱<input name="title" required value="<?=h($editProduct['title'] ?? '')?>"></label>
-      <label>主大綱<select name="category_group" id="productCategoryGroupInput">
-        <?php $editCategoryGroup = trim((string)($editProduct['category_group'] ?? '')); if ($editCategoryGroup === '' || in_array($editCategoryGroup, ['電腦部門', '服裝部門', '電腦', '服裝'], true)) $editCategoryGroup = '組裝硬體'; ?>
-        <?php foreach($categoryGroupOptions as $groupName): ?><option value="<?=h($groupName)?>" <?=$editCategoryGroup===$groupName?'selected':''?>><?=h($groupName)?></option><?php endforeach; ?>
-      </select><small class="muted">組裝硬體／男性專區／女性專區／生活周邊。倉別部門在下面另選，不會跟主大綱綁在一起。</small></label>
-      <input type="hidden" name="category_type" id="productCategoryTypeInput" value="<?=h($editProduct['category_type'] ?? '')?>">
-      <div class="spec-combo record-combo is-wide" id="productCategoryTypeComboBox">
-        <div class="spec-combo-head">
-          <label>分類大綱<input id="productCategoryTypeCombo" autocomplete="off" placeholder="組裝硬體選主機板；服裝選鞋子／包包；生活周邊選衛生紙／廚房用具" value="<?=h($editProduct['category_type'] ?? '')?>"><small class="muted">手打新分類後按儲存，下次就能選。</small></label>
-          <button type="button" class="button-like" id="saveCategoryTypeOption">儲存此分類</button>
-        </div>
-        <div class="spec-combo-menu" id="productCategoryTypeMenu" hidden></div>
+    <?php
+      $editSerial = $isEditingProduct ? product_serial_base($editProduct) : '';
+      $editPrintedBarcode = $isEditingProduct ? latest_cost_barcode($editProduct) : '';
+      $editCategoryGroup = trim((string)($editProduct['category_group'] ?? ''));
+      if ($editCategoryGroup === '' || in_array($editCategoryGroup, ['電腦部門', '服裝部門', '電腦', '服裝'], true)) $editCategoryGroup = '組裝硬體';
+      $currentProductCondition = ($editProduct['product_condition'] ?? '') === '全新品' ? '全新品' : '二手品';
+      $isComputerArchive = product_is_computer_archive($editCategoryGroup);
+      $editColorModule = trim((string)($editProduct['color_module'] ?? ''));
+      if ($editColorModule === '') $editColorModule = 'cm_clothes_shared';
+    ?>
+    <div class="product-page-head">
+      <div>
+        <h2><?= $isEditingProduct ? '編輯產品' : '產品建檔' ?></h2>
+        <p><?= $isEditingProduct ? '改完按儲存。加選顏色並填數量會另建該色條碼並入庫。' : '第一步填到貨資料，第二步填規格與顏色。' ?></p>
       </div>
-      <div class="spec-combo record-combo" id="productCategoryBrandComboBox">
-        <div class="spec-combo-head">
-          <label>品牌<input name="category_brand" id="productCategoryBrandSelect" autocomplete="off" placeholder="可選或手打，例如 ASUS" value="<?=h($editProduct['category_brand'] ?? '')?>" data-current="<?=h($editProduct['category_brand'] ?? '')?>"><small class="muted">沒有的品牌直接打，按儲存後下次可選。</small></label>
-          <button type="button" class="button-like" id="saveCategoryBrandOption">儲存此品牌</button>
-        </div>
-        <div class="spec-combo-menu" id="productCategoryBrandMenu" hidden></div>
+      <div class="form-actions"><a class="button-like" href="#stock-in" data-jump-tab="stock-in">進貨單據</a><a class="button-like" href="#suppliers" data-jump-tab="suppliers">廠商建檔</a><?php if($isEditingProduct): ?><a class="button-like" href="operations.php#products">新增下一筆</a><?php endif; ?></div>
+    </div>
+    <div class="product-workspace">
+      <div class="product-form-panel">
+        <header>
+          <div>
+            <h3><?= $isEditingProduct ? '編輯此筆' : '新增商品' ?></h3>
+            <p><?= $isEditingProduct ? h(latest_cost_barcode($editProduct) ?: ($editProduct['barcode'] ?? $editProduct['id'] ?? '')) : '左欄建檔，右欄對照現有商品。' ?></p>
+          </div>
+        </header>
+        <form method="post" enctype="multipart/form-data" class="product-form" id="productMasterForm" autocomplete="off" action="operations.php#products">
+          <input type="hidden" name="action" value="save_product">
+          <input type="hidden" name="editing_product_id" value="<?=h($editProduct['id'] ?? '')?>">
+          <input type="hidden" name="id" id="productSerialInput" value="<?=h($editSerial ?: ($editProduct['id'] ?? ''))?>" data-system-value="<?=h($editSerial ?: ($editProduct['id'] ?? ''))?>" data-existing="<?=h($editSerial ?: ($editProduct['id'] ?? ''))?>">
+          <fieldset class="product-step">
+            <legend>第一步｜建檔必填</legend>
+            <label>品名<input name="title" required value="<?=h($editProduct['title'] ?? '')?>"></label>
+            <label>主大綱<select name="category_group" id="productCategoryGroupInput">
+              <?php foreach($categoryGroupOptions as $groupName): ?><option value="<?=h($groupName)?>" <?=$editCategoryGroup===$groupName?'selected':''?>><?=h($groupName)?></option><?php endforeach; ?>
+            </select></label>
+            <input type="hidden" name="category_type" id="productCategoryTypeInput" value="<?=h($editProduct['category_type'] ?? '')?>">
+            <div class="spec-combo record-combo is-wide" id="productCategoryTypeComboBox">
+              <div class="spec-combo-head">
+                <label>分類大綱<input id="productCategoryTypeCombo" autocomplete="off" value="<?=h($editProduct['category_type'] ?? '')?>"></label>
+                <button type="button" class="button-like" id="saveCategoryTypeOption">記住分類</button>
+              </div>
+              <div class="spec-combo-menu" id="productCategoryTypeMenu" hidden></div>
+            </div>
+            <div class="spec-combo record-combo" id="productCategoryBrandComboBox">
+              <div class="spec-combo-head">
+                <label>品牌<input name="category_brand" id="productCategoryBrandSelect" autocomplete="off" value="<?=h($editProduct['category_brand'] ?? '')?>" data-current="<?=h($editProduct['category_brand'] ?? '')?>"></label>
+                <button type="button" class="button-like" id="saveCategoryBrandOption">記住品牌</button>
+              </div>
+              <div class="spec-combo-menu" id="productCategoryBrandMenu" hidden></div>
+            </div>
+            <div class="spec-combo record-combo" id="productCategorySpecComboBox">
+              <div class="spec-combo-head">
+                <label>細分類<input name="category_spec" id="productCategorySpecSelect" autocomplete="off" value="<?=h($editProduct['category_spec'] ?? '')?>" data-current="<?=h($editProduct['category_spec'] ?? '')?>"></label>
+                <button type="button" class="button-like" id="saveCategorySpecOption">記住細分類</button>
+              </div>
+              <div class="spec-combo-menu" id="productCategorySpecMenu" hidden></div>
+            </div>
+            <label>狀態<select name="product_condition"><option value="二手品" <?=$currentProductCondition==='二手品'?'selected':''?>>二手品</option><option value="全新品" <?=$currentProductCondition==='全新品'?'selected':''?>>全新品</option></select></label>
+            <label>部門<select name="department" id="productDepartmentSelect" data-current="<?=h($editProduct['department'] ?? '電腦部門')?>"><?php foreach($departmentOptions as $dept): ?><option value="<?=h($dept)?>" <?=($editProduct['department'] ?? '電腦部門')===$dept?'selected':''?>><?=h($dept)?></option><?php endforeach; ?></select></label>
+            <label>數量<input name="initial_stock_qty" id="productInitialQty" type="number" min="0" step="1" value="<?=h($isEditingProduct ? (int)($editProduct['stock_total'] ?? 0) : 0)?>" <?=$isEditingProduct?'readonly':''?>></label>
+            <div class="spec-combo" id="productPurchaseSourceCombo">
+              <div class="spec-combo-head">
+                <label>供應商<input name="purchase_source" id="productPurchaseSource" value="<?=h($editProduct['purchase_source'] ?? '其他')?>" autocomplete="off" data-current="<?=h($editProduct['purchase_source'] ?? '其他')?>"><small class="muted" id="productPurchaseSourceStatus"></small></label>
+              </div>
+              <div class="spec-combo-menu" id="productPurchaseSourceMenu" hidden></div>
+            </div>
+            <label>人民幣成本<input name="purchase_source_unit_cost" id="productPurchaseUnitCost" type="number" min="0" step="0.01" value="<?=h($editProduct['purchase_source_unit_cost'] ?? 0)?>"><input type="hidden" name="purchase_source_currency" id="productPurchaseCurrency" value="CNY"></label>
+            <label>匯率<input name="purchase_exchange_rate" id="productPurchaseRate" type="number" min="0.0001" step="0.0001" value="<?=h($editProduct['purchase_exchange_rate'] ?? ($purchaseCostSettings['rmb_fixed_rate'] ?? 5))?>"></label>
+            <label>條碼台幣成本<input name="cost" id="productCostInput" type="number" min="0" step="0.01" value="<?=h($editProduct['cost'] ?? 0)?>" readonly><small class="muted" id="productPurchaseConversionHint" aria-live="polite"></small></label>
+            <label>售價<input name="sale_price" type="number" min="0" step="1" value="<?=h($editProduct['sale_price'] ?? 0)?>"></label>
+            <label>倉別<select name="warehouse_name" id="productWarehouseSelect" data-current="<?=h(trim((string)($editProduct['warehouse_name'] ?? '')) !== '' ? $editProduct['warehouse_name'] : default_warehouse_name($editProduct['department'] ?? '電腦部門'))?>"><option value="">請選擇倉別</option></select></label>
+            <label>倉架<select name="shelf_code" id="productShelfSelect" data-current="<?=h($editProduct['shelf_code'] ?? '')?>"><option value="">還沒放上去</option></select><span class="shelf-add-inline"><input id="productShelfAddInput" autocomplete="off"><button type="button" class="secondary small" id="productShelfAddBtn">＋倉架</button></span></label>
+            <label>位置<select name="warehouse_location" id="productLocationSelect" data-current="<?=h($editProduct['warehouse_location'] ?? '')?>"><option value="">還沒放上去</option><option value="上層">上層</option><option value="下層">下層</option></select></label>
+            <label class="check">前台發布<input name="publish_storefront" type="checkbox" value="1" <?=!empty($editProduct['publish_storefront'])?'checked':''?>></label>
+            <label>產品編號 / 列印條碼<input name="barcode" id="productBarcodeInput" value="<?=h($editPrintedBarcode ?: ($editProduct['barcode'] ?? ''))?>" data-existing="<?=h($editPrintedBarcode ?: ($editProduct['barcode'] ?? ''))?>" readonly><small class="muted" id="productBarcodeHint"></small></label>
+          </fieldset>
+          <details class="product-step" open>
+            <summary>第二步｜規格</summary>
+            <details class="computer-spec-nested" id="productComputerSpecPanel" <?=$isComputerArchive?'open':''?>>
+              <summary>電腦規格</summary>
+              <div class="computer-detail-grid">
+                <label>型號<input name="model" value="<?=h($editProduct['model'] ?? '')?>"></label>
+                <label>CPU<input name="cpu" value="<?=h($editProduct['cpu'] ?? '')?>"></label>
+                <label>RAM<input name="ram" value="<?=h($editProduct['ram'] ?? '')?>"></label>
+                <label>硬碟<input name="storage" value="<?=h($editProduct['storage'] ?? '')?>"></label>
+                <label>顯卡<input name="gpu" value="<?=h($editProduct['gpu'] ?? '')?>"></label>
+                <label>序號 SN<input name="serial_number" value="<?=h($editProduct['serial_number'] ?? '')?>"></label>
+                <label>保固<input name="warranty" value="<?=h($editProduct['warranty'] ?? '')?>"></label>
+                <label>檢測<input name="inspection_note" value="<?=h($editProduct['inspection_note'] ?? '')?>"></label>
+              </div>
+            </details>
+            <div class="spec-combo is-wide" id="productSpecCombo">
+              <div class="spec-combo-head">
+                <label>規格<input name="spec" id="productSpecInput" value="<?=h($editProduct['spec'] ?? '')?>" autocomplete="off"></label>
+                <button type="button" class="button-like" id="saveProductSpecOption">記住規格</button>
+              </div>
+              <div class="spec-combo-menu" id="productSpecMenu" hidden></div>
+            </div>
+            <div class="color-module-picker">
+              <div class="color-module-picker-head">
+                <label>顏色尺碼類別<select name="color_module" id="colorModuleSelect">
+                  <option value="">請選擇</option>
+                  <?php foreach($colorModules as $module): ?>
+                    <option value="<?=h($module['id'] ?? '')?>" <?=$editColorModule===($module['id'] ?? '')?'selected':''?>><?=h($module['name'] ?? '')?></option>
+                  <?php endforeach; ?>
+                </select></label>
+                <button type="button" class="button-like" id="toggleAddColorModule">新增模組</button>
+              </div>
+              <div class="color-module-add-panel" id="addColorModulePanel" hidden>
+                <h3>新增顏色尺碼模組</h3>
+                <label>模組名稱<input id="newColorModuleName" autocomplete="off"></label>
+                <label>顏色清單<textarea id="newColorModuleColors" rows="3"></textarea></label>
+                <label>尺寸清單<textarea id="newColorModuleSizes" rows="3"></textarea></label>
+                <div class="color-module-add-actions">
+                  <button type="button" class="primary" id="saveNewColorModule">儲存並套用</button>
+                  <button type="button" class="button-like" id="cancelAddColorModule">取消</button>
+                </div>
+                <p class="muted" id="addColorModuleStatus"></p>
+              </div>
+            </div>
+            <div class="product-code-picker color-builder">
+              <label>常用色<select id="productColorPairSelect">
+                <option value="">請先選顏色尺碼類別</option>
+              </select></label>
+              <button type="button" class="button-like" id="addProductColorPair">新增顏色</button>
+              <input type="hidden" name="color" id="productColorInput" value="<?=h($editProduct['color'] ?? '')?>">
+              <input type="hidden" name="color_code" id="productColorCodeInput" value="<?=h($editProduct['color_code'] ?? '')?>">
+              <input type="hidden" name="color_variants" id="productColorVariantsInput" value="">
+              <div class="product-code-palette" id="productColorPalette"></div>
+              <div class="product-picked-list" id="productColorPicked"></div>
+            </div>
+            <div class="product-code-picker color-builder">
+              <label>尺寸<select id="productSizePairSelect">
+                <option value="">請先選顏色尺碼類別</option>
+              </select></label>
+              <button type="button" class="button-like" id="addProductSizePair">新增尺寸</button>
+              <input type="hidden" name="size" id="productSizeInput" value="<?=h($editProduct['size'] ?? '')?>">
+              <input type="hidden" name="size_code" id="productSizeCodeInput" value="<?=h($editProduct['size_code'] ?? '')?>">
+              <div class="product-code-palette" id="productSizePalette"></div>
+              <div class="product-picked-list" id="productSizePicked"></div>
+            </div>
+          </details>
+          <details class="product-step" <?=$isEditingProduct?'open':''?>>
+            <summary>圖片</summary>
+            <?php if($isEditingProduct): $currentImages = product_images($editProduct); ?>
+            <div class="wide product-image-preview">
+              <div class="product-main-preview">
+                <h3>目前主圖</h3>
+                <?php if(!empty($editProduct['image'])): ?><img class="zoomable" src="<?=h($editProduct['image'])?>" alt="商品主圖"><?php else: ?><span class="muted">尚未上傳主圖</span><?php endif; ?>
+              </div>
+              <div>
+                <h3>其他照片</h3>
+                <div class="product-gallery">
+                  <?php foreach(($editProduct['extra_images'] ?? []) as $img): if(!$img) continue; ?><img class="zoomable" src="<?=h($img)?>" alt="產品照片"><?php endforeach; ?>
+                  <?php if(empty($editProduct['extra_images'])): ?><span class="empty">尚未上傳</span><?php endif; ?>
+                </div>
+              </div>
+            </div>
+            <?php endif; ?>
+            <?php render_photo_capture_fields('image', 'photos', [
+              'title' => '拍照 / 上傳',
+              'hint' => '',
+              'main_label' => '主圖',
+              'extra_label' => '其他照片',
+            ]); ?>
+            <label class="wide check">前台圖片確認<input name="public_image_approved" type="checkbox" value="1" <?=!empty($editProduct['public_image_approved'])?'checked':''?>></label>
+            <div class="wide product-upload-preview" id="productUploadPreview" hidden>
+              <div>
+                <h3>本次主圖</h3>
+                <div class="product-upload-main" id="productUploadMain"><span class="muted">尚未選主圖</span></div>
+              </div>
+              <div>
+                <h3>本次其他照片</h3>
+                <div class="product-upload-gallery" id="productUploadGallery"><span class="muted">尚未選其他照片</span></div>
+              </div>
+            </div>
+          </details>
+          <details class="product-step">
+            <summary>描述</summary>
+            <label class="wide">原文<textarea name="description_source" id="productDescriptionSource" rows="5"><?=h($editProduct['description_source'] ?? '')?></textarea></label>
+            <div class="wide form-actions">
+              <button type="button" class="secondary" id="convertProductDescription">轉換成上架描述</button>
+              <button type="button" class="secondary" id="copyProductDescriptionPrompt">複製轉換提示</button>
+            </div>
+            <label class="wide">上架描述<textarea name="description" id="productDescriptionAi" rows="5"><?=h($editProduct['description'] ?? '')?></textarea></label>
+          </details>
+          <div class="submit-actions">
+            <button class="primary primary-action" id="productMasterSubmit"><?= $isEditingProduct ? '儲存產品修改' : '新增產品建檔' ?></button>
+            <?php if($isEditingProduct): ?>
+              <div class="form-actions">
+                <a class="button-like" target="_blank" rel="noopener" href="operations.php?print_cost_barcode=<?=urlencode($editProduct['id'] ?? '')?>&label_size=40x30">條碼 40×30</a>
+                <a class="button-like" target="_blank" rel="noopener" href="operations.php?print_cost_barcode=<?=urlencode($editProduct['id'] ?? '')?>&label_size=30x30">條碼 30×30</a>
+              </div>
+            <?php endif; ?>
+          </div>
+        </form>
       </div>
-      <div class="spec-combo record-combo" id="productCategorySpecComboBox">
-        <div class="spec-combo-head">
-          <label>細分類<input name="category_spec" id="productCategorySpecSelect" autocomplete="off" placeholder="可選或手打，例如 RTX / LGA1700" value="<?=h($editProduct['category_spec'] ?? '')?>" data-current="<?=h($editProduct['category_spec'] ?? '')?>"><small class="muted">沒有的細分類直接打，按儲存後下次可選。</small></label>
-          <button type="button" class="button-like" id="saveCategorySpecOption">儲存此細分類</button>
-        </div>
-        <div class="spec-combo-menu" id="productCategorySpecMenu" hidden></div>
-      </div>
-      <?php $currentProductCondition = ($editProduct['product_condition'] ?? '') === '全新品' ? '全新品' : '二手品'; ?>
-      <label>商品狀態<select name="product_condition"><option value="二手品" <?=$currentProductCondition==='二手品'?'selected':''?>>二手品</option><option value="全新品" <?=$currentProductCondition==='全新品'?'selected':''?>>全新品</option></select><small class="muted">新建預設二手品；只有新品再改成全新品。</small></label>
-      <label>部門<select name="department" id="productDepartmentSelect" data-current="<?=h($editProduct['department'] ?? '電腦部門')?>"><?php foreach($departmentOptions as $dept): ?><option value="<?=h($dept)?>" <?=($editProduct['department'] ?? '電腦部門')===$dept?'selected':''?>><?=h($dept)?></option><?php endforeach; ?></select></label>
-      <div class="color-module-picker">
-        <div class="color-module-picker-head">
-          <?php $editColorModule = trim((string)($editProduct['color_module'] ?? '')); if ($editColorModule === '') $editColorModule = 'cm_clothes_shared'; ?>
-          <label>顏色尺碼類別<select name="color_module" id="colorModuleSelect">
-            <option value="">請選擇顏色尺碼模組</option>
-            <?php foreach($colorModules as $module): ?>
-              <option value="<?=h($module['id'] ?? '')?>" <?=$editColorModule===($module['id'] ?? '')?'selected':''?>><?=h($module['name'] ?? '')?></option>
+      <div class="product-list-panel">
+        <header>
+          <div>
+            <h3>現有商品</h3>
+            <p>第 <?=h($productListPage)?> / <?=h($productListPages)?> 頁，顯示 <?=h(count($productListRows))?> / <?=h($productListTotal)?> 筆</p>
+          </div>
+        </header>
+        <form method="get" action="operations.php#products" class="product-list-filter"><label>搜尋<input id="productQuickSearch" name="product_q" autocomplete="off" value="<?=h($productListQ)?>"></label><label>狀態<select name="product_condition"><option value="">全部</option><option value="全新品" <?=($productListCondition==='全新品'?'selected':'')?>>全新品</option><option value="二手品" <?=($productListCondition==='二手品'?'selected':'')?>>二手品</option></select></label><button class="button-like">搜尋</button><?php if($productListQ!=='' || $productListCondition!==''): ?><a class="button-like" href="operations.php#products">清除</a><?php endif; ?></form>
+        <form method="post" class="bulk-product-form" onsubmit="return confirm('確定刪除勾選的產品？已排程產品會自動跳過。');">
+          <input type="hidden" name="action" value="delete_products_bulk">
+          <div class="bulk-actions">
+            <label class="check" style="margin:0;display:flex;align-items:center;gap:8px;font-weight:800"><input type="checkbox" id="checkAllProducts" onclick="document.querySelectorAll('.product-check').forEach(cb=>cb.checked=this.checked)">全選</label>
+            <button class="danger" type="submit">刪除勾選</button>
+          </div>
+          <details class="product-side-tools">
+            <summary>AI 產品描述素材</summary>
+            <div class="form-actions" style="margin-top:10px">
+              <button type="button" class="secondary" id="buildAiMaterial">產生勾選產品素材</button>
+              <button type="button" class="secondary" id="copyAiMaterial">複製素材</button>
+            </div>
+            <textarea id="aiMaterialOutput" class="wide" rows="6"></textarea>
+          </details>
+          <?php if(!$isEditingProduct && $productListPages > 1): ?><div class="pager product-pager"><?php for($pg=max(1,$productListPage-3); $pg<=min($productListPages,$productListPage+3); $pg++): ?><a class="button-like small <?= $pg===$productListPage ? 'active' : '' ?>" href="operations.php?product_q=<?=urlencode($productListQ)?>&product_condition=<?=urlencode($productListCondition)?>&product_page=<?=$pg?>#products"><?=$pg?></a><?php endfor; ?></div><?php endif; ?>
+          <div class="product-item-list">
+            <?php foreach($productListRows as $p): $available=stock_available($p); $reservedTotal=stock_reserved_total($p); $cloudReserved=cloud_auction_reserved($p); $productListStockName=trim((string)($p['warehouse_name']??'')); $productListPosition=stock_position_label($p['shelf_code']??'', $p['warehouse_location']??''); if($productListPosition===$productListStockName) $productListPosition=''; $productListCategory=trim(implode(' / ', array_filter([$p['category_group']??'', $p['category_type']??'', $p['category_brand']??'', $p['category_spec']??''], function($v){ return trim((string)$v) !== ''; }))); $productSpecLine=product_spec_summary($p); ?>
+            <article class="product-item" data-product-search-row data-product-search-text="<?=h(trim(($p['id']??'').' '.($p['barcode']??'').' '.($p['title']??'').' '.($p['color']??'').' '.($p['color_code']??'').' '.($p['size']??'').' '.($p['size_code']??'').' '.($p['spec']??'').' '.($p['model']??'').' '.($p['cpu']??'').' '.($p['ram']??'').' '.($p['storage']??'').' '.($p['gpu']??'').' '.($p['serial_number']??'').' '.($p['category_group']??'').' '.($p['category_type']??'').' '.($p['category_brand']??'').' '.($p['category_spec']??'')))?>" data-product-id="<?=h($p['id']??'')?>" data-product-title="<?=h($p['title']??'')?>" data-product-spec="<?=h($productSpecLine)?>" data-product-desc="<?=h(($p['description_source'] ?? '') !== '' ? ($p['description_source'] ?? '') : ($p['description']??''))?>" data-product-images="<?=h(implode('\\n', product_images($p)))?>">
+              <input class="product-check" type="checkbox" name="product_ids[]" value="<?=h($p['id']??'')?>">
+              <div class="product-item-thumb"><?php if(!empty($p['image'])): ?><img class="zoomable" src="<?=h($p['image'])?>" alt=""><?php else: ?>無圖<?php endif; ?></div>
+              <div class="product-item-main">
+                <span><?=h(latest_cost_barcode($p) ?: ($p['barcode'] ?? $p['id'] ?? ''))?></span>
+                <h3><?=h($p['title']??'')?></h3>
+                <p><?=h($productSpecLine !== '' ? $productSpecLine : ($productListCategory ?: '-'))?></p>
+              </div>
+              <div class="product-item-stock">
+                <small>庫存</small>
+                <b><?=h($available)?></b>
+                <small>總 <?=h($p['stock_total']??0)?>｜已售 <?=h($p['stock_sold']??0)?></small>
+              </div>
+              <div class="product-item-state">
+                <small><?=h(($p['product_condition'] ?? '') ?: '未設定')?></small>
+                <em><?=!empty($p['publish_storefront'])?'已發布':'未發布'?></em>
+                <small><?=h($productListStockName ?: '-')?><?php if($productListPosition): ?> · <?=h($productListPosition)?><?php endif; ?></small>
+                <div class="product-item-actions">
+                  <a class="button-like small" href="operations.php?edit_product=<?=urlencode($p['id']??'')?>#products">編輯</a>
+                  <a class="button-like small" target="_blank" rel="noopener" href="operations.php?print_cost_barcode=<?=urlencode($p['id']??'')?>&label_size=40x30">條碼</a>
+                  <form method="post" class="inline-form" onsubmit="return confirm('確定刪除此產品？沒有排程引用才會刪除。');">
+                    <input type="hidden" name="action" value="delete_product">
+                    <input type="hidden" name="id" value="<?=h($p['id']??'')?>">
+                    <button class="danger small" type="submit">刪除</button>
+                  </form>
+                </div>
+              </div>
+            </article>
             <?php endforeach; ?>
-          </select><small class="muted">一進來就會帶出顏色與尺寸色塊，直接點選即可，不必再另開下拉視窗。</small></label>
-          <button type="button" class="button-like" id="toggleAddColorModule">新增模組面板</button>
-        </div>
-        <div class="color-module-add-panel" id="addColorModulePanel" hidden>
-          <h3>新增顏色尺碼模組</h3>
-          <label>模組名稱<input id="newColorModuleName" placeholder="例如：女裝常用 / 鞋類尺寸" autocomplete="off"></label>
-          <label>顏色清單<textarea id="newColorModuleColors" rows="3" placeholder="黑、白、杏、米、粉；可用逗號或換行分隔"></textarea></label>
-          <label>尺寸清單<textarea id="newColorModuleSizes" rows="3" placeholder="F、S、M、L、XL；可用逗號或換行分隔"></textarea></label>
-          <div class="color-module-add-actions">
-            <button type="button" class="primary" id="saveNewColorModule">儲存並套用此模組</button>
-            <button type="button" class="button-like" id="cancelAddColorModule">取消</button>
+            <?php if(!$productListRows): ?><div class="empty-state">沒有符合的商品</div><?php endif; ?>
           </div>
-          <p class="muted" id="addColorModuleStatus">儲存後會立刻出現在上面的下拉選單，產品建檔資料不會被清掉。</p>
-        </div>
-      </div>
-      <div class="product-code-picker">
-        <label>顏色 / 顏色碼<select id="productColorPairSelect" size="6">
-          <option value="">請先選顏色尺碼類別</option>
-        </select><small class="muted">可直接點色塊，或在清單點一下就加入。</small></label>
-        <button type="button" class="button-like" id="addProductColorPair">加入顏色</button>
-        <input type="hidden" name="color" id="productColorInput" value="<?=h($editProduct['color'] ?? '')?>">
-        <input type="hidden" name="color_code" id="productColorCodeInput" value="<?=h($editProduct['color_code'] ?? '')?>">
-        <input type="hidden" name="color_variants" id="productColorVariantsInput" value="">
-        <div class="product-code-palette" id="productColorPalette"></div>
-        <div class="product-picked-list" id="productColorPicked"></div>
-      </div>
-      <div class="product-code-picker">
-        <label>尺寸 / 尺寸碼<select id="productSizePairSelect" size="6">
-          <option value="">請先選顏色尺碼類別</option>
-        </select></label>
-        <button type="button" class="button-like" id="addProductSizePair">加入尺寸</button>
-        <input type="hidden" name="size" id="productSizeInput" value="<?=h($editProduct['size'] ?? '')?>">
-        <input type="hidden" name="size_code" id="productSizeCodeInput" value="<?=h($editProduct['size_code'] ?? '')?>">
-        <div class="product-code-palette" id="productSizePalette"></div>
-        <div class="product-picked-list" id="productSizePicked"></div>
-      </div>
-      <label>建檔數量<input name="initial_stock_qty" id="productInitialQty" type="number" min="0" step="1" value="<?=h($isEditingProduct ? (int)($editProduct['stock_total'] ?? 0) : 0)?>" <?=$isEditingProduct?'readonly':''?>><small class="muted"><?= $isEditingProduct ? '已建檔數量請用下面「條碼快速入庫」或進貨單據加減。' : '各顏色數量會加總到這裡；儲存時依顏色入庫，0 表示只建檔。' ?></small></label>
-      <div class="spec-combo" id="productSpecCombo">
-        <div class="spec-combo-head">
-          <label>規格<input name="spec" id="productSpecInput" placeholder="容量、材質、版本等，可打字或挑選" value="<?=h($editProduct['spec'] ?? '')?>" autocomplete="off"><small class="muted">可選清單或直接打字；離開欄位會自動記住，下次就能挑。</small></label>
-          <button type="button" class="button-like" id="saveProductSpecOption">儲存此規格</button>
-        </div>
-        <div class="spec-combo-menu" id="productSpecMenu" hidden></div>
-      </div>
-      <div class="spec-combo" id="productPurchaseSourceCombo">
-        <div class="spec-combo-head">
-          <label>預設供應來源<input name="purchase_source" id="productPurchaseSource" placeholder="可選廠商或手打，例如 捷元 / 拼多多" value="<?=h($editProduct['purchase_source'] ?? '其他')?>" autocomplete="off" data-current="<?=h($editProduct['purchase_source'] ?? '其他')?>"><small class="muted" id="productPurchaseSourceStatus">可選既有廠商，或手打新名稱；離開欄位會自動存進廠商建檔與廠商搜尋分類。</small></label>
-        </div>
-        <div class="spec-combo-menu" id="productPurchaseSourceMenu" hidden></div>
-      </div>
-      <label>產品建檔幣別<input value="人民幣 CNY" readonly><input type="hidden" name="purchase_source_currency" id="productPurchaseCurrency" value="CNY"><small class="muted">產品主檔成本統一以人民幣保存。</small></label>
-      <label>人民幣成本<input name="purchase_source_unit_cost" id="productPurchaseUnitCost" type="number" min="0" step="0.01" value="<?=h($editProduct['purchase_source_unit_cost'] ?? 0)?>"><small class="muted">輸入供應商人民幣原始成本。</small></label>
-      <label>人民幣換算倍率<input name="purchase_exchange_rate" id="productPurchaseRate" type="number" min="0.0001" step="0.0001" value="<?=h($editProduct['purchase_exchange_rate'] ?? ($purchaseCostSettings['rmb_fixed_rate'] ?? 5))?>"></label>
-      <label>條碼台幣成本<input name="cost" id="productCostInput" type="number" min="0" step="0.01" value="<?=h($editProduct['cost'] ?? 0)?>" readonly><small class="muted">由人民幣成本 × 倍率自動換算；條碼、庫存成本與財務報表使用此台幣金額。</small><small class="muted" id="productPurchaseConversionHint" aria-live="polite"></small></label>
-      <label>寶輝實際售價<input name="sale_price" type="number" min="0" step="1" value="<?=h($editProduct['sale_price'] ?? 0)?>"><small class="muted">商城與估價單優先使用此售價；0 元不會自動公開。</small></label>
-      <label class="check">前台商城發布<input name="publish_storefront" type="checkbox" value="1" <?=!empty($editProduct['publish_storefront'])?'checked':''?>><small class="muted">需有寶輝實際售價才會顯示。</small></label>
-      <div class="wide alert">外部自有組裝主機屬硬性排除項目；僅可上架零組件、周邊與公司核准的品牌成品。</div>
-      <label>倉別<select name="warehouse_name" id="productWarehouseSelect" data-current="<?=h(trim((string)($editProduct['warehouse_name'] ?? '')) !== '' ? $editProduct['warehouse_name'] : default_warehouse_name($editProduct['department'] ?? '電腦部門'))?>"><option value="">請選擇倉別</option></select></label>
-      <label>倉架名稱<select name="shelf_code" id="productShelfSelect" data-current="<?=h($editProduct['shelf_code'] ?? '')?>"><option value="">還沒放上去</option></select><span class="shelf-add-inline"><input id="productShelfAddInput" placeholder="例如 A01" autocomplete="off"><button type="button" class="secondary small" id="productShelfAddBtn">+ 新增倉架</button></span><small class="muted">沒選倉架名稱代表還沒放上去。這個倉別還沒有倉架時，可在這裡新增名稱。</small></label>
-      <label>倉架位置<select name="warehouse_location" id="productLocationSelect" data-current="<?=h($editProduct['warehouse_location'] ?? '')?>"><option value="">還沒放上去</option><option value="上層">上層</option><option value="下層">下層</option></select><small class="muted">只有上層／下層；先選倉架名稱才能指定。</small></label>
-      <div class="wide product-image-guide">圖片規則：商品主圖只放 1 張，系統排程、清單、買家核對會優先使用主圖；其他產品照片可一次多選，放細節、規格、瑕疵、不同角度。</div>
-      <?php if($isEditingProduct): $currentImages = product_images($editProduct); ?>
-      <div class="wide product-image-preview">
-        <div class="product-main-preview">
-          <h3>目前主圖</h3>
-          <?php if(!empty($editProduct['image'])): ?><img class="zoomable" src="<?=h($editProduct['image'])?>" alt="商品主圖"><?php else: ?><span class="muted">尚未上傳主圖</span><?php endif; ?>
-        </div>
-        <div>
-          <h3>目前其他產品照片</h3>
-          <div class="product-gallery">
-            <?php foreach(($editProduct['extra_images'] ?? []) as $img): if(!$img) continue; ?><img class="zoomable" src="<?=h($img)?>" alt="產品照片"><?php endforeach; ?>
-            <?php if(empty($editProduct['extra_images'])): ?><span class="empty">尚未上傳其他產品照片</span><?php endif; ?>
-          </div>
-        </div>
-      </div>
-      <?php endif; ?>
-      <?php render_photo_capture_fields('image', 'photos', [
-        'title' => '拍照 / 上傳產品圖片',
-        'hint' => '手機可直接拍照；電腦可用相簿選檔，或 Ctrl+V 貼上圖片。主圖限 1 張（會取代目前主圖），細圖可連續加拍，儲存後會追加保留。',
-        'main_label' => '商品主圖（限 1 張，會取代目前主圖）',
-        'extra_label' => '其他產品照片（可多張追加）',
-      ]); ?>
-      <label class="wide check">前台產品圖片確認<input name="public_image_approved" type="checkbox" value="1" <?=!empty($editProduct['public_image_approved'])?'checked':''?>><small class="muted">僅在圖片已確認為原廠提供或寶輝科技自有時勾選；未勾選時商城使用中性預設圖。</small></label>
-      <div class="wide product-upload-preview" id="productUploadPreview" hidden>
-        <div>
-          <h3>本次選擇主圖</h3>
-          <div class="product-upload-main" id="productUploadMain"><span class="muted">尚未選主圖</span></div>
-        </div>
-        <div>
-          <h3>本次選擇其他照片</h3>
-          <div class="product-upload-gallery" id="productUploadGallery"><span class="muted">尚未選其他照片</span></div>
-        </div>
-      </div>
-      <label class="wide">產品描述<textarea name="description_source" id="productDescriptionSource" rows="5" placeholder="先貼原始說明、簡體文案、供應商資料或注意事項。按「轉換」後再貼到下面的 AI 整理欄。"><?=h($editProduct['description_source'] ?? '')?></textarea><small class="muted">這格是原文，給 AI 轉換用；排程上架不會直接用這段。</small></label>
-      <div class="wide form-actions">
-        <button type="button" class="secondary" id="convertProductDescription">轉換成上架描述</button>
-        <button type="button" class="secondary" id="copyProductDescriptionPrompt">複製轉換提示</button>
-      </div>
-      <label class="wide">產品描述（AI 整理後貼這裡）<textarea name="description" id="productDescriptionAi" rows="5" placeholder="把 ChatGPT 整理後的繁體描述貼這裡。排程上架會帶入這段內容。"><?=h($editProduct['description'] ?? '')?></textarea><small class="muted">請先填上面的產品描述，再轉換。這格才是上架用文案。</small></label>
-      <div class="wide form-actions">
-        <button class="primary" id="productMasterSubmit"><?= $isEditingProduct ? '儲存產品修改' : '新增產品建檔' ?></button>
-        <?php if($isEditingProduct): ?>
-          <a class="button-like" target="_blank" rel="noopener" href="operations.php?print_cost_barcode=<?=urlencode($editProduct['id'] ?? '')?>&label_size=40x30">列印條碼 40×30</a>
-          <a class="button-like" target="_blank" rel="noopener" href="operations.php?print_cost_barcode=<?=urlencode($editProduct['id'] ?? '')?>&label_size=30x30">列印條碼 30×30</a>
-          <a class="button-like" href="operations.php#products">取消編輯 / 新增下一筆</a>
-        <?php endif; ?>
-      </div>
-    </form>
-    <div class="sub-card product-quick-operations">
-      <div class="section-head">
-        <div><h3>條碼快速入庫</h3><p class="muted">舊系統現貨用直接成本入庫，不加關稅、運費或倉別加價。掃條碼、填數量與台幣成本即可。</p></div>
-        <a class="button-like" href="#inventory-count" data-tab-link="inventory-count">開啟完整盤點功能</a>
-      </div>
-      <form method="post" enctype="multipart/form-data" class="product-form" id="productQuickStockForm">
-        <input type="hidden" name="action" value="stock_in">
-        <input type="hidden" name="stock_doc_no" value="">
-        <input type="hidden" name="stock_doc_date" value="<?=h(date('Y-m-d'))?>">
-        <input type="hidden" name="stock_allocation_method" value="quantity">
-        <input type="hidden" name="stock_direct_cost" value="1">
-        <input type="hidden" name="stock_source" id="productQuickStockSource" value="舊系統現貨">
-        <input type="hidden" name="stock_currency" id="productQuickStockCurrency" value="TWD">
-        <input type="hidden" name="stock_exchange_rate" id="productQuickStockRate" value="1">
-        <label class="wide">掃描條碼 / 產品編號<input name="stock_product_id" id="productQuickStockBarcode" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="掃描後按 Enter"></label>
-        <div class="wide ops-alert" id="productQuickStockProductInfo">等待掃描產品條碼。</div>
-        <label>入庫數量<input name="stock_qty" id="productQuickStockQty" type="number" min="1" value="1" required></label>
-        <label>直接成本（台幣）<input name="stock_unit_cost" id="productQuickStockUnitCost" type="number" min="0" step="0.01" value="0" required><small class="muted">掃條碼後帶入現有成本，可改。不加運費、關稅、倉別加價。</small></label>
-        <input type="hidden" name="stock_department" id="productQuickStockDepartment" value="電腦部門">
-        <label>倉別<select name="stock_warehouse_name" id="productQuickStockWarehouse" data-current="電腦倉"><option value="">請選擇倉別</option></select></label>
-        <label>倉架名稱<select name="stock_shelf_code" id="productQuickStockShelf"><option value="">還沒放上去</option></select><span class="shelf-add-inline"><input id="productQuickStockShelfAdd" placeholder="例如 A01" autocomplete="off"><button type="button" class="secondary small" id="productQuickStockShelfAddBtn">+ 新增倉架</button></span><small class="muted">沒選倉架名稱代表還沒放上去。這個倉別還沒有倉架時，先選倉別，再在這裡新增倉架名稱。</small></label>
-        <label>倉架位置<select name="stock_location" id="productQuickStockLocation"><option value="">還沒放上去</option><option value="上層">上層</option><option value="下層">下層</option></select><small class="muted">只有上層／下層。</small></label>
-        <?php render_photo_capture_fields('stock_main_image', 'stock_extra_images', [
-          'title' => '入庫時順便拍照',
-          'hint' => '掃完條碼、選好倉別後，可拍照、選相簿或 Ctrl+V 貼上主圖／細圖。確認入庫時會一併存到這筆產品。',
-          'main_label' => '主圖（1 張，會取代）',
-          'extra_label' => '其他細圖（可多張追加）',
-        ]); ?>
-        <label class="wide">備註<input name="stock_note" placeholder="舊系統現貨、快速入庫說明"></label>
-        <div class="wide document-total-bar"><span>入庫小計 <b id="productQuickStockBase">$0</b></span><span>直接單位成本 <b id="productQuickStockLanded">$0</b></span></div>
-        <button class="primary" id="productQuickStockSubmit">確認直接成本並入庫</button>
-      </form>
-      <div class="ops-alert">盤點作業會使用同一份商品與庫存資料，支援條碼掃描、數量累加、差異表格與盤點時間。請按右上方「開啟完整盤點功能」。</div>
-    </div>
-    <div class="sub-card">
-      <h3>Google 表 / CSV 匯入產品庫存</h3>
-      <form method="post" class="product-form">
-        <input type="hidden" name="action" value="sync_default_product_sheet">
-        <div class="wide muted">固定同步來源：Google 雲端表「新上架 / 庫存數量 / 上架後數量 / 已售出」。按下後會用產品編號或條碼比對，已有就更新，沒有就新增。</div>
-        <button class="primary">同步指定雲端表</button>
-      </form>
-      <form method="post" enctype="multipart/form-data" class="product-form" autocomplete="off">
-        <input type="hidden" name="action" value="import_products_csv">
-        <label class="wide">Google 表連結或 CSV 連結<input name="sheet_csv_url" placeholder="貼上 Google Sheet 連結，需開放檢視或已發布"></label>
-        <label>或上傳 CSV<input name="csv_file" type="file" accept=".csv,text/csv"></label>
-        <div class="wide muted">可辨識欄位：產品編號、條碼、產品名稱、顏色、尺碼、規格、成本、庫存數量、上架後數量、已售出、倉位、新上架。系統會用產品編號或條碼比對，已有就更新，沒有就新增。</div>
-        <button class="secondary">匯入產品庫存</button>
-      </form>
-    </div>
-    <form method="get" action="operations.php#products" class="inline-filter product-list-filter"><label>現有產品關鍵字<input id="productQuickSearch" name="product_q" autocomplete="off" placeholder="輸入第一個字即可搜尋：編號 / 條碼 / 名稱 / 顏色 / 尺寸 / 規格" value="<?=h($productListQ)?>"></label><label>商品狀態<select name="product_condition"><option value="">全部</option><option value="全新品" <?=($productListCondition==='全新品'?'selected':'')?>>全新品</option><option value="二手品" <?=($productListCondition==='二手品'?'selected':'')?>>二手品</option></select></label><button class="button-like">搜尋產品</button><?php if($productListQ!=='' || $productListCondition!==''): ?><a class="button-like" href="operations.php#products">清除搜尋</a><?php endif; ?><span class="muted">目前第 <?=h($productListPage)?> / <?=h($productListPages)?> 頁，每頁 10 筆；顯示 <?=h(count($productListRows))?> / <?=h($productListTotal)?> 筆，總產品 <?=h(count($products))?> 筆。</span></form>
-<form method="post" class="bulk-product-form" onsubmit="return confirm('確定刪除勾選的產品？已排程產品會自動跳過。');">
-      <input type="hidden" name="action" value="delete_products_bulk">
-      <div class="bulk-actions">
-        <button class="danger" type="submit">刪除勾選產品</button>
-      </div>
-      <div class="sub-card">
-        <h3>AI 產品描述素材</h3>
-        <p class="muted">勾選產品後按下產生，會把產品編號、名稱、規格、原始產品描述、主圖與其他圖片整理在下面，方便複製到 ChatGPT 轉繁體中文與補強說明。</p>
-        <div class="form-actions">
-          <button type="button" class="secondary" id="buildAiMaterial">產生勾選產品素材</button>
-          <button type="button" class="secondary" id="copyAiMaterial">複製素材</button>
-        </div>
-        <textarea id="aiMaterialOutput" class="wide" rows="10" placeholder="勾選產品後，按「產生勾選產品素材」。"></textarea>
-      </div>
-    
-<?php if(!$isEditingProduct && $productListPages > 1): ?><div class="pager product-pager"><?php for($pg=max(1,$productListPage-3); $pg<=min($productListPages,$productListPage+3); $pg++): ?><a class="button-like small <?= $pg===$productListPage ? 'active' : '' ?>" href="operations.php?product_q=<?=urlencode($productListQ)?>&product_condition=<?=urlencode($productListCondition)?>&product_page=<?=$pg?>#products"><?=$pg?></a><?php endfor; ?></div><?php endif; ?>
-<div class="table-wrap"><table><thead><tr><th><input type="checkbox" id="checkAllProducts" onclick="document.querySelectorAll('.product-check').forEach(cb=>cb.checked=this.checked)"></th><th>圖片</th><th>編號（分類＋P成本＋顏色）</th><th>名稱</th><th>狀態</th><th>分類</th><th>顏色 / 尺碼 / 規格</th><th>人民幣成本 / 條碼台幣</th><th>售價</th><th>前台</th><th>庫存</th><th>倉別 / 倉架 / 位置</th><th>操作</th></tr></thead><tbody>
-      <?php foreach($productListRows as $p): $available=stock_available($p); $reservedTotal=stock_reserved_total($p); $cloudReserved=cloud_auction_reserved($p); $productListStockName=trim((string)($p['warehouse_name']??'')); $productListPosition=stock_position_label($p['shelf_code']??'', $p['warehouse_location']??''); if($productListPosition===$productListStockName) $productListPosition=''; $productListCategory=trim(implode(' / ', array_filter([$p['category_group']??'', $p['category_type']??'', $p['category_brand']??'', $p['category_spec']??''], function($v){ return trim((string)$v) !== ''; }))); ?>
-      <tr data-product-search-row data-product-search-text="<?=h(trim(($p['id']??'').' '.($p['barcode']??'').' '.($p['title']??'').' '.($p['color']??'').' '.($p['color_code']??'').' '.($p['size']??'').' '.($p['size_code']??'').' '.($p['spec']??'').' '.($p['category_group']??'').' '.($p['category_type']??'').' '.($p['category_brand']??'').' '.($p['category_spec']??'')))?>" data-product-id="<?=h($p['id']??'')?>" data-product-title="<?=h($p['title']??'')?>" data-product-spec="<?=h(trim(($p['color']??'').' / '.($p['size']??'').' / '.($p['spec']??''), ' /'))?>" data-product-desc="<?=h(($p['description_source'] ?? '') !== '' ? ($p['description_source'] ?? '') : ($p['description']??''))?>" data-product-images="<?=h(implode('\\n', product_images($p)))?>">
-        <td><input class="product-check" type="checkbox" name="product_ids[]" value="<?=h($p['id']??'')?>"></td>
-        <td>
-          <?php $imgs = product_images($p); ?>
-          <?php if(!empty($p['image'])): ?><span class="product-list-main"><img class="thumb zoomable" src="<?=h($p['image'])?>" title="主圖"></span><?php else: ?><span class="muted">無主圖</span><?php endif; ?>
-          <div class="photo-capture-actions">
-            <label class="photo-btn camera small">拍照上傳<input type="file" accept="image/*" capture="environment" data-quick-photo-product="<?=h($p['id']??'')?>" data-quick-photo-role="main"></label>
-            <button type="button" class="photo-btn paste small" data-photo-paste-self>貼上</button>
-            <button type="button" class="secondary small product-capture-button" data-product-id="<?=h($p['id']??'')?>" onclick="captureProductMainImage(this)">✂ 擷取主圖</button>
-          </div>
-          <?php if(count($imgs) > 1): ?><div class="product-list-gallery"><?php foreach(array_slice($imgs, 1, 6) as $img): ?><img class="zoomable" src="<?=h($img)?>" title="其他產品照片"><?php endforeach; ?></div><?php endif; ?>
-          <?php if(count($imgs) > 1): ?><small class="muted">共 <?=h(count($imgs))?> 張</small><?php endif; ?>
-        </td>
-        <td><b><?=h(latest_cost_barcode($p) ?: ($p['barcode'] ?? $p['id'] ?? ''))?></b><br><span class="muted">流水 <?=h(product_serial_base($p) ?: ($p['id'] ?? ''))?></span></td>
-        <td><?=h($p['title']??'')?></td>
-        <td><?=h(($p['product_condition'] ?? '') ?: '未設定')?></td>
-        <td><?=h($productListCategory ?: '-')?></td>
-        <td><?=h(($p['color']??'').' / '.($p['size']??'').' / '.($p['spec']??''))?></td>
-        <td><b>¥<?=h(number_format((float)($p['purchase_source_unit_cost'] ?? 0), 2))?></b><br><span class="muted">CNY × <?=h($p['purchase_exchange_rate'] ?? ($purchaseCostSettings['rmb_fixed_rate'] ?? 5))?></span><br><span class="muted">條碼台幣 <?=money($p['cost']??0)?></span><br><span class="muted">最新條碼 <?=h(latest_cost_barcode($p))?></span></td>
-        <td><b><?=money($p['sale_price']??0)?></b></td>
-        <td><?=!empty($p['publish_storefront'])?'<b class="success-text">已發布</b>':'未發布'?></td>
-        <td>總 <?=h($p['stock_total']??0)?>｜預約 <?=h($reservedTotal)?><?php if($cloudReserved): ?>（競標 <?=h($cloudReserved)?>）<?php endif; ?>｜已售 <?=h($p['stock_sold']??0)?>｜可用 <?=h($available)?><?php if(!empty($p['cloud_auction_locked'])): ?><br><b class="stock-warning">競標中鎖倉</b><?php endif; ?></td>
-        <td><?=h($productListStockName ?: '-')?><?php if($productListPosition): ?><br><span class="muted"><?=h($productListPosition)?></span><?php endif; ?></td>
-        <td>
-          <a class="button-like small" href="operations.php?edit_product=<?=urlencode($p['id']??'')?>#products">編輯</a>
-          <a class="button-like small" target="_blank" rel="noopener" href="operations.php?print_cost_barcode=<?=urlencode($p['id']??'')?>&label_size=40x30">條碼 40×30</a>
-          <a class="button-like small" target="_blank" rel="noopener" href="operations.php?print_cost_barcode=<?=urlencode($p['id']??'')?>&label_size=30x30">條碼 30×30</a>
-          <form method="post" class="inline-form" onsubmit="return confirm('確定刪除此產品？沒有排程引用才會刪除。');">
-            <input type="hidden" name="action" value="delete_product">
-            <input type="hidden" name="id" value="<?=h($p['id']??'')?>">
-            <button class="danger small" type="submit">刪除</button>
+          <div class="bulk-actions bottom"><button class="danger" type="submit">刪除勾選產品</button></div>
+        </form>
+        <details class="product-side-tools">
+          <summary>條碼快速入庫</summary>
+          <form method="post" enctype="multipart/form-data" class="product-form" id="productQuickStockForm" style="margin-top:12px">
+            <input type="hidden" name="action" value="stock_in">
+            <input type="hidden" name="stock_doc_no" value="">
+            <input type="hidden" name="stock_doc_date" value="<?=h(date('Y-m-d'))?>">
+            <input type="hidden" name="stock_allocation_method" value="quantity">
+            <input type="hidden" name="stock_direct_cost" value="1">
+            <input type="hidden" name="stock_source" id="productQuickStockSource" value="舊系統現貨">
+            <input type="hidden" name="stock_currency" id="productQuickStockCurrency" value="TWD">
+            <input type="hidden" name="stock_exchange_rate" id="productQuickStockRate" value="1">
+            <label class="wide">掃描條碼 / 產品編號<input name="stock_product_id" id="productQuickStockBarcode" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+            <div class="wide ops-alert" id="productQuickStockProductInfo">等待掃描產品條碼。</div>
+            <label>入庫數量<input name="stock_qty" id="productQuickStockQty" type="number" min="1" value="1" required></label>
+            <label>直接成本（台幣）<input name="stock_unit_cost" id="productQuickStockUnitCost" type="number" min="0" step="0.01" value="0" required></label>
+            <input type="hidden" name="stock_department" id="productQuickStockDepartment" value="電腦部門">
+            <label>倉別<select name="stock_warehouse_name" id="productQuickStockWarehouse" data-current="電腦倉"><option value="">請選擇倉別</option></select></label>
+            <label>倉架名稱<select name="stock_shelf_code" id="productQuickStockShelf"><option value="">還沒放上去</option></select><span class="shelf-add-inline"><input id="productQuickStockShelfAdd" autocomplete="off"><button type="button" class="secondary small" id="productQuickStockShelfAddBtn">＋倉架</button></span></label>
+            <label>倉架位置<select name="stock_location" id="productQuickStockLocation"><option value="">還沒放上去</option><option value="上層">上層</option><option value="下層">下層</option></select></label>
+            <?php render_photo_capture_fields('stock_main_image', 'stock_extra_images', [
+              'title' => '入庫拍照',
+              'hint' => '',
+              'main_label' => '主圖',
+              'extra_label' => '其他細圖',
+            ]); ?>
+            <label class="wide">備註<input name="stock_note"></label>
+            <div class="wide document-total-bar"><span>入庫小計 <b id="productQuickStockBase">$0</b></span><span>直接單位成本 <b id="productQuickStockLanded">$0</b></span></div>
+            <button class="primary" id="productQuickStockSubmit">確認直接成本並入庫</button>
           </form>
-        </td>
-      </tr>
-      <?php endforeach; ?>
-    </tbody></table></div>
-      <div class="bulk-actions bottom"><button class="danger" type="submit">刪除勾選產品</button></div>
-    </form>
+        </details>
+        <details class="product-side-tools">
+          <summary>Google 表 / CSV 匯入</summary>
+          <form method="post" class="product-form" style="margin-top:12px">
+            <input type="hidden" name="action" value="sync_default_product_sheet">
+            <button class="primary">同步指定雲端表</button>
+          </form>
+          <form method="post" enctype="multipart/form-data" class="product-form" autocomplete="off">
+            <input type="hidden" name="action" value="import_products_csv">
+            <label class="wide">Google 表連結或 CSV 連結<input name="sheet_csv_url"></label>
+            <label>或上傳 CSV<input name="csv_file" type="file" accept=".csv,text/csv"></label>
+            <button class="secondary">匯入產品庫存</button>
+          </form>
+        </details>
+      </div>
+    </div>
   </section>
 
 <script>
@@ -13928,13 +14008,27 @@ function setupProductCategoryCascade() {
   saveOption('saveCategoryTypeOption', { includeBrand: false, includeSpec: false });
   saveOption('saveCategoryBrandOption', { includeBrand: true, includeSpec: false });
   saveOption('saveCategorySpecOption', { includeBrand: true, includeSpec: true });
-  if (groupInput && groupInput.tagName === 'SELECT') groupInput.addEventListener('change', updateBarcodePreview);
+  if (groupInput && groupInput.tagName === 'SELECT') groupInput.addEventListener('change', () => {
+    updateBarcodePreview();
+    syncComputerSpecPanel();
+  });
   if (departmentSelect) departmentSelect.addEventListener('change', () => {
     updateBarcodePreview();
   });
   groupInput.value = currentGroup();
   typeHidden.value = currentType();
   updateBarcodePreview();
+  syncComputerSpecPanel();
+}
+
+function syncComputerSpecPanel() {
+  const groupInput = document.getElementById('productCategoryGroupInput');
+  const panel = document.getElementById('productComputerSpecPanel');
+  if (!panel) return;
+  const group = String(groupInput?.value || '').trim();
+  const isHw = !group || group === '組裝硬體' || group === '電腦部門' || group === '電腦';
+  panel.hidden = !isHw;
+  if (isHw) panel.open = true;
 }
 
 setupProductCategoryCascade();
