@@ -39,18 +39,26 @@ function clean(value) {
 }
 
 function writePeerListCache(items) {
+  const nodeCrypto = require("crypto");
   const cacheDir = path.join(root, "data", "cache");
   fs.mkdirSync(cacheDir, { recursive: true });
   const slim = [];
+  const shards = {};
   let withPhotos = 0;
+  const addSrc = (list, value) => {
+    const src = clean(typeof value === "string" ? value : value && (value.data || value.src || value.url));
+    if (src && !list.includes(src)) list.push(src);
+  };
   for (const item of items || []) {
     const source = clean(item.sourceSystem);
     const blob = `${item.county || ""}${item.address || ""}${item.title || ""}`;
     if (source === "公開同業網站同步" && !/宜蘭/.test(blob)) continue;
-    let src = clean(item.image);
-    if (!src && Array.isArray(item.images) && item.images[0]) src = clean(item.images[0].data || item.images[0]);
-    if (!src && Array.isArray(item.photos) && item.photos[0]) src = clean(item.photos[0].data || item.photos[0]);
-    const photoCount = Array.isArray(item.images) && item.images.length ? item.images.length : src ? 1 : 0;
+    const srcs = [];
+    for (const key of ["images", "photos", "gallery"]) {
+      if (Array.isArray(item[key])) item[key].forEach((img) => addSrc(srcs, img));
+    }
+    addSrc(srcs, item.image);
+    const src = srcs[0] || "";
     if (src) withPhotos += 1;
     slim.push({
       id: item.id || "",
@@ -78,19 +86,26 @@ function writePeerListCache(items) {
       listedDate: item.listedDate || item.listedAt || "",
       image: src,
       images: src ? [{ name: "照片01", data: src }] : [],
-      photoCount,
+      photoCount: srcs.length,
     });
+    if (!srcs.length) continue;
+    const lookupIds = [item.id, item.externalId, item.publicNo, item.sourceHost && item.externalId ? `${item.sourceHost}|${item.externalId}` : ""]
+      .map(clean)
+      .filter(Boolean);
+    for (const lookupId of lookupIds) {
+      const shard = "photos-" + nodeCrypto.createHash("sha1").update(lookupId).digest("hex").slice(0, 2) + ".json";
+      shards[shard] = shards[shard] || {};
+      shards[shard][lookupId] = srcs;
+    }
   }
-  fs.writeFileSync(
-    path.join(cacheDir, "peer-list.json"),
-    JSON.stringify({ ok: true, cachedAt: new Date().toISOString(), data: { peerDevelopmentItems: slim }, total: slim.length, withPhotos })
-  );
+  const payload = JSON.stringify({ ok: true, cachedAt: new Date().toISOString(), data: { peerDevelopmentItems: slim }, total: slim.length, withPhotos });
+  fs.writeFileSync(path.join(cacheDir, "peer-list.json"), payload);
   try {
-    fs.writeFileSync(
-      path.join(root, "api", "peer-list.json"),
-      JSON.stringify({ ok: true, cachedAt: new Date().toISOString(), data: { peerDevelopmentItems: slim }, total: slim.length, withPhotos })
-    );
+    fs.writeFileSync(path.join(root, "api", "peer-list.json"), payload);
   } catch (e) {}
+  for (const [name, map] of Object.entries(shards)) {
+    fs.writeFileSync(path.join(cacheDir, name), JSON.stringify(map));
+  }
 }
 
 function num(value) {

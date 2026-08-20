@@ -11,6 +11,8 @@ $dataFile = __DIR__ . '/../data/shared-db.json';
 $cacheFile = __DIR__ . '/../data/cache/peer-list.json';
 $publicCacheFile = __DIR__ . '/peer-list.json';
 
+require __DIR__ . '/peer-photo-lib.php';
+
 function respond($data, int $status = 200): void {
     http_response_code($status);
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -36,41 +38,14 @@ function parseList($value): array {
     return [];
 }
 
-function mediaSrc($value): string {
-    if (is_string($value)) return trim($value);
-    if (is_array($value)) {
-        foreach (['data', 'src', 'url', 'imageUrl', 'href'] as $key) {
-            if (!empty($value[$key]) && is_string($value[$key])) return trim($value[$key]);
-        }
-    }
-    return '';
-}
-
 function firstImageSrc(array $item): string {
-    foreach (['image', 'cover', 'thumb', 'thumbnail', 'imageUrl'] as $key) {
-        $src = mediaSrc($item[$key] ?? '');
-        if ($src !== '') return $src;
-    }
-    foreach (['images', 'photos', 'gallery'] as $key) {
-        $value = $item[$key] ?? null;
-        if (is_string($value) && $value !== '') {
-            $decoded = json_decode($value, true);
-            $value = is_array($decoded) ? $decoded : [$value];
-        }
-        if (!is_array($value)) continue;
-        foreach ($value as $img) {
-            $src = mediaSrc($img);
-            if ($src !== '') return $src;
-        }
-    }
-    return '';
+    $srcs = peerAllImageSrcs($item);
+    return $srcs[0] ?? '';
 }
 
 function photoCount(array $item): int {
-    foreach (['images', 'photos', 'gallery'] as $key) {
-        if (!empty($item[$key]) && is_array($item[$key])) return count($item[$key]);
-    }
-    return firstImageSrc($item) !== '' ? 1 : 0;
+    $n = count(peerAllImageSrcs($item));
+    return $n ?: (firstImageSrc($item) !== '' ? 1 : 0);
 }
 
 function keepPeerItem(array $item): bool {
@@ -129,11 +104,26 @@ if (!is_array($db)) $db = [];
 $rows = parseList($db['peerDevelopmentItems'] ?? []);
 $slim = [];
 $withPhotos = 0;
+$shards = [];
 foreach ($rows as $item) {
     if (!is_array($item) || !keepPeerItem($item)) continue;
     $row = slimPeerItem($item);
+    $srcs = peerAllImageSrcs($item);
+    $row['photoCount'] = count($srcs);
     if ($row['image'] !== '') $withPhotos += 1;
     $slim[] = $row;
+    if (!$srcs) continue;
+    foreach (peerPhotoLookup($item) as $lookupId) {
+        $shard = peerPhotoShardName($lookupId);
+        if (!isset($shards[$shard])) $shards[$shard] = [];
+        $shards[$shard][$lookupId] = $srcs;
+    }
+}
+
+$cacheDir = dirname($cacheFile);
+if (!is_dir($cacheDir)) @mkdir($cacheDir, 0775, true);
+foreach ($shards as $name => $map) {
+    @file_put_contents($cacheDir . '/' . $name, json_encode($map, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
 
 $payload = json_encode([
@@ -144,8 +134,6 @@ $payload = json_encode([
     'withPhotos' => $withPhotos,
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-$cacheDir = dirname($cacheFile);
-if (!is_dir($cacheDir)) @mkdir($cacheDir, 0775, true);
 if (is_dir($cacheDir)) @file_put_contents($cacheFile, $payload);
 @file_put_contents($publicCacheFile, $payload);
 

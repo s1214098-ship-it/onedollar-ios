@@ -10518,10 +10518,33 @@ function getPeerDevelopmentDeedFiles(item){
     return rows;
 }
 
-function openPeerDevelopmentMedia(key, type){
+async function loadPeerDevelopmentGallery(item, key){
+    const local = getPeerDevelopmentImages(item);
+    const expected = Number(item && item.photoCount || 0);
+    if(local.length >= 2 && (!expected || local.length >= expected)) return local;
+    const params = new URLSearchParams();
+    if(item && item.id) params.set("id", item.id);
+    if(item && item.externalId) params.set("externalId", item.externalId);
+    if(key) params.set("key", key);
+    try{
+        const res = await fetch("api/peer-photos.php?" + params.toString(), {cache:"no-store"});
+        const payload = await res.json();
+        const remote = Array.isArray(payload && payload.images) ? payload.images.map(String).filter(Boolean) : [];
+        if(remote.length > local.length){
+            item.images = remote.map((src, idx)=>({name:"照片" + String(idx + 1).padStart(2, "0"), data:src}));
+            item.photoCount = remote.length;
+            return remote;
+        }
+    }catch(e){
+        console.warn("peer photos fetch failed", e);
+    }
+    return local;
+}
+
+async function openPeerDevelopmentMedia(key, type){
     const item = getPeerDevelopmentItems().find(row=>peerDevelopmentKey(row) === String(key));
     if(!item){ alert("找不到同業物件資料"); return; }
-    const images = type === "deed" ? getPeerDevelopmentDeedImages(item) : getPeerDevelopmentImages(item);
+    const images = type === "deed" ? getPeerDevelopmentDeedImages(item) : await loadPeerDevelopmentGallery(item, key);
     if(!images.length){ alert(type === "deed" ? "這筆目前沒有權狀附件" : "這筆目前沒有照片"); return; }
     const viewerItem = { title: (type === "deed" ? "權狀附件｜" : "同業照片｜") + (item.title || "同業物件"), images };
     const ref = "peerMedia:" + Date.now();
