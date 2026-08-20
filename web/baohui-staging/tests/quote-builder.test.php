@@ -55,6 +55,9 @@ $js = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'admin-
 expect(str_contains($js, 'quote-builder-catalog.php'), 'builder loads catalog API');
 expect(str_contains($js, 'qb-card'), 'builder uses product cards instead of row selects');
 expect(!str_contains($js, 'size="6"'), 'builder no longer uses tall select lists');
+expect(str_contains($js, 'quoteBuilderInStockOnly'), 'builder has in-stock filter');
+expect(str_contains($js, '庫存大於 0'), 'in-stock filter is labeled');
+expect(str_contains($js, 'baohui-quote-builder-in-stock-only'), 'in-stock filter is remembered');
 expect(str_contains($js, '寶輝組裝估價'), 'builder is Baohui products, not CoolPC');
 expect(!str_contains($js, '原價屋報價'), 'does not label Baohui catalog as CoolPC');
 

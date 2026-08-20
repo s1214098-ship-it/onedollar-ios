@@ -1,13 +1,30 @@
 (function () {
   "use strict";
 
+  const STOCK_SETTING_KEY = "baohui-quote-builder-in-stock-only";
+
   const state = {
     catalog: null,
     activeSlotId: "",
     selected: {},
     filter: "",
     showExtra: false,
+    inStockOnly: readInStockOnly(),
   };
+
+  function readInStockOnly() {
+    try {
+      const raw = window.localStorage.getItem(STOCK_SETTING_KEY);
+      if (raw === "0") return false;
+      if (raw === "1") return true;
+    } catch (e) {}
+    return true;
+  }
+
+  function saveInStockOnly(on) {
+    state.inStockOnly = !!on;
+    try { window.localStorage.setItem(STOCK_SETTING_KEY, state.inStockOnly ? "1" : "0"); } catch (e) {}
+  }
 
   function esc(v) {
     return String(v == null ? "" : v).replace(/[&<>'"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c]));
@@ -130,9 +147,11 @@
       ".qb-pill{border:1px solid #d6e1ef;background:#fff;border-radius:999px;padding:7px 12px;font-weight:800;color:#334155;cursor:pointer}",
       ".qb-pill.is-active{background:#0f766e;border-color:#0f766e;color:#fff}",
       ".qb-pill.is-picked:not(.is-active){border-color:#0f766e;color:#0f766e;background:#ecfdf5}",
-      ".qb-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin-bottom:10px}",
+      ".qb-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px}",
       ".qb-toolbar h6{margin:0;font-size:16px}",
-      ".qb-toolbar input{min-width:min(280px,100%)}",
+      ".qb-toolbar input[type=search],.qb-toolbar input.form-control{min-width:min(220px,100%)}",
+      ".qb-stock-filter{display:inline-flex;align-items:center;gap:6px;margin:0;font-weight:800;color:#334155;white-space:nowrap;cursor:pointer}",
+      ".qb-stock-filter input{width:18px;height:18px;margin:0}",
       ".qb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;max-height:520px;overflow:auto;padding:2px}",
       ".qb-card{display:grid;grid-template-rows:auto 1fr auto;gap:8px;text-align:left;background:#fff;border:1px solid #dbe5f2;border-radius:12px;padding:10px;cursor:pointer;color:#0f172a;box-shadow:0 6px 14px rgba(15,23,42,.04)}",
       ".qb-card:hover{border-color:#0f766e;box-shadow:0 0 0 3px rgba(15,118,110,.12)}",
@@ -189,12 +208,17 @@
     return '<div class="qb-pills">' + pills + extraBtn + "</div>";
   }
 
-  function cardsHtml(slot) {
+  function slotVisibleItems(slot) {
     const q = String(state.filter || "").trim().toLowerCase();
-    const items = (slot.items || []).filter((item) => {
+    return (slot.items || []).filter((item) => {
+      if (state.inStockOnly && (Number(item.stock) || 0) <= 0) return false;
       if (!q) return true;
       return [item.name, item.brand, item.spec, item.barcode, item.category_type].join(" ").toLowerCase().includes(q);
     });
+  }
+
+  function cardsHtml(slot) {
+    const items = slotVisibleItems(slot);
     if (!items.length) return '<div class="qb-empty">這個分類沒有符合的產品。</div>';
     const selectedId = String(state.selected[slot.id] || "");
     return '<div class="qb-grid">' + items.map((item) => {
@@ -224,6 +248,11 @@
       state.activeSlotId = slots[0] ? slots[0].id : "";
     }
     const slot = findSlot(catalog, state.activeSlotId);
+    const visibleCount = slot ? slotVisibleItems(slot).length : 0;
+    const totalCount = slot ? (slot.items || []).length : 0;
+    const countText = state.inStockOnly && totalCount !== visibleCount
+      ? visibleCount + " / " + totalCount + " 筆"
+      : (slot ? (visibleCount || totalCount) : 0) + " 筆";
     box.innerHTML =
       '<div class="qb-head">' +
         "<div><h6>寶輝組裝估價</h6></div>" +
@@ -232,7 +261,8 @@
       pickedHtml(catalog) +
       pillsHtml(catalog) +
       (slot
-        ? '<div class="qb-toolbar"><div><h6>' + esc(slot.label) + '</h6><div class="small text-muted">' + (slot.count || 0) + ' 筆</div></div>' +
+        ? '<div class="qb-toolbar"><div><h6>' + esc(slot.label) + '</h6><div class="small text-muted" id="quoteBuilderSlotCount">' + esc(countText) + "</div></div>" +
+          '<label class="qb-stock-filter"><input type="checkbox" id="quoteBuilderInStockOnly"' + (state.inStockOnly ? " checked" : "") + ">庫存大於 0</label>" +
           '<input class="form-control form-control-sm" id="quoteBuilderFilter" value="' + esc(state.filter) + '" placeholder="搜尋這個分類">' +
           "</div>" +
           '<div id="quoteBuilderCards">' + cardsHtml(slot) + "</div>"
@@ -307,14 +337,29 @@
       btn.addEventListener("click", () => applySlot(catalog, btn.getAttribute("data-clear-slot"), ""));
     });
     bindPickCards(catalog, box);
+    const stockOnly = document.getElementById("quoteBuilderInStockOnly");
+    if (stockOnly) {
+      stockOnly.addEventListener("change", () => {
+        saveInStockOnly(stockOnly.checked);
+        renderBuilder(catalog);
+      });
+    }
     const filter = document.getElementById("quoteBuilderFilter");
     if (filter) {
       filter.addEventListener("input", () => {
         state.filter = filter.value || "";
         const slot = findSlot(catalog, state.activeSlotId);
         const host = document.getElementById("quoteBuilderCards");
+        const countBox = document.getElementById("quoteBuilderSlotCount");
         if (!slot || !host) return;
         host.innerHTML = cardsHtml(slot);
+        if (countBox) {
+          const visibleCount = slotVisibleItems(slot).length;
+          const totalCount = (slot.items || []).length;
+          countBox.textContent = state.inStockOnly && totalCount !== visibleCount
+            ? visibleCount + " / " + totalCount + " 筆"
+            : visibleCount + " 筆";
+        }
         bindPickCards(catalog, host);
       });
     }
