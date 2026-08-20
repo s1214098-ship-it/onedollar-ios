@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LINGZANZAN｜電腦產品同步建檔</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="stylesheet" href="./assets/admin-navigation.css?v=20260820-computer-sync-1" data-admin-navigation-style>
+  <link rel="stylesheet" href="./assets/admin-products-computer.css?v=20260820-computer-sync-1">
+</head>
+<body>
+  <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="LINGZANZAN">
+      <h1>管理者登入</h1>
+      <input data-login-account autocomplete="username" placeholder="管理者帳號">
+      <input data-login-password type="password" autocomplete="current-password" placeholder="密碼">
+      <button type="submit">登入電腦部窗口</button>
+      <small data-login-hint>管理者與服裝部權限仍分開；登入效期沿用 24 小時。</small>
+    </form>
+  </div>
+
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+      <nav></nav>
+    </aside>
+    <main>
+      <header class="computer-page-head">
+        <div>
+          <p>COMPUTER DEPARTMENT</p>
+          <h1>電腦產品同步建檔</h1>
+          <span>這裡只處理電腦類。儲存後會寫進張張電腦產品庫，服裝部資料不會被改寫。</span>
+        </div>
+        <div class="computer-page-actions">
+          <a href="./admin-products.html">回服裝部產品管理</a>
+          <button type="button" data-computer-refresh>重新讀取</button>
+        </div>
+      </header>
+
+      <section class="computer-safety-strip">
+        <div><small>目前同步</small><b>寫入張張產品庫</b><span>電腦建檔兩邊共用，不必進一元競標</span></div>
+        <div><small>建檔狀態</small><b>儲存即串聯</b><span>現貨免物流單號；在途才要填</span></div>
+        <div><small>服裝相容</small><b data-clothing-compatible>不改服裝檔</b><span>舊資料缺欄位一律視為 clothing</span></div>
+      </section>
+
+      <div class="computer-workspace">
+        <section class="computer-form-panel">
+          <header>
+            <div><h2>新增／補電腦商品</h2><p>填完儲存就會在張張電腦產品庫建檔，兩邊之後都看得到。</p></div>
+            <button type="button" data-computer-clear>清空表單</button>
+          </header>
+          <form data-computer-form>
+            <input type="hidden" name="id">
+            <input type="hidden" name="expected_version" value="0">
+            <fieldset>
+              <legend>第一步｜到貨必填</legend>
+              <label class="wide">商品名稱<input name="title" required placeholder="例如：商務筆電 14 吋"></label>
+              <label>分類
+                <input name="category" list="computer-category-options" data-category-select required placeholder="可選或手打，會同步張張電腦分類">
+                <datalist id="computer-category-options"></datalist>
+              </label>
+              <label>規格細項<input name="category_spec" placeholder="例如：14吋／商務"></label>
+              <label>數量<input name="quantity" type="number" min="1" step="1" required value="1"></label>
+              <label>人民幣成本<input name="cost_rmb" type="number" min="0" step="0.01" required></label>
+              <label>暫定成本 NT$<input name="tentative_cost" type="number" min="0" step="0.01" readonly></label>
+              <label>供應商
+                <select name="supplier" data-supplier-select required>
+                  <option value="">請選擇供應商</option>
+                </select>
+              </label>
+              <label>倉位
+                <select name="warehouse" required>
+                  <option value="">請選擇</option>
+                  <option>電腦部暫存倉</option>
+                  <option>台灣倉</option>
+                  <option>中國倉</option>
+                  <option>印尼倉</option>
+                  <option>寶輝倉</option>
+                </select>
+              </label>
+              <label>庫存型態
+                <select name="stock_mode" data-stock-mode required>
+                  <option value="ready">現貨（免物流單號）</option>
+                  <option value="in_transit">在途／待到貨</option>
+                </select>
+              </label>
+              <label>物流
+                <input name="carrier" placeholder="7-11／全家／郵局／其他">
+              </label>
+              <label class="wide">物流單號
+                <input name="tracking_no" data-tracking-input placeholder="現貨可免填">
+                <small data-tracking-hint>現貨建檔不必填物流單號。</small>
+              </label>
+              <label>臨時條碼／編號<input name="temporary_barcode" autocomplete="off" placeholder="空白則儲存後自動編號"></label>
+              <label>來源單號<input name="source_document" placeholder="選填"></label>
+            </fieldset>
+
+            <details open>
+              <summary>第二步｜電腦規格</summary>
+              <div class="computer-detail-grid">
+                <label>品牌<input name="brand" list="computer-brand-options" data-brand-select placeholder="可選或手打"><datalist id="computer-brand-options"></datalist></label>
+                <label>型號<input name="model"></label>
+                <label>CPU<input name="cpu"></label>
+                <label>RAM<input name="ram"></label>
+                <label>硬碟<input name="storage"></label>
+                <label>顯卡<input name="gpu"></label>
+                <label>序號 SN<input name="serial_number"></label>
+                <label>新品／二手
+                  <select name="condition" data-product-condition>
+                    <option value="new">新品</option>
+                    <option value="used">二手</option>
+                  </select>
+                </label>
+                <label>保固<input name="warranty" value="依原廠規範"></label>
+                <label>檢測狀態
+                  <select name="inspection_status">
+                    <option value="pending">待檢測</option>
+                    <option value="checking">檢測中</option>
+                    <option value="passed">檢測通過</option>
+                    <option value="failed">檢測異常</option>
+                  </select>
+                </label>
+                <label>關稅
+                  <select name="customs_mode">
+                    <option value="none">無</option>
+                    <option value="included">已含</option>
+                    <option value="extra">另計</option>
+                  </select>
+                </label>
+                <label>關稅金額<input name="customs_amount" type="number" min="0" step="0.01" value="0"></label>
+                <label class="wide">產品描述<textarea name="description" rows="4"></textarea></label>
+                <label class="wide">備註<textarea name="notes" rows="2"></textarea></label>
+              </div>
+            </details>
+
+            <details open>
+              <summary>產品圖／顏色</summary>
+              <div class="media-section">
+                <div class="media-command-row">
+                  <label>產品詳細圖
+                    <input type="file" accept="image/*" multiple data-detail-image-input>
+                  </label>
+                  <button type="button" data-paste-detail>貼上詳細圖</button>
+                </div>
+                <div class="image-paste-zone" tabindex="0" data-detail-paste-zone>
+                  <b>把產品圖拖進來，或點這裡 Ctrl+V</b>
+                  <span>可一次多張</span>
+                </div>
+                <div class="image-grid" data-detail-image-list></div>
+                <div class="color-builder">
+                  <label>常用色
+                    <select data-color-preset>
+                      <option value="">自選／手打</option>
+                      <option>黑</option>
+                      <option>白</option>
+                      <option>銀</option>
+                      <option>灰</option>
+                      <option>藍</option>
+                      <option value="custom">其他</option>
+                    </select>
+                  </label>
+                  <label>顏色名稱<input data-color-name placeholder="例如：太空灰"></label>
+                  <label>此色數量<input type="number" min="1" step="1" value="1" data-color-quantity></label>
+                  <label>顏色縮圖<input type="file" accept="image/*" data-color-image-input></label>
+                  <button type="button" data-add-color>新增顏色</button>
+                  <button type="button" data-paste-color>貼上顏色圖</button>
+                </div>
+                <div class="image-paste-zone" tabindex="0" data-color-paste-zone>
+                  <b>顏色縮圖可貼上</b>
+                  <img alt="" hidden data-color-paste-preview>
+                </div>
+                <div class="image-grid" data-color-list></div>
+              </div>
+            </details>
+
+            <details>
+              <summary>Facebook 文案（選用）</summary>
+              <div class="facebook-copy-panel">
+                <label>售價 NT$<input type="number" min="0" step="1" data-facebook-price></label>
+                <label>文案風格
+                  <select data-facebook-style>
+                    <option value="short">短文</option>
+                    <option value="detail">詳情</option>
+                    <option value="story">故事</option>
+                  </select>
+                </label>
+                <label class="wide">貼文<textarea rows="6" data-facebook-copy></textarea></label>
+                <div class="facebook-copy-actions">
+                  <button type="button" data-generate-facebook>產生文案</button>
+                  <button type="button" data-copy-facebook>複製文案</button>
+                </div>
+              </div>
+            </details>
+
+            <output data-computer-form-status>尚未儲存。</output>
+            <div class="submit-actions">
+              <button class="primary-action" type="submit">儲存並同步到張張產品庫</button>
+              <button type="button" data-print-computer-label disabled>列印標籤</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="computer-list-panel">
+          <header>
+            <div>
+              <h2>電腦建檔清單</h2>
+              <p>領讚讚已送出的，以及張張產品庫裡的電腦商品，會顯示在同一份名單。</p>
+            </div>
+            <strong data-computer-count>0 筆</strong>
+          </header>
+          <label class="computer-search">搜尋<input type="search" data-computer-search placeholder="名稱、編號、條碼、品牌、型號、SN"></label>
+          <div data-computer-list><p class="empty-state">正在讀取電腦部資料…</p></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="./assets/admin-products-computer.js?v=20260820-computer-sync-1" defer></script>
+  <script src="./assets/admin-navigation.js?v=20260820-computer-sync-1" defer data-admin-navigation-script></script>
+  <script src="./assets/image-upload-paste.js?v=20260819-image-paste-1" defer></script>
+</body>
+</html>
