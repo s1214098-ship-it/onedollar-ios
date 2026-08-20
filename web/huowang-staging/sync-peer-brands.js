@@ -49,6 +49,26 @@ function clean(value) {
   return String(value ?? "").trim();
 }
 
+const BLOCKED_LISTING_KEYS = ["YCUT-1012453", "d70563f5-e6cb-4563-a3b9-b99ceb78bd5f", "羅東旁阿嬤ㄟ厝靜巷超值透天"];
+
+function isBlockedListing(item) {
+  const blob = [
+    item && item.id,
+    item && item.publicNo,
+    item && item.externalId,
+    item && item.contractNo,
+    item && item.sourceUrl,
+    item && item.title,
+    item && item.caseName,
+    item && item.showCaseNo,
+  ].join(" ");
+  return BLOCKED_LISTING_KEYS.some((key) => key && blob.indexOf(key) >= 0);
+}
+
+function rejectBlocked(list) {
+  return (list || []).filter((item) => !isBlockedListing(item));
+}
+
 function num(value) {
   const n = Number(String(value ?? "").replace(/[^\d.]/g, ""));
   return Number.isFinite(n) ? n : 0;
@@ -96,6 +116,7 @@ function writePeerListCache(items) {
     if (src && !list.includes(src)) list.push(src);
   };
   for (const item of items || []) {
+    if (isBlockedListing(item)) continue;
     const source = clean(item.sourceSystem);
     const blob = `${item.county || ""}${item.address || ""}${item.title || ""}`;
     if (source === "公開同業網站同步" && !/宜蘭/.test(blob)) continue;
@@ -636,12 +657,13 @@ async function main() {
 
   const raw = JSON.parse(fs.readFileSync(dbPath, "utf8"));
   const db = { ...raw };
-  const peerItems = parseMaybeJson(raw.peerDevelopmentItems, []);
+  const peerItems = rejectBlocked(parseMaybeJson(raw.peerDevelopmentItems, []));
   log(`db loaded peerItems=${peerItems.length}`);
 
   const byKey = new Map();
   for (const item of peerItems) byKey.set(peerKey(item), item);
   for (const row of incoming) {
+    if (isBlockedListing(row)) continue;
     const key = peerKey(row);
     const existing = byKey.get(key);
     if (existing) {
@@ -661,7 +683,7 @@ async function main() {
   fs.copyFileSync(dbPath, backup);
   summary.backup = backup;
 
-  db.peerDevelopmentItems = nextPeer;
+  db.peerDevelopmentItems = rejectBlocked(nextPeer);
   db.sourceAgentFillLog = parseMaybeJson(raw.sourceAgentFillLog, []);
   db.sourceAgentFillLog.unshift({ at: new Date().toISOString(), mode: "yilan-peer-brands", ...summary });
   db.sourceAgentFillLog = db.sourceAgentFillLog.slice(0, 30);

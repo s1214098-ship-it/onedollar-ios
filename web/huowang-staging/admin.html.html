@@ -4008,7 +4008,7 @@ input[list*="List"],input[list]{
   </div>
 </div>
 
-<script src="shared-storage.js?v=202608182225"></script>
+<script src="shared-storage.js?v=202608200708"></script>
 <script>
 const areas = {
 "臺北市":["中正區","大同區","中山區","松山區","大安區","萬華區","信義區","士林區","北投區","內湖區","南港區","文山區"],
@@ -7755,6 +7755,10 @@ function convertYcutToBuyerLead(id){
 
 function saveImportedListing(item){
     if(!item || !importUniqueKey(item)) return {ok:false, reason:"缺少來源網址或外部編號"};
+    if(typeof isBlockedListing === "function" && isBlockedListing(item)){
+        recordImportLog(item, "blocked", "skipped", "此件已停售，不再匯入");
+        return {ok:false, reason:"已停售封鎖"};
+    }
     const bucket = classifyImportedYungchingItem(item);
     if(bucket === "own" || bucket === "contract"){
         recordImportLog(item, "skipped-own-contract", "skipped", "外部匯入不自動進合約，需人工確認簽約");
@@ -7806,7 +7810,8 @@ function saveImportedListing(item){
 }
 
 function saveBorrowItems(list){
-    localStorage.setItem("borrowItems", JSON.stringify(list || []));
+    const rows = (list || []).filter(function(item){ return typeof isBlockedListing !== "function" || !isBlockedListing(item); });
+    localStorage.setItem("borrowItems", JSON.stringify(rows));
 }
 
 function migrateHomeStoreBorrowItemsToSameStore(){
@@ -8467,7 +8472,8 @@ function getSameStoreItems(){
 }
 
 function saveSameStoreItems(list){
-    localStorage.setItem("sameStoreItems", JSON.stringify(list || []));
+    const rows = (list || []).filter(function(item){ return typeof isBlockedListing !== "function" || !isBlockedListing(item); });
+    localStorage.setItem("sameStoreItems", JSON.stringify(rows));
 }
 
 function parseSharedListValue(value){
@@ -8854,49 +8860,48 @@ function showSameStoreAreaItems(city, district, modal){
     }).join("") : `<div style="padding:10px;color:#64748B">此區目前沒有同店物件</div>`);
 }
 
-function seedBorrowDemoFromYcut(){
-    const key = "borrowDemoSeed_YCUT_1012453";
-    const list = getBorrowItems();
-    const demoImages = [
-        {name:"流通物件照片1",data:"https://cloudfps.ycut.com.tw/v1/image/?key=NF58Ko5oaCt1O94TVOQU6So26tNj2V_DO6J3z5EMQVEZXGkn1L3LivIAeR9xOkxcqVhtUUJ4lA_cF1mBh5MY1RWd5eEaa7mn9qxu8f6s-rtKfVoBsurTgAnsNQ3b1ueVZBTVyE902uF_f-3ZuwGIuiPqn5lPct09o91DKmIxf5VpUCt-00jzlOONdMgp0vmlKXlXonUpj8okaO5NrdDOIQ&width=400"},
-        {name:"流通物件照片2",data:"https://cloudfps.ycut.com.tw/v1/image/?key=NF58Ko5oaCtEdq2KN1FYVvbDsuXyB9m7GxQnL5h4WhyYtyudpg5MuKT5VU5x6RdLqVhtUUJ4lA_cF1mBh5MY1RWd5eEaa7mn9qxu8f6s-rtKfVoBsurTgAnsNQ3b1ueVa0jD0JJgeWt02Xc92Hgeax9ptXAdU5ZumJzvdlTLfrA2jGyW7GMUcsQd5zChmVBP69jXXRlWI3WGACT-s4lDs8ShYsvown2RKluDB4vs3XBAQgkkIIUok4Nc3dOPPQMQupHYJnh9cLCgdiIXq_3MZT5vZ6OflHt10bWNorW3IP1MmpuC1T4RxII9rQUntT2-JoUZRkVuMG09qnHB_xHX6A&width=600&height=450"},
-        {name:"流通物件照片3",data:"https://cloudfps.ycut.com.tw/v1/image/?key=NF58Ko5oaCtlvchwbyfhA9jcZrwr71HsFSqb3Wo0Av3tMQVfnsJygnc52JH5kxQ9qVhtUUJ4lA_cF1mBh5MY1RWd5eEaa7mn9qxu8f6s-rtKfVoBsurTgAnsNQ3b1ueVa0jD0JJgeWt02Xc92Hgeax9ptXAdU5ZumJzvdlTLfrA2jGyW7GMUcsQd5zChmVBP69jXXRlWI3WGACT-s4lDs8ShYsvown2RKluDB4vs3XCba78wTuCNPINc3dOPPQMQruh-Gt23mTzaYgmqa__ngegw_kxkxkdM5Y2LgriectHRRNV42ITb-1cyblH68K1E9Vb73SyWDygB_rlPoLduADPhPp2xS6o-Y17YaT0tNrA9lTN2EWLhWA61ZLz253FFxmvQjvm2wa8QiAEzkoYci-X-Ch0MsGkb&width=600&height=450"}
-    ];
-    const existing = list.find(item => item && item.id === "YCUT-1012453");
-    if(existing) {
-        if(!Array.isArray(existing.images) || existing.images.length < 3){
-            existing.images = demoImages;
-            existing.updatedAt = new Date().toISOString();
-            saveBorrowItems(list);
-        }
-        localStorage.setItem(key, "1");
-        return;
+function listingBlockBlob(item){
+    return [
+        item && item.id,
+        item && item.publicNo,
+        item && item.externalId,
+        item && item.contractNo,
+        item && item.sourceUrl,
+        item && item.title,
+        item && item.showCaseNo,
+        item && item.caseName
+    ].join(" ");
+}
+
+function isBlockedListing(item){
+    const keys = ["YCUT-1012453", "d70563f5-e6cb-4563-a3b9-b99ceb78bd5f", "羅東旁阿嬤ㄟ厝靜巷超值透天"];
+    const blob = listingBlockBlob(item);
+    return keys.some(function(key){ return key && blob.indexOf(key) >= 0; });
+}
+
+function filterBlockedFromStorage(storageKey){
+    try{
+        const rows = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        if(!Array.isArray(rows)) return;
+        const kept = rows.filter(function(item){ return !isBlockedListing(item); });
+        if(kept.length !== rows.length) localStorage.setItem(storageKey, JSON.stringify(kept));
+    }catch(e){}
+}
+
+function purgeBlockedListings(){
+    try{ localStorage.removeItem("borrowDemoSeed_YCUT_1012453"); }catch(e){}
+    ["borrowItems","sameStoreItems","properties","targets","peerDevelopmentItems","storeDevelopmentItems"].forEach(filterBlockedFromStorage);
+    if(window.HUOMANGE_SHARED_DATA){
+        ["borrowItems","sameStoreItems","properties","targets","peerDevelopmentItems","storeDevelopmentItems"].forEach(function(key){
+            const rows = window.HUOMANGE_SHARED_DATA[key];
+            if(!Array.isArray(rows)) return;
+            window.HUOMANGE_SHARED_DATA[key] = rows.filter(function(item){ return !isBlockedListing(item); });
+        });
     }
-    list.unshift({
-        id:"YCUT-1012453",
-        company:"永慶羅東文化盛群加盟店",
-        brand:"永慶不動產",
-        contact:"邱詩懿",
-        phone:"0966011918",
-        line:"",
-        status:"可合作",
-        kind:"透天",
-        city:"宜蘭縣",
-        district:"冬山鄉",
-        road:"冬山路五段",
-        nearby:"羅東生活圈 / 冬山路五段附近",
-        title:"羅東旁阿嬤ㄟ厝靜巷超值透天",
-        price:"598萬",
-        spec:"建物 28.656坪 / 土地 24.354坪 / 4房2廳2衛",
-        publicNote:"羅東生活圈低總價好規劃透天，活巷好進出，地點絕佳，華廈預算也能圓透天夢。屋況需整理，適合自住規劃或長期持有。",
-        privateNote:"非郭火旺承辦，依規則歸檔異店物件管理。原頁承辦人：邱詩懿 0966011918。來源：流通物件明細；前台不可顯示原開發人、承辦人電話或精準敏感聯絡資訊。",
-        sourceUrl:"https://is.ycut.com.tw/is/case/detail/d70563f5-e6cb-4563-a3b9-b99ceb78bd5f",
-        images:demoImages,
-        createdAt:new Date().toISOString(),
-        updatedAt:new Date().toISOString()
-    });
-    saveBorrowItems(list);
-    localStorage.setItem(key, "1");
+}
+
+function seedBorrowDemoFromYcut(){
+    purgeBlockedListings();
 }
 
 function toggleMobileMenu(){
@@ -13509,8 +13514,8 @@ window.onload=async function(){
     initContractSignaturePad();
     initFormSections();
     ["p","c","t"].forEach(refreshObjectRoadFilter);
-    // 展示樣品只保留手動加入，避免使用者刪除自有物件銷售後重整又被自動補回。
-    seedBorrowDemoFromYcut();
+    // 不賣的物件不要再自動種回異店清單。
+    purgeBlockedListings();
     loadAgentInfo();
     const savedLogin = getSavedLogin();
     const hashPage = location.hash ? location.hash.replace("#", "") : "";
@@ -13519,7 +13524,7 @@ window.onload=async function(){
     if(savedLogin && backendLoggedIn) {
         applyLoginState(savedLogin.role);
         if (window.HUOMANGE_SHARED_STORAGE && typeof window.HUOMANGE_SHARED_STORAGE.reload === "function") {
-            window.HUOMANGE_SHARED_STORAGE.reload().then(()=>loadDashboard()).catch(()=>loadDashboard());
+            window.HUOMANGE_SHARED_STORAGE.reload().then(function(){ purgeBlockedListings(); loadDashboard(); }).catch(function(){ purgeBlockedListings(); loadDashboard(); });
         }
         const lastPage = startPage || sessionStorage.getItem("lastActivePage") || "dashboard";
         show(document.getElementById(lastPage) ? lastPage : "dashboard");

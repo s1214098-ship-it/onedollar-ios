@@ -85,7 +85,8 @@ function readDb(string $dataFile): array {
     }
     $json = file_get_contents($dataFile);
     $data = json_decode($json ?: '{}', true);
-    return is_array($data) ? $data : [];
+    $data = is_array($data) ? $data : [];
+    return stripBlockedListingsFromDb($data);
 }
 
 function isAdminLoggedIn(): bool {
@@ -107,6 +108,65 @@ function publicDb(array $db, array $publicKeys, array $requestedKeys = []): arra
     return pickDbKeys($db, $publicKeys);
 }
 
+function blockedListingKeys(): array {
+    return [
+        'YCUT-1012453',
+        'd70563f5-e6cb-4563-a3b9-b99ceb78bd5f',
+        '羅東旁阿嬤ㄟ厝靜巷超值透天',
+    ];
+}
+
+function isBlockedListing($item): bool {
+    if (!is_array($item)) return false;
+    $blob = implode(' ', [
+        (string)($item['id'] ?? ''),
+        (string)($item['publicNo'] ?? ''),
+        (string)($item['externalId'] ?? ''),
+        (string)($item['contractNo'] ?? ''),
+        (string)($item['sourceUrl'] ?? ''),
+        (string)($item['title'] ?? ''),
+        (string)($item['showCaseNo'] ?? ''),
+        (string)($item['caseName'] ?? ''),
+    ]);
+    foreach (blockedListingKeys() as $key) {
+        if ($key !== '' && strpos($blob, $key) !== false) return true;
+    }
+    return false;
+}
+
+function stripBlockedListingsFromValue($value) {
+    $wasString = is_string($value);
+    $rows = $value;
+    if ($wasString) {
+        $decoded = json_decode($value ?: '[]', true);
+        if (!is_array($decoded)) return $value;
+        $rows = $decoded;
+    }
+    if (!is_array($rows) || $rows === [] || !array_key_exists(0, $rows)) {
+        return $value;
+    }
+    $kept = [];
+    $changed = false;
+    foreach ($rows as $item) {
+        if (is_array($item) && isBlockedListing($item)) {
+            $changed = true;
+            continue;
+        }
+        $kept[] = $item;
+    }
+    if (!$changed) return $value;
+    return $wasString ? json_encode($kept, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : $kept;
+}
+
+function stripBlockedListingsFromDb(array $db): array {
+    foreach (['properties', 'borrowItems', 'sameStoreItems', 'peerDevelopmentItems', 'targets', 'storeDevelopmentItems'] as $key) {
+        if (array_key_exists($key, $db)) {
+            $db[$key] = stripBlockedListingsFromValue($db[$key]);
+        }
+    }
+    return $db;
+}
+
 function writeDb(string $dataFile, array $data): void {
     $dir = dirname($dataFile);
     if (!is_dir($dir)) {
@@ -119,6 +179,7 @@ function writeDb(string $dataFile, array $data): void {
     }
 
     flock($fp, LOCK_EX);
+    $data = stripBlockedListingsFromDb($data);
     ftruncate($fp, 0);
     rewind($fp);
     fwrite($fp, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));

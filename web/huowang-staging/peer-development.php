@@ -49,6 +49,17 @@ function photoCount(array $item): int {
 }
 
 function keepPeerItem(array $item): bool {
+    $blockedKeys = ['YCUT-1012453', 'd70563f5-e6cb-4563-a3b9-b99ceb78bd5f', '羅東旁阿嬤ㄟ厝靜巷超值透天'];
+    $blob = implode(' ', [
+        (string)($item['id'] ?? ''),
+        (string)($item['publicNo'] ?? ''),
+        (string)($item['externalId'] ?? ''),
+        (string)($item['sourceUrl'] ?? ''),
+        (string)($item['title'] ?? ''),
+    ]);
+    foreach ($blockedKeys as $key) {
+        if ($key !== '' && strpos($blob, $key) !== false) return false;
+    }
     $source = (string)($item['sourceSystem'] ?? '');
     if ($source === '公開同業網站同步') {
         $blob = ($item['county'] ?? '') . ($item['address'] ?? '') . ($item['title'] ?? '');

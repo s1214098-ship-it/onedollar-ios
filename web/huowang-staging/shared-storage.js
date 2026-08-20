@@ -112,6 +112,30 @@
     }
   }
 
+  function isBlockedListing(item) {
+    const keys = ["YCUT-1012453", "d70563f5-e6cb-4563-a3b9-b99ceb78bd5f", "羅東旁阿嬤ㄟ厝靜巷超值透天"];
+    const blob = [
+      item && item.id,
+      item && item.publicNo,
+      item && item.externalId,
+      item && item.contractNo,
+      item && item.sourceUrl,
+      item && item.title
+    ].join(" ");
+    return keys.some(function (key) { return key && blob.indexOf(key) >= 0; });
+  }
+
+  const BLOCKED_LIST_KEYS = ["properties", "borrowItems", "sameStoreItems", "peerDevelopmentItems", "targets", "storeDevelopmentItems"];
+
+  function stripBlockedListings(key, value) {
+    if (BLOCKED_LIST_KEYS.indexOf(key) < 0) return value;
+    const rows = parseListValue(value);
+    if (!rows.length) return value;
+    const kept = rows.filter(function (item) { return !isBlockedListing(item); });
+    if (kept.length === rows.length) return value;
+    return JSON.stringify(kept);
+  }
+
   function imageCount(rows) {
     return (rows || []).reduce(function (sum, item) {
       if (!item || typeof item !== "object") return sum;
@@ -140,6 +164,7 @@
 
   function scheduleSet(key, value, oldValue) {
     if (isHydrating || !SYNC_KEYS.includes(key)) return;
+    value = stripBlockedListings(key, value);
     if (key === "sameStoreItems" && shouldBlockSameStoreSync(value, oldValue || "")) {
       console.warn("Blocked unsafe sameStoreItems sync to PHT-SR shared storage.");
       return;
@@ -199,7 +224,7 @@
       isHydrating = true;
       Object.keys(data).forEach(function (key) {
         if (SYNC_KEYS.includes(key) && data[key] !== undefined) {
-          const normalized = normalizeSharedValue(data[key]);
+          const normalized = stripBlockedListings(key, normalizeSharedValue(data[key]));
           const existing = nativeGetItem.call(localStorage, key);
           const isPeerPool = key === "peerDevelopmentItems" || key === "storeDevelopmentItems";
           const isLargeSharedList = isPeerPool || key === "sameStoreItems" || normalized.length > 750000;
