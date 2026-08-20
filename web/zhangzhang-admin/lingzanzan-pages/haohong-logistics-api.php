@@ -285,7 +285,49 @@ foreach ($remotePackages as $pkg) {
     ];
 }
 
-if (!$remotePackages) {
+foreach ($remoteOrders as $order) {
+    if (!is_array($order)) continue;
+    $batchNo = hh_table_text($order['haohongOrderCode'] ?? ($order['haohongOrderId'] ?? ''), 80);
+    foreach ((array)($order['rows'] ?? []) as $pkg) {
+        if (!is_array($pkg)) continue;
+        $trackingNo = hh_table_text($pkg['trackingNo'] ?? '', 80);
+        $key = hh_table_track_key($trackingNo);
+        if ($key === '') continue;
+        $name = hh_table_text($pkg['productName'] ?? '', 200);
+        $found = false;
+        foreach ($packagesOut as &$existing) {
+            if (hh_table_track_key((string)($existing['trackingNo'] ?? '')) !== $key) continue;
+            $found = true;
+            if ($name !== '' && hh_table_text($existing['productName'] ?? '', 200) === '') $existing['productName'] = $name;
+            if ($batchNo !== '' && hh_table_text($existing['batchNo'] ?? '', 80) === '') $existing['batchNo'] = $batchNo;
+            break;
+        }
+        unset($existing);
+        if ($found) continue;
+        $localHits = $itemsByTrack[$key] ?? [];
+        $packagesOut[] = [
+            'trackingNo' => $trackingNo,
+            'batchNo' => $batchNo,
+            'productName' => $name !== '' ? $name : '豪鴻訂單有單、品名空白',
+            'warehouse' => hh_table_text($pkg['warehouse'] ?? '', 80),
+            'receivedAt' => hh_table_text($pkg['receivedAt'] ?? '', 40),
+            'packageStatus' => hh_table_text($order['status'] ?? '', 80),
+            'quantity' => (int)($pkg['quantity'] ?? 1),
+            'actualWeightKg' => (float)($pkg['actualWeightKg'] ?? 0),
+            'volumeWeightKg' => (float)($pkg['volumeWeightKg'] ?? 0),
+            'billedWeightKg' => (float)($pkg['billedWeightKg'] ?? 0),
+            'note' => hh_table_text($pkg['note'] ?? '', 200),
+            'inBackend' => $localHits ? true : false,
+            'backendProduct' => $localHits ? hh_table_text($localHits[0]['productName'] ?? '', 200) : '',
+            'backendCode' => $localHits ? hh_table_text($localHits[0]['productCode'] ?? '', 80) : '',
+            'backendStatus' => $localHits ? hh_table_text($localHits[0]['trackingStatus'] ?? '', 80) : '',
+            'compare' => $localHits ? '已對上' : '豪鴻有單、後台未建檔',
+            'source' => 'haohong',
+        ];
+    }
+}
+
+if (!$packagesOut) {
     foreach ($localItems as $item) {
         $packagesOut[] = [
             'trackingNo' => $item['trackingNo'],
