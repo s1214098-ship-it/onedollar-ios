@@ -65,6 +65,23 @@ try {
   if ($code -ne 0) {
     throw "sync exited $code"
   }
+  Write-Log "done yungching pools"
+  $peerScript = Join-Path $Root "tools\sync-peer-brands.js"
+  if (Test-Path -LiteralPath $peerScript) {
+    $env:NODE_OPTIONS = "--max-old-space-size=8192"
+    Write-Log "start peer brands sync"
+    $ErrorActionPreference = "Continue"
+    & cmd.exe /c "`"$node`" `"$peerScript`" 2>&1" | ForEach-Object {
+      $line = "$_"
+      if ($line.Trim()) { Write-Log $line.Trim() }
+    }
+    $peerCode = $LASTEXITCODE
+    $ErrorActionPreference = $prevEap
+    if ($peerCode -ne 0) {
+      throw "peer brands sync exited $peerCode"
+    }
+    Write-Log "done peer brands"
+  }
   Write-Log "done"
 } catch {
   Write-Log ("error: " + $_.Exception.Message)
