@@ -3566,7 +3566,7 @@ input[list*="List"],input[list]{
       <button class="blue" onclick="importSelectedPeersToSellerTargets()">勾選開發，導入火旺目標開發物件（每批100筆）</button>
     </div>
     <div class="peer-feature-tabs" id="peerFeatureTabs"></div>
-    <div class="dm-safe-note">同業開發池只集中同行物件。勾選開發後會進「火旺目標開發物件」，賣方姓名、電話、權狀附件與追蹤日期不會自動亂填，導入後再補資料。</div>
+    <div class="dm-safe-note">同業開發池只集中同行物件。單筆請按卡片上紅色「🔥 快速倒出到火旺目標開發物件」；要一次多筆再勾選後按上面的批次導入。賣方姓名、電話不會自動亂填，倒出後再補。</div>
     <div id="peerDevelopmentSummary" style="margin:12px 0;font-weight:1000;color:#0F172A"></div>
     <div id="peerDevelopmentList"></div>
   </div>
@@ -11006,6 +11006,7 @@ function viewPeerDevelopmentArticle(key){
     modal.innerHTML = `<div class="modal-box"><h3>📰 同業開發池檢視文章</h3>
       ${getPeerDevelopmentImages(item)[0] ? `<img class="object-list-thumb" src="${htmlEscape(getPeerDevelopmentImages(item)[0])}" referrerpolicy="no-referrer" data-peer-key="${htmlEscape(peerDevelopmentKey(item))}" onclick="openPeerDevelopmentMediaFromEl(this,'photo')">` : ""}
       <p><b>${htmlEscape(item.title || "未命名同業物件")}</b></p>
+      <button type="button" class="peer-quick-dump" data-peer-key="${htmlEscape(peerDevelopmentKey(item))}" data-imported="${item.importedToTargetAt || item.status === "已帶入火旺目標開發物件" || item.status === "已帶入賣主開發" ? "1" : "0"}" onclick="this.closest('.modal').remove();quickDumpPeerToHuowangGoal(this)">${item.importedToTargetAt || item.status === "已帶入火旺目標開發物件" || item.status === "已帶入賣主開發" ? "✅ 已倒出｜打開火旺目標開發物件" : "🔥 快速倒出到火旺目標開發物件"}</button>
       <p>物件編號：${htmlEscape(item.externalId || item.id || "未填")}</p>
       <p>位置：${htmlEscape(item.address || [item.county,item.area,item.road].filter(Boolean).join(""))}</p>
       <p>價格：${htmlEscape(item.price || "面議")}｜型態：${htmlEscape(item.type || "未填")}｜格局：${htmlEscape(item.layout || "未填")}</p>
@@ -11267,7 +11268,8 @@ function renderPeerDevelopmentList(){
         const cards = groups[group].map(item=>{
             const rawKey = peerDevelopmentKey(item);
             const key = htmlEscape(rawKey);
-            const disabled = (item.status === "已帶入賣主開發" || item.status === "已帶入火旺目標開發物件" || item.importedToTargetAt) ? "disabled" : "";
+            const alreadyImported = !!(item.status === "已帶入賣主開發" || item.status === "已帶入火旺目標開發物件" || item.importedToTargetAt);
+            const disabled = alreadyImported ? "disabled" : "";
             const peerPhotos = getPeerDevelopmentImages(item);
             const photoCount = Number(item.photoCount || 0) || peerPhotos.length;
             const deedCount = getPeerDevelopmentDeedImages(item).length;
@@ -11309,6 +11311,7 @@ function renderPeerDevelopmentList(){
                       <h3>${htmlEscape(item.title || "未命名同業物件")}</h3>
                     </div>
                   </header>
+                  <button type="button" class="peer-quick-dump" data-peer-key="${key}" data-imported="${alreadyImported ? "1" : "0"}" onclick="quickDumpPeerToHuowangGoal(this)">${alreadyImported ? "✅ 已倒出｜打開火旺目標開發物件" : "🔥 快速倒出到火旺目標開發物件"}</button>
                   <div class="peer-address"><span>位置</span><strong>${htmlEscape(item.address || [region.county, region.area, item.road].filter(Boolean).join("") || "未填")}</strong></div>
                   <div class="peer-facts">
                     <div><span>總價</span><strong>${htmlEscape(item.price || "面議")}</strong></div>
@@ -11393,35 +11396,51 @@ function peerToSellerTarget(item){
 const PEER_IMPORT_BATCH_SIZE = 100;
 const PEER_IMPORT_PENDING_KEY = "peerDevelopmentImportPendingKeys";
 
-function importSelectedPeersToSellerTargets(){
-    let checked = [...document.querySelectorAll(".peer-dev-check:checked")].map(i=>i.value);
+function peerMatchesImportKey(item, key){
+    const want = String(key || "").trim();
+    if(!want) return false;
+    return [peerDevelopmentKey(item), item && item.id, item && item.externalId, item && item.sourceUrl]
+        .map(v=>String(v || "").trim())
+        .includes(want);
+}
+
+function openHuowangGoalBoard(searchText){
+    setTargetMode("huowangGoal");
+    if(document.getElementById("t_search")) document.getElementById("t_search").value = searchText || "";
+    if(document.getElementById("t_partyRole")) document.getElementById("t_partyRole").value = "seller";
+    if(document.getElementById("t_status_filter")) document.getElementById("t_status_filter").value = "all";
+    searchTarget();
+    show("huowangGoal", null);
+}
+
+function importPeerKeysToHuowangGoal(keys, options){
+    options = options || {};
+    const checked = (keys || []).map(v=>String(v || "").trim()).filter(Boolean);
     if(!checked.length){
-        try{
-            const pending = JSON.parse(sessionStorage.getItem(PEER_IMPORT_PENDING_KEY) || "[]");
-            if(Array.isArray(pending) && pending.length) checked = pending;
-        }catch(e){}
+        if(!options.silent) alert("找不到要倒出的同業物件");
+        return {added:0, updatedMedia:0};
     }
-    if(!checked.length){ alert("請先勾選要導入「火旺目標開發物件」的同業物件"); return; }
-    const batchKeys = checked.slice(0, PEER_IMPORT_BATCH_SIZE);
-    const remainingKeys = checked.slice(PEER_IMPORT_BATCH_SIZE);
+    const batchKeys = options.single ? checked.slice(0, 1) : checked.slice(0, PEER_IMPORT_BATCH_SIZE);
+    const remainingKeys = options.single ? [] : checked.slice(PEER_IMPORT_BATCH_SIZE);
     if(remainingKeys.length) sessionStorage.setItem(PEER_IMPORT_PENDING_KEY, JSON.stringify(remainingKeys));
     else sessionStorage.removeItem(PEER_IMPORT_PENDING_KEY);
-    const batchSet = new Set(batchKeys.map(String));
     const peers = getPeerDevelopmentItems();
     const targets = JSON.parse(localStorage.getItem("targets") || "[]");
-    const existing = new Set(targets.map(t=>String(t.peerDevelopmentId || t.sourceUrl || t.publicNo || "")).filter(Boolean));
     let added = 0;
     let updatedMedia = 0;
     let importedPhotoCount = 0;
     let importedDeedCount = 0;
+    let firstTitle = "";
     peers.forEach(item=>{
-        const key = String(item.id || item.externalId || item.sourceUrl || "");
-        if(!batchSet.has(key)) return;
+        if(!batchKeys.some(key=>peerMatchesImportKey(item, key))) return;
         const unique = String(item.id || item.sourceUrl || item.externalId || "");
         const photoList = getPeerDevelopmentImages(item);
         const deedList = getPeerDevelopmentDeedImages(item);
         const deedFileList = getPeerDevelopmentDeedFiles(item);
+        if(!firstTitle) firstTitle = item.title || "";
         const oldTarget = targets.find(t=>[t.peerDevelopmentId, t.sourceUrl, t.publicNo].map(v=>String(v || "")).includes(unique));
+        item.status = "已帶入火旺目標開發物件";
+        item.importedToTargetAt = item.importedToTargetAt || new Date().toISOString();
         if(oldTarget){
             oldTarget.huowangGoal = true;
             oldTarget.sourcePool = oldTarget.sourcePool || "peerDevelopment";
@@ -11443,11 +11462,7 @@ function importSelectedPeersToSellerTargets(){
             }
             return;
         }
-        const targetItem = peerToSellerTarget(item);
-        targets.push(targetItem);
-        existing.add(unique);
-        item.status = "已帶入火旺目標開發物件";
-        item.importedToTargetAt = new Date().toISOString();
+        targets.push(peerToSellerTarget(item));
         added++;
         importedPhotoCount += photoList.length;
         importedDeedCount += deedList.length + deedFileList.length;
@@ -11459,18 +11474,49 @@ function importSelectedPeersToSellerTargets(){
     if(remainingKeys.length){
         const remainingSet = new Set(remainingKeys.map(String));
         document.querySelectorAll(".peer-dev-check").forEach(input=>{ input.checked = remainingSet.has(String(input.value)); });
-    }else{
-        setTargetMode("huowangGoal");
-        if(document.getElementById("t_search")) document.getElementById("t_search").value = "";
-        if(document.getElementById("t_partyRole")) document.getElementById("t_partyRole").value = "seller";
-        if(document.getElementById("t_status_filter")) document.getElementById("t_status_filter").value = "all";
-        searchTarget();
-        show("huowangGoal", null);
+    }else if(!options.stayOnPool){
+        openHuowangGoalBoard(options.single ? firstTitle : "");
     }
     loadDashboard();
-    const moreText = remainingKeys.length ? " 本次最多處理 " + PEER_IMPORT_BATCH_SIZE + " 筆，尚有 " + remainingKeys.length + " 筆待導入，請再按一次同一顆按鈕繼續下一批。" : "";
-    alert("本次導入火旺目標開發物件 " + added + " 筆，補更新媒體 " + updatedMedia + " 筆。照片 " + importedPhotoCount + " 張、權狀附件 " + importedDeedCount + " 筆。賣主姓名、電話請在火旺目標開發物件內補齊。" + moreText);
+    if(!options.silent){
+        const moreText = remainingKeys.length ? " 本次最多處理 " + PEER_IMPORT_BATCH_SIZE + " 筆，尚有 " + remainingKeys.length + " 筆待導入，請再按一次同一顆按鈕繼續下一批。" : "";
+        if(options.single){
+            alert((added ? "已把「" + (firstTitle || "這筆同業物件") + "」倒出到火旺目標開發物件。" : "這筆先前已在火旺目標開發物件，媒體已核對。") + " 照片 " + importedPhotoCount + " 張、權狀附件 " + importedDeedCount + " 筆。");
+        }else{
+            alert("本次導入火旺目標開發物件 " + added + " 筆，補更新媒體 " + updatedMedia + " 筆。照片 " + importedPhotoCount + " 張、權狀附件 " + importedDeedCount + " 筆。賣主姓名、電話請在火旺目標開發物件內補齊。" + moreText);
+        }
+    }
+    return {added, updatedMedia, importedPhotoCount, importedDeedCount, firstTitle};
 }
+
+function importSelectedPeersToSellerTargets(){
+    let checked = [...document.querySelectorAll(".peer-dev-check:checked")].map(i=>i.value);
+    if(!checked.length){
+        try{
+            const pending = JSON.parse(sessionStorage.getItem(PEER_IMPORT_PENDING_KEY) || "[]");
+            if(Array.isArray(pending) && pending.length) checked = pending;
+        }catch(e){}
+    }
+    if(!checked.length){ alert("請先勾選要導入「火旺目標開發物件」的同業物件"); return; }
+    importPeerKeysToHuowangGoal(checked);
+}
+
+function quickDumpPeerToHuowangGoal(el){
+    const key = peerKeyFromEl(el);
+    if(!key){ alert("找不到這筆同業物件"); return; }
+    const item = getPeerDevelopmentItems().find(row=>peerMatchesImportKey(row, key));
+    if(!item){ alert("找不到這筆同業物件"); return; }
+    const already = !!(item.importedToTargetAt || item.status === "已帶入火旺目標開發物件" || item.status === "已帶入賣主開發");
+    if(already){
+        if(confirm("「" + (item.title || "這筆同業物件") + "」已經倒出過。要打開火旺目標開發物件查看嗎？")){
+            openHuowangGoalBoard(item.title || "");
+        }
+        return;
+    }
+    if(!confirm("確定把「" + (item.title || "這筆同業物件") + "」快速倒出到火旺目標開發物件？")) return;
+    importPeerKeysToHuowangGoal([key], {single:true});
+}
+window.quickDumpPeerToHuowangGoal = quickDumpPeerToHuowangGoal;
 
 function upsertCustomerFromTarget(type, name, phone, addr, contractNo) {
     if(!name) return;
@@ -16396,6 +16442,35 @@ body.sidebar-hover-open .main{
 #peerDevelopment .peer-facts strong{margin-top:3px;color:#0F172A;font-size:15px;line-height:1.35}
 #peerDevelopment .peer-card-meta{display:flex!important;flex-wrap:wrap!important;gap:6px 16px!important;margin-top:10px!important;color:#64748B;font-size:13px}
 #peerDevelopment .peer-source-link{display:inline-block;margin-top:8px;color:#075985;font-weight:900}
+.peer-quick-dump{
+  display:block !important;
+  width:100% !important;
+  margin:12px 0 10px !important;
+  min-height:58px !important;
+  padding:14px 18px !important;
+  border:0 !important;
+  border-radius:10px !important;
+  background:#DC2626 !important;
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  font-size:22px !important;
+  font-weight:1000 !important;
+  letter-spacing:.4px;
+  line-height:1.25;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(185,28,28,.38) !important;
+}
+.peer-quick-dump[data-imported="1"]{
+  background:#047857 !important;
+  box-shadow:0 8px 18px rgba(4,120,87,.3) !important;
+}
+.peer-quick-dump:hover{
+  filter:brightness(1.06);
+  transform:translateY(-1px);
+}
+@media(max-width:760px){
+  .peer-quick-dump{font-size:18px !important;min-height:52px !important}
+}
 #peerDevelopment .target-area-group{margin-top:20px;padding:9px 12px;border:0;border-radius:4px;background:#EFF6FF;color:#1E3A8A}
 @media(max-width:1100px){
   #peerDevelopment .peer-facts{grid-template-columns:repeat(3,minmax(92px,1fr))}
