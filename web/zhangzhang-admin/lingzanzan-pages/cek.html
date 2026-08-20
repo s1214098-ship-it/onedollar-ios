@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#120e12">
+  <meta name="apple-mobile-web-app-title" content="Cek Kirim">
+  <title>LINGZANZAN Cek Kirim</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="apple-touch-icon" href="./assets/brand-icon-192.png">
+  <link rel="manifest" href="./cek.webmanifest">
+  <link rel="stylesheet" href="./assets/cek-kirim.css?v=20260820-sales-phone-1">
+</head>
+<body>
+  <header class="cek-top">
+    <img src="./assets/brand-icon-192.png" alt="LINGZANZAN" width="48" height="48">
+    <div>
+      <p data-cek-eyebrow>TANPA LOGIN</p>
+      <h1 data-cek-title>Cek Kirim</h1>
+      <small data-cek-sub>Tidak perlu akun. Ketik telepon atau resi.</small>
+    </div>
+    <div class="cek-lang" data-cek-lang-switch>
+      <button type="button" data-cek-lang="id">ID</button>
+      <button type="button" data-cek-lang="zh">中文</button>
+    </div>
+  </header>
+
+  <form class="cek-form" data-cek-form>
+    <label data-cek-label>Telepon / nomor resi</label>
+    <input type="search" inputmode="tel" autocomplete="off" enterkeyhint="search" data-cek-query placeholder="0812… atau nomor resi">
+    <button type="submit" data-cek-submit>Cek sekarang</button>
+  </form>
+
+  <p class="cek-hint" data-cek-hint>Ketik nomor telepon pelanggan, 4 angka terakhir, atau nomor resi. Lalu tekan tombol besar.</p>
+  <div class="cek-recent" data-cek-recent hidden></div>
+  <p class="cek-status" data-cek-status></p>
+  <main class="cek-list" data-cek-list></main>
+
+  <footer class="cek-foot">
+    <p data-cek-addhome>Di HP: buka tautan ini → bagikan → Tambah ke Layar Utama. Nanti cukup ketuk ikon.</p>
+  </footer>
+  <script src="./assets/cek-kirim.js?v=20260820-sales-phone-1" defer></script>
+</body>
+</html>
