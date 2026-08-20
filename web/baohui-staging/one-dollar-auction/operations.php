@@ -2,6 +2,7 @@
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-embed-auth-lib.php';
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'member-sync-bridge.php';
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-document-no.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'document-print-lib.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
@@ -1912,11 +1913,9 @@ if (isset($_GET['print_delivery'])) {
     $printCompanyContact = trim((string)($companyProfile['contact_name'] ?? '郭先生、李先生、曾小姐')) ?: '郭先生、李先生、曾小姐';
     $printCompanyAddress = trim((string)($companyProfile['address'] ?? ''));
     $autoPrint = isset($_GET['autoprint']);
-    ?><!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>出貨單 <?=h($printNote['delivery_no'] ?? '')?></title><style>
-    body{margin:0;background:#f3f6fb;color:#122033;font-family:"Noto Sans TC","Microsoft JhengHei",Arial,sans-serif}.sheet{max-width:980px;margin:28px auto;background:#fff;border:1px solid #d8e0ea;border-radius:12px;padding:28px}.top{display:flex;justify-content:space-between;gap:16px;border-bottom:3px solid #0f766e;padding-bottom:16px;margin-bottom:18px}.brand h1{margin:0;font-size:28px}.meta{text-align:right;color:#526176}.info{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.box{border:1px solid #d8e0ea;background:#f8fafc;border-radius:8px;padding:12px;line-height:1.7}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #d8e0ea;padding:8px;text-align:left;vertical-align:top}th{background:#e7f8f3}.right{text-align:right}.actions{max-width:980px;margin:18px auto;text-align:right}.btn{background:#0f766e;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-size:16px;cursor:pointer}.sign{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:28px;border-top:1px solid #d8e0ea;padding-top:18px}.sign-line{height:58px;border-bottom:1px solid #475569}.company{margin-top:18px;padding-top:12px;border-top:1px solid #d8e0ea;color:#334155}@media print{@page{size:A4 portrait;margin:8mm}body{background:#fff}.actions{display:none}.sheet{box-shadow:none;border:0;margin:0;max-width:none;border-radius:0;padding:0}}
-    </style><?php if ($autoPrint): ?><script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script><?php endif; ?></head>
+    ?><!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>出貨單 <?=h($printNote['delivery_no'] ?? '')?></title><style><?= baohui_ops_print_sheet_css() ?></style><?php if ($autoPrint): ?><script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script><?php endif; ?></head>
     <body>
-    <div class="actions"><button class="btn" type="button" onclick="window.print()">列印出貨單</button></div>
+    <div class="actions"><button class="btn" type="button" onclick="window.print()">列印半張出貨單</button><span class="hint">半張 A4，印在紙張上半部</span></div>
     <main class="sheet">
       <section class="top">
         <div class="brand"><h1><?=h($printCompany)?> 出貨單</h1><p>銷售出庫／客戶簽收聯</p></div>
@@ -1946,11 +1945,28 @@ if (isset($_GET['print_delivery'])) {
         <?php endforeach; ?>
         </tbody>
       </table>
-      <p class="right">明細合計 <?=money($printNote['line_total'] ?? 0)?>　折扣 <?=money($printNote['discount'] ?? 0)?>　稅額 <?=money($printNote['tax'] ?? 0)?>　運費 <?=money($printNote['shipping_fee'] ?? 0)?>　其他 <?=money($printNote['other_fee'] ?? 0)?><br><b>整單合計 <?=money($printNote['total'] ?? 0)?></b></p>
+      <p class="right total">明細合計 <?=money($printNote['line_total'] ?? 0)?>　折扣 <?=money($printNote['discount'] ?? 0)?>　稅額 <?=money($printNote['tax'] ?? 0)?>　運費 <?=money($printNote['shipping_fee'] ?? 0)?>　其他 <?=money($printNote['other_fee'] ?? 0)?><br><b>整單合計 <?=money($printNote['total'] ?? 0)?></b></p>
       <section class="sign"><div><b>客戶簽收</b><div class="sign-line"></div><p>單位 / 姓名：</p><p>日期：</p></div><div><b>寶輝科技經辦</b><div class="sign-line"></div><p>經辦：<?=h($printNote['handler'] ?? '')?></p><p>日期：</p></div></section>
       <div class="company"><?=h($printCompany)?>　電話：<?=h($printCompanyPhone)?>　傳真：<?=h($printCompanyFax)?>　聯絡人：<?=h($printCompanyContact)?><?= $printCompanyAddress !== '' ? '　地址：'.h($printCompanyAddress) : '' ?></div>
     </main>
     </body></html><?php
+    exit;
+}
+
+if (isset($_GET['print_document'])) {
+    baohui_ops_render_document_print([
+        'company' => $companyProfile ?? [],
+        'stockMovements' => $stockMovements ?? [],
+        'deliveryNotes' => $deliveryNotes ?? [],
+        'repairDocuments' => $repairDocuments ?? [],
+        'returns' => $returns ?? [],
+        'inventoryCounts' => $inventoryCounts ?? [],
+        'inventoryTransfers' => $inventoryTransfers ?? [],
+        'inventoryAdjustments' => $inventoryAdjustments ?? [],
+        'collectionReceipts' => $collectionReceipts ?? [],
+        'billingRequests' => $billingRequests ?? [],
+        'documentWorkflows' => $documentWorkflows ?? [],
+    ], trim((string)$_GET['print_document']), trim((string)($_GET['doc_type'] ?? '')), isset($_GET['autoprint']));
     exit;
 }
 
@@ -9301,7 +9317,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
   <section class="ops-card ops-tab" id="document-center">
     <h2>單據中心 / 正式紀錄總表</h2>
-    <p class="muted">正式單據總查詢：進貨、銷售、估價單轉出貨、維修、銷貨退回、盤點、調撥、收款都從這裡回查；資料會直接讀取各功能已建立的正式單據。</p>
+    <p class="muted">正式單據總查詢：進貨、銷售、估價單轉出貨、維修、銷貨退回、盤點、調撥、收款都從這裡回查；每一張都可以列印紙本。</p>
     <form method="get" action="operations.php#document-center" class="product-form document-filter-form">
       <label>單據類型
         <select name="doc_type">
@@ -9343,7 +9359,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           <td><?=h($doc['status'] ?? '')?></td>
           <td><?=h(substr((string)($doc['time'] ?? ''), 0, 19))?></td>
           <td><?=h($doc['source'] ?? '')?></td>
-          <td><a class="secondary small" href="#<?=h($doc['link'] ?? 'document-center')?>">查看來源</a></td>
+          <td><a class="secondary small" href="#<?=h($doc['link'] ?? 'document-center')?>">查看來源</a><?php $docPrintNo = trim((string)($doc['no'] ?? '')); if ($docPrintNo !== ''): ?> <a class="secondary small" target="_blank" rel="noopener" href="<?=h(baohui_ops_document_print_href($docPrintNo, (string)($doc['type'] ?? '')))?>">列印</a><?php endif; ?></td>
         </tr>
       <?php endforeach; ?>
       <?php if(!$erpDocs): ?><tr><td colspan="8" class="muted">目前尚無正式單據；請先從草稿中心或左側單據功能建立。</td></tr><?php endif; ?>
@@ -9418,8 +9434,47 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label class="wide">整單備註<textarea name="stock_doc_note" rows="2" placeholder="付款條件、採購備註、憑證說明"></textarea></label>
       <button class="primary" onclick="return confirm('請確認畫面中的完整到岸成本。送出後將增加庫存並更新產品最新成本。');">確認成本並正式入庫</button>
     </form>
+    <h3>進貨單據列印</h3>
+    <p class="muted">每一張進貨單都可以單獨列印紙本，格式跟出貨單一樣開新頁。單據中心的其他正式單據也有列印。</p>
+    <div class="table-wrap"><table><thead><tr><th>進貨單號</th><th>日期</th><th>廠商</th><th>類型</th><th>筆數</th><th>金額</th><th>列印</th></tr></thead><tbody>
+      <?php
+        $opsStockDocuments = [];
+        foreach (array_reverse($stockMovements) as $mv) {
+            if (!is_array($mv)) continue;
+            $flow = ops_document_flow_type($mv);
+            if (!in_array($flow, ['purchase_in', 'purchase_return'], true)) continue;
+            $docNo = trim((string)($mv['document_no'] ?? ($mv['source_doc_no'] ?? ($mv['id'] ?? ''))));
+            if ($docNo === '') continue;
+            if (!isset($opsStockDocuments[$docNo])) {
+                $opsStockDocuments[$docNo] = [
+                    'no' => $docNo,
+                    'type' => ops_document_type_label((string)($mv['source_doc_type'] ?? ($mv['type'] ?? '進貨入庫單'))),
+                    'date' => ops_document_date_value($mv),
+                    'supplier' => (string)($mv['supplier_name'] ?? ($mv['party_name'] ?? '')),
+                    'lines' => 0,
+                    'amount' => 0.0,
+                ];
+            }
+            $opsStockDocuments[$docNo]['lines']++;
+            $opsStockDocuments[$docNo]['amount'] += ops_money_amount($mv);
+        }
+        $opsStockDocumentRows = array_slice(array_values($opsStockDocuments), 0, 20);
+      ?>
+      <?php foreach ($opsStockDocumentRows as $stockDoc): ?>
+        <tr>
+          <td><b><?=h($stockDoc['no'])?></b></td>
+          <td><?=h($stockDoc['date'])?></td>
+          <td><?=h($stockDoc['supplier'])?></td>
+          <td><?=h($stockDoc['type'])?></td>
+          <td><?=h($stockDoc['lines'])?></td>
+          <td><?=money($stockDoc['amount'])?></td>
+          <td><a class="button-like small" target="_blank" rel="noopener" href="<?=h(baohui_ops_document_print_href((string)$stockDoc['no'], (string)$stockDoc['type']))?>">列印此單</a></td>
+        </tr>
+      <?php endforeach; ?>
+      <?php if (!$opsStockDocumentRows): ?><tr><td colspan="7" class="muted">目前沒有可列印的進貨單。</td></tr><?php endif; ?>
+    </tbody></table></div>
     <h3>最近進貨紀錄</h3>
-    <div class="table-wrap"><table><thead><tr><th>時間</th><th>產品</th><th>條碼</th><th>顏色 / 尺碼</th><th>數量</th><th>成本</th><th>廠商</th><th>倉位</th><th>操作人</th><th>備註</th></tr></thead><tbody>
+    <div class="table-wrap"><table><thead><tr><th>時間</th><th>進貨單</th><th>產品</th><th>條碼</th><th>顏色 / 尺碼</th><th>數量</th><th>成本</th><th>廠商</th><th>倉位</th><th>操作人</th><th>備註</th><th>列印</th></tr></thead><tbody>
       <?php
         $opsStockInLimit = 10;
         $opsStockInRowsAll = array_reverse($stockMovements);
@@ -9430,9 +9485,10 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         $opsStockInRows = array_slice($opsStockInRowsAll, ($opsStockInPage - 1) * $opsStockInLimit, $opsStockInLimit);
         $opsStockInPageUrl = function($page) { return 'operations.php?' . http_build_query(['stock_in_page' => $page]) . '#stock-in'; };
       ?>
-      <?php foreach($opsStockInRows as $mv): ?>
+      <?php foreach($opsStockInRows as $mv): $stockPrintNo = trim((string)($mv['document_no'] ?? ($mv['source_doc_no'] ?? ''))); ?>
         <tr>
           <td><?=h(substr($mv['created_at'] ?? '', 0, 19))?></td>
+          <td><?=h($stockPrintNo)?></td>
           <td><b><?=h($mv['product_id'] ?? '')?></b><br><?=h($mv['product_title'] ?? '')?></td>
           <td><?=h($mv['barcode'] ?? '')?></td>
           <td><?=h(trim(($mv['color'] ?? '') . ' / ' . ($mv['size'] ?? '') . ' / ' . ($mv['spec'] ?? ''), ' /'))?></td>
@@ -9442,9 +9498,10 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           <td><?=h(trim(($mv['warehouse_name'] ?? '') . ' / ' . ($mv['shelf_code'] ?? '') . ' / ' . ($mv['warehouse_location'] ?? ''), ' /'))?></td>
           <td><?=h($mv['operator'] ?? '')?></td>
           <td><?=h($mv['note'] ?? '')?></td>
+          <td><?php if ($stockPrintNo !== ''): ?><a class="button-like small" target="_blank" rel="noopener" href="<?=h(baohui_ops_document_print_href($stockPrintNo, (string)($mv['source_doc_type'] ?? '進貨入庫單')))?>">列印此單</a><?php else: ?><span class="muted">無單號</span><?php endif; ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if(!$stockMovements): ?><tr><td colspan="10" class="muted">目前尚無進貨紀錄。</td></tr><?php endif; ?>
+      <?php if(!$stockMovements): ?><tr><td colspan="12" class="muted">目前尚無進貨紀錄。</td></tr><?php endif; ?>
     </tbody></table></div>
     <?php if($opsStockInPages > 1): ?>
       <div class="pager"><span>第 <?=h($opsStockInPage)?> / <?=h($opsStockInPages)?> 頁，每頁 10 筆</span><?php if($opsStockInPage > 1): ?><a class="secondary small" href="<?=h($opsStockInPageUrl($opsStockInPage - 1))?>">上一頁</a><?php endif; ?><?php if($opsStockInPage < $opsStockInPages): ?><a class="secondary small" href="<?=h($opsStockInPageUrl($opsStockInPage + 1))?>">下一頁</a><?php endif; ?></div>
@@ -9452,7 +9509,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     <h3>最近成本變更紀錄</h3>
     <div class="table-wrap"><table><thead><tr><th>時間</th><th>進貨單</th><th>產品</th><th>舊成本</th><th>最新成本</th><th>匯率</th><th>最新條碼</th><th>操作者</th><th>公式</th></tr></thead><tbody>
       <?php foreach(array_slice(array_reverse($purchaseCostAudits), 0, 10) as $auditRow): ?>
-        <tr><td><?=h(substr($auditRow['created_at'] ?? '', 0, 19))?></td><td><?=h($auditRow['document_no'] ?? '')?></td><td><?=h($auditRow['product_id'] ?? '')?></td><td><?=money($auditRow['old_cost'] ?? 0)?></td><td><b><?=money($auditRow['new_cost'] ?? 0)?></b></td><td><?=h(($auditRow['currency'] ?? 'TWD') . ' × ' . ($auditRow['exchange_rate'] ?? 1))?></td><td><?=h($auditRow['latest_label_barcode'] ?? '')?></td><td><?=h($auditRow['operator'] ?? '')?></td><td><?=h($auditRow['formula'] ?? '')?></td></tr>
+        <tr><td><?=h(substr($auditRow['created_at'] ?? '', 0, 19))?></td><td><?php $auditNo = trim((string)($auditRow['document_no'] ?? '')); echo h($auditNo); if ($auditNo !== ''): ?> <a class="button-like small" target="_blank" rel="noopener" href="<?=h(baohui_ops_document_print_href($auditNo, '進貨入庫單'))?>">列印</a><?php endif; ?></td><td><?=h($auditRow['product_id'] ?? '')?></td><td><?=money($auditRow['old_cost'] ?? 0)?></td><td><b><?=money($auditRow['new_cost'] ?? 0)?></b></td><td><?=h(($auditRow['currency'] ?? 'TWD') . ' × ' . ($auditRow['exchange_rate'] ?? 1))?></td><td><?=h($auditRow['latest_label_barcode'] ?? '')?></td><td><?=h($auditRow['operator'] ?? '')?></td><td><?=h($auditRow['formula'] ?? '')?></td></tr>
       <?php endforeach; ?>
       <?php if(!$purchaseCostAudits): ?><tr><td colspan="9" class="muted">尚無成本變更紀錄；完成第一張正式進貨單後會自動建立。</td></tr><?php endif; ?>
     </tbody></table></div>
@@ -11212,7 +11269,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <button class="primary">建立退回紀錄</button>
     </form>
     <form id="returnsBulkDeleteForm" method="post" onsubmit="return confirm('確定刪除勾選的退回紀錄？');"><input type="hidden" name="action" value="delete_returns"></form><div class="bulk-bar"><label class="check"><input type="checkbox" data-select-all="return_ids[]"> 全選退回紀錄</label><button class="danger-button" type="submit" form="returnsBulkDeleteForm">刪除勾選退回紀錄</button></div><div class="table-wrap"><table class="return-table"><thead><tr><th>選</th><th>單號</th><th>狀態</th><th>會員</th><th>商品</th><th>數量</th><th>退款</th><th>原因</th><th>處理方式</th><th>收到</th><th>完成</th><th>更新</th></tr></thead><tbody>
-      <?php foreach($returns as $r): ?><tr><td><input type="checkbox" name="return_ids[]" value="<?=h($r['id']??'')?>" form="returnsBulkDeleteForm"></td><form method="post"><input type="hidden" name="action" value="save_return"><input type="hidden" name="return_id" value="<?=h($r['id'])?>"><td><b><?=h($r['return_no'] ?? '')?></b></td><td><select name="status"><?php foreach(['申請中','已收到退貨','檢測中','已退款','換貨處理','完成','拒絕退回'] as $v): ?><option <?=($r['status']??'')===$v?'selected':''?>><?=h($v)?></option><?php endforeach; ?></select></td><td><?=h(($r['member_name']??'').' / '.($r['member_facebook']??'').' / '.($r['member_phone']??''))?></td><td><?=h($r['product_id']??'')?></td><td><input name="return_qty" type="number" value="<?=h($r['return_qty']??1)?>"></td><td><input name="refund_amount" type="number" value="<?=h($r['refund_amount']??0)?>"></td><td><input name="reason" value="<?=h($r['reason']??'')?>"></td><td><select name="solution"><?php foreach(['待判斷','退款','換貨','維修','補寄','不受理'] as $v): ?><option <?=($r['solution']??'')===$v?'selected':''?>><?=h($v)?></option><?php endforeach; ?></select></td><td><input name="received_date" type="date" value="<?=h($r['received_date']??'')?>"></td><td><input name="handled_date" type="date" value="<?=h($r['handled_date']??'')?>"></td><td><button class="secondary">儲存</button></td></form></tr><?php endforeach; ?>
+      <?php foreach($returns as $r): ?><tr><td><input type="checkbox" name="return_ids[]" value="<?=h($r['id']??'')?>" form="returnsBulkDeleteForm"></td><form method="post"><input type="hidden" name="action" value="save_return"><input type="hidden" name="return_id" value="<?=h($r['id'])?>"><td><b><?=h($r['return_no'] ?? '')?></b><br><a class="button-like small" target="_blank" rel="noopener" href="<?=h(baohui_ops_document_print_href((string)($r['return_no'] ?? ($r['id'] ?? '')), '銷貨退回'))?>">列印</a></td><td><select name="status"><?php foreach(['申請中','已收到退貨','檢測中','已退款','換貨處理','完成','拒絕退回'] as $v): ?><option <?=($r['status']??'')===$v?'selected':''?>><?=h($v)?></option><?php endforeach; ?></select></td><td><?=h(($r['member_name']??'').' / '.($r['member_facebook']??'').' / '.($r['member_phone']??''))?></td><td><?=h($r['product_id']??'')?></td><td><input name="return_qty" type="number" value="<?=h($r['return_qty']??1)?>"></td><td><input name="refund_amount" type="number" value="<?=h($r['refund_amount']??0)?>"></td><td><input name="reason" value="<?=h($r['reason']??'')?>"></td><td><select name="solution"><?php foreach(['待判斷','退款','換貨','維修','補寄','不受理'] as $v): ?><option <?=($r['solution']??'')===$v?'selected':''?>><?=h($v)?></option><?php endforeach; ?></select></td><td><input name="received_date" type="date" value="<?=h($r['received_date']??'')?>"></td><td><input name="handled_date" type="date" value="<?=h($r['handled_date']??'')?>"></td><td><button class="secondary">儲存</button></td></form></tr><?php endforeach; ?>
     </tbody></table></div>
   </section>
 
@@ -11256,8 +11313,8 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label class="wide">備註<input name="count_note" placeholder="盤點人員、區域、異常說明"></label>
       <button>建立盤點單</button>
     </form>
-    <div class="table-wrap"><table><thead><tr><th>盤點單號</th><th>日期</th><th>盤點倉庫</th><th>狀態</th><th>筆數</th><th>異常</th><th>建立人</th><th>備註</th><th>管理者處理</th></tr></thead><tbody>
-      <?php if(!$inventoryCounts): ?><tr><td colspan="9" class="muted">尚未建立盤點單。</td></tr><?php endif; ?>
+    <div class="table-wrap"><table><thead><tr><th>盤點單號</th><th>日期</th><th>盤點倉庫</th><th>狀態</th><th>筆數</th><th>異常</th><th>建立人</th><th>備註</th><th>管理者處理</th><th>列印</th></tr></thead><tbody>
+      <?php if(!$inventoryCounts): ?><tr><td colspan="10" class="muted">尚未建立盤點單。</td></tr><?php endif; ?>
       <?php foreach(array_reverse($inventoryCounts) as $doc): $diffs = array_filter($doc['lines'] ?? [], function($l){ return (int)($l['diff_qty'] ?? 0) !== 0; }); ?>
       <tr>
         <td><?=h($doc['doc_no'] ?? '')?></td><td><?=h($doc['date'] ?? '')?></td><td><?=h($doc['warehouse_name'] ?? '')?></td><td><?=h($doc['status'] ?? '')?></td>

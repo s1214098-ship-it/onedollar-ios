@@ -102,6 +102,7 @@ if (!$order) {
     exit;
 }
 $items = is_array($order['items'] ?? null) ? $order['items'] : [];
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'one-dollar-auction' . DIRECTORY_SEPARATOR . 'document-print-lib.php';
 $print = isset($_GET['print']);
 $quoteView = $matchedQuote && filled($matchedQuote['token'] ?? '')
     ? ('quote-view.php?token=' . rawurlencode((string)$matchedQuote['token']) . '&quote_print=1')
@@ -113,15 +114,14 @@ $quoteView = $matchedQuote && filled($matchedQuote['token'] ?? '')
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>寶輝科技出貨單 <?=h($order['no'] ?? '')?></title>
-<style>
-body{margin:0;background:#f3f6fb;color:#122033;font-family:"Noto Sans TC","Microsoft JhengHei",Arial,sans-serif}.sheet{max-width:980px;margin:28px auto;background:#fff;border:1px solid #d8e0ea;border-radius:12px;padding:28px;box-shadow:0 18px 40px rgba(15,23,42,.08)}.top{display:flex;justify-content:space-between;gap:16px;border-bottom:3px solid #0f766e;padding-bottom:16px;margin-bottom:18px}.brand h1{margin:0;font-size:30px}.meta{text-align:right;color:#526176}.info{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.box{border:1px solid #d8e0ea;background:#f8fafc;border-radius:8px;padding:12px;line-height:1.7}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #d8e0ea;padding:8px;text-align:left;vertical-align:top}th{background:#e7f8f3}.right{text-align:right}.actions{max-width:980px;margin:18px auto;text-align:right}.btn{background:#0f766e;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-size:16px;cursor:pointer;text-decoration:none;display:inline-block}.btn.secondary{background:#2563eb}.sign{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:28px;border-top:1px solid #d8e0ea;padding-top:18px}.sign-line{height:58px;border-bottom:1px solid #475569}.company{margin-top:18px;padding-top:12px;border-top:1px solid #d8e0ea;color:#334155}@media print{@page{size:A4 portrait;margin:8mm}body{background:#fff}.actions{display:none}.sheet{box-shadow:none;border:0;margin:0;max-width:none;border-radius:0;padding:0}th,td{padding:5px 6px}.brand h1{font-size:24px}.sign-line{height:42px}}
-</style>
+<style><?= baohui_ops_print_sheet_css() ?></style>
 <?php if ($print): ?><script>window.addEventListener('load',function(){setTimeout(function(){window.print();},500);});</script><?php endif; ?>
 </head>
 <body>
 <div class="actions">
-  <button class="btn" onclick="window.print()">列印出貨單</button>
+  <button class="btn" onclick="window.print()">列印半張出貨單</button>
   <?php if ($quoteView): ?><a class="btn secondary" href="<?=h($quoteView)?>">改列印估價單</a><?php endif; ?>
+  <span class="hint">半張 A4，印在紙張上半部</span>
 </div>
 <main class="sheet">
   <section class="top"><div class="brand"><h1>寶輝科技出貨單</h1><p>本單由估價單轉出，供出貨、簽收與後續進銷存串聯使用。</p></div><div class="meta"><p>出貨單號：<b><?=h($order['no'] ?? '')?></b></p><p>來源估價單：<?=h($order['quoteNo'] ?? ($matchedQuote['no'] ?? ''))?></p><p>建立日期：<?=h($order['date'] ?? '')?></p><p>狀態：<?=h($order['status'] ?? '待出貨')?></p></div></section>
