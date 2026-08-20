@@ -30,6 +30,17 @@ function baohui_ops_document_print_href(string $no, string $type = '', bool $aut
     return 'operations.php?' . http_build_query($query);
 }
 
+function baohui_ops_print_link_html(string $no, string $type = '', string $label = '列印', string $class = 'button-like small'): string
+{
+    $no = trim($no);
+    if ($no === '') {
+        return '';
+    }
+    return '<a class="' . baohui_ops_print_h($class) . '" target="_blank" rel="noopener" href="'
+        . baohui_ops_print_h(baohui_ops_document_print_href($no, $type))
+        . '">' . baohui_ops_print_h($label) . '</a>';
+}
+
 function baohui_ops_print_has(string $haystack, string $needle): bool
 {
     return $needle !== '' && str_contains($haystack, $needle);
@@ -51,7 +62,7 @@ function baohui_ops_print_no_match($candidates, string $needle): bool
 
 function baohui_ops_print_row_no(array $row): string
 {
-    foreach (['document_no', 'source_doc_no', 'doc_no', 'delivery_no', 'repair_no', 'return_no', 'receipt_no', 'request_no', 'workflow_no', 'formal_document_no', 'movement_no', 'count_no', 'transfer_no', 'payment_no', 'case_no', 'asset_no', 'id'] as $key) {
+    foreach (['document_no', 'source_doc_no', 'doc_no', 'delivery_no', 'repair_no', 'return_no', 'receipt_no', 'request_no', 'workflow_no', 'formal_document_no', 'movement_no', 'count_no', 'transfer_no', 'payment_no', 'case_no', 'asset_no', 'mobile_asset_no', 'quote_no', 'id'] as $key) {
         $value = trim((string)($row[$key] ?? ''));
         if ($value !== '') {
             return $value;
@@ -230,6 +241,45 @@ function baohui_ops_print_build(array $ctx, string $no, string $type = ''): ?arr
         return $fromStock;
     }
 
+    $delivery = baohui_ops_print_find_row($ctx['deliveryNotes'] ?? [], $no, ['delivery_no', 'id']);
+    if ($delivery && ($type === '' || preg_match('/銷售|出貨/u', $type))) {
+        $buyer = is_array($delivery['buyer'] ?? null) ? $delivery['buyer'] : [];
+        $items = [];
+        foreach ((array)($delivery['items'] ?? []) as $it) {
+            if (!is_array($it)) {
+                continue;
+            }
+            $items[] = [
+                (string)($it['product_title'] ?? ($it['product_id'] ?? '')),
+                (string)($it['product_barcode'] ?? ($it['barcode'] ?? '')),
+                (string)($it['quantity'] ?? 0),
+                baohui_ops_print_money($it['unit_price'] ?? 0),
+                baohui_ops_print_money($it['line_subtotal'] ?? 0),
+            ];
+        }
+        return baohui_ops_print_empty('出貨單', (string)($delivery['delivery_no'] ?? $no), [
+            'subtitle' => '銷售出庫／客戶簽收聯',
+            'date' => substr((string)($delivery['date'] ?? ($delivery['delivery_date'] ?? ($delivery['created_at'] ?? ''))), 0, 10),
+            'status' => (string)($delivery['shipping_status'] ?? ($delivery['status'] ?? '')),
+            'left_title' => '客戶',
+            'left' => [
+                '名稱：' . (string)($buyer['name'] ?? ($delivery['customer_name'] ?? ($delivery['member_name'] ?? ''))),
+                '電話：' . (string)($buyer['phone'] ?? ''),
+                '地址：' . (string)($buyer['address'] ?? ''),
+            ],
+            'right_title' => '物流 / 發票',
+            'right' => [
+                '物流：' . (string)($delivery['logistics_company'] ?? ''),
+                '單號：' . (string)($delivery['tracking_no'] ?? ''),
+                '發票：' . (string)($delivery['invoice_no'] ?? ''),
+                '經手人：' . (string)($delivery['handler'] ?? ''),
+            ],
+            'columns' => ['產品', '條碼', '數量', '單價', '小計'],
+            'sign_left' => '客戶簽收',
+            'handler' => (string)($delivery['handler'] ?? ''),
+        ], $items, (float)($delivery['total'] ?? ($delivery['total_amount'] ?? 0)), (string)($delivery['note'] ?? ''));
+    }
+
     $repair = baohui_ops_print_find_row($ctx['repairDocuments'] ?? [], $no, ['repair_no', 'id']);
     if ($repair && ($type === '' || baohui_ops_print_has($type, '維修'))) {
         return baohui_ops_print_kv_doc('維修單', (string)($repair['repair_no'] ?? $no), [
@@ -397,22 +447,197 @@ function baohui_ops_print_build(array $ctx, string $no, string $type = ''): ?arr
     }
 
     $adjust = baohui_ops_print_find_row($ctx['inventoryAdjustments'] ?? [], $no, ['doc_no', 'id']);
-    if ($adjust) {
-        $kind = (($adjust['type'] ?? '') === 'loss') ? '報損單' : '報溢單';
+    if ($adjust && ($type === '' || preg_match('/報損|報溢|調整|盤虧|盤盈/u', $type))) {
+        $kind = (($adjust['type'] ?? '') === 'loss' || baohui_ops_print_has($type, '報損') || baohui_ops_print_has($type, '盤虧')) ? '報損單' : '報溢單';
+        $cost = (float)($adjust['unit_cost'] ?? 0) * (float)($adjust['qty'] ?? 0);
         return baohui_ops_print_kv_doc($kind, (string)($adjust['doc_no'] ?? $no), [
             '產品：' . (string)($adjust['product_title'] ?? ($adjust['product_id'] ?? '')),
+            '庫存：' . (string)($adjust['before_qty'] ?? '') . ' → ' . (string)($adjust['after_qty'] ?? ''),
             '原因：' . (string)($adjust['reason'] ?? ''),
+            '建立人：' . (string)($adjust['operator'] ?? ''),
         ], [[
             (string)($adjust['product_title'] ?? ($adjust['product_id'] ?? $kind)),
             (string)($adjust['reason'] ?? ($adjust['note'] ?? '')),
             (string)($adjust['qty'] ?? ''),
+            baohui_ops_print_money($adjust['unit_cost'] ?? 0),
+            baohui_ops_print_money($cost),
+        ]], $cost, [
+            'date' => (string)($adjust['date'] ?? substr((string)($adjust['created_at'] ?? ''), 0, 10)),
+            'status' => (string)($adjust['status'] ?? ''),
+            'note' => (string)($adjust['note'] ?? ''),
+            'handler' => (string)($adjust['operator'] ?? ''),
+            'sign_left' => '倉管確認',
+        ]);
+    }
+
+    $bad = baohui_ops_print_find_row($ctx['badDebts'] ?? [], $no, ['case_no', 'id']);
+    if ($bad && ($type === '' || baohui_ops_print_has($type, '呆帳'))) {
+        $items = [];
+        foreach ((array)($bad['items'] ?? []) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $items[] = [
+                (string)($item['product_title'] ?? ($item['document_no'] ?? '應收')),
+                (string)($item['document_no'] ?? ''),
+                (string)($item['quantity'] ?? ''),
+                baohui_ops_print_money($item['receivable'] ?? 0),
+                baohui_ops_print_money($item['bad_debt_amount'] ?? 0),
+            ];
+        }
+        if (!$items) {
+            $items[] = [
+                '呆帳金額',
+                (string)($bad['reason'] ?? ''),
+                '1',
+                baohui_ops_print_money($bad['amount'] ?? 0),
+                baohui_ops_print_money($bad['remaining_amount'] ?? ($bad['amount'] ?? 0)),
+            ];
+        }
+        return baohui_ops_print_empty('呆帳案件', (string)($bad['case_no'] ?? $no), [
+            'subtitle' => '催收／沖銷聯',
+            'date' => (string)($bad['recognition_date'] ?? substr((string)($bad['created_at'] ?? ''), 0, 10)),
+            'status' => (string)($bad['status'] ?? ''),
+            'left_title' => '客戶',
+            'left' => [
+                '名稱：' . (string)($bad['customer_name'] ?? ''),
+                '電話：' . (string)($bad['customer_phone'] ?? ''),
+                '原因：' . (string)($bad['reason'] ?? ''),
+            ],
+            'right_title' => '案件',
+            'right' => [
+                '原額：' . baohui_ops_print_money($bad['amount'] ?? 0),
+                '已追回：' . baohui_ops_print_money($bad['recovered_amount'] ?? 0),
+                '未追回：' . baohui_ops_print_money($bad['remaining_amount'] ?? 0),
+                '負責人：' . (string)($bad['owner'] ?? ''),
+            ],
+            'columns' => ['品項', '來源單號', '數量', '原應收', '轉入呆帳'],
+            'total_label' => '未追回',
+            'sign_left' => '負責人簽核',
+            'handler' => (string)($bad['owner'] ?? ($bad['operator'] ?? '')),
+        ], $items, (float)($bad['remaining_amount'] ?? ($bad['amount'] ?? 0)), (string)($bad['note'] ?? ''));
+    }
+
+    $fixedPay = baohui_ops_print_find_row($ctx['fixedExpensePayments'] ?? [], $no, ['payment_no', 'id']);
+    if ($fixedPay && ($type === '' || baohui_ops_print_has($type, '固定開支'))) {
+        return baohui_ops_print_kv_doc('固定開支付款', (string)($fixedPay['payment_no'] ?? $no), [
+            '項目：' . (string)($fixedPay['expense_name'] ?? ''),
+            '科目：' . trim((string)($fixedPay['account_code'] ?? '') . ' ' . (string)($fixedPay['category_name'] ?? '')),
+            '廠商：' . (string)($fixedPay['supplier_name'] ?? ''),
+            '到期日：' . (string)($fixedPay['due_date'] ?? ''),
+            '付款日：' . (string)($fixedPay['paid_date'] ?? ''),
+            '方式：' . (string)($fixedPay['payment_method'] ?? ''),
+            '帳戶：' . (string)($fixedPay['account_name'] ?? ''),
+            '發票：' . (string)($fixedPay['invoice_no'] ?? ''),
+        ], [[
+            (string)($fixedPay['expense_name'] ?? '固定開支'),
+            (string)($fixedPay['note'] ?? ''),
+            '1',
+            baohui_ops_print_money($fixedPay['amount'] ?? 0),
+            baohui_ops_print_money($fixedPay['amount'] ?? 0),
+        ]], (float)($fixedPay['amount'] ?? 0), [
+            'date' => (string)($fixedPay['paid_date'] ?? ($fixedPay['due_date'] ?? '')),
+            'status' => (string)($fixedPay['status'] ?? ''),
+            'note' => (string)($fixedPay['note'] ?? ''),
+            'handler' => (string)($fixedPay['handler'] ?? ''),
+            'sign_left' => '廠商簽收',
+        ]);
+    }
+
+    $asset = baohui_ops_print_find_row($ctx['fixedAssets'] ?? [], $no, ['asset_no', 'id']);
+    if ($asset && ($type === '' || baohui_ops_print_has($type, '固定資產'))) {
+        return baohui_ops_print_kv_doc('固定資產卡', (string)($asset['asset_no'] ?? $no), [
+            '名稱：' . (string)($asset['asset_name'] ?? ''),
+            '類別：' . (string)($asset['asset_category'] ?? ''),
+            '型號：' . (string)($asset['brand_model'] ?? ''),
+            '序號：' . (string)($asset['serial_no'] ?? ''),
+            '來源單據：' . (string)($asset['source_no'] ?? '手動建檔'),
+            '廠商：' . (string)($asset['supplier_name'] ?? ''),
+            '位置：' . (string)($asset['location'] ?? ''),
+            '保管人：' . (string)($asset['custodian'] ?? ''),
+        ], [[
+            (string)($asset['asset_name'] ?? '固定資產'),
+            trim((string)($asset['brand_model'] ?? '') . ' / ' . (string)($asset['serial_no'] ?? ''), ' /'),
+            (string)($asset['quantity'] ?? 1),
+            baohui_ops_print_money($asset['acquisition_cost'] ?? 0),
+            baohui_ops_print_money($asset['acquisition_cost'] ?? 0),
+        ]], (float)($asset['acquisition_cost'] ?? 0), [
+            'date' => (string)($asset['acquisition_date'] ?? ''),
+            'status' => (string)($asset['status'] ?? ''),
+            'note' => (string)($asset['note'] ?? ''),
+            'handler' => (string)($asset['custodian'] ?? ''),
+            'sign_left' => '保管人簽收',
+        ]);
+    }
+
+    $mobileMove = baohui_ops_print_find_row($ctx['mobileAssetMovements'] ?? [], $no, ['movement_no', 'id']);
+    if ($mobileMove && ($type === '' || preg_match('/移動資產|領用|借出|歸還/u', $type))) {
+        return baohui_ops_print_kv_doc('移動資產異動', (string)($mobileMove['movement_no'] ?? $no), [
+            '類型：' . (string)($mobileMove['movement_type'] ?? ''),
+            '資產：' . trim((string)($mobileMove['mobile_asset_no'] ?? '') . ' ' . (string)($mobileMove['asset_name'] ?? '')),
+            '固定資產：' . (string)($mobileMove['fixed_asset_no'] ?? ''),
+            '原位置：' . (string)($mobileMove['from_location'] ?? ''),
+            '原保管人：' . (string)($mobileMove['from_holder'] ?? ''),
+            '新位置：' . (string)($mobileMove['to_location'] ?? ''),
+            '新保管人：' . (string)($mobileMove['to_holder'] ?? ''),
+            '預計歸還：' . (string)($mobileMove['expected_return_date'] ?? ''),
+        ], [[
+            (string)($mobileMove['asset_name'] ?? ($mobileMove['mobile_asset_no'] ?? '移動資產')),
+            (string)($mobileMove['note'] ?? ''),
+            '1',
             '',
             '',
         ]], 0, [
-            'date' => substr((string)($adjust['created_at'] ?? ''), 0, 10),
-            'status' => (string)($adjust['status'] ?? ''),
-            'note' => (string)($adjust['note'] ?? ''),
+            'date' => (string)($mobileMove['movement_date'] ?? ''),
+            'status' => (string)($mobileMove['status_after'] ?? ($mobileMove['movement_type'] ?? '')),
+            'note' => (string)($mobileMove['note'] ?? ''),
+            'handler' => (string)($mobileMove['operator'] ?? ''),
+            'sign_left' => '接收人簽收',
         ]);
+    }
+
+    $payRec = baohui_ops_print_find_row($ctx['paymentRecords'] ?? [], $no, ['payment_no', 'id']);
+    if ($payRec && ($type === '' || preg_match('/付款紀錄|付款單/u', $type))) {
+        $items = [];
+        foreach ((array)($payRec['allocations'] ?? []) as $alloc) {
+            if (!is_array($alloc)) {
+                continue;
+            }
+            $items[] = [
+                (string)($alloc['product_id'] ?? ($alloc['schedule_id'] ?? '沖帳')),
+                (string)($alloc['schedule_id'] ?? ''),
+                '1',
+                baohui_ops_print_money($alloc['amount'] ?? 0),
+                baohui_ops_print_money($alloc['amount'] ?? 0),
+            ];
+        }
+        if (!$items) {
+            $items[] = [
+                '付款沖帳',
+                (string)($payRec['note'] ?? ''),
+                '1',
+                baohui_ops_print_money($payRec['amount'] ?? 0),
+                baohui_ops_print_money($payRec['applied_amount'] ?? ($payRec['amount'] ?? 0)),
+            ];
+        }
+        return baohui_ops_print_empty('付款紀錄', (string)($payRec['payment_no'] ?? ($payRec['id'] ?? $no)), [
+            'subtitle' => '收款沖帳聯',
+            'date' => substr((string)($payRec['paid_at'] ?? ($payRec['payment_date'] ?? ($payRec['created_at'] ?? ''))), 0, 10),
+            'status' => (string)($payRec['status'] ?? '已付款'),
+            'left_title' => '客戶',
+            'left' => [
+                '名稱：' . (string)($payRec['customer_name'] ?? ($payRec['member_name'] ?? '')),
+                '方式：' . (string)($payRec['method'] ?? ''),
+            ],
+            'right_title' => '沖帳',
+            'right' => [
+                '匯入金額：' . baohui_ops_print_money($payRec['amount'] ?? 0),
+                '已沖：' . baohui_ops_print_money($payRec['applied_amount'] ?? 0),
+                '未分配：' . baohui_ops_print_money($payRec['remaining_amount'] ?? 0),
+            ],
+            'columns' => ['項目', '來源', '數量', '金額', '小計'],
+            'sign_left' => '客戶簽收',
+        ], $items, (float)($payRec['amount'] ?? 0), (string)($payRec['note'] ?? ''));
     }
 
     if ($fromStock) {
@@ -438,6 +663,85 @@ function baohui_ops_print_build(array $ctx, string $no, string $type = ''): ?arr
         ]);
     }
 
+    return baohui_ops_print_generic_fallback($ctx, $no, $type);
+}
+
+function baohui_ops_print_generic_from_row(array $row, string $no, string $title): array
+{
+    $skip = ['id', 'password', 'token', 'items', 'lines', 'followups', 'allocations', 'json_data'];
+    $lines = [];
+    foreach ($row as $key => $value) {
+        if (in_array((string)$key, $skip, true) || is_array($value)) {
+            continue;
+        }
+        $text = trim((string)$value);
+        if ($text === '') {
+            continue;
+        }
+        $lines[] = (string)$key . '：' . $text;
+        if (count($lines) >= 10) {
+            break;
+        }
+    }
+    $total = 0.0;
+    foreach (['total_amount', 'amount', 'remaining_amount', 'acquisition_cost', 'refund_amount'] as $field) {
+        if (isset($row[$field]) && is_numeric($row[$field])) {
+            $total = (float)$row[$field];
+            break;
+        }
+    }
+    $items = [];
+    if ($total !== 0.0) {
+        $items[] = [
+            (string)($row['summary'] ?? ($row['asset_name'] ?? ($row['product_title'] ?? $title))),
+            (string)($row['note'] ?? ''),
+            '1',
+            baohui_ops_print_money($total),
+            baohui_ops_print_money($total),
+        ];
+    }
+    return baohui_ops_print_kv_doc($title !== '' ? $title : '單據', baohui_ops_print_row_no($row) ?: $no, $lines ?: ['單號：' . $no], $items, $total, [
+        'date' => substr((string)($row['date'] ?? ($row['paid_at'] ?? ($row['created_at'] ?? ''))), 0, 10),
+        'status' => (string)($row['status'] ?? ($row['status_after'] ?? '')),
+        'note' => (string)($row['note'] ?? ($row['summary'] ?? '')),
+        'handler' => (string)($row['operator'] ?? ($row['handler'] ?? ($row['custodian'] ?? ''))),
+    ]);
+}
+
+function baohui_ops_print_generic_fallback(array $ctx, string $no, string $type = ''): ?array
+{
+    $titles = [
+        'badDebts' => '呆帳案件',
+        'fixedExpensePayments' => '固定開支付款',
+        'fixedAssets' => '固定資產卡',
+        'mobileAssetMovements' => '移動資產異動',
+        'paymentRecords' => '付款紀錄',
+        'repairDocuments' => '維修單',
+        'returns' => '銷貨退回單',
+        'inventoryCounts' => '盤點單',
+        'inventoryTransfers' => '調撥單',
+        'collectionReceipts' => '收款單',
+        'billingRequests' => '請款單',
+        'inventoryAdjustments' => '庫存調整單',
+        'documentWorkflows' => '流程單據',
+        'deliveryNotes' => '出貨單',
+        'stockMovements' => '進貨單',
+    ];
+    foreach ($ctx as $ctxKey => $rows) {
+        if ($ctxKey === 'company' || !is_array($rows)) {
+            continue;
+        }
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            if (!baohui_ops_print_no_match([baohui_ops_print_row_no($row), $row['id'] ?? ''], $no)) {
+                continue;
+            }
+            $title = $type !== '' ? $type : (string)($titles[$ctxKey] ?? '單據');
+            return baohui_ops_print_generic_from_row($row, $no, $title);
+        }
+    }
     return null;
 }
 

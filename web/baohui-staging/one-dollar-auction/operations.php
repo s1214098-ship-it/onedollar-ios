@@ -1966,6 +1966,11 @@ if (isset($_GET['print_document'])) {
         'collectionReceipts' => $collectionReceipts ?? [],
         'billingRequests' => $billingRequests ?? [],
         'documentWorkflows' => $documentWorkflows ?? [],
+        'badDebts' => $badDebts ?? [],
+        'fixedExpensePayments' => $fixedExpensePayments ?? [],
+        'fixedAssets' => $fixedAssets ?? [],
+        'mobileAssetMovements' => $mobileAssetMovements ?? [],
+        'paymentRecords' => $paymentRecords ?? [],
     ], trim((string)$_GET['print_document']), trim((string)($_GET['doc_type'] ?? '')), isset($_GET['autoprint']));
     exit;
 }
@@ -9306,6 +9311,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
               <?php if(in_array($wfStatus, ['已核准','待審核'], true)): ?><form method="post" class="inline-form" onsubmit="return confirm('確定轉成正式單據？');"><input type="hidden" name="action" value="convert_document_workflow"><input type="hidden" name="workflow_id" value="<?=h($wf['id'] ?? '')?>"><button class="secondary small">轉正式</button></form><?php endif; ?>
               <?php if(!in_array($wfStatus, ['已作廢','已沖帳'], true)): ?><form method="post" class="inline-form" onsubmit="return confirm('確定作廢這張流程單？');"><input type="hidden" name="action" value="void_document_workflow"><input type="hidden" name="workflow_id" value="<?=h($wf['id'] ?? '')?>"><input type="hidden" name="workflow_note" value="管理者作廢"><button class="danger small">作廢</button></form><?php endif; ?>
               <?php if($wfStatus === '已轉正式'): ?><form method="post" class="inline-form" onsubmit="return confirm('確定建立沖帳單？系統會產生反向金額紀錄。');"><input type="hidden" name="action" value="offset_document_workflow"><input type="hidden" name="workflow_id" value="<?=h($wf['id'] ?? '')?>"><input type="hidden" name="workflow_note" value="管理者沖帳"><button class="danger small">沖帳</button></form><?php endif; ?>
+              <?= baohui_ops_print_link_html((string)($wf['workflow_no'] ?? ($wf['formal_document_no'] ?? ($wf['id'] ?? ''))), (string)($wf['document_type'] ?? '流程單據')) ?>
             </div>
           </td>
         </tr>
@@ -9317,7 +9323,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
   <section class="ops-card ops-tab" id="document-center">
     <h2>單據中心 / 正式紀錄總表</h2>
-    <p class="muted">正式單據總查詢：進貨、銷售、估價單轉出貨、維修、銷貨退回、盤點、調撥、收款都從這裡回查；每一張都可以列印紙本。</p>
+    <p class="muted">正式單據總查詢：進貨、銷售、估價單轉出貨、維修、銷貨退回、盤點、調撥、收款、請款、呆帳、報損報溢、固定開支與資產異動都從這裡回查；每一張都可以列印半張 A4。</p>
     <form method="get" action="operations.php#document-center" class="product-form document-filter-form">
       <label>單據類型
         <select name="doc_type">
@@ -11013,7 +11019,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <iframe id="embeddedQuotationFrame" class="quotation-embed-frame" data-src="../admin.php#quotationManager" title="總部估價單管理"></iframe>
     </div>
     <h3>已轉入電商的正式出貨單</h3>
-    <div class="table-wrap"><table><thead><tr><th>出貨單號</th><th>估價單號</th><th>客戶</th><th>品項</th><th>金額</th><th>狀態</th><th>時間</th></tr></thead><tbody>
+    <div class="table-wrap"><table><thead><tr><th>出貨單號</th><th>估價單號</th><th>客戶</th><th>品項</th><th>金額</th><th>狀態</th><th>時間</th><th>列印</th></tr></thead><tbody>
       <?php foreach(array_reverse($deliveryNotes) as $dn): if (($dn['source'] ?? '') !== 'quotation') continue; $b = $dn['buyer'] ?? []; ?>
         <tr>
           <td><b><?=h($dn['delivery_no'] ?? '')?></b></td>
@@ -11023,10 +11029,11 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           <td><?=money($dn['total'] ?? 0)?></td>
           <td><?=h($dn['status'] ?? ($dn['shipping_status'] ?? ''))?></td>
           <td><?=h(substr((string)($dn['updated_at'] ?? ($dn['created_at'] ?? '')),0,19))?></td>
+          <td><?= baohui_ops_print_link_html((string)($dn['delivery_no'] ?? ($dn['id'] ?? '')), '銷售出貨單') ?></td>
         </tr>
       <?php endforeach; ?>
       <?php $hasQuoteDelivery = false; foreach($deliveryNotes as $dn){ if (($dn['source'] ?? '') === 'quotation') { $hasQuoteDelivery = true; break; } } ?>
-      <?php if(!$hasQuoteDelivery): ?><tr><td colspan="7" class="muted">目前尚未有估價單轉出的正式出貨單；可直接使用上方估價單工作區建立或轉單。</td></tr><?php endif; ?>
+      <?php if(!$hasQuoteDelivery): ?><tr><td colspan="8" class="muted">目前尚未有估價單轉出的正式出貨單；可直接使用上方估價單工作區建立或轉單。</td></tr><?php endif; ?>
     </tbody></table></div>
   </section>
   <section class="ops-card ops-tab" id="members">
@@ -11220,6 +11227,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           <td><input name="created_at" value="<?=h($r['created_at'] ?? '')?>"></td>
           <td><textarea name="note" rows="2"><?=h($r['note'] ?? '')?></textarea></td>
           <td><button class="secondary small">儲存</button>
+            <?= baohui_ops_print_link_html((string)($r['repair_no'] ?? ($r['id'] ?? '')), '維修單據') ?>
         </form>
         <form method="post" class="inline-form" onsubmit="return confirm('確定刪除此筆維修單據？');">
           <input type="hidden" name="action" value="delete_repair_document">
@@ -11340,9 +11348,10 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
             <span class="status-pill">已退回重盤</span>
           <?php else: ?><span class="status-pill">庫存一致</span><?php endif; ?>
         </td>
+        <td><?= baohui_ops_print_link_html((string)($doc['doc_no'] ?? ($doc['id'] ?? '')), '盤點單據') ?></td>
       </tr>
       <?php if(!empty($doc['lines'])): ?>
-      <tr class="inventory-count-detail-row"><td colspan="9">
+      <tr class="inventory-count-detail-row"><td colspan="10">
         <details>
           <summary>查看盤點明細表格</summary>
           <div class="table-wrap">
@@ -11385,14 +11394,15 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label class="wide">備註<input name="transfer_note" placeholder="調撥原因、經手人、目的用途"></label>
       <button>建立調撥單</button>
     </form>
-    <div class="table-wrap"><table><thead><tr><th>調撥單號</th><th>日期</th><th>狀態</th><th>來源</th><th>目的</th><th>筆數</th><th>建立人</th><th>備註</th></tr></thead><tbody>
-      <?php if(!$inventoryTransfers): ?><tr><td colspan="8" class="muted">尚未建立調撥單。</td></tr><?php endif; ?>
+    <div class="table-wrap"><table><thead><tr><th>調撥單號</th><th>日期</th><th>狀態</th><th>來源</th><th>目的</th><th>筆數</th><th>建立人</th><th>備註</th><th>列印</th></tr></thead><tbody>
+      <?php if(!$inventoryTransfers): ?><tr><td colspan="9" class="muted">尚未建立調撥單。</td></tr><?php endif; ?>
       <?php foreach(array_reverse($inventoryTransfers) as $doc): ?>
       <tr>
         <td><?=h($doc['doc_no'] ?? '')?></td><td><?=h($doc['date'] ?? '')?></td><td><?=h($doc['status'] ?? '')?></td>
         <td><?=h(trim(($doc['from_warehouse']??'').' / '.($doc['from_shelf']??'').' / '.($doc['from_location']??''), ' /'))?></td>
         <td><?=h(trim(($doc['to_warehouse']??'').' / '.($doc['to_shelf']??'').' / '.($doc['to_location']??''), ' /'))?></td>
         <td><?=h(count($doc['lines'] ?? []))?></td><td><?=h($doc['operator'] ?? '')?></td><td><?=h($doc['note'] ?? '')?></td>
+        <td><?= baohui_ops_print_link_html((string)($doc['doc_no'] ?? ($doc['id'] ?? '')), '調撥單據') ?></td>
       </tr>
       <?php endforeach; ?>
     </tbody></table></div>
@@ -11847,6 +11857,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           <td><input name="handler" value="<?=h($r['handler'] ?? '')?>"></td>
           <td><input name="note" value="<?=h($r['note'] ?? '')?>"></td>
           <td><button class="secondary small">儲存</button>
+            <?= baohui_ops_print_link_html((string)($r['receipt_no'] ?? ($r['id'] ?? '')), '收款單') ?>
         </form>
         <form method="post" class="inline-form" onsubmit="return confirm('確定刪除此收款單？');">
           <input type="hidden" name="action" value="delete_collection_receipt">
@@ -11982,7 +11993,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
             <?php foreach(($request['items']??[]) as $itemIndex=>$item): ?><tr><td><?=h($itemIndex+1)?></td><td><?=h($item['date']??'')?></td><td><?=h($item['document_no']??'')?></td><td><?=h(trim(($item['delivery_no']??'').' / '.($item['invoice_no']??''),' /'))?></td><td><?=h($item['product_id']??'')?></td><td><?=h($item['product_title']??'')?></td><td><?=h($item['quantity']??0)?></td><td><?=money($item['receivable']??0)?></td><td><?=money($item['paid']??0)?></td><td><b><?=money($item['request_amount']??0)?></b></td></tr><?php endforeach; ?>
             <tr><td colspan="9" style="text-align:right"><b>請款總額</b></td><td><b><?=money($request['total_amount']??0)?></b></td></tr>
           </tbody></table></div>
-          <div class="form-actions billing-request-actions"><button type="button" class="secondary print-billing-request" data-id="<?=h($request['id']??'')?>">列印橫式 A4</button><form method="post" onsubmit="return confirm('確定刪除此請款單？');"><input type="hidden" name="action" value="delete_billing_request"><input type="hidden" name="billing_request_id" value="<?=h($request['id']??'')?>"><button class="danger">刪除請款單</button></form></div>
+          <div class="form-actions billing-request-actions"><a class="button-like small" target="_blank" rel="noopener" href="<?=h(baohui_ops_document_print_href((string)($request['request_no'] ?? ($request['id'] ?? '')), '請款單'))?>">列印半張</a><button type="button" class="secondary print-billing-request" data-id="<?=h($request['id']??'')?>">列印橫式 A4</button><form method="post" onsubmit="return confirm('確定刪除此請款單？');"><input type="hidden" name="action" value="delete_billing_request"><input type="hidden" name="billing_request_id" value="<?=h($request['id']??'')?>"><button class="danger">刪除請款單</button></form></div>
         </div>
       </details>
     <?php endforeach; ?>
@@ -12038,6 +12049,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         <div class="bad-debt-body">
           <div class="billing-request-meta"><span>轉入：<?=h($case['recognition_date']??'')?></span><span>原期限：<?=h($case['original_due_date']??'')?></span><span>負責人：<?=h($case['owner']??'')?></span><span>下次追蹤：<?=h($case['next_followup_at']??'')?></span><span>原因：<?=h($case['reason']??'')?></span></div>
           <p><?=h($case['note']??'')?></p>
+          <p><?= baohui_ops_print_link_html((string)($case['case_no'] ?? ($case['id'] ?? '')), '呆帳案件') ?></p>
           <div class="table-wrap"><table class="billing-request-table"><thead><tr><th>排序</th><th>日期</th><th>來源單號</th><th>產品編號</th><th>品項</th><th>數量</th><th>原應收</th><th>已收</th><th>轉入呆帳</th></tr></thead><tbody><?php foreach(($case['items']??[]) as $itemIndex=>$item): ?><tr><td><?=h($itemIndex+1)?></td><td><?=h($item['date']??'')?></td><td><?=h($item['document_no']??'')?></td><td><?=h($item['product_id']??'')?></td><td><?=h($item['product_title']??'')?></td><td><?=h($item['quantity']??0)?></td><td><?=money($item['receivable']??0)?></td><td><?=money($item['paid']??0)?></td><td class="danger-text"><?=money($item['bad_debt_amount']??0)?></td></tr><?php endforeach; ?></tbody></table></div>
           <form method="post" class="product-form">
             <input type="hidden" name="action" value="update_bad_debt"><input type="hidden" name="bad_debt_id" value="<?=h($case['id']??'')?>">
@@ -12076,11 +12088,11 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label class="wide">報損原因<input name="adjust_reason" placeholder="損壞、遺失、不可售、報廢等"></label>
       <button>建立報損並扣庫存</button>
     </form>
-    <div class="table-wrap"><table><thead><tr><th>日期</th><th>報損單號</th><th>品項</th><th>數量</th><th>庫存前後</th><th>成本</th><th>原因</th><th>狀態</th><th>建立人</th></tr></thead><tbody>
+    <div class="table-wrap"><table><thead><tr><th>日期</th><th>報損單號</th><th>品項</th><th>數量</th><th>庫存前後</th><th>成本</th><th>原因</th><th>狀態</th><th>建立人</th><th>列印</th></tr></thead><tbody>
       <?php $lossRows = array_values(array_filter($inventoryAdjustments, function($r){ return ($r['type'] ?? '') === 'loss'; })); ?>
-      <?php if(!$lossRows): ?><tr><td colspan="9" class="muted">尚未建立報損單。</td></tr><?php endif; ?>
+      <?php if(!$lossRows): ?><tr><td colspan="10" class="muted">尚未建立報損單。</td></tr><?php endif; ?>
       <?php foreach(array_reverse($lossRows) as $row): ?>
-      <tr><td><?=h($row['date'] ?? '')?></td><td><?=h($row['doc_no'] ?? '')?></td><td><?=h(product_scan_label($row, $row['product_id'] ?? ''))?></td><td><?=h($row['qty'] ?? 0)?></td><td><?=h(($row['before_qty'] ?? 0) . ' → ' . ($row['after_qty'] ?? 0))?></td><td><?=h(money(($row['unit_cost'] ?? 0) * ($row['qty'] ?? 0)))?></td><td><?=h($row['reason'] ?? '')?></td><td><?=h($row['status'] ?? '')?></td><td><?=h($row['operator'] ?? '')?></td></tr>
+      <tr><td><?=h($row['date'] ?? '')?></td><td><?=h($row['doc_no'] ?? '')?></td><td><?=h(product_scan_label($row, $row['product_id'] ?? ''))?></td><td><?=h($row['qty'] ?? 0)?></td><td><?=h(($row['before_qty'] ?? 0) . ' → ' . ($row['after_qty'] ?? 0))?></td><td><?=h(money(($row['unit_cost'] ?? 0) * ($row['qty'] ?? 0)))?></td><td><?=h($row['reason'] ?? '')?></td><td><?=h($row['status'] ?? '')?></td><td><?=h($row['operator'] ?? '')?></td><td><?= baohui_ops_print_link_html((string)($row['doc_no'] ?? ($row['id'] ?? '')), '報損單') ?></td></tr>
       <?php endforeach; ?>
     </tbody></table></div>
   </section>
@@ -12098,11 +12110,11 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label class="wide">報溢原因<input name="adjust_reason" placeholder="盤點多出、補登、廠商補貨差異等"></label>
       <button>建立報溢並加庫存</button>
     </form>
-    <div class="table-wrap"><table><thead><tr><th>日期</th><th>報溢單號</th><th>品項</th><th>數量</th><th>庫存前後</th><th>成本</th><th>原因</th><th>狀態</th><th>建立人</th></tr></thead><tbody>
+    <div class="table-wrap"><table><thead><tr><th>日期</th><th>報溢單號</th><th>品項</th><th>數量</th><th>庫存前後</th><th>成本</th><th>原因</th><th>狀態</th><th>建立人</th><th>列印</th></tr></thead><tbody>
       <?php $overageRows = array_values(array_filter($inventoryAdjustments, function($r){ return ($r['type'] ?? '') === 'overage'; })); ?>
-      <?php if(!$overageRows): ?><tr><td colspan="9" class="muted">尚未建立報溢單。</td></tr><?php endif; ?>
+      <?php if(!$overageRows): ?><tr><td colspan="10" class="muted">尚未建立報溢單。</td></tr><?php endif; ?>
       <?php foreach(array_reverse($overageRows) as $row): ?>
-      <tr><td><?=h($row['date'] ?? '')?></td><td><?=h($row['doc_no'] ?? '')?></td><td><?=h(product_scan_label($row, $row['product_id'] ?? ''))?></td><td><?=h($row['qty'] ?? 0)?></td><td><?=h(($row['before_qty'] ?? 0) . ' → ' . ($row['after_qty'] ?? 0))?></td><td><?=h(money(($row['unit_cost'] ?? 0) * ($row['qty'] ?? 0)))?></td><td><?=h($row['reason'] ?? '')?></td><td><?=h($row['status'] ?? '')?></td><td><?=h($row['operator'] ?? '')?></td></tr>
+      <tr><td><?=h($row['date'] ?? '')?></td><td><?=h($row['doc_no'] ?? '')?></td><td><?=h(product_scan_label($row, $row['product_id'] ?? ''))?></td><td><?=h($row['qty'] ?? 0)?></td><td><?=h(($row['before_qty'] ?? 0) . ' → ' . ($row['after_qty'] ?? 0))?></td><td><?=h(money(($row['unit_cost'] ?? 0) * ($row['qty'] ?? 0)))?></td><td><?=h($row['reason'] ?? '')?></td><td><?=h($row['status'] ?? '')?></td><td><?=h($row['operator'] ?? '')?></td><td><?= baohui_ops_print_link_html((string)($row['doc_no'] ?? ($row['id'] ?? '')), '報溢單') ?></td></tr>
       <?php endforeach; ?>
     </tbody></table></div>
   </section>
@@ -12311,7 +12323,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <button class="secondary">查詢</button><a class="secondary-link" href="operations.php?fixed_period=<?=h($fixedPeriod)?>#finance-fixed-expense">清除條件</a>
     </form>
     <div class="table-wrap"><table class="fixed-expense-payment-table"><thead><tr><th>到期日</th><th>付款單號</th><th>項目 / 科目</th><th>廠商</th><th>金額</th><th>狀態</th><th>付款日</th><th>帳戶 / 發票</th><th>操作</th></tr></thead><tbody>
-      <?php foreach($fixedPaymentRowsPage as $payment): ?><tr class="<?=($payment['status']??'')==='逾期'?'fixed-expense-overdue':''?>"><td><?=h($payment['due_date'] ?? '')?></td><td><?=h($payment['payment_no'] ?? '')?></td><td><b><?=h($payment['expense_name'] ?? '')?></b><small><?=h(trim(($payment['account_code'] ?? '') . ' ' . ($payment['category_name'] ?? '')))?></small></td><td><?=h($payment['supplier_name'] ?? '')?></td><td><?=money($payment['amount'] ?? 0)?></td><td><span class="status-pill"><?=h($payment['status'] ?? '')?></span></td><td><?=h($payment['paid_date'] ?? '')?></td><td><?=h($payment['account_name'] ?? '')?><small><?=h($payment['invoice_no'] ?? '')?></small></td><td><details class="fixed-payment-editor"><summary>編輯</summary><form method="post" class="product-form"><input type="hidden" name="action" value="save_fixed_expense_payment"><input type="hidden" name="fixed_expense_payment_id" value="<?=h($payment['id'] ?? '')?>"><label>到期日<input name="due_date" type="date" value="<?=h($payment['due_date'] ?? '')?>"></label><label>實際金額<input name="amount" type="number" min="0" step="1" value="<?=h($payment['amount'] ?? 0)?>"></label><label>狀態<select name="status"><?php foreach(['待付款','待確認','已付款','逾期','免付','取消'] as $value): ?><option <?=$value===($payment['status']??'')?'selected':''?>><?=h($value)?></option><?php endforeach; ?></select></label><label>付款日<input name="paid_date" type="date" value="<?=h($payment['paid_date'] ?? '')?>"></label><label>付款方式<select name="payment_method"><?php foreach(['轉帳','現金','刷卡','自動扣款','支票','其他'] as $value): ?><option <?=$value===($payment['payment_method']??'')?'selected':''?>><?=h($value)?></option><?php endforeach; ?></select></label><label>付款帳戶<input name="account_name" value="<?=h($payment['account_name'] ?? '')?>"></label><label>發票 / 憑證號<input name="invoice_no" value="<?=h($payment['invoice_no'] ?? '')?>"></label><label>經手人<input name="handler" value="<?=h($payment['handler'] ?? '')?>"></label><label class="wide">備註<input name="note" value="<?=h($payment['note'] ?? '')?>"></label><button class="primary">儲存付款資料</button></form><form method="post" class="inline-form" onsubmit="return confirm('確定刪除此付款紀錄？');"><input type="hidden" name="action" value="delete_fixed_expense_payment"><input type="hidden" name="fixed_expense_payment_id" value="<?=h($payment['id'] ?? '')?>"><button class="danger small">刪除紀錄</button></form></details></td></tr><?php endforeach; ?>
+      <?php foreach($fixedPaymentRowsPage as $payment): ?><tr class="<?=($payment['status']??'')==='逾期'?'fixed-expense-overdue':''?>"><td><?=h($payment['due_date'] ?? '')?></td><td><?=h($payment['payment_no'] ?? '')?></td><td><b><?=h($payment['expense_name'] ?? '')?></b><small><?=h(trim(($payment['account_code'] ?? '') . ' ' . ($payment['category_name'] ?? '')))?></small></td><td><?=h($payment['supplier_name'] ?? '')?></td><td><?=money($payment['amount'] ?? 0)?></td><td><span class="status-pill"><?=h($payment['status'] ?? '')?></span></td><td><?=h($payment['paid_date'] ?? '')?></td><td><?=h($payment['account_name'] ?? '')?><small><?=h($payment['invoice_no'] ?? '')?></small></td><td><?= baohui_ops_print_link_html((string)($payment['payment_no'] ?? ($payment['id'] ?? '')), '固定開支付款') ?><details class="fixed-payment-editor"><summary>編輯</summary><form method="post" class="product-form"><input type="hidden" name="action" value="save_fixed_expense_payment"><input type="hidden" name="fixed_expense_payment_id" value="<?=h($payment['id'] ?? '')?>"><label>到期日<input name="due_date" type="date" value="<?=h($payment['due_date'] ?? '')?>"></label><label>實際金額<input name="amount" type="number" min="0" step="1" value="<?=h($payment['amount'] ?? 0)?>"></label><label>狀態<select name="status"><?php foreach(['待付款','待確認','已付款','逾期','免付','取消'] as $value): ?><option <?=$value===($payment['status']??'')?'selected':''?>><?=h($value)?></option><?php endforeach; ?></select></label><label>付款日<input name="paid_date" type="date" value="<?=h($payment['paid_date'] ?? '')?>"></label><label>付款方式<select name="payment_method"><?php foreach(['轉帳','現金','刷卡','自動扣款','支票','其他'] as $value): ?><option <?=$value===($payment['payment_method']??'')?'selected':''?>><?=h($value)?></option><?php endforeach; ?></select></label><label>付款帳戶<input name="account_name" value="<?=h($payment['account_name'] ?? '')?>"></label><label>發票 / 憑證號<input name="invoice_no" value="<?=h($payment['invoice_no'] ?? '')?>"></label><label>經手人<input name="handler" value="<?=h($payment['handler'] ?? '')?>"></label><label class="wide">備註<input name="note" value="<?=h($payment['note'] ?? '')?>"></label><button class="primary">儲存付款資料</button></form><form method="post" class="inline-form" onsubmit="return confirm('確定刪除此付款紀錄？');"><input type="hidden" name="action" value="delete_fixed_expense_payment"><input type="hidden" name="fixed_expense_payment_id" value="<?=h($payment['id'] ?? '')?>"><button class="danger small">刪除紀錄</button></form></details></td></tr><?php endforeach; ?>
       <?php if(!$fixedPaymentRowsPage): ?><tr><td colspan="9" class="muted">這個月份目前沒有符合條件的固定開支紀錄。</td></tr><?php endif; ?>
     </tbody></table></div>
     <?php if($fixedPages > 1): ?><div class="pager"><span>第 <?=h($fixedPage)?> / <?=h($fixedPages)?> 頁，每頁 10 筆；顯示 <?=h(count($fixedPaymentRowsPage))?> / <?=h($fixedTotal)?> 筆</span><?php if($fixedPage > 1): ?><a class="secondary small" href="<?=h($fixedPageUrl($fixedPage - 1))?>">上一頁</a><?php endif; ?><?php if($fixedPage < $fixedPages): ?><a class="secondary small" href="<?=h($fixedPageUrl($fixedPage + 1))?>">下一頁</a><?php endif; ?></div><?php endif; ?>
@@ -12422,7 +12434,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
     <div class="table-wrap"><table class="fixed-asset-table"><thead><tr><th>資產編號</th><th>資產名稱 / 序號</th><th>類別</th><th>來源單據</th><th>取得日期</th><th>取得成本</th><th>累計折舊</th><th>帳面價值</th><th>位置 / 保管人</th><th>狀態</th><th>操作</th></tr></thead><tbody>
       <?php foreach($fixedAssetRowsPage as $asset): $assetSnapshot=fixed_asset_depreciation_snapshot($asset,date('Y-m-d')); ?>
-        <tr class="<?=in_array(($asset['status']??''),['維修中','報廢','遺失'],true)?'fixed-asset-attention':''?>"><td><b><?=h($asset['asset_no'] ?? '')?></b></td><td><b><?=h($asset['asset_name'] ?? '')?></b><small><?=h(trim(($asset['brand_model'] ?? '') . ' ' . ($asset['serial_no'] ?? '')))?></small></td><td><?=h($asset['asset_category'] ?? '')?></td><td><?=h($asset['source_no'] ?? '手動建檔')?><small><?=h($asset['supplier_name'] ?? '')?></small></td><td><?=h($asset['acquisition_date'] ?? '')?></td><td><?=money($asset['acquisition_cost'] ?? 0)?></td><td><?=money($assetSnapshot['accumulated'] ?? 0)?><small><?=h($assetSnapshot['months'] ?? 0)?> 個月</small></td><td><b><?=money($assetSnapshot['book_value'] ?? 0)?></b><small>本月 <?=money($assetSnapshot['monthly'] ?? 0)?></small></td><td><?=h($asset['location'] ?? '')?><small><?=h($asset['custodian'] ?? '')?></small></td><td><span class="status-pill"><?=h($asset['status'] ?? '')?></span></td><td><details class="fixed-asset-editor"><summary>編輯</summary>
+        <tr class="<?=in_array(($asset['status']??''),['維修中','報廢','遺失'],true)?'fixed-asset-attention':''?>"><td><b><?=h($asset['asset_no'] ?? '')?></b></td><td><b><?=h($asset['asset_name'] ?? '')?></b><small><?=h(trim(($asset['brand_model'] ?? '') . ' ' . ($asset['serial_no'] ?? '')))?></small></td><td><?=h($asset['asset_category'] ?? '')?></td><td><?=h($asset['source_no'] ?? '手動建檔')?><small><?=h($asset['supplier_name'] ?? '')?></small></td><td><?=h($asset['acquisition_date'] ?? '')?></td><td><?=money($asset['acquisition_cost'] ?? 0)?></td><td><?=money($assetSnapshot['accumulated'] ?? 0)?><small><?=h($assetSnapshot['months'] ?? 0)?> 個月</small></td><td><b><?=money($assetSnapshot['book_value'] ?? 0)?></b><small>本月 <?=money($assetSnapshot['monthly'] ?? 0)?></small></td><td><?=h($asset['location'] ?? '')?><small><?=h($asset['custodian'] ?? '')?></small></td><td><span class="status-pill"><?=h($asset['status'] ?? '')?></span></td><td><?= baohui_ops_print_link_html((string)($asset['asset_no'] ?? ($asset['id'] ?? '')), '固定資產卡') ?><details class="fixed-asset-editor"><summary>編輯</summary>
           <form method="post" class="product-form"><input type="hidden" name="action" value="save_fixed_asset"><input type="hidden" name="fixed_asset_id" value="<?=h($asset['id'] ?? '')?>">
             <label class="wide">來源單據<select name="source_document_key"><option value="">手動建檔</option><?php if(($asset['source_document_key']??'')!=='' && !in_array(($asset['source_document_key']??''),$fixedAssetSourceKeys,true)): ?><option value="<?=h($asset['source_document_key'] ?? '')?>" selected>歷史來源｜<?=h($asset['source_no'] ?? '')?>｜<?=h($asset['supplier_name'] ?? '')?></option><?php endif; ?><?php foreach($fixedAssetSources as $source): ?><option value="<?=h($source['key'])?>" <?=$source['key']===($asset['source_document_key']??'')?'selected':''?>><?=h($source['type'] . '｜' . $source['no'] . '｜' . $source['name'] . '｜' . money($source['amount']))?></option><?php endforeach; ?></select></label>
             <label>資產編號<input name="asset_no" value="<?=h($asset['asset_no'] ?? '')?>"></label><label>資產名稱<input name="asset_name" value="<?=h($asset['asset_name'] ?? '')?>" required></label><label>類別<select name="asset_category"><?php foreach($fixedAssetCategories as $value): ?><option <?=$value===($asset['asset_category']??'')?'selected':''?>><?=h($value)?></option><?php endforeach; ?></select></label><label>品牌 / 型號<input name="brand_model" value="<?=h($asset['brand_model'] ?? '')?>"></label><label>序號<input name="serial_no" value="<?=h($asset['serial_no'] ?? '')?>"></label><label>數量<input name="quantity" type="number" min="1" value="<?=h($asset['quantity'] ?? 1)?>"></label><label>取得日期<input name="acquisition_date" type="date" value="<?=h($asset['acquisition_date'] ?? '')?>"></label><label>取得成本<input name="acquisition_cost" type="number" min="0" step="1" value="<?=h($asset['acquisition_cost'] ?? 0)?>"></label><label>廠商<select name="supplier_id"><option value="">依來源 / 手動</option><?php foreach($suppliers as $supplier): ?><option value="<?=h($supplier['id'] ?? '')?>" <?=($supplier['id']??'')===($asset['supplier_id']??'')?'selected':''?>><?=h($supplier['name'] ?? '')?></option><?php endforeach; ?></select></label><label>廠商名稱<input name="supplier_name" value="<?=h($asset['supplier_name'] ?? '')?>"></label><label>發票 / 憑證<input name="invoice_no" value="<?=h($asset['invoice_no'] ?? '')?>"></label><label>部門<select name="department"><option value="">未指定</option><?php foreach($departmentOptions as $value): ?><option <?=$value===($asset['department']??'')?'selected':''?>><?=h($value)?></option><?php endforeach; ?></select></label><label>位置<input name="location" list="fixedAssetLocationOptions" value="<?=h($asset['location'] ?? '')?>"></label><label>保管人<input name="custodian" value="<?=h($asset['custodian'] ?? '')?>"></label><label>狀態<select name="status"><?php foreach(['使用中','閒置','維修中','遺失','報廢','出售'] as $value): ?><option <?=$value===($asset['status']??'')?'selected':''?>><?=h($value)?></option><?php endforeach; ?></select></label><label>折舊方式<select name="depreciation_method"><?php foreach(['直線法','不折舊'] as $value): ?><option <?=$value===($asset['depreciation_method']??'')?'selected':''?>><?=h($value)?></option><?php endforeach; ?></select></label><label>使用年限（月）<input name="useful_life_months" type="number" min="1" value="<?=h($asset['useful_life_months'] ?? 60)?>"></label><label>殘值<input name="residual_value" type="number" min="0" value="<?=h($asset['residual_value'] ?? 0)?>"></label><label>開始折舊日<input name="depreciation_start_date" type="date" value="<?=h($asset['depreciation_start_date'] ?? '')?>"></label><label>保固到期日<input name="warranty_end_date" type="date" value="<?=h($asset['warranty_end_date'] ?? '')?>"></label><label>報廢 / 出售日<input name="disposed_date" type="date" value="<?=h($asset['disposed_date'] ?? '')?>"></label><label class="wide">備註<input name="note" value="<?=h($asset['note'] ?? '')?>"></label><button class="primary">儲存資產</button>
@@ -12519,7 +12531,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
     <h3>流動歷程</h3>
     <form method="get" action="operations.php#finance-mobile-asset" class="inline-actions mobile-asset-filter"><input type="hidden" name="mobile_asset_q" value="<?=h($mobileAssetQ)?>"><input type="hidden" name="mobile_asset_status" value="<?=h($mobileAssetStatus)?>"><label>搜尋紀錄<input name="mobile_movement_q" value="<?=h($mobileMovementQ)?>" placeholder="單號 / 資產 / 人員 / 位置 / 操作人"></label><label>類型<select name="mobile_movement_type"><option value="">全部</option><?php foreach(['領用','借出','歸還','調撥','送修','修復','遺失','報廢'] as $value): ?><option value="<?=h($value)?>" <?=$mobileMovementType===$value?'selected':''?>><?=h($value)?></option><?php endforeach; ?></select></label><button class="secondary">查詢歷程</button></form>
-    <div class="table-wrap"><table class="mobile-movement-table"><thead><tr><th>日期</th><th>異動單號</th><th>類型</th><th>資產</th><th>原位置 / 人員</th><th>新位置 / 人員</th><th>預計歸還</th><th>異動後狀態</th><th>說明</th><th>操作人</th></tr></thead><tbody><?php foreach($mobileMovementRowsPage as $movement): ?><tr><td><?=h($movement['movement_date']??'')?></td><td><?=h($movement['movement_no']??'')?></td><td><b><?=h($movement['movement_type']??'')?></b></td><td><?=h($movement['mobile_asset_no']??'')?><small><?=h($movement['asset_name']??'')?></small></td><td><?=h($movement['from_location']??'')?><small><?=h($movement['from_holder']??'')?></small></td><td><?=h($movement['to_location']??'')?><small><?=h($movement['to_holder']??'')?></small></td><td><?=h($movement['expected_return_date']??'')?></td><td><?=h($movement['status_after']??'')?></td><td><?=h($movement['note']??'')?></td><td><?=h($movement['operator']??'')?></td></tr><?php endforeach; ?><?php if(!$mobileMovementRowsPage): ?><tr><td colspan="10" class="muted">目前沒有移動資產異動紀錄。</td></tr><?php endif; ?></tbody></table></div>
+    <div class="table-wrap"><table class="mobile-movement-table"><thead><tr><th>日期</th><th>異動單號</th><th>類型</th><th>資產</th><th>原位置 / 人員</th><th>新位置 / 人員</th><th>預計歸還</th><th>異動後狀態</th><th>說明</th><th>操作人</th><th>列印</th></tr></thead><tbody><?php foreach($mobileMovementRowsPage as $movement): ?><tr><td><?=h($movement['movement_date']??'')?></td><td><?=h($movement['movement_no']??'')?></td><td><b><?=h($movement['movement_type']??'')?></b></td><td><?=h($movement['mobile_asset_no']??'')?><small><?=h($movement['asset_name']??'')?></small></td><td><?=h($movement['from_location']??'')?><small><?=h($movement['from_holder']??'')?></small></td><td><?=h($movement['to_location']??'')?><small><?=h($movement['to_holder']??'')?></small></td><td><?=h($movement['expected_return_date']??'')?></td><td><?=h($movement['status_after']??'')?></td><td><?=h($movement['note']??'')?></td><td><?=h($movement['operator']??'')?></td><td><?= baohui_ops_print_link_html((string)($movement['movement_no'] ?? ($movement['id'] ?? '')), '移動資產異動') ?></td></tr><?php endforeach; ?><?php if(!$mobileMovementRowsPage): ?><tr><td colspan="11" class="muted">目前沒有移動資產異動紀錄。</td></tr><?php endif; ?></tbody></table></div>
     <?php if($mobileMovementPages>1): ?><div class="pager"><span>第 <?=h($mobileMovementPage)?> / <?=h($mobileMovementPages)?> 頁，每頁 10 筆</span><?php if($mobileMovementPage>1): ?><a class="secondary small" href="<?=h($mobileMovementPageUrl($mobileMovementPage-1))?>">上一頁</a><?php endif; ?><?php if($mobileMovementPage<$mobileMovementPages): ?><a class="secondary small" href="<?=h($mobileMovementPageUrl($mobileMovementPage+1))?>">下一頁</a><?php endif; ?></div><?php endif; ?>
     <script>(function(){var select=document.getElementById('mobileAssetFixedSelect');if(!select)return;select.addEventListener('change',function(){var option=select.options[select.selectedIndex];var department=document.getElementById('mobileAssetDepartment');var home=document.getElementById('mobileAssetHomeLocation');var current=document.getElementById('mobileAssetCurrentLocation');var holder=document.getElementById('mobileAssetCurrentHolder');if(department)department.value=option.dataset.department||'';if(home)home.value=option.dataset.location||'';if(current)current.value=option.dataset.location||'';if(holder)holder.value=option.dataset.holder||'';});})();</script>
   </section>
