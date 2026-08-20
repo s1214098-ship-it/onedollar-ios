@@ -371,17 +371,17 @@ function patchHtml(file) {
   backup(file, "product-search");
   let html = fs.readFileSync(file, "latin1");
   if (html.indexOf("data-product-search-status") === -1) {
-    const oldBlock = `              <option value="cost-asc">成本低到高</option>
-            </select>
-          </label>
-        </div>`;
-    const newBlock = `              <option value="cost-asc">成本低到高</option>
-            </select>
-          </label>
-        </div>
-        <div class="product-search-status" data-product-search-status hidden role="status"></div>`;
-    const next = replaceOnce(html, oldBlock, newBlock, "products html status box");
-    html = next;
+    const key = 'value="cost-asc"';
+    const i = html.indexOf(key);
+    if (i < 0) throw new Error("missing cost-asc in " + file);
+    const close = html.indexOf("</div>", i);
+    if (close < 0) throw new Error("missing tools close in " + file);
+    const at = close + "</div>".length;
+    html =
+      html.slice(0, at) +
+      '\n        <div class="product-search-status" data-product-search-status hidden role="status"></div>' +
+      html.slice(at);
+    console.log("patched: products html status box");
   } else {
     console.log("already: products html status box");
   }
