@@ -130,6 +130,32 @@ body {
   font-weight: 800;
 }
 
+.cek-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.cek-tabs button {
+  min-height: 48px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink);
+  background: #2c212e;
+  font-weight: 900;
+  font-size: 15px;
+}
+.cek-tabs button.is-active {
+  color: #1a1214;
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.cek-tabs button[data-cek-tab="blacklist"].is-active {
+  background: #ff8aa5;
+  border-color: #ff8aa5;
+}
+
 .cek-card {
   display: grid;
   gap: 10px;

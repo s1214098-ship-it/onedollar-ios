@@ -10,7 +10,7 @@
       label: 'Telepon / nomor resi',
       placeholder: '0812… atau nomor resi',
       submit: 'Cek sekarang',
-      hint: 'Ketik beberapa angka, langsung cari. Awal telepon, 4 terakhir, nama, resi, daftar hitam, atau yang pernah return.',
+      hint: 'Buka daftar hitam di bawah, tidak perlu telepon dulu. Atau ketik telepon / nama / resi.',
       addhome: 'Di HP: buka tautan ini → bagikan → Tambah ke Layar Utama. Nanti cukup ketuk ikon.',
       recent: 'Baru dicari',
       searching: 'Mencari…',
@@ -67,6 +67,10 @@
       lastReturn: 'Return terakhir',
       reason: 'Alasan',
       riskEmpty: 'Tidak ada.',
+      tabPickup: 'Ambil',
+      tabBlacklist: 'Daftar hitam',
+      tabReturned: 'Return',
+      blacklistListHint: 'Seluruh daftar hitam. Tidak perlu cari telepon dulu. Order baru akan ditahan.',
       states: {
         pending: 'Menunggu dikirim',
         ready: 'Siap dikirim',
@@ -84,7 +88,7 @@
       label: '電話／物流單號',
       placeholder: '電話或物流單號',
       submit: '立刻查貨',
-      hint: '打幾個字就會找。電話開頭、後四碼、姓名、物流單號、黑名單或退貨過的客人都可以。',
+      hint: '下面有黑名單整份清單，不用先打電話。也可以搜電話、姓名、物流單號或退貨過的客人。',
       addhome: '手機：打開這個網址 → 分享 → 加入主畫面。以後點圖示就能查。',
       recent: '最近查過',
       searching: '查詢中…',
@@ -141,6 +145,10 @@
       lastReturn: '最近退貨',
       reason: '原因',
       riskEmpty: '目前沒有。',
+      tabPickup: '待取',
+      tabBlacklist: '黑名單',
+      tabReturned: '退貨過',
+      blacklistListHint: '整份黑名單，不用先打電話。之後打單會擋，要管理後台才能解除。',
       states: {
         pending: '待出貨',
         ready: '待出貨',
@@ -404,10 +412,58 @@
       (rows.length ? rows.map(cardFn).join('') : '<p class="cek-board-empty">' + esc(copy.riskEmpty) + '</p>') +
     '</section>';
   }
+  var TAB_KEY = 'lingzanzan-cek-tab';
+  var boardTab = (function () {
+    try {
+      var saved = localStorage.getItem(TAB_KEY);
+      if (saved === 'blacklist' || saved === 'returned' || saved === 'pickup') return saved;
+    } catch (error) {}
+    return 'pickup';
+  })();
+  function renderTabs() {
+    var box = $('[data-cek-tabs]');
+    if (!box) return;
+    var copy = t();
+    var data = boardCache;
+    var pickN = data ? ((data.returning || []).length + (data.waiting || []).length) : 0;
+    var blackN = data && Array.isArray(data.blacklist) ? data.blacklist.length : 0;
+    var retN = data && Array.isArray(data.returnedCustomers) ? data.returnedCustomers.length : 0;
+    var tabs = [
+      ['pickup', copy.tabPickup, pickN],
+      ['blacklist', copy.tabBlacklist, blackN],
+      ['returned', copy.tabReturned, retN]
+    ];
+    box.innerHTML = tabs.map(function (tab) {
+      return '<button type="button" data-cek-tab="' + tab[0] + '"' + (boardTab === tab[0] ? ' class="is-active"' : '') + '>' +
+        esc(tab[1]) + (tab[2] ? ' (' + tab[2] + ')' : '') + '</button>';
+    }).join('');
+  }
+  function setBoardTab(tab, opts) {
+    opts = opts || {};
+    if (tab !== 'blacklist' && tab !== 'returned') tab = 'pickup';
+    boardTab = tab;
+    try { localStorage.setItem(TAB_KEY, tab); } catch (error) {}
+    if (opts.clearSearch) {
+      if (liveSearchTimer) window.clearTimeout(liveSearchTimer);
+      if (liveSearchAbort && typeof liveSearchAbort.abort === 'function') {
+        try { liveSearchAbort.abort(); } catch (error) {}
+      }
+      var input = $('[data-cek-query]');
+      if (input) input.value = '';
+      lastSearchRows = [];
+      var list = $('[data-cek-list]');
+      if (list) list.innerHTML = '';
+      setStatus('');
+    }
+    renderTabs();
+    showBoard(true);
+    renderBoard(boardCache);
+  }
   function renderBoard(data) {
     var box = $('[data-cek-board]');
     if (!box) return;
     var copy = t();
+    renderTabs();
     if (!data || !data.ok) {
       box.innerHTML = '<h2>' + esc(copy.boardTitle) + '</h2><p class="cek-board-status">' + esc(copy.boardFail) + '</p>';
       return;
@@ -416,20 +472,31 @@
     var waiting = Array.isArray(data.waiting) ? data.waiting : [];
     var blacklist = Array.isArray(data.blacklist) ? data.blacklist : [];
     var returned = Array.isArray(data.returnedCustomers) ? data.returnedCustomers : [];
+    if (boardTab === 'blacklist') {
+      box.innerHTML = '<h2>' + esc(copy.blacklistTitle) + ' (' + blacklist.length + ')</h2>' +
+        '<p class="cek-board-status">' + esc(copy.blacklistListHint) + '</p>' +
+        (blacklist.length
+          ? blacklist.map(function (row) { return riskCardHtml(row, true); }).join('')
+          : '<p class="cek-board-empty">' + esc(copy.riskEmpty) + '</p>');
+      return;
+    }
+    if (boardTab === 'returned') {
+      box.innerHTML = '<h2>' + esc(copy.returnedTitle) + ' (' + returned.length + ')</h2>' +
+        '<p class="cek-board-status">' + esc(copy.returnedHint) + '</p>' +
+        (returned.length
+          ? returned.map(function (row) { return riskCardHtml(row, false); }).join('')
+          : '<p class="cek-board-empty">' + esc(copy.riskEmpty) + '</p>');
+      return;
+    }
     var hasPickup = returning.length || waiting.length;
-    var hasRisk = blacklist.length || returned.length;
-    if (!hasPickup && !hasRisk) {
+    if (!hasPickup) {
       box.innerHTML = '<h2>' + esc(copy.boardTitle) + '</h2><p class="cek-board-status">' + esc(copy.boardEmpty) + '</p>';
       return;
     }
     box.innerHTML =
       '<h2>' + esc(copy.boardTitle) + '</h2>' +
-      (hasPickup
-        ? boardBlockHtml('is-return', copy.returningTitle, copy.returningHint, returning, function (row) { return simpleCardHtml(row, true); }) +
-          boardBlockHtml('', copy.waitingTitle, copy.waitingHint, waiting, function (row) { return simpleCardHtml(row, false); })
-        : '<p class="cek-board-status">' + esc(copy.boardEmpty) + '</p>') +
-      boardBlockHtml('is-blacklist', copy.blacklistTitle, copy.blacklistHint, blacklist, function (row) { return riskCardHtml(row, true); }) +
-      boardBlockHtml('is-returned', copy.returnedTitle, copy.returnedHint, returned, function (row) { return riskCardHtml(row, false); });
+      boardBlockHtml('is-return', copy.returningTitle, copy.returningHint, returning, function (row) { return simpleCardHtml(row, true); }) +
+      boardBlockHtml('', copy.waitingTitle, copy.waitingHint, waiting, function (row) { return simpleCardHtml(row, false); });
   }
   function loadBoard() {
     var box = $('[data-cek-board]');
@@ -482,6 +549,7 @@
       btn.classList.toggle('is-active', btn.getAttribute('data-cek-lang') === lang());
     });
     renderRecent();
+    renderTabs();
     if (boardCache) renderBoard(boardCache);
     var list = $('[data-cek-list]');
     if (list && lastSearchRows.length) list.innerHTML = lastSearchRows.map(resultCardHtml).join('');
@@ -583,6 +651,11 @@
   try { localize(); } catch (error) {}
   try { loadBoard(); } catch (error) {}
   document.addEventListener('click', function (event) {
+    var tabBtn = event.target.closest('[data-cek-tab]');
+    if (tabBtn) {
+      setBoardTab(tabBtn.getAttribute('data-cek-tab') || 'pickup', { clearSearch: true });
+      return;
+    }
     var langBtn = event.target.closest('[data-cek-lang]');
     if (langBtn) {
       try {
