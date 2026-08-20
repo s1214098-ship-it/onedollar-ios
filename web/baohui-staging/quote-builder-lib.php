@@ -112,6 +112,20 @@ function quote_builder_cost(array $row): int
     return 0;
 }
 
+function quote_builder_image(array $row): string
+{
+    $img = trim((string)($row['image'] ?? ''));
+    if ($img !== '') return $img;
+    $images = $row['images'] ?? [];
+    if (is_array($images)) {
+        foreach ($images as $one) {
+            $one = trim((string)$one);
+            if ($one !== '') return $one;
+        }
+    }
+    return '';
+}
+
 function quote_builder_item(array $row): array
 {
     $name = trim((string)($row['title'] ?? $row['product_name'] ?? ''));
@@ -123,6 +137,7 @@ function quote_builder_item(array $row): array
         'brand' => $brand,
         'spec' => $spec,
         'barcode' => (string)($row['barcode'] ?? ''),
+        'image' => quote_builder_image($row),
         'category_group' => (string)($row['category_group'] ?? ''),
         'category_type' => (string)($row['category_type'] ?? $row['main_category'] ?? ''),
         'price' => quote_builder_price($row),

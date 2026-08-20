@@ -43,10 +43,19 @@ expect(($byId['hdd']['count'] ?? 0) === 1, 'hdd slot has 1 item');
 expect(($byId['aio_cool']['count'] ?? 0) === 1, 'water slot has 1 item');
 expect(!empty($catalog['extra']), 'unmapped bag goes to extra category slots');
 
+$withImage = quote_builder_item([
+    'title' => '有圖機殼',
+    'category_type' => '電腦機箱',
+    'image' => 'uploads/case.jpg',
+    'stock_total' => 2,
+]);
+expect(($withImage['image'] ?? '') === 'uploads/case.jpg', 'catalog item keeps product image');
+
 $js = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'admin-quote-builder.js');
 expect(str_contains($js, 'quote-builder-catalog.php'), 'builder loads catalog API');
-expect(str_contains($js, '原價屋式組裝估價'), 'page copy names CoolPC-style builder');
-expect(str_contains($js, '不是原價屋網站售價'), 'does not use CoolPC website prices');
+expect(str_contains($js, 'qb-card'), 'builder uses product cards instead of row selects');
+expect(!str_contains($js, 'size="6"'), 'builder no longer uses tall select lists');
+expect(str_contains($js, '組裝估價'), 'page copy names assembly builder');
 
 if ($failed > 0) {
     fwrite(STDERR, $failed . " assertion(s) failed\n");
