@@ -252,22 +252,52 @@
     {
       "id": "591",
       "group": "上架通路",
-      "name": "591 房屋交易",
+      "name": "591 房屋交易（快捷 2）",
       "url": "https://www.591.com.tw/",
       "open": true,
       "account": null,
       "status": "ok",
-      "note": "買賣、租屋、土地曝光與物件上架。"
+      "note": "查公開買賣／租屋。刊登與改自己的物件請先登入 https://user.591.com.tw/login，會員中心 https://user.591.com.tw/。售屋列表 https://sale.591.com.tw/。"
+    },
+    {
+      "id": "591-login",
+      "group": "上架通路",
+      "name": "591 會員登入",
+      "url": "https://user.591.com.tw/login",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "仲介會員登入頁。登入後進會員中心做刊登出售、物件管理、續刊、下架。"
+    },
+    {
+      "id": "591-sale",
+      "group": "上架通路",
+      "name": "591 售屋",
+      "url": "https://sale.591.com.tw/",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "中古屋買賣公開列表。客戶丟的 591 連結多半是 sale.591.com.tw/home/house/detail/2/{id}.html。"
     },
     {
       "id": "houseprice",
       "group": "開發查價",
-      "name": "007 實價登錄比價王",
+      "name": "5168／007 金牌房仲（快捷 3）",
       "url": "https://007.houseprice.tw/",
       "open": true,
       "account": null,
       "status": "ok",
-      "note": "金牌房仲／標示部、案源、估價。開發件查價入口。"
+      "note": "5168 實價登錄比價王。案源、實價、標示部、電傳、同業比價。登入 https://007.houseprice.tw/login。www.houseprice.tw 目前 403 不用。"
+    },
+    {
+      "id": "houseprice-login",
+      "group": "開發查價",
+      "name": "5168／007 登入",
+      "url": "https://007.houseprice.tw/login",
+      "open": true,
+      "account": null,
+      "status": "ok",
+      "note": "金牌房仲登入。與首頁同一站，右上角也可登入。"
     },
     {
       "id": "myhomes",
@@ -330,19 +360,21 @@
       "note": "房仲物件刊登與會員後台。"
     }
   ],
+  "siteOperationsFile": "web/huowang-portal/site-operations.json",
   "rightSideLookup": {
     "recordedAt": "2026-08-20",
-    "purpose": "峰志指定右邊快捷網站，之後請這支火旺 agent 查資訊時用這份清單。雲端看不到本機螢幕，以先前「指定網站開在右邊」快捷 1–9 為準。",
+    "purpose": "以後查資料、操作物件都從 site-operations.json。優先三處：火旺後台、5168、591。雲端看不到本機螢幕，以快捷 1–9 加各站登入頁為準。",
     "shortcuts": [
       {"key": "1", "name": "永慶加盟系統 IS 首頁", "url": "https://is.ycut.com.tw/is/home", "note": "現行快捷 1。帶看／委託／聯賣／改價只在這裡做。舊 dramax 登入已不是快捷 1。"},
-      {"key": "2", "name": "591 房屋交易", "url": "https://www.591.com.tw/"},
-      {"key": "3", "name": "007 實價登錄比價王", "url": "https://007.houseprice.tw/"},
+      {"key": "2", "name": "591 房屋交易", "url": "https://www.591.com.tw/", "note": "登入 https://user.591.com.tw/login；會員中心 https://user.591.com.tw/；售屋 https://sale.591.com.tw/。"},
+      {"key": "3", "name": "5168／007 金牌房仲", "url": "https://007.houseprice.tw/", "note": "登入 https://007.houseprice.tw/login。案源、實價、標示部。"},
       {"key": "4", "name": "我家網 VIP 登入", "url": "https://www.myhomes.com.tw/vip2/login.php"},
       {"key": "5", "name": "Facebook", "url": "https://www.facebook.com/"},
       {"key": "6", "name": "內政部地籍圖資", "url": "https://easymap.moi.gov.tw/Z10Web/Index"},
       {"key": "7", "name": "YES319 房屋市集登入", "url": "https://www.yes319.com/my319/login/"},
       {"key": "8", "name": "永慶 SSO 登入", "url": "https://opid.ycut.com.tw/YcutPortal/Login", "account": "C56026"},
-      {"key": "9", "name": "總控台 paohui.org", "url": "https://paohui.org/"}
+      {"key": "9", "name": "總控台 paohui.org", "url": "https://paohui.org/"},
+      {"key": "0", "name": "火旺後台", "url": "https://huowang.paohui.org/admin.html.html", "note": "我的後台。合約／同店／開發件操作從這裡。"}
     ],
     "related": [
       {"name": "火旺前台", "url": "https://huowang.paohui.org/"},

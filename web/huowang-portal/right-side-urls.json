@@ -1,34 +1,50 @@
 {
-  "title": "火旺右邊快捷網址（查資訊用）",
+  "title": "火旺右邊快捷與物件操作入口",
   "recordedAt": "2026-08-20",
-  "note": "峰志要求先全部記下來，之後再請這支 agent 查。雲端看不到本機右邊螢幕，這份以先前「指定網站開在右邊」快捷 1–9 加上後台外部入口為準。",
+  "sourceOfTruth": "web/huowang-portal/site-operations.json",
+  "note": "以後查資料、操作物件，從火旺後台、5168、591 以及這份登入頁做。詳細說明看 site-operations.json。",
+  "operateFirst": [
+    {"id": "huowang", "name": "火旺後台", "login": "https://huowang.paohui.org/admin.html.html", "operate": "https://huowang.paohui.org/admin.html.html"},
+    {"id": "5168", "name": "5168／007 金牌房仲", "login": "https://007.houseprice.tw/login", "operate": "https://007.houseprice.tw/"},
+    {"id": "591", "name": "591", "login": "https://user.591.com.tw/login", "operate": "https://user.591.com.tw/", "home": "https://www.591.com.tw/", "sale": "https://sale.591.com.tw/"}
+  ],
   "shortcuts": [
     {"key": "1", "name": "永慶加盟系統 IS", "url": "https://is.ycut.com.tw/is/home"},
     {"key": "2", "name": "591 房屋交易", "url": "https://www.591.com.tw/"},
-    {"key": "3", "name": "007 實價登錄比價王", "url": "https://007.houseprice.tw/"},
+    {"key": "3", "name": "5168 實價登錄比價王", "url": "https://007.houseprice.tw/"},
     {"key": "4", "name": "我家網 VIP", "url": "https://www.myhomes.com.tw/vip2/login.php"},
     {"key": "5", "name": "Facebook", "url": "https://www.facebook.com/"},
     {"key": "6", "name": "內政部地籍圖資", "url": "https://easymap.moi.gov.tw/Z10Web/Index"},
     {"key": "7", "name": "YES319", "url": "https://www.yes319.com/my319/login/"},
     {"key": "8", "name": "永慶 SSO", "url": "https://opid.ycut.com.tw/YcutPortal/Login"},
-    {"key": "9", "name": "總控台", "url": "https://paohui.org/"}
+    {"key": "9", "name": "總控台", "url": "https://paohui.org/"},
+    {"key": "0", "name": "火旺後台", "url": "https://huowang.paohui.org/admin.html.html"}
+  ],
+  "loginPages": [
+    {"name": "火旺後台登入", "url": "https://huowang.paohui.org/admin.html.html"},
+    {"name": "591 會員登入", "url": "https://user.591.com.tw/login"},
+    {"name": "5168／007 登入", "url": "https://007.houseprice.tw/login"},
+    {"name": "永慶 IS／SSO", "url": "https://is.ycut.com.tw/"},
+    {"name": "永慶 SSO 登入頁", "url": "https://opid.ycut.com.tw/YcutPortal/Login"},
+    {"name": "我家網 VIP 登入", "url": "https://www.myhomes.com.tw/vip2/login.php"},
+    {"name": "YES319 登入", "url": "https://www.yes319.com/my319/login/"},
+    {"name": "Facebook 登入", "url": "https://www.facebook.com/login"},
+    {"name": "電子謄本登入", "url": "https://ep.land.nat.gov.tw/"},
+    {"name": "Yahoo 登入", "url": "https://login.yahoo.com/"}
   ],
   "related": [
     {"name": "火旺前台", "url": "https://huowang.paohui.org/"},
-    {"name": "火旺後台", "url": "https://huowang.paohui.org/admin.html.html"},
     {"name": "火旺前台物件預覽", "url": "https://huowang.paohui.org/front.html"},
-    {"name": "火旺伯外部物件選單", "url": "https://huowang.paohui.org/huowang/"},
-    {"name": "火旺伯外部物件後台", "url": "https://huowang.paohui.org/huowang/admin.html"},
-    {"name": "上架物件簡化版", "url": "https://house.paohui.org/HUOWAN%20HOUSE%20MENU/"},
-    {"name": "自有物件網站", "url": "https://paohui.org/huomange-original-multi/front.html"},
+    {"name": "591 售屋", "url": "https://sale.591.com.tw/"},
+    {"name": "591 租屋", "url": "https://rent.591.com.tw/"},
+    {"name": "591 土地", "url": "https://land.591.com.tw/"},
+    {"name": "591 實價地圖", "url": "https://market.591.com.tw/"},
     {"name": "永慶本店官網", "url": "https://shop.yungching.com.tw/039519001/"},
     {"name": "本店買屋清單", "url": "https://shop.yungching.com.tw/039519001/list"},
+    {"name": "永慶買屋羅東", "url": "https://buy.yungching.com.tw/region/宜蘭縣-羅東鎮_c"},
     {"name": "我家網郭火旺銷售頁", "url": "https://sales.myhomes.com.tw/0911294374"},
-    {"name": "Yahoo 奇摩", "url": "https://tw.yahoo.com/"},
-    {"name": "FOUNDI 房地工具", "url": "https://agent.foundi.info/tool/property/list?trading_type=sale&geo=address&city=%E5%8F%B0%E5%8C%97%E5%B8%82&order_by=property_first_seen"},
     {"name": "地籍圖資服務網", "url": "https://easymap.land.moi.gov.tw/Z10Web/Normal"},
     {"name": "國土測繪圖", "url": "https://maps.nlsc.gov.tw/"},
-    {"name": "宜蘭縣地政", "url": "https://land.e-land.gov.tw/"},
-    {"name": "電子謄本", "url": "https://ep.land.nat.gov.tw/"}
+    {"name": "宜蘭縣地政", "url": "https://land.e-land.gov.tw/"}
   ]
 }

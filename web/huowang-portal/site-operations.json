@@ -1,0 +1,194 @@
+{
+  "title": "火旺物件操作與各站登入清單",
+  "recordedAt": "2026-08-20",
+  "owner": "峰志／郭火旺　永慶不動產羅東文化盛群加盟店",
+  "howToUse": "以後查資料、改物件、對價、上架，都先從這份清單進。優先操作三處：火旺後台、5168（007 金牌房仲）、591。密碼不寫進 Git；要登入時用本機已登入的分頁，或請峰志在對話裡授權。帶看／委託／聯賣／改價官方存檔仍走永慶 IS，不在火旺流通彙總。",
+  "primaryBoards": [
+    {
+      "id": "huowang",
+      "name": "火旺後台（我的後台）",
+      "useFor": ["自有合約物件", "同店物件", "開發件", "專任約", "DM／前台文案", "照片"],
+      "home": "https://huowang.paohui.org/",
+      "login": "https://huowang.paohui.org/admin.html.html",
+      "operate": "https://huowang.paohui.org/admin.html.html",
+      "accountHint": "後台帳號欄預設 admin；密碼不存檔。",
+      "liveRoot": "F:\\Web\\huowang-staging",
+      "pages": [
+        {"name": "後台登入／管理", "url": "https://huowang.paohui.org/admin.html.html"},
+        {"name": "前台物件預覽", "url": "https://huowang.paohui.org/front.html"},
+        {"name": "火旺伯外部物件選單（給客人）", "url": "https://huowang.paohui.org/huowang/"},
+        {"name": "火旺伯外部物件後台", "url": "https://huowang.paohui.org/huowang/admin.html"},
+        {"name": "上架物件簡化版", "url": "https://house.paohui.org/HUOWAN%20HOUSE%20MENU/"},
+        {"name": "自有物件網站", "url": "https://paohui.org/huomange-original-multi/front.html"},
+        {"name": "總控台", "url": "https://paohui.org/"}
+      ],
+      "operateNotes": [
+        "物件資料、合約、同店、開發物件、地址地籍都在 admin.html.html。",
+        "查同店／異店件數走輕量 API，不要重讀整份 100MB shared-db。",
+        "地段可從國土測繪帶入；地號／建號不能自動填，要開地籍圖資或電子謄本核對。",
+        "公開前台不顯示賣方、抽成、精準門牌。"
+      ]
+    },
+    {
+      "id": "5168",
+      "name": "5168 實價登錄比價王（金牌房仲）",
+      "alsoCalled": ["007", "比價王", "houseprice", "標示部"],
+      "useFor": ["案源開發", "實價／社區行情", "同業比價", "調電傳／地籍圖", "物件可能地址", "買方庫存"],
+      "home": "https://007.houseprice.tw/",
+      "login": "https://007.houseprice.tw/login",
+      "operate": "https://007.houseprice.tw/",
+      "accountHint": "金牌房仲會員。登入多半在首頁右上角；/login 同一套站。密碼不存檔。",
+      "pages": [
+        {"name": "金牌房仲首頁／登入", "url": "https://007.houseprice.tw/"},
+        {"name": "登入頁", "url": "https://007.houseprice.tw/login"},
+        {"name": "買屋／物件", "url": "https://007.houseprice.tw/house"},
+        {"name": "搜尋", "url": "https://007.houseprice.tw/search"},
+        {"name": "專業會員方案", "url": "https://007.houseprice.tw/plan/membership"},
+        {"name": "點數加值", "url": "https://007.houseprice.tw/plan/points"},
+        {"name": "常見問題", "url": "https://007.houseprice.tw/faq"}
+      ],
+      "operateNotes": [
+        "快捷 3。查宜蘭／羅東案源、實價、鄰居行情、同業開價從這裡做。",
+        "找到案源後記入火旺「開發物件」，不要只停在 5168。",
+        "www.houseprice.tw 目前 403，不要用；正式入口是 007.houseprice.tw。"
+      ]
+    },
+    {
+      "id": "591",
+      "name": "591 房屋交易",
+      "useFor": ["刊登出售／出租", "查公開買賣物件", "租屋", "土地", "實價地圖", "客戶傳來的 591 連結"],
+      "home": "https://www.591.com.tw/",
+      "login": "https://user.591.com.tw/login",
+      "memberCenter": "https://user.591.com.tw/",
+      "operate": "https://user.591.com.tw/",
+      "accountHint": "仲介會員用手機號當帳號。登入後進會員中心再「刊登出售」或「房屋物件管理」。密碼不存檔。",
+      "pages": [
+        {"name": "591 首頁（快捷 2）", "url": "https://www.591.com.tw/"},
+        {"name": "會員登入", "url": "https://user.591.com.tw/login"},
+        {"name": "會員中心／物件管理", "url": "https://user.591.com.tw/"},
+        {"name": "舊登入轉址（會轉到 user.591.com.tw/login）", "url": "https://www.591.com.tw/user-login.html"},
+        {"name": "FB 登入頁（備用）", "url": "https://www.591.com.tw/facebLogin-fbLogin.html"},
+        {"name": "售屋（中古屋買賣）", "url": "https://sale.591.com.tw/"},
+        {"name": "租屋", "url": "https://rent.591.com.tw/"},
+        {"name": "土地", "url": "https://land.591.com.tw/"},
+        {"name": "新建案", "url": "https://newhouse.591.com.tw/"},
+        {"name": "591 實價登錄／房價地圖", "url": "https://market.591.com.tw/"},
+        {"name": "幫助中心", "url": "https://help.591.com.tw/"}
+      ],
+      "operateNotes": [
+        "查別人刊登或客戶丟的連結：用 sale.591.com.tw 或客戶給的 detail 網址。",
+        "自己刊登／改價／續刊／下架：先登入 user.591.com.tw，再進物件管理。",
+        "範例物件頁格式：https://sale.591.com.tw/home/house/detail/2/{id}.html",
+        "591 公開頁可以對火旺開發件；正式聯賣與委託仍走永慶 IS。"
+      ]
+    }
+  ],
+  "otherLoginPages": [
+    {
+      "id": "ycut-is",
+      "name": "永慶加盟系統 IS（快捷 1）",
+      "login": "https://is.ycut.com.tw/",
+      "home": "https://is.ycut.com.tw/is/home",
+      "accountHint": "人員編號 C56026。未登入會轉 SSO。帶看／委託／聯賣／改價只在這裡存檔。",
+      "pages": [
+        {"name": "IS 上班首頁", "url": "https://is.ycut.com.tw/is/home"},
+        {"name": "IS 入口（未登入會轉 SSO）", "url": "https://is.ycut.com.tw/"},
+        {"name": "永慶 SSO 登入（快捷 8）", "url": "https://opid.ycut.com.tw/YcutPortal/Login"},
+        {"name": "dramax 舊登入（不要當快捷 1）", "url": "https://dramax.ycut.com.tw/login"}
+      ]
+    },
+    {
+      "id": "yungching-public",
+      "name": "永慶公開買屋／本店",
+      "login": null,
+      "home": "https://buy.yungching.com.tw/",
+      "pages": [
+        {"name": "永慶買屋", "url": "https://buy.yungching.com.tw/"},
+        {"name": "羅東鎮買屋", "url": "https://buy.yungching.com.tw/region/宜蘭縣-羅東鎮_c"},
+        {"name": "本店官網", "url": "https://shop.yungching.com.tw/039519001/"},
+        {"name": "本店買屋清單", "url": "https://shop.yungching.com.tw/039519001/list"},
+        {"name": "永慶總站", "url": "https://www.yungching.com.tw/"}
+      ]
+    },
+    {
+      "id": "myhomes",
+      "name": "我家網",
+      "login": "https://www.myhomes.com.tw/vip2/login.php",
+      "home": "https://www.myhomes.com.tw/vip2/",
+      "accountHint": "VIP 後台上架。公開銷售頁用電話 0911294374。",
+      "pages": [
+        {"name": "VIP 登入（快捷 4）", "url": "https://www.myhomes.com.tw/vip2/login.php"},
+        {"name": "VIP 後台", "url": "https://www.myhomes.com.tw/vip2/"},
+        {"name": "郭火旺銷售頁", "url": "https://sales.myhomes.com.tw/0911294374"}
+      ]
+    },
+    {
+      "id": "yes319",
+      "name": "YES319 房屋市集",
+      "login": "https://www.yes319.com/my319/login/",
+      "home": "https://www.yes319.com/",
+      "pages": [
+        {"name": "會員登入（快捷 7）", "url": "https://www.yes319.com/my319/login/"},
+        {"name": "my319 會員首頁", "url": "https://www.yes319.com/my319/"},
+        {"name": "公開市集", "url": "https://www.yes319.com/"}
+      ]
+    },
+    {
+      "id": "facebook",
+      "name": "Facebook",
+      "login": "https://www.facebook.com/login",
+      "home": "https://www.facebook.com/",
+      "accountHint": "專頁／帳號關鍵字：羅東農舍 郭火旺。未登入的搜尋網址會 Not Found。",
+      "pages": [
+        {"name": "Facebook 首頁（快捷 5）", "url": "https://www.facebook.com/"},
+        {"name": "登入", "url": "https://www.facebook.com/login"}
+      ]
+    },
+    {
+      "id": "cadastre",
+      "name": "地籍／圖資（查地段地號，不代查謄本內容）",
+      "login": "https://ep.land.nat.gov.tw/",
+      "home": "https://easymap.moi.gov.tw/Z10Web/Index",
+      "accountHint": "電子謄本要地政憑證。火旺只能帶官方地段清單。",
+      "pages": [
+        {"name": "內政部地籍圖資（快捷 6）", "url": "https://easymap.moi.gov.tw/Z10Web/Index"},
+        {"name": "地籍圖資服務網", "url": "https://easymap.land.moi.gov.tw/Z10Web/Normal"},
+        {"name": "國土測繪圖資服務雲", "url": "https://maps.nlsc.gov.tw/"},
+        {"name": "宜蘭縣地政", "url": "https://land.e-land.gov.tw/"},
+        {"name": "電子謄本登入", "url": "https://ep.land.nat.gov.tw/"}
+      ]
+    },
+    {
+      "id": "foundi",
+      "name": "FOUNDI 房地",
+      "login": null,
+      "home": "https://agent.foundi.info/",
+      "pages": [
+        {"name": "房地快搜／物件列表", "url": "https://agent.foundi.info/tool/property/list?trading_type=sale&geo=address&city=%E5%8F%B0%E5%8C%97%E5%B8%82&order_by=property_first_seen"},
+        {"name": "foundi 房地", "url": "https://agent.foundi.info/"}
+      ]
+    },
+    {
+      "id": "yahoo",
+      "name": "Yahoo 奇摩",
+      "login": "https://login.yahoo.com/",
+      "home": "https://tw.yahoo.com/",
+      "pages": [
+        {"name": "Yahoo 奇摩", "url": "https://tw.yahoo.com/"},
+        {"name": "Yahoo 登入", "url": "https://login.yahoo.com/"}
+      ]
+    }
+  ],
+  "shortcuts": [
+    {"key": "1", "name": "永慶 IS", "url": "https://is.ycut.com.tw/is/home"},
+    {"key": "2", "name": "591", "url": "https://www.591.com.tw/"},
+    {"key": "3", "name": "5168／007", "url": "https://007.houseprice.tw/"},
+    {"key": "4", "name": "我家網 VIP 登入", "url": "https://www.myhomes.com.tw/vip2/login.php"},
+    {"key": "5", "name": "Facebook", "url": "https://www.facebook.com/"},
+    {"key": "6", "name": "地籍圖資", "url": "https://easymap.moi.gov.tw/Z10Web/Index"},
+    {"key": "7", "name": "YES319 登入", "url": "https://www.yes319.com/my319/login/"},
+    {"key": "8", "name": "永慶 SSO", "url": "https://opid.ycut.com.tw/YcutPortal/Login"},
+    {"key": "9", "name": "總控台", "url": "https://paohui.org/"},
+    {"key": "0", "name": "火旺後台", "url": "https://huowang.paohui.org/admin.html.html"}
+  ]
+}
