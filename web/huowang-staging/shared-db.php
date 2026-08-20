@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+@ini_set('memory_limit', '512M');
+
 session_name('HUOMANGE_ADMIN');
 $sessionLifetime = 86400;
 ini_set('session.gc_maxlifetime', (string)$sessionLifetime);
@@ -42,7 +44,38 @@ $publicKeys = ['properties', 'sameStoreItems', 'borrowItems', 'layouts', 'types'
 
 function respond($data, int $status = 200): void {
     http_response_code($status);
-    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+function cacheDir(string $dataFile): string {
+    return dirname($dataFile) . '/cache';
+}
+
+function clearReadCaches(string $dataFile): void {
+    $dir = cacheDir($dataFile);
+    if (!is_dir($dir)) return;
+    foreach (glob($dir . '/*.json') ?: [] as $file) {
+        @unlink($file);
+    }
+}
+
+function keyCacheFile(string $dataFile, string $kind, array $keys): string {
+    return cacheDir($dataFile) . '/' . $kind . '-' . md5(implode(',', $keys)) . '.json';
+}
+
+function serveJsonCache(string $dataFile, string $cacheFile, $builder): void {
+    if (file_exists($cacheFile) && filemtime($cacheFile) >= filemtime($dataFile)) {
+        header('X-Db-Cache: hit');
+        readfile($cacheFile);
+        exit;
+    }
+    $payload = json_encode($builder(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $dir = dirname($cacheFile);
+    if (!is_dir($dir)) @mkdir($dir, 0775, true);
+    if (is_dir($dir)) @file_put_contents($cacheFile, $payload);
+    header('X-Db-Cache: miss');
+    echo $payload;
     exit;
 }
 
@@ -92,20 +125,27 @@ function writeDb(string $dataFile, array $data): void {
     fflush($fp);
     flock($fp, LOCK_UN);
     fclose($fp);
+    clearReadCaches($dataFile);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $db = readDb($dataFile);
     $requestedKeys = array_values(array_filter(array_map('trim', explode(',', (string)($_GET['keys'] ?? '')))));
     if (($_GET['public'] ?? '') === '1') {
-        respond(['ok' => true, 'public' => true, 'data' => publicDb($db, $publicKeys, $requestedKeys)]);
+        serveJsonCache($dataFile, keyCacheFile($dataFile, 'public', $requestedKeys ?: $publicKeys), function () use ($dataFile, $publicKeys, $requestedKeys) {
+            $db = readDb($dataFile);
+            return ['ok' => true, 'public' => true, 'data' => publicDb($db, $publicKeys, $requestedKeys)];
+        });
     }
     if (!isAdminLoggedIn()) {
         respond(['ok' => false, 'error' => '尚未登入，不能讀取後台資料。'], 401);
     }
     if ($requestedKeys) {
-        respond(['ok' => true, 'data' => pickDbKeys($db, $requestedKeys)]);
+        serveJsonCache($dataFile, keyCacheFile($dataFile, 'admin', $requestedKeys), function () use ($dataFile, $requestedKeys) {
+            $db = readDb($dataFile);
+            return ['ok' => true, 'data' => pickDbKeys($db, $requestedKeys)];
+        });
     }
+    $db = readDb($dataFile);
     respond(['ok' => true, 'data' => $db]);
 }
 

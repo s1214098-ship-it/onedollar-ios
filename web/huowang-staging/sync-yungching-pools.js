@@ -38,6 +38,61 @@ function clean(value) {
   return String(value ?? "").trim();
 }
 
+function writePeerListCache(items) {
+  const cacheDir = path.join(root, "data", "cache");
+  fs.mkdirSync(cacheDir, { recursive: true });
+  const slim = [];
+  let withPhotos = 0;
+  for (const item of items || []) {
+    const source = clean(item.sourceSystem);
+    const blob = `${item.county || ""}${item.address || ""}${item.title || ""}`;
+    if (source === "公開同業網站同步" && !/宜蘭/.test(blob)) continue;
+    let src = clean(item.image);
+    if (!src && Array.isArray(item.images) && item.images[0]) src = clean(item.images[0].data || item.images[0]);
+    if (!src && Array.isArray(item.photos) && item.photos[0]) src = clean(item.photos[0].data || item.photos[0]);
+    const photoCount = Array.isArray(item.images) && item.images.length ? item.images.length : src ? 1 : 0;
+    if (src) withPhotos += 1;
+    slim.push({
+      id: item.id || "",
+      externalId: item.externalId || "",
+      publicNo: item.publicNo || "",
+      sourceSystem: item.sourceSystem || "",
+      sourceUrl: item.sourceUrl || "",
+      sourceHost: item.sourceHost || "",
+      sourceCompany: item.sourceCompany || "",
+      storeName: item.storeName || "",
+      company: item.company || "",
+      title: item.title || "",
+      county: item.county || "",
+      area: item.area || "",
+      district: item.district || item.area || "",
+      address: item.address || "",
+      road: item.road || "",
+      price: item.price || "",
+      priceNumber: item.priceNumber || 0,
+      type: item.type || "",
+      layout: item.layout || "",
+      landArea: item.landArea || "",
+      build: item.build || "",
+      status: item.status || "",
+      listedDate: item.listedDate || item.listedAt || "",
+      image: src,
+      images: src ? [{ name: "照片01", data: src }] : [],
+      photoCount,
+    });
+  }
+  fs.writeFileSync(
+    path.join(cacheDir, "peer-list.json"),
+    JSON.stringify({ ok: true, cachedAt: new Date().toISOString(), data: { peerDevelopmentItems: slim }, total: slim.length, withPhotos })
+  );
+  try {
+    fs.writeFileSync(
+      path.join(root, "api", "peer-list.json"),
+      JSON.stringify({ ok: true, cachedAt: new Date().toISOString(), data: { peerDevelopmentItems: slim }, total: slim.length, withPhotos })
+    );
+  } catch (e) {}
+}
+
 function num(value) {
   if (value === null || value === undefined || value === "") return "";
   const n = Number(value);
@@ -618,6 +673,7 @@ async function main() {
   const out = { ...db };
   stringifyCollections(out);
   fs.writeFileSync(dbPath, JSON.stringify(out, null, 2), "utf8");
+  writePeerListCache(nextPeer);
   fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2), "utf8");
   fs.writeFileSync(
     latestListPath,

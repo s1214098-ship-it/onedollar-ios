@@ -1,15 +1,29 @@
 <?php
 declare(strict_types=1);
 
+@ini_set('memory_limit', '512M');
+
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 $dataFile = __DIR__ . '/../data/shared-db.json';
+$cacheFile = __DIR__ . '/../data/cache/peer-list.json';
+$publicCacheFile = __DIR__ . '/peer-list.json';
 
 function respond($data, int $status = 200): void {
     http_response_code($status);
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+function serveFile(string $path): void {
+    global $publicCacheFile;
+    if (!empty($publicCacheFile) && !file_exists($publicCacheFile)) {
+        @copy($path, $publicCacheFile);
+    }
+    header('X-Peer-Cache: hit');
+    readfile($path);
     exit;
 }
 
@@ -32,51 +46,77 @@ function mediaSrc($value): string {
     return '';
 }
 
-function collectImageSrcs(array $item): array {
-    $srcs = [];
-    foreach (['images', 'photos', 'photoList', 'gallery'] as $key) {
-        if (empty($item[$key])) continue;
-        $value = $item[$key];
-        if (is_string($value)) {
+function firstImageSrc(array $item): string {
+    foreach (['image', 'cover', 'thumb', 'thumbnail', 'imageUrl'] as $key) {
+        $src = mediaSrc($item[$key] ?? '');
+        if ($src !== '') return $src;
+    }
+    foreach (['images', 'photos', 'gallery'] as $key) {
+        $value = $item[$key] ?? null;
+        if (is_string($value) && $value !== '') {
             $decoded = json_decode($value, true);
             $value = is_array($decoded) ? $decoded : [$value];
         }
         if (!is_array($value)) continue;
         foreach ($value as $img) {
             $src = mediaSrc($img);
-            if ($src !== '' && !in_array($src, $srcs, true)) $srcs[] = $src;
+            if ($src !== '') return $src;
         }
     }
-    foreach (['image', 'imageUrl', 'photo', 'cover', 'thumb', 'thumbnail'] as $key) {
-        $src = mediaSrc($item[$key] ?? '');
-        if ($src !== '' && !in_array($src, $srcs, true)) $srcs[] = $src;
+    return '';
+}
+
+function photoCount(array $item): int {
+    foreach (['images', 'photos', 'gallery'] as $key) {
+        if (!empty($item[$key]) && is_array($item[$key])) return count($item[$key]);
     }
-    return $srcs;
+    return firstImageSrc($item) !== '' ? 1 : 0;
+}
+
+function keepPeerItem(array $item): bool {
+    $source = (string)($item['sourceSystem'] ?? '');
+    if ($source === '公開同業網站同步') {
+        $blob = ($item['county'] ?? '') . ($item['address'] ?? '') . ($item['title'] ?? '');
+        return strpos($blob, '宜蘭') !== false;
+    }
+    return true;
 }
 
 function slimPeerItem(array $item): array {
-    $srcs = collectImageSrcs($item);
-    $covers = array_slice($srcs, 0, 3);
-    $keep = [
-        'id', 'externalId', 'publicNo', 'sourceSystem', 'sourceUrl', 'sourceHost',
-        'sourceCompany', 'storeName', 'company', 'title', 'county', 'area', 'district',
-        'address', 'road', 'price', 'priceNumber', 'type', 'spec', 'layout', 'landArea',
-        'build', 'status', 'listedDate', 'listedAt', 'importRegion', 'unitPrice'
+    $src = firstImageSrc($item);
+    $out = [
+        'id' => $item['id'] ?? '',
+        'externalId' => $item['externalId'] ?? '',
+        'publicNo' => $item['publicNo'] ?? '',
+        'sourceSystem' => $item['sourceSystem'] ?? '',
+        'sourceUrl' => $item['sourceUrl'] ?? '',
+        'sourceHost' => $item['sourceHost'] ?? '',
+        'sourceCompany' => $item['sourceCompany'] ?? '',
+        'storeName' => $item['storeName'] ?? '',
+        'company' => $item['company'] ?? '',
+        'title' => $item['title'] ?? '',
+        'county' => $item['county'] ?? '',
+        'area' => $item['area'] ?? '',
+        'district' => $item['district'] ?? '',
+        'address' => $item['address'] ?? '',
+        'road' => $item['road'] ?? '',
+        'price' => $item['price'] ?? '',
+        'priceNumber' => $item['priceNumber'] ?? 0,
+        'type' => $item['type'] ?? '',
+        'layout' => $item['layout'] ?? '',
+        'landArea' => $item['landArea'] ?? '',
+        'build' => $item['build'] ?? '',
+        'status' => $item['status'] ?? '',
+        'listedDate' => $item['listedDate'] ?? ($item['listedAt'] ?? ''),
+        'image' => $src,
+        'photoCount' => photoCount($item),
     ];
-    $out = [];
-    foreach ($keep as $key) {
-        if (array_key_exists($key, $item)) $out[$key] = $item[$key];
-    }
-    $out['images'] = [];
-    foreach ($covers as $i => $src) {
-        $out['images'][] = [
-            'name' => '照片' . str_pad((string)($i + 1), 2, '0', STR_PAD_LEFT),
-            'data' => $src,
-        ];
-    }
-    $out['image'] = $covers[0] ?? '';
-    $out['photoCount'] = count($srcs);
+    $out['images'] = $src === '' ? [] : [['name' => '照片01', 'data' => $src]];
     return $out;
+}
+
+if (file_exists($cacheFile) && file_exists($dataFile) && filemtime($cacheFile) >= filemtime($dataFile)) {
+    serveFile($cacheFile);
 }
 
 if (!file_exists($dataFile)) {
@@ -90,15 +130,24 @@ $rows = parseList($db['peerDevelopmentItems'] ?? []);
 $slim = [];
 $withPhotos = 0;
 foreach ($rows as $item) {
-    if (!is_array($item)) continue;
+    if (!is_array($item) || !keepPeerItem($item)) continue;
     $row = slimPeerItem($item);
-    if (!empty($row['image'])) $withPhotos += 1;
+    if ($row['image'] !== '') $withPhotos += 1;
     $slim[] = $row;
 }
 
-respond([
+$payload = json_encode([
     'ok' => true,
+    'cachedAt' => date('c'),
     'data' => ['peerDevelopmentItems' => $slim],
     'total' => count($slim),
     'withPhotos' => $withPhotos,
-]);
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+$cacheDir = dirname($cacheFile);
+if (!is_dir($cacheDir)) @mkdir($cacheDir, 0775, true);
+if (is_dir($cacheDir)) @file_put_contents($cacheFile, $payload);
+@file_put_contents($publicCacheFile, $payload);
+
+header('X-Peer-Cache: miss');
+echo $payload;

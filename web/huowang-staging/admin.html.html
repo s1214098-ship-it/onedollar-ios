@@ -7086,8 +7086,11 @@ function show(id,el){
     if(pageId==="dmReport")initDMReport();
     if(pageId==="peerDevelopment"){
       initPeerDevelopmentFilters();
-      reloadPeerDevelopmentData({silent:true});
       renderPeerDevelopmentList();
+      if(!window.__peerDevelopmentLoaded){
+        window.__peerDevelopmentLoaded = "loading";
+        reloadPeerDevelopmentData({silent:true}).finally(function(){ window.__peerDevelopmentLoaded = true; });
+      }
     }
     if(pageId==="borrow"){
       try{
@@ -8510,6 +8513,7 @@ function persistSameStoreRows(rows){
 
 async function ensureSameStoreSharedData(){
     const localRows = getSameStoreItems();
+    if(sameStoreImageCount(localRows) >= 50 && localRows.length >= 20) return localRows.length;
     try{
         const dbRows = await loadSameStoreDbRows();
         if(sameStoreDataScore(dbRows) > sameStoreDataScore(localRows)){
@@ -10292,9 +10296,17 @@ async function reloadPeerDevelopmentData(options){
         if(window.HUOMANGE_SHARED_STORAGE && typeof window.HUOMANGE_SHARED_STORAGE.flush === "function"){
             window.HUOMANGE_SHARED_STORAGE.flush();
         }
-        const res = await fetch("api/peer-development.php?ts=" + Date.now(), {cache:"no-store", credentials:"same-origin"});
-        if(!res.ok) throw new Error("shared-db " + res.status);
-        const payload = await res.json();
+        const ts = Date.now();
+        let payload = null;
+        try{
+            const staticRes = await fetch("api/peer-list.json?ts=" + ts, {cache:"no-store"});
+            if(staticRes.ok) payload = await staticRes.json();
+        }catch(e){}
+        if(!(payload && payload.data)){
+            const res = await fetch("api/peer-development.php?ts=" + ts, {cache:"no-store", credentials:"same-origin"});
+            if(!res.ok) throw new Error("shared-db " + res.status);
+            payload = await res.json();
+        }
         const rows = parseSharedListValue(payload && payload.data ? payload.data.peerDevelopmentItems : null);
         if(rows.length){
             window.HUOMANGE_SHARED_DATA = window.HUOMANGE_SHARED_DATA || {};

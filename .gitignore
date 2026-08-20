@@ -5,3 +5,5 @@ secrets.local.json
 web/huowang-portal/.env.local
 web/huowang-portal/secrets.local.json
 .DS_Store
+web/huowang-staging/api/peer-list.json
+web/huowang-staging/data/cache/
