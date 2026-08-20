@@ -1359,7 +1359,7 @@ button.purple{background:#7E22CE}
   top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.6);
   display: flex; align-items: center; justify-content: center;
-  z-index: 9999;
+  z-index: 200000;
 }
 .modal-box {
   background: #fff;
@@ -2077,6 +2077,35 @@ body.unlocked { user-select: auto !important; }
 .gallery-thumbs{display:flex;gap:8px;overflow-x:auto;padding:4px 0}
 .gallery-thumbs img{width:86px;height:58px;object-fit:cover;border-radius:6px;border:2px solid transparent;cursor:pointer;opacity:.72}
 .gallery-thumbs img.active{border-color:#F6B300;opacity:1}
+.source-photo-cell{
+  position:relative;
+  width:112px;
+  max-width:100%;
+  cursor:pointer;
+  z-index:3;
+}
+.source-photo-cell .mini-object-img{display:block}
+.source-photo-count{
+  position:absolute;
+  right:4px;
+  bottom:4px;
+  background:#B91C1C;
+  color:#fff;
+  font-size:12px;
+  font-weight:900;
+  line-height:1;
+  padding:3px 7px;
+  border-radius:999px;
+  pointer-events:none;
+}
+.source-open-photos{
+  background:#0F766E !important;
+  border-color:#0F766E !important;
+  font-weight:950 !important;
+}
+@media(max-width:768px){
+  .source-photo-cell{width:96px !important}
+}
 
 @media(max-width:768px){
   html,body{
@@ -2086,6 +2115,18 @@ body.unlocked { user-select: auto !important; }
   }
   *{
     max-width:100%;
+  }
+  .img-full-modal,
+  .fb-image-copy-modal,
+  .modal{
+    max-width:none !important;
+    width:100% !important;
+    height:100% !important;
+    z-index:200000 !important;
+  }
+  .img-full-modal .gallery-box,
+  .img-full-modal .gallery-box *{
+    max-width:none;
   }
   .login-wrapper{padding:14px}
   .login-box{
@@ -6077,7 +6118,7 @@ function isProductPhotoSrc(src){
   if(/^(undefined|null|false|\[object Object\])$/i.test(src)) return false;
   if(/^blob:/i.test(src)) return false;
   if(/^data:image\/svg\+xml/i.test(src)) return false;
-  if(/agent-ad|agent-headshot|business-card|namecard|card|qrcode|qr-code|logo|favicon|placeholder|no-image|blank|line-ai|googletagmanager|504834415|26565733|电脑图片生成|電腦圖片生成/i.test(src)) return false;
+  if(/agent-ad|agent-headshot|business-card|namecard|qrcode|qr-code|\/logo\/|favicon|placeholder|no-image|blank|line-ai|googletagmanager|504834415|26565733|电脑图片生成|電腦圖片生成/i.test(src)) return false;
   return /^data:image\//i.test(src) || /^https?:\/\//i.test(src) || src.startsWith("//");
 }
 
@@ -6145,9 +6186,29 @@ function getSourceSelectedItems(scope){
     .map(el => list[Number(el.dataset.idx)])
     .filter(Boolean);
 }
-function getSourceItemByIndex(scope, idx){
+function sourceItemLookupKey(item){
+  return String((item && (item.publicNo || item.ycNo || item.id || item.externalId || item.contractNo || ("idx-" + (item && item._idx)))) || "").trim();
+}
+function findSourceItem(scope, idx, key){
   const list = scope === "sameStore" ? getSameStoreItems() : getBorrowItems();
-  return list[Number(idx)] || null;
+  const keyNorm = String(key || "").trim();
+  if(keyNorm && keyNorm.indexOf("idx-") !== 0){
+    const found = (list || []).find(function(item){
+      if(sourceItemLookupKey(item) === keyNorm) return true;
+      try{
+        return listingIdentityKeys(item).indexOf(keyNorm) >= 0;
+      }catch(e){
+        return false;
+      }
+    });
+    if(found) return found;
+  }
+  const n = Number(idx);
+  if(!Number.isNaN(n) && n >= 0) return (list || [])[n] || null;
+  return null;
+}
+function getSourceItemByIndex(scope, idx){
+  return findSourceItem(scope, idx, "");
 }
 function copySourceFBTextForItem(scope, idx){
   const item = getSourceItemByIndex(scope, idx);
@@ -6156,11 +6217,15 @@ function copySourceFBTextForItem(scope, idx){
   copyTextToClipboard(getSourceFBDraftText(scope, item, label), "已複製" + label + "文章");
 }
 function copySourceFBImagesForItem(scope, idx){
-  const item = getSourceItemByIndex(scope, idx);
-  if(!item){ alert("找不到物件"); return; }
-  const imgs = getProductPhotos(item).map((src, photoIdx)=>({src, name:"物件照片-"+String(photoIdx+1).padStart(2,"0")+".jpg"}));
-  if(!imgs.length){ alert("這筆物件目前沒有照片，請先補照片"); return; }
-  openFBImageCopyPanel(item.title || "物件照片素材", imgs);
+  const fake = {
+    getAttribute: function(name){
+      if(name === "data-source-scope") return scope;
+      if(name === "data-source-idx") return String(idx);
+      return "";
+    },
+    closest: function(){ return this; }
+  };
+  openSourceMediaFromEl(fake, "copy");
 }
 function getSourceFBKey(scope, item, type){
   return "sourceFb:" + type + ":" + scope + ":" + String((item && (item.id || item.publicNo || item.externalId || item.title)) || "unknown");
@@ -8438,11 +8503,16 @@ function renderSourceGroupedList(list, source){
     });
     const groupedHtml = Array.from(groups.entries()).sort((a,b)=>sourceAreaSortKey(a[0]).localeCompare(sourceAreaSortKey(b[0]), "zh-Hant")).map(([area, rows]) => {
         const body = rows.map(item => {
-            const photos = getObjectThumbImages(item).filter(isProductPhotoSrc);
-            const imageSrc = photos[0] || "";
-            const nextSrc = photos[1] || "";
+            const photos = getObjectImages(item);
+            const thumbs = photos.map(compactExternalImageUrl).filter(Boolean);
+            const imageSrc = thumbs[0] || "";
+            const nextSrc = thumbs[1] || "";
+            const photoCount = photos.length;
+            const lookupKey = sourceItemLookupKey(item);
             const onError = nextSrc ? ' onerror="this.onerror=null;this.src=\''+htmlEscape(nextSrc)+'\'"' : "";
-            const img = imageSrc ? '<img class="mini-object-img" src="'+htmlEscape(imageSrc)+'" referrerpolicy="no-referrer" loading="lazy"'+onError+' onclick="openSourceImageViewer(\''+scope+'\','+item._idx+')">' : '<div class="mini-object-img" style="display:flex;align-items:center;justify-content:center;color:#64748B;font-weight:900">無照片</div>';
+            const img = imageSrc
+              ? '<div class="source-photo-cell" data-source-scope="'+scope+'" data-source-key="'+htmlEscape(lookupKey)+'" data-source-idx="'+item._idx+'"><img class="mini-object-img" src="'+htmlEscape(imageSrc)+'" referrerpolicy="no-referrer" loading="lazy"'+onError+' onclick="event.preventDefault();event.stopPropagation();openSourceMediaFromEl(this,\'gallery\')"><span class="source-photo-count">'+photoCount+' 張</span></div>'
+              : '<div class="mini-object-img" style="display:flex;align-items:center;justify-content:center;color:#64748B;font-weight:900">無照片</div>';
             const partyCompany = sourceOriginalOffice(item, isSame);
             const partyCompanyShort = sourceCompanyShort(partyCompany);
             const contactPhone = sourceContactText(sourceOriginalPhone(item), "待補門市電話");
@@ -8453,7 +8523,7 @@ function renderSourceGroupedList(list, source){
             const mainSpec = isSame
               ? htmlEscape(item.kind || "")+'｜'+htmlEscape(item.price || "")+'｜建 '+htmlEscape(item.build || "")+' 坪｜主 '+htmlEscape(item.mainBuildArea || "")+' 坪｜地 '+htmlEscape(item.landArea || "")+' 坪｜'+htmlEscape(item.layout || item.spec || "")
               : htmlEscape(item.kind || "")+'｜'+htmlEscape(item.price || "")+'｜'+htmlEscape(item.spec || "");
-            return `<div class="object-row ${isSame ? "same-store-row" : "borrow-row"}">
+            return `<div class="object-row ${isSame ? "same-store-row" : "borrow-row"}" data-source-scope="${scope}" data-source-key="${htmlEscape(lookupKey)}" data-source-idx="${item._idx}">
               ${batchCheckHtml(scope, item._idx)}
               ${img}
               <div class="object-main">
@@ -8475,7 +8545,8 @@ function renderSourceGroupedList(list, source){
               <div class="row-actions source-actions-panel">
                 <button class="green source-primary-action" onclick="viewSourceListing('${scope}',${item._idx})">檢視文章</button>
                 <button class="purple" onclick="copySourceFBTextForItem('${scope}',${item._idx})">複製文章</button>
-                <button class="purple" onclick="copySourceFBImagesForItem('${scope}',${item._idx})">照片素材</button>
+                <button class="blue source-open-photos" type="button" onclick="openSourceMediaFromEl(this,'gallery')" ${photoCount ? "" : "disabled"}>${photoCount ? "打開照片 "+photoCount+"張" : "沒有照片"}</button>
+                <button class="purple" onclick="openSourceMediaFromEl(this,'copy')">照片素材</button>
                 ${isSame ? "" : `<button class="orange" onclick="toggleObjectFavorite('${scope}',${item._idx})">${item.businessFavorite ? "♥ 取消最愛" : "♡ 加入最愛"}</button>`}
                 <button class="orange" onclick="printSourceListing('${scope}',${item._idx})">列印</button>
                 <button class="blue" onclick="printSourceDM('${scope}',${item._idx})">列印DM</button>
@@ -8597,24 +8668,29 @@ function persistSameStoreRows(rows){
 
 async function ensureSameStoreSharedData(){
     const localRows = getSameStoreItems();
-    if(sameStoreImageCount(localRows) >= 50 && localRows.length >= 20) return localRows.length;
+    const extra = [];
     try{
         const dbRows = await loadSameStoreDbRows();
-        if(sameStoreDataScore(dbRows) > sameStoreDataScore(localRows)){
-            return persistSameStoreRows(dbRows);
-        }
+        if(dbRows.length) extra.push.apply(extra, dbRows);
     }catch(e){
         console.warn("sameStore lightweight reload failed", e);
     }
     try{
         const seedRows = await loadSameStoreSeedRows();
-        if(sameStoreDataScore(seedRows) > sameStoreDataScore(localRows)){
-            return persistSameStoreRows(seedRows);
-        }
+        if(seedRows.length) extra.push.apply(extra, seedRows);
     }catch(e){
         console.warn("sameStore seed fallback failed", e);
     }
-    return getSameStoreItems().length;
+    extra.forEach(rememberCatalogPhotos);
+    (localRows || []).forEach(rememberCatalogPhotos);
+    const base = localRows.length ? localRows : extra.slice();
+    const merged = mergeListingPhotosIntoRows(base, extra);
+    if(merged.length && (sameStoreImageCount(merged) > sameStoreImageCount(localRows) || !localRows.length)){
+        persistSameStoreRows(merged);
+        return merged.length;
+    }
+    if(localRows.length) return localRows.length;
+    return extra.length;
 }
 
 async function loadSameStoreDbRows(){
@@ -8868,8 +8944,17 @@ function renderSameStoreList(){
     const sharedNote = sharedRecovered ? '<div class="dm-safe-note">已從 PHT-SR 共享資料重新載入同店物件 '+sharedRecovered+' 件。</div>' : '';
     const migrateNote = migratedCount ? '<div class="dm-safe-note">已自動將異店物件中屬於文化盛群店的 '+migratedCount+' 筆搬回同店物件。</div>' : '';
     const filterNote = (kw || reviewOnly) ? '<div class="dm-safe-note">目前套用篩選：'+(kw ? '關鍵字「'+htmlEscape(kw)+'」' : '')+(reviewOnly ? (kw ? '、' : '')+'只看價格須審核' : '')+'，所以畫面顯示 '+list.length+' / '+source.length+' 件。<button class="orange" onclick="clearSameStoreFilters()">顯示全部同店</button></div>' : '';
-    box.innerHTML = sharedNote + migrateNote + filterNote + '<div class="source-title-frame same-store"><div><div class="title">🏢 同店物件清單</div><div class="hint">資料庫全部 '+source.length+' 件；目前畫面 '+list.length+' 件。已依縣市 / 鄉鎮區段分組。</div></div><span class="target-area-pill">全部同店｜'+source.length+' 件｜目前顯示 '+list.length+' 件｜價格須審核 '+reviewCount+' 件</span></div>'+batchToolsHtml("sameStore", list.length) + (list.length ? renderSourceGroupedList(list, "sameStore") : '<div style="padding:12px;color:#64748B">'+(reviewOnly || kw ? '目前篩選條件沒有資料，請按「顯示全部同店」。' : '目前沒有同店物件資料。這裡放羅東文化盛群加盟店同事的可合作物件。')+'</div>');
+    box.innerHTML = sharedNote + migrateNote + filterNote + '<div class="source-title-frame same-store"><div><div class="title">🏢 同店物件清單</div><div class="hint">資料庫全部 '+source.length+' 件；目前畫面 '+list.length+' 件。已依縣市 / 鄉鎮區段分組。縮圖角標與「打開照片」會顯示全部產品照，不只封面。</div></div><span class="target-area-pill">全部同店｜'+source.length+' 件｜目前顯示 '+list.length+' 件｜價格須審核 '+reviewCount+' 件</span></div>'+batchToolsHtml("sameStore", list.length) + (list.length ? renderSourceGroupedList(list, "sameStore") : '<div style="padding:12px;color:#64748B">'+(reviewOnly || kw ? '目前篩選條件沒有資料，請按「顯示全部同店」。' : '目前沒有同店物件資料。這裡放羅東文化盛群加盟店同事的可合作物件。')+'</div>');
     window.__sameStoreSharedRecoveredCount = 0;
+    if(!window.__sameStorePhotoCatalogBound){
+        window.__sameStorePhotoCatalogBound = true;
+        ensureListingPhotoCatalog().then(function(){
+            const rows = getSameStoreItems();
+            const merged = mergeListingPhotosIntoRows(rows, []);
+            if(sameStoreImageCount(merged) > sameStoreImageCount(rows)) persistSameStoreRows(merged);
+            renderSameStoreList();
+        }).catch(function(){});
+    }
 }
 
 function clearSameStoreFilters(){
@@ -8882,23 +8967,30 @@ function clearSameStoreFilters(){
 
 async function forceReloadSameStoreFullData(){
     const box = document.getElementById("sameStoreList");
-    if(box) box.innerHTML = '<div style="padding:12px;color:#0F766E;font-weight:900">正在重載完整同店照片（輕量同店 API，不抓 95MB 同業池）...</div>';
+    if(box) box.innerHTML = '<div style="padding:12px;color:#0F766E;font-weight:900">正在重載完整同店照片（輕量同店 API／抓取清單，不抓 95MB 同業池）...</div>';
     try{
-        const rows = await loadSameStoreDbRows();
-        if(!rows.length) throw new Error("完整資料庫沒有同店資料");
-        persistSameStoreRows(rows);
-        clearSameStoreFilters();
-    }catch(e){
+        await ensureListingPhotoCatalog();
+        const existing = getSameStoreItems();
+        const extra = [];
+        try{
+            const dbRows = await loadSameStoreDbRows();
+            if(dbRows.length) extra.push.apply(extra, dbRows);
+        }catch(e){
+            console.warn("sameStore db reload failed", e);
+        }
         try{
             const seedRows = await loadSameStoreSeedRows();
-            if(seedRows.length){
-                persistSameStoreRows(seedRows);
-                clearSameStoreFilters();
-                return;
-            }
+            if(seedRows.length) extra.push.apply(extra, seedRows);
         }catch(seedErr){
             console.warn("sameStore seed reload failed", seedErr);
         }
+        extra.forEach(rememberCatalogPhotos);
+        const merged = mergeListingPhotosIntoRows(existing.length ? existing : extra, extra);
+        if(!merged.length) throw new Error("完整資料庫沒有同店資料");
+        persistSameStoreRows(merged);
+        clearSameStoreFilters();
+        alert("已重載同店照片：共 " + merged.length + " 件、照片 " + sameStoreImageCount(merged) + " 張。");
+    }catch(e){
         const existing = getSameStoreItems();
         if(existing.length){
             renderSameStoreList();
@@ -9687,13 +9779,101 @@ function collectObjectImageSources(item){
     return true;
   });
 }
+function listingPhotoDedupeKey(src){
+  src = normalizeObjectImageSrc(src);
+  try{
+    const url = new URL(src, (typeof location !== "undefined" && location.href) || "https://huowang.paohui.org/");
+    url.searchParams.delete("width");
+    url.searchParams.delete("height");
+    url.searchParams.delete("t");
+    return url.toString();
+  }catch(e){
+    return src;
+  }
+}
+function rememberCatalogPhotos(item){
+  window.__listingPhotoCatalog = window.__listingPhotoCatalog || {};
+  const photos = collectObjectImageSources(item).filter(isProductPhotoSrc);
+  if(!photos.length) return;
+  listingIdentityKeys(item || {}).forEach(function(k){
+    if(!k) return;
+    const cur = window.__listingPhotoCatalog[k] || [];
+    if(photos.length > cur.length) window.__listingPhotoCatalog[k] = photos;
+  });
+}
+function catalogPhotosForItem(item){
+  let best = [];
+  listingIdentityKeys(item || {}).forEach(function(k){
+    const rows = (window.__listingPhotoCatalog && window.__listingPhotoCatalog[k]) || [];
+    if(rows.length > best.length) best = rows;
+  });
+  return best;
+}
+function mergePhotoLists(){
+  const seen = new Set();
+  const out = [];
+  Array.from(arguments).forEach(function(list){
+    (list || []).forEach(function(src){
+      src = normalizeObjectImageSrc(src);
+      if(!src || !isProductPhotoSrc(src)) return;
+      const key = listingPhotoDedupeKey(src);
+      if(seen.has(key)) return;
+      seen.add(key);
+      out.push(src);
+    });
+  });
+  return out;
+}
+function mergeListingPhotosIntoRows(baseRows, extraRows){
+  (extraRows || []).forEach(rememberCatalogPhotos);
+  (baseRows || []).forEach(rememberCatalogPhotos);
+  return (baseRows || []).map(function(item){
+    const own = collectObjectImageSources(item);
+    const merged = mergePhotoLists(own, catalogPhotosForItem(item));
+    if(merged.length <= own.filter(isProductPhotoSrc).length) return item;
+    const next = Object.assign({}, item);
+    next.images = merged;
+    if(!next.cover) next.cover = merged[0];
+    return next;
+  });
+}
+function ensureListingPhotoCatalog(){
+  if(window.__listingPhotoCatalogLoaded) return Promise.resolve(window.__listingPhotoCatalog || {});
+  if(window.__listingPhotoCatalogPromise) return window.__listingPhotoCatalogPromise;
+  window.__listingPhotoCatalogPromise = (async function(){
+    const urls = [
+      "shop-listings.json",
+      encodeURI("原始營業員抓取清單-羅東文化盛群最新.json")
+    ];
+    for(let i = 0; i < urls.length; i++){
+      try{
+        const res = await fetch(urls[i] + "?ts=" + Date.now(), {cache:"no-store"});
+        if(!res.ok) continue;
+        const payload = await res.json();
+        const rows = Array.isArray(payload) ? payload
+          : Array.isArray(payload.listings) ? payload.listings
+          : (typeof parseSharedListValue === "function" ? parseSharedListValue(payload) : []);
+        (rows || []).forEach(rememberCatalogPhotos);
+      }catch(e){
+        console.warn("listing photo catalog failed", urls[i], e);
+      }
+    }
+    window.__listingPhotoCatalogLoaded = true;
+    return window.__listingPhotoCatalog || {};
+  })();
+  return window.__listingPhotoCatalogPromise;
+}
 function getObjectImages(item){
-  const own=collectObjectImageSources(item).filter(isProductPhotoSrc);
-  if(own.length) return own;
-  const prop=findPropertyForObject(item||{});
-  const fromProp=collectObjectImageSources(prop).filter(isProductPhotoSrc);
-  if(fromProp.length) return fromProp;
-  return collectObjectImageSources(findRelatedListing(item||{}) || {}).filter(isProductPhotoSrc);
+  item = item || {};
+  const own = collectObjectImageSources(item);
+  const catalog = catalogPhotosForItem(item);
+  const merged = mergePhotoLists(own, catalog);
+  if(merged.length >= 2 || window.__listingPhotoCatalogLoaded) return merged;
+  if(merged.length) return merged;
+  const prop = findPropertyForObject(item);
+  const fromProp = collectObjectImageSources(prop);
+  if(fromProp.length) return mergePhotoLists(merged, fromProp);
+  return mergePhotoLists(merged, collectObjectImageSources(findRelatedListing(item) || {}));
 }
 function getObjectThumbImages(item){
   return getObjectImages(item || {}).map(compactExternalImageUrl).filter(Boolean);
@@ -9701,15 +9881,39 @@ function getObjectThumbImages(item){
 function getObjectGalleryImages(item){
   return getObjectImages(item || {}).filter(isProductPhotoSrc).map((src, idx) => ({name:"物件照片" + String(idx + 1).padStart(2, "0"), data:src}));
 }
-function openSourceImageViewer(scope, idx){
-  const list = scope === "sameStore" ? getSameStoreItems() : getBorrowItems();
-  const item = (list || [])[Number(idx)] || {};
-  const gallery = getObjectGalleryImages(item);
-  if(!gallery.length){
+async function openSourceMediaFromEl(el, mode){
+  mode = mode || "gallery";
+  const node = (el && el.closest && el.closest("[data-source-scope],[data-source-key]")) || el || {};
+  const scope = (node.getAttribute && node.getAttribute("data-source-scope")) || "sameStore";
+  const key = (node.getAttribute && node.getAttribute("data-source-key")) || "";
+  const idx = node.getAttribute && node.getAttribute("data-source-idx");
+  try{ await ensureListingPhotoCatalog(); }catch(e){}
+  const item = findSourceItem(scope, idx, key);
+  if(!item){ alert("找不到物件"); return; }
+  const photos = getObjectImages(item);
+  if(!photos.length){
     alert((scope === "sameStore" ? "同店" : "異店") + "這筆目前沒有可開啟的照片");
     return;
   }
-  openImageViewerFromList(gallery, 0);
+  if(mode === "copy"){
+    openFBImageCopyPanel(item.title || "物件照片素材", photos.map(function(src, photoIdx){
+      return {src: src, name: "物件照片-" + String(photoIdx + 1).padStart(2, "0") + ".jpg"};
+    }));
+    return;
+  }
+  openImageViewerFromList(photos, 0);
+}
+function openSourceImageViewer(scope, idx, key){
+  const fake = {
+    getAttribute: function(name){
+      if(name === "data-source-scope") return scope;
+      if(name === "data-source-key") return key || "";
+      if(name === "data-source-idx") return String(idx);
+      return "";
+    },
+    closest: function(){ return this; }
+  };
+  return openSourceMediaFromEl(fake, "gallery");
 }
 function openImageViewerFromList(list, startIdx){
   const images = (Array.isArray(list) ? list : [])
@@ -9775,6 +9979,7 @@ function openImageViewerFromList(list, startIdx){
 }
 window.openImageViewerFromList = openImageViewerFromList;
 window.openSourceImageViewer = openSourceImageViewer;
+window.openSourceMediaFromEl = openSourceMediaFromEl;
 function compactStoredImageUrlsForItem(item){
   if(!item) return item;
   const allImages = collectObjectImageSources(item);
@@ -9820,8 +10025,10 @@ function objectThumbHtml(item, altText){
   const images=getProductPhotos(item||{});
   if(!images.length) return '<div class="object-list-thumb property-list-thumb placeholder">尚未<br>上傳照片</div>';
   const src=compactExternalImageUrl(images[0]);
-  const ref=getObjectGalleryRef(item||{});
-  return '<img class="object-list-thumb property-list-thumb" src="'+htmlEscape(src)+'" alt="'+htmlEscape(altText||"物件照片")+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;object-list-thumb property-list-thumb placeholder&quot;>照片<br>載入失敗</div>\'" onclick="event.preventDefault();event.stopPropagation();showPropertyGallery(\''+htmlEscape(ref)+'\')">';
+  const token = "thumb-" + String((item && (item.publicNo || item.id || item.contractNo || item._idx)) || Math.random().toString(36).slice(2));
+  window.__objectThumbItems = window.__objectThumbItems || {};
+  window.__objectThumbItems[token] = item;
+  return '<img class="object-list-thumb property-list-thumb" src="'+htmlEscape(src)+'" alt="'+htmlEscape(altText||"物件照片")+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;object-list-thumb property-list-thumb placeholder&quot;>照片<br>載入失敗</div>\'" onclick="event.preventDefault();event.stopPropagation();openImageViewerFromList(getObjectImages((window.__objectThumbItems||{})[\''+htmlEscape(token)+'\']||{}),0)">';
 }
 function dashboardItemRow(item,type){
   const expire=dashboardExpireInfo(item);
@@ -13530,11 +13737,11 @@ function showPropertyGallery(contractNo){
       </div>
       <div class="gallery-main">
         <button class="gallery-arrow prev" type="button" id="galleryPrev">‹</button>
-        <img id="galleryMainImg" src="${htmlEscape(images[0])}" alt="${htmlEscape(item.title || "物件照片")}">
+        <img id="galleryMainImg" src="${htmlEscape(images[0])}" referrerpolicy="no-referrer" alt="${htmlEscape(item.title || "物件照片")}">
         <button class="gallery-arrow next" type="button" id="galleryNext">›</button>
       </div>
       <div class="gallery-thumbs">
-        ${images.map((img,idx)=>`<img src="${htmlEscape(img)}" class="${idx===0?'active':''}" data-gallery-index="${idx}" alt="照片${idx+1}">`).join("")}
+        ${images.map((img,idx)=>`<img src="${htmlEscape(img)}" referrerpolicy="no-referrer" class="${idx===0?'active':''}" data-gallery-index="${idx}" alt="照片${idx+1}">`).join("")}
       </div>
     </div>`;
   document.body.appendChild(modal);
