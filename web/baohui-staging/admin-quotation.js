@@ -277,14 +277,10 @@
     if (text === 'included' || text.indexOf('內') >= 0 || text.indexOf('含') >= 0) return 'included';
     return 'none';
   }
-  var quoteHistoryPage = 1;
+  var quoteHistoryOpenPage = 0;
   var quoteHistoryLastKw = '';
   var QUOTE_HISTORY_PAGE_SIZE = 10;
-  window.goQuoteHistoryPage = function (page) {
-    quoteHistoryPage = Math.max(1, Number(page) || 1);
-    renderQuoteItemHistory(true);
-  };
-  window.renderQuoteItemHistory = function (keepPage) {
+  window.renderQuoteItemHistory = function () {
     ensureStore();
     var box = $id('quoteItemHistoryList');
     if (!box) return;
@@ -297,36 +293,46 @@
     });
     if (kw && link) rows = rows.sort(function (a, b) { return link.score(kw, b) - link.score(kw, a); });
     if (kw !== quoteHistoryLastKw) {
-      quoteHistoryPage = 1;
+      quoteHistoryOpenPage = 0;
       quoteHistoryLastKw = kw;
     }
     var pages = Math.max(1, Math.ceil(rows.length / QUOTE_HISTORY_PAGE_SIZE));
-    quoteHistoryPage = Math.min(pages, Math.max(1, quoteHistoryPage || 1));
-    var start = (quoteHistoryPage - 1) * QUOTE_HISTORY_PAGE_SIZE;
-    var shown = rows.slice(start, start + QUOTE_HISTORY_PAGE_SIZE);
+    if (quoteHistoryOpenPage > pages) quoteHistoryOpenPage = 0;
     if (!rows.length) {
       box.innerHTML = '<div class="text-muted small">目前沒有常用品項紀錄。儲存估價單後會自動記錄，之後可編輯預設價格、保固與稅金模式。</div>';
       return;
     }
-    box.innerHTML = '<div class="quote-history-list">' + shown.map(function (it) {
-      var taxText = quoteHistoryTaxLabel(it.taxMode || 'none');
-      var sid = esc(jsString(it.id));
-      return '<details class="quote-history-item">' +
-        '<summary><b>' + esc(it.name || '-') + '</b><span>' + money(it.price || 0) + '</span></summary>' +
-        '<div class="quote-history-body">' +
-          '<div class="small text-muted mt-2">廠牌：' + esc(it.brand || '-') + '｜規格：' + esc(it.spec || '-') + '</div>' +
-          '<div class="small text-muted">保固：' + esc(it.warranty || '-') + '｜稅金：' + esc(taxText) + '</div>' +
-          '<div class="d-flex gap-2 mt-2 flex-wrap"><button type="button" class="btn btn-sm btn-primary" onclick="insertQuoteHistoryItem(\'' + sid + '\')">帶入</button>' +
-          '<button type="button" class="btn btn-sm btn-outline-secondary" onclick="editQuoteItemHistory(\'' + sid + '\')">編輯</button>' +
-          '<button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteQuoteItemHistory(\'' + sid + '\')">刪除</button></div>' +
-        '</div>' +
-      '</details>';
-    }).join('') + '</div>' +
-      '<div class="quote-history-pager">' +
-        '<button type="button" class="btn btn-sm btn-outline-secondary"' + (quoteHistoryPage <= 1 ? ' disabled' : '') + ' onclick="goQuoteHistoryPage(' + (quoteHistoryPage - 1) + ')">上一頁</button>' +
-        '<span class="small fw-bold">第 ' + quoteHistoryPage + ' / ' + pages + ' 頁，每頁 ' + QUOTE_HISTORY_PAGE_SIZE + ' 筆；顯示 ' + shown.length + ' / ' + rows.length + ' 筆</span>' +
-        '<button type="button" class="btn btn-sm btn-outline-secondary"' + (quoteHistoryPage >= pages ? ' disabled' : '') + ' onclick="goQuoteHistoryPage(' + (quoteHistoryPage + 1) + ')">下一頁</button>' +
-      '</div>';
+    var html = '';
+    for (var p = 1; p <= pages; p++) {
+      var chunk = rows.slice((p - 1) * QUOTE_HISTORY_PAGE_SIZE, p * QUOTE_HISTORY_PAGE_SIZE);
+      html += '<details class="quote-history-page"' + (p === quoteHistoryOpenPage ? ' open' : '') + ' data-history-page="' + p + '">' +
+        '<summary><b>第 ' + p + ' 頁</b><span>' + chunk.length + ' 筆</span></summary>' +
+        '<div class="quote-history-body">' + chunk.map(function (it) {
+          var taxText = quoteHistoryTaxLabel(it.taxMode || 'none');
+          var sid = esc(jsString(it.id));
+          var meta = ['廠牌 ' + (it.brand || '-'), '規格 ' + (it.spec || '-'), '保固 ' + (it.warranty || '-'), taxText].join(' ｜ ');
+          return '<div class="quote-history-row">' +
+            '<div><b>' + esc(it.name || '-') + '</b><small>' + esc(meta) + '</small></div>' +
+            '<div class="quote-history-actions"><span class="quote-history-price">' + money(it.price || 0) + '</span>' +
+            '<button type="button" class="btn btn-sm btn-primary" onclick="insertQuoteHistoryItem(\'' + sid + '\')">帶入</button>' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary" onclick="editQuoteItemHistory(\'' + sid + '\')">編輯</button>' +
+            '<button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteQuoteItemHistory(\'' + sid + '\')">刪除</button></div>' +
+          '</div>';
+        }).join('') + '</div></details>';
+    }
+    box.innerHTML = '<div class="quote-history-list">' + html + '</div>';
+    box.querySelectorAll('details.quote-history-page').forEach(function (el) {
+      el.addEventListener('toggle', function () {
+        if (!el.open) {
+          if (quoteHistoryOpenPage === Number(el.dataset.historyPage)) quoteHistoryOpenPage = 0;
+          return;
+        }
+        quoteHistoryOpenPage = Number(el.dataset.historyPage) || 0;
+        box.querySelectorAll('details.quote-history-page').forEach(function (other) {
+          if (other !== el) other.open = false;
+        });
+      });
+    });
   };
   window.insertQuoteHistoryItem = function (id) {
     ensureStore();
@@ -689,15 +695,21 @@
       '.quote-suggest b{display:block;font-size:14px}' +
       '.quote-suggest small{display:block;color:#64748b;font-weight:700}' +
       '.quote-history-list{display:grid;gap:8px}' +
-      '.quote-history-item{border:1px solid #dbe5f2;border-radius:10px;background:#fff;overflow:hidden}' +
-      '.quote-history-item summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;padding:10px 12px;font-weight:800}' +
-      '.quote-history-item summary::-webkit-details-marker{display:none}' +
-      '.quote-history-item summary:after{content:"展開";color:#0f766e;font-size:13px;font-weight:800;flex:0 0 auto}' +
-      '.quote-history-item[open] summary:after{content:"收合"}' +
-      '.quote-history-item summary b{min-width:0;flex:1 1 auto}' +
-      '.quote-history-item summary span{color:#15803d;flex:0 0 auto}' +
-      '.quote-history-item .quote-history-body{padding:0 12px 12px;border-top:1px solid #eef2f7}' +
-      '.quote-history-pager{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}' +
+      '.quote-history-page{border:1px solid #dbe5f2;border-radius:10px;background:#fff;overflow:hidden}' +
+      '.quote-history-page summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;padding:10px 12px;font-weight:800}' +
+      '.quote-history-page summary::-webkit-details-marker{display:none}' +
+      '.quote-history-page summary:after{content:"展開";color:#0f766e;font-size:13px;font-weight:800;flex:0 0 auto}' +
+      '.quote-history-page[open] summary:after{content:"收合"}' +
+      '.quote-history-page summary b{min-width:0;flex:1 1 auto}' +
+      '.quote-history-page summary span{color:#475569;flex:0 0 auto}' +
+      '.quote-history-page .quote-history-body{padding:0;border-top:1px solid #eef2f7}' +
+      '.quote-history-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid #eef2f7}' +
+      '.quote-history-row:last-child{border-bottom:0}' +
+      '.quote-history-row b{display:block}' +
+      '.quote-history-row small{display:block;color:#64748b;font-weight:700}' +
+      '.quote-history-row .quote-history-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}' +
+      '.quote-history-row .quote-history-price{color:#15803d;font-weight:800;margin-right:4px}' +
+      '@media(max-width:760px){.quote-history-row{grid-template-columns:1fr}.quote-history-row .quote-history-actions{justify-content:flex-start}}' +
       '</style>' +
       '<h4 class="mb-4">寶輝科技正式估價單</h4>' +
       '<div class="alert alert-info">估價單號自動產生 VAL-當天日期-流水號。清單按「轉現貨出貨單」後，出貨單也是 VAL-日期-流水；正規銷售出庫單是 SELL-日期-流水。客戶與品項會進銷售出庫單，可列印、篩選、修正。</div>' +
