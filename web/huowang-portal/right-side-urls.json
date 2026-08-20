@@ -2,16 +2,16 @@
   "title": "火旺右邊快捷與物件操作入口",
   "recordedAt": "2026-08-20",
   "sourceOfTruth": "web/huowang-portal/site-operations.json",
-  "note": "以後查資料、操作物件，從火旺後台、5168、591 以及這份登入頁做。詳細說明看 site-operations.json。",
+  "note": "以後查資料、操作物件，從火旺後台、5168 後台、591 以及這份登入頁做。5168 後台就放在 https://007.houseprice.tw/。詳細說明看 site-operations.json。",
   "operateFirst": [
     {"id": "huowang", "name": "火旺後台", "login": "https://huowang.paohui.org/admin.html.html", "operate": "https://huowang.paohui.org/admin.html.html"},
-    {"id": "5168", "name": "5168／007 金牌房仲", "login": "https://007.houseprice.tw/login", "operate": "https://007.houseprice.tw/"},
+    {"id": "5168", "name": "5168 後台", "login": "https://007.houseprice.tw/login", "operate": "https://007.houseprice.tw/", "agentLogin": "https://member.houseprice.tw/agent", "address": "https://007.houseprice.tw/address", "pasteUrl": "https://007.houseprice.tw/url", "inventory": "https://007.houseprice.tw/inventory/published"},
     {"id": "591", "name": "591", "login": "https://user.591.com.tw/login", "operate": "https://user.591.com.tw/", "home": "https://www.591.com.tw/", "sale": "https://sale.591.com.tw/"}
   ],
   "shortcuts": [
     {"key": "1", "name": "永慶加盟系統 IS", "url": "https://is.ycut.com.tw/is/home"},
     {"key": "2", "name": "591 房屋交易", "url": "https://www.591.com.tw/"},
-    {"key": "3", "name": "5168 實價登錄比價王", "url": "https://007.houseprice.tw/"},
+    {"key": "3", "name": "5168 後台", "url": "https://007.houseprice.tw/"},
     {"key": "4", "name": "我家網 VIP", "url": "https://www.myhomes.com.tw/vip2/login.php"},
     {"key": "5", "name": "Facebook", "url": "https://www.facebook.com/"},
     {"key": "6", "name": "內政部地籍圖資", "url": "https://easymap.moi.gov.tw/Z10Web/Index"},
@@ -23,7 +23,8 @@
   "loginPages": [
     {"name": "火旺後台登入", "url": "https://huowang.paohui.org/admin.html.html"},
     {"name": "591 會員登入", "url": "https://user.591.com.tw/login"},
-    {"name": "5168／007 登入", "url": "https://007.houseprice.tw/login"},
+    {"name": "5168 後台登入", "url": "https://007.houseprice.tw/login"},
+    {"name": "5168 經紀人登入", "url": "https://member.houseprice.tw/agent"},
     {"name": "永慶 IS／SSO", "url": "https://is.ycut.com.tw/"},
     {"name": "永慶 SSO 登入頁", "url": "https://opid.ycut.com.tw/YcutPortal/Login"},
     {"name": "我家網 VIP 登入", "url": "https://www.myhomes.com.tw/vip2/login.php"},
@@ -35,6 +36,9 @@
   "related": [
     {"name": "火旺前台", "url": "https://huowang.paohui.org/"},
     {"name": "火旺前台物件預覽", "url": "https://huowang.paohui.org/front.html"},
+    {"name": "5168 找地址", "url": "https://007.houseprice.tw/address"},
+    {"name": "5168 貼網址", "url": "https://007.houseprice.tw/url"},
+    {"name": "5168 我的庫存", "url": "https://007.houseprice.tw/inventory/published"},
     {"name": "591 售屋", "url": "https://sale.591.com.tw/"},
     {"name": "591 租屋", "url": "https://rent.591.com.tw/"},
     {"name": "591 土地", "url": "https://land.591.com.tw/"},

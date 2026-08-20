@@ -2,7 +2,7 @@
   "title": "火旺物件操作與各站登入清單",
   "recordedAt": "2026-08-20",
   "owner": "峰志／郭火旺　永慶不動產羅東文化盛群加盟店",
-  "howToUse": "以後查資料、改物件、對價、上架，都先從這份清單進。優先操作三處：火旺後台、5168（007 金牌房仲）、591。密碼不寫進 Git；要登入時用本機已登入的分頁，或請峰志在對話裡授權。帶看／委託／聯賣／改價官方存檔仍走永慶 IS，不在火旺流通彙總。",
+  "howToUse": "以後查資料、改物件、對價、上架，都先從這份清單進。優先操作三處：火旺後台、5168 後台、591。5168 後台就放在 https://007.houseprice.tw/，不要用 www.houseprice.tw。密碼不寫進 Git；要登入時用本機已登入的分頁，或請峰志在對話裡授權。帶看／委託／聯賣／改價官方存檔仍走永慶 IS，不在火旺流通彙總。",
   "primaryBoards": [
     {
       "id": "huowang",
@@ -31,26 +31,37 @@
     },
     {
       "id": "5168",
-      "name": "5168 實價登錄比價王（金牌房仲）",
-      "alsoCalled": ["007", "比價王", "houseprice", "標示部"],
-      "useFor": ["案源開發", "實價／社區行情", "同業比價", "調電傳／地籍圖", "物件可能地址", "買方庫存"],
+      "name": "5168 後台（007 金牌房仲）",
+      "alsoCalled": ["007", "比價王", "houseprice", "標示部", "金牌房仲"],
+      "useFor": ["案源開發", "找地址／標示部", "實價／社區行情", "同業比價", "調電傳／地籍圖", "貼網址上刊", "售屋庫存", "買方經營"],
+      "backend": "https://007.houseprice.tw/",
       "home": "https://007.houseprice.tw/",
       "login": "https://007.houseprice.tw/login",
+      "agentLogin": "https://member.houseprice.tw/agent",
       "operate": "https://007.houseprice.tw/",
-      "accountHint": "金牌房仲會員。登入多半在首頁右上角；/login 同一套站。密碼不存檔。",
+      "accountHint": "峰志指定：5168 後台就放在 https://007.houseprice.tw/。經紀人登入也可用 https://member.houseprice.tw/agent。密碼不存檔。",
       "pages": [
-        {"name": "金牌房仲首頁／登入", "url": "https://007.houseprice.tw/"},
-        {"name": "登入頁", "url": "https://007.houseprice.tw/login"},
-        {"name": "買屋／物件", "url": "https://007.houseprice.tw/house"},
-        {"name": "搜尋", "url": "https://007.houseprice.tw/search"},
-        {"name": "專業會員方案", "url": "https://007.houseprice.tw/plan/membership"},
-        {"name": "點數加值", "url": "https://007.houseprice.tw/plan/points"},
-        {"name": "常見問題", "url": "https://007.houseprice.tw/faq"}
+        {"name": "5168 後台", "url": "https://007.houseprice.tw/"},
+        {"name": "後台登入", "url": "https://007.houseprice.tw/login"},
+        {"name": "經紀人登入", "url": "https://member.houseprice.tw/agent"},
+        {"name": "找物件", "url": "https://007.houseprice.tw/house"},
+        {"name": "找地址", "url": "https://007.houseprice.tw/address"},
+        {"name": "貼網址", "url": "https://007.houseprice.tw/url"},
+        {"name": "調電傳", "url": "https://007.houseprice.tw/transcripts"},
+        {"name": "刊登物件", "url": "https://007.houseprice.tw/inventory/inventory-edit"},
+        {"name": "我的庫存", "url": "https://007.houseprice.tw/inventory/published"},
+        {"name": "我的追蹤", "url": "https://007.houseprice.tw/inventory/trackcases"},
+        {"name": "暫存物件", "url": "https://007.houseprice.tw/inventory/temporary-list"},
+        {"name": "我的買方", "url": "https://007.houseprice.tw/purchasers"},
+        {"name": "新增買方", "url": "https://007.houseprice.tw/purchasers/adapt"},
+        {"name": "購買方案", "url": "https://007.houseprice.tw/plan/membership"},
+        {"name": "點數加值", "url": "https://007.houseprice.tw/plan/points"}
       ],
       "operateNotes": [
-        "快捷 3。查宜蘭／羅東案源、實價、鄰居行情、同業開價從這裡做。",
-        "找到案源後記入火旺「開發物件」，不要只停在 5168。",
-        "www.houseprice.tw 目前 403，不要用；正式入口是 007.houseprice.tw。"
+        "快捷 3。5168 後台 = https://007.houseprice.tw/，不要用 www.houseprice.tw（目前 403）。",
+        "查案源／門牌／標示部：開發物件 → 找物件、找地址、貼網址、調電傳。",
+        "上刊：我要刊登 → 刊登物件；已上刊看「我的庫存」。貼網址可把永慶／591 連結貼進去帶入。",
+        "找到案源後記入火旺「開發物件」，不要只停在 5168。"
       ]
     },
     {
@@ -182,7 +193,7 @@
   "shortcuts": [
     {"key": "1", "name": "永慶 IS", "url": "https://is.ycut.com.tw/is/home"},
     {"key": "2", "name": "591", "url": "https://www.591.com.tw/"},
-    {"key": "3", "name": "5168／007", "url": "https://007.houseprice.tw/"},
+    {"key": "3", "name": "5168 後台", "url": "https://007.houseprice.tw/"},
     {"key": "4", "name": "我家網 VIP 登入", "url": "https://www.myhomes.com.tw/vip2/login.php"},
     {"key": "5", "name": "Facebook", "url": "https://www.facebook.com/"},
     {"key": "6", "name": "地籍圖資", "url": "https://easymap.moi.gov.tw/Z10Web/Index"},

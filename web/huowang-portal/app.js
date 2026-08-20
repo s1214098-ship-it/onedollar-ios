@@ -3,7 +3,7 @@ const OPEN_DELAY_MS = 500;
 const SHORTCUTS = [
   { key: "1", name: "永慶加盟系統", url: "https://is.ycut.com.tw/is/home" },
   { key: "2", name: "591房屋", url: "https://www.591.com.tw/" },
-  { key: "3", name: "007比價王", url: "https://007.houseprice.tw/" },
+  { key: "3", name: "5168後台", url: "https://007.houseprice.tw/" },
   { key: "4", name: "我家網VIP", url: "https://www.myhomes.com.tw/vip2/login.php" },
   { key: "5", name: "Facebook", url: "https://www.facebook.com/" },
   { key: "6", name: "地籍圖", url: "https://easymap.moi.gov.tw/Z10Web/Index" },

@@ -108,7 +108,7 @@
       "name": "開發件",
       "adminUrl": "https://huowang.paohui.org/admin.html.html",
       "officialUrl": "https://007.houseprice.tw/",
-      "note": "賣主開發／同業開發池。從 007、地籍圖、591、YES319 找到案源後記入火旺開發物件。"
+      "note": "賣主開發／同業開發池。5168 後台就放在 https://007.houseprice.tw/。從 007、地籍圖、591、YES319 找到案源後記入火旺開發物件。"
     },
     {
       "id": "exclusive",
@@ -282,22 +282,22 @@
     {
       "id": "houseprice",
       "group": "開發查價",
-      "name": "5168／007 金牌房仲（快捷 3）",
+      "name": "5168 後台（快捷 3）",
       "url": "https://007.houseprice.tw/",
       "open": true,
       "account": null,
       "status": "ok",
-      "note": "5168 實價登錄比價王。案源、實價、標示部、電傳、同業比價。登入 https://007.houseprice.tw/login。www.houseprice.tw 目前 403 不用。"
+      "note": "5168 後台就放在 https://007.houseprice.tw/。找物件／找地址／貼網址／調電傳／刊登／庫存都在這站。www.houseprice.tw 目前 403 不用。"
     },
     {
       "id": "houseprice-login",
       "group": "開發查價",
-      "name": "5168／007 登入",
+      "name": "5168 後台登入",
       "url": "https://007.houseprice.tw/login",
       "open": true,
       "account": null,
       "status": "ok",
-      "note": "金牌房仲登入。與首頁同一站，右上角也可登入。"
+      "note": "金牌房仲後台登入。經紀人登入也可用 https://member.houseprice.tw/agent。"
     },
     {
       "id": "myhomes",
@@ -363,11 +363,11 @@
   "siteOperationsFile": "web/huowang-portal/site-operations.json",
   "rightSideLookup": {
     "recordedAt": "2026-08-20",
-    "purpose": "以後查資料、操作物件都從 site-operations.json。優先三處：火旺後台、5168、591。雲端看不到本機螢幕，以快捷 1–9 加各站登入頁為準。",
+    "purpose": "以後查資料、操作物件都從 site-operations.json。優先三處：火旺後台、5168 後台（https://007.houseprice.tw/）、591。雲端看不到本機螢幕，以快捷 1–9 加各站登入頁為準。",
     "shortcuts": [
       {"key": "1", "name": "永慶加盟系統 IS 首頁", "url": "https://is.ycut.com.tw/is/home", "note": "現行快捷 1。帶看／委託／聯賣／改價只在這裡做。舊 dramax 登入已不是快捷 1。"},
       {"key": "2", "name": "591 房屋交易", "url": "https://www.591.com.tw/", "note": "登入 https://user.591.com.tw/login；會員中心 https://user.591.com.tw/；售屋 https://sale.591.com.tw/。"},
-      {"key": "3", "name": "5168／007 金牌房仲", "url": "https://007.houseprice.tw/", "note": "登入 https://007.houseprice.tw/login。案源、實價、標示部。"},
+      {"key": "3", "name": "5168 後台", "url": "https://007.houseprice.tw/", "note": "5168 後台就放在這個網址。登入 https://007.houseprice.tw/login；找地址 /address；貼網址 /url；庫存 /inventory/published。"},
       {"key": "4", "name": "我家網 VIP 登入", "url": "https://www.myhomes.com.tw/vip2/login.php"},
       {"key": "5", "name": "Facebook", "url": "https://www.facebook.com/"},
       {"key": "6", "name": "內政部地籍圖資", "url": "https://easymap.moi.gov.tw/Z10Web/Index"},
