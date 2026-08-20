@@ -53,8 +53,9 @@ expect(str_contains($jsCoolpc, 'coolpc-quote-catalog.php'), 'CoolPC UI loads liv
 expect(str_contains($jsCoolpc, 'addQuoteItemRow'), 'CoolPC items insert into the quote');
 expect(str_contains($jsCoolpc, '原價屋即時報價'), 'CoolPC box is labeled as live CoolPC quotes');
 expect(str_contains($jsCoolpc, '每小時更新'), 'CoolPC stamp says hourly refresh');
-expect(str_contains($jsCoolpc, 'cpq-nav'), 'CoolPC categories use a side nav');
-expect(!str_contains($jsCoolpc, 'cpq-pills'), 'CoolPC categories no longer wrap as pills');
+expect(str_contains($jsCoolpc, 'cpq-group-title'), 'CoolPC nav has colored section titles');
+expect(str_contains($jsCoolpc, 'tone-blue'), 'CoolPC nav uses interval color bands');
+expect(str_contains($jsCoolpc, 'is-alt'), 'CoolPC nav rows alternate color');
 expect(coolpc_quote_cache_ttl() === 3600, 'CoolPC catalog cache is one hour');
 
 $jsBuilder = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'admin-quote-builder.js');

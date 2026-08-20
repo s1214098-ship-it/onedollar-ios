@@ -17,35 +17,82 @@
   }
 
   function ensureStyles() {
-    if (document.getElementById("coolpcQuoteStyles")) return;
+    const existing = document.getElementById("coolpcQuoteStyles");
+    if (existing && existing.dataset.v === "bands") return;
+    if (existing) existing.remove();
     const el = document.createElement("style");
     el.id = "coolpcQuoteStyles";
+    el.dataset.v = "bands";
     el.textContent = [
       "#coolpcQuoteBox{background:#fff}",
       ".cpq-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:flex-end;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e8eef5}",
       ".cpq-head h6{margin:0;font-size:16px;font-weight:800;letter-spacing:.02em;color:#0f172a}",
       ".cpq-stamp{color:#64748b;font-size:13px;font-weight:700}",
-      ".cpq-body{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:stretch}",
-      ".cpq-nav{display:flex;flex-direction:column;gap:2px;max-height:460px;overflow:auto;padding:6px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}",
-      ".cpq-cat{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;border:0;background:transparent;border-radius:8px;padding:8px 10px;text-align:left;font-weight:700;color:#334155;cursor:pointer}",
-      ".cpq-cat:hover{background:#eef4f3;color:#0f172a}",
-      ".cpq-cat.is-active{background:#0f766e;color:#fff;box-shadow:0 6px 14px rgba(15,118,110,.18)}",
+      ".cpq-body{display:grid;grid-template-columns:248px minmax(0,1fr);gap:14px;align-items:stretch}",
+      ".cpq-nav{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow:auto;padding:8px;border:1px solid #e2e8f0;border-radius:14px;background:#eef2f6}",
+      ".cpq-group{border-radius:12px;padding:6px;border:1px solid transparent}",
+      ".cpq-group-title{display:block;padding:5px 8px 7px;font-size:11px;font-weight:900;letter-spacing:.12em}",
+      ".cpq-cat{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;margin:0 0 3px;border:0;border-left:4px solid transparent;border-radius:8px;padding:8px 10px;text-align:left;font-weight:800;color:#1e293b;cursor:pointer}",
       ".cpq-cat-label{min-width:0;line-height:1.3}",
-      ".cpq-cat-count{flex:0 0 auto;min-width:28px;text-align:right;font-size:12px;font-weight:800;opacity:.72;font-variant-numeric:tabular-nums}",
+      ".cpq-cat-count{flex:0 0 auto;min-width:28px;padding:1px 7px;border-radius:999px;text-align:center;font-size:11px;font-weight:900;font-variant-numeric:tabular-nums;background:rgba(255,255,255,.72)}",
+      ".cpq-group.tone-blue{background:#dbeafe;border-color:#93c5fd}",
+      ".cpq-group.tone-blue .cpq-group-title{color:#1d4ed8}",
+      ".cpq-group.tone-blue .cpq-cat{background:#eff6ff;border-left-color:#60a5fa}",
+      ".cpq-group.tone-blue .cpq-cat.is-alt{background:#bfdbfe}",
+      ".cpq-group.tone-teal{background:#ccfbf1;border-color:#5eead4}",
+      ".cpq-group.tone-teal .cpq-group-title{color:#0f766e}",
+      ".cpq-group.tone-teal .cpq-cat{background:#f0fdfa;border-left-color:#2dd4bf}",
+      ".cpq-group.tone-teal .cpq-cat.is-alt{background:#99f6e4}",
+      ".cpq-group.tone-amber{background:#fde68a;border-color:#fbbf24}",
+      ".cpq-group.tone-amber .cpq-group-title{color:#b45309}",
+      ".cpq-group.tone-amber .cpq-cat{background:#fffbeb;border-left-color:#f59e0b}",
+      ".cpq-group.tone-amber .cpq-cat.is-alt{background:#fcd34d}",
+      ".cpq-group.tone-violet{background:#ddd6fe;border-color:#c4b5fd}",
+      ".cpq-group.tone-violet .cpq-group-title{color:#6d28d9}",
+      ".cpq-group.tone-violet .cpq-cat{background:#f5f3ff;border-left-color:#a78bfa}",
+      ".cpq-group.tone-violet .cpq-cat.is-alt{background:#c4b5fd}",
+      ".cpq-group.tone-slate{background:#e2e8f0;border-color:#cbd5e1}",
+      ".cpq-group.tone-slate .cpq-group-title{color:#475569}",
+      ".cpq-group.tone-slate .cpq-cat{background:#f8fafc;border-left-color:#94a3b8}",
+      ".cpq-group.tone-slate .cpq-cat.is-alt{background:#cbd5e1}",
+      ".cpq-cat:hover{filter:brightness(.97)}",
+      ".cpq-cat.is-active{background:#0f766e!important;border-left-color:#facc15!important;color:#fff;box-shadow:0 6px 14px rgba(15,118,110,.22)}",
+      ".cpq-cat.is-active .cpq-cat-count{background:rgba(250,204,21,.95);color:#17201d}",
       ".cpq-main{min-width:0}",
       ".cpq-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}",
       ".cpq-toolbar input{min-width:min(280px,100%)}",
-      ".cpq-list{display:grid;gap:6px;max-height:420px;overflow:auto}",
+      ".cpq-list{display:grid;gap:6px;max-height:460px;overflow:auto}",
       ".cpq-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:9px 12px}",
       ".cpq-row:hover{border-color:#99c4bf;background:#f8fbfb}",
       ".cpq-row b{display:block;color:#0f172a;font-size:14px;line-height:1.35;font-weight:700}",
       ".cpq-row small{display:block;color:#64748b;font-weight:700;margin-top:2px}",
       ".cpq-price{font-weight:900;color:#0f766e;white-space:nowrap;font-variant-numeric:tabular-nums}",
       ".cpq-empty{border:1px dashed #cbd5e1;border-radius:10px;padding:16px;color:#64748b;font-weight:700}",
-      "@media(max-width:860px){.cpq-body{grid-template-columns:1fr}.cpq-nav{flex-direction:row;max-height:none;overflow-x:auto;padding:6px}}",
-      "@media(max-width:860px){.cpq-cat{flex:0 0 auto;width:auto;white-space:nowrap}}",
+      "@media(max-width:860px){.cpq-body{grid-template-columns:1fr}.cpq-nav{max-height:none}}",
     ].join("");
     document.head.appendChild(el);
+  }
+
+  const CATEGORY_GROUPS = [
+    { id: "pc", title: "整機／筆電", tone: "blue", match: /小主機|AIO|筆電|平板|穿戴|組裝/ },
+    { id: "core", title: "核心零件", tone: "teal", match: /處理器|CPU|主機板|MB|記憶體|RAM|固態|SSD|硬碟|HDD|顯示卡|VGA|隨身碟|記憶卡/ },
+    { id: "build", title: "散熱／機殼", tone: "amber", match: /散熱|水冷|機殼|CASE|電源|風扇|燈條/ },
+    { id: "io", title: "螢幕／週邊", tone: "violet", match: /螢幕|支架|鍵盤|滑鼠|喇叭|耳機|麥克風|燒錄|USB|線材|轉頭|KVM|印表機|UPS/ },
+    { id: "net", title: "網通／其他", tone: "slate", match: /網卡|網通|NAS|IPCAM|作業系統|軟體|福利|回收|周邊|消耗/ },
+  ];
+
+  function categoryGroupFor(cat) {
+    const label = String(cat && cat.label || "");
+    return CATEGORY_GROUPS.find((group) => group.match.test(label)) || CATEGORY_GROUPS[CATEGORY_GROUPS.length - 1];
+  }
+
+  function groupedCategories(cats) {
+    const buckets = CATEGORY_GROUPS.map((group) => ({ id: group.id, title: group.title, tone: group.tone, items: [] }));
+    const byId = Object.fromEntries(buckets.map((bucket) => [bucket.id, bucket]));
+    (cats || []).forEach((cat) => {
+      byId[categoryGroupFor(cat).id].items.push(cat);
+    });
+    return buckets.filter((bucket) => bucket.items.length);
   }
 
   function categories(catalog) {
@@ -105,12 +152,18 @@
         "</div>" +
       "</div>" +
       '<div class="cpq-body">' +
-      '<nav class="cpq-nav" aria-label="原價屋分類">' + cats.map((cat) => {
-        const on = cat.id === state.activeCat ? " is-active" : "";
-        return '<button type="button" class="cpq-cat' + on + '" data-coolpc-cat="' + esc(cat.id) + '">' +
-          '<span class="cpq-cat-label">' + esc(cat.label) + "</span>" +
-          '<span class="cpq-cat-count">' + esc(cat.count || 0) + "</span>" +
-          "</button>";
+      '<nav class="cpq-nav" aria-label="原價屋分類">' + groupedCategories(cats).map((group) => {
+        return '<section class="cpq-group tone-' + esc(group.tone) + '">' +
+          '<strong class="cpq-group-title">' + esc(group.title) + "</strong>" +
+          group.items.map((cat, index) => {
+            const on = cat.id === state.activeCat ? " is-active" : "";
+            const alt = index % 2 ? " is-alt" : "";
+            return '<button type="button" class="cpq-cat' + on + alt + '" data-coolpc-cat="' + esc(cat.id) + '">' +
+              '<span class="cpq-cat-label">' + esc(cat.label) + "</span>" +
+              '<span class="cpq-cat-count">' + esc(cat.count || 0) + "</span>" +
+              "</button>";
+          }).join("") +
+          "</section>";
       }).join("") + "</nav>" +
       '<div class="cpq-main">' +
       '<div class="cpq-toolbar"><input class="form-control form-control-sm" id="coolpcQuoteFilter" value="' + esc(state.filter) + '" placeholder="搜尋原價屋品項 / 廠牌 / 規格"></div>' +
