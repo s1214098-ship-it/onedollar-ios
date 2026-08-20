@@ -48,3 +48,19 @@ function product_is_computer_archive($categoryGroup): bool
     $group = trim((string)$categoryGroup);
     return $group === '' || $group === '組裝硬體' || in_array($group, ['電腦部門', '電腦'], true);
 }
+
+function department_warehouse_map(): array
+{
+    return [
+        '電腦部門' => ['台灣倉', '電腦倉', '中國倉'],
+        '服裝部門' => ['台灣倉', '中國倉', '印尼倉'],
+    ];
+}
+
+function default_warehouse_name($department = '電腦部門'): string
+{
+    $map = department_warehouse_map();
+    $dept = trim((string)$department);
+    if ($dept !== '' && !empty($map[$dept][0])) return $map[$dept][0];
+    return '台灣倉';
+}

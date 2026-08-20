@@ -1373,19 +1373,6 @@ function warehouse_layer_rank($layer) {
     $order = ['上層'=>10, '第一層'=>10, '1層'=>10, '中層'=>20, '第二層'=>20, '2層'=>20, '下層'=>30, '第三層'=>30, '3層'=>30];
     return $order[$layer] ?? 100;
 }
-function department_warehouse_map() {
-    return [
-        '電腦部門' => ['電腦倉', '台灣倉', '中國倉'],
-        '服裝部門' => ['台灣倉', '中國倉', '印尼倉'],
-    ];
-}
-
-function default_warehouse_name($department = '電腦部門') {
-    $map = department_warehouse_map();
-    $dept = trim((string)$department);
-    if ($dept !== '' && !empty($map[$dept][0])) return $map[$dept][0];
-    return '電腦倉';
-}
 
 function ops_should_sync_members(): bool
 {
@@ -3546,7 +3533,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'category_brand' => $postedCategoryBrand,
                 'category_spec' => $postedCategorySpec,
                 'spec' => trim($_POST['spec'] ?? ''),
-                'warehouse_name' => trim($_POST['warehouse_name'] ?? ''),
+                'warehouse_name' => (trim((string)($_POST['warehouse_name'] ?? '')) !== ''
+                    ? trim((string)$_POST['warehouse_name'])
+                    : default_warehouse_name(trim((string)($_POST['department'] ?? ($existingRow['department'] ?? ($existing['department'] ?? '電腦部門')))))),
                 'shelf_code' => normalize_shelf_code($_POST['shelf_code'] ?? ''),
                 'warehouse_location' => (normalize_shelf_code($_POST['shelf_code'] ?? '') === '')
                     ? ''
@@ -8662,7 +8651,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
             <label>入庫數量<input name="stock_qty" id="productQuickStockQty" type="number" min="1" value="1" required></label>
             <label>直接成本（台幣）<input name="stock_unit_cost" id="productQuickStockUnitCost" type="number" min="0" step="0.01" value="0" required></label>
             <input type="hidden" name="stock_department" id="productQuickStockDepartment" value="電腦部門">
-            <label>倉別<select name="stock_warehouse_name" id="productQuickStockWarehouse" data-current="電腦倉"><option value="">請選擇倉別</option></select></label>
+            <label>倉別<select name="stock_warehouse_name" id="productQuickStockWarehouse" data-current="台灣倉"><option value="">請選擇倉別</option></select></label>
             <label>倉架名稱<select name="stock_shelf_code" id="productQuickStockShelf"><option value="">還沒放上去</option></select><span class="shelf-add-inline"><input id="productQuickStockShelfAdd" autocomplete="off"><button type="button" class="secondary small" id="productQuickStockShelfAddBtn">＋倉架</button></span></label>
             <label>倉架位置<select name="stock_location" id="productQuickStockLocation"><option value="">還沒放上去</option><option value="上層">上層</option><option value="下層">下層</option></select></label>
             <?php render_photo_capture_fields('stock_main_image', 'stock_extra_images', [
@@ -10329,7 +10318,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <?php endforeach; ?>
       <?php if(!$warehouseOptions): ?><div class="metric"><span>尚未建立貨倉</span><strong>0</strong><small>請先新增倉庫</small></div><?php endif; ?>
     </div>
-    <div class="warehouse-workflow-note"><b>欄位定義：倉別預設電腦倉，倉架名稱＝編號，倉架位置＝上層／下層。</b> 沒選倉架名稱代表還沒放上去；選了倉架後才指定上層或下層。</div>
+    <div class="warehouse-workflow-note"><b>欄位定義：電腦部倉別預設台灣倉，倉架名稱＝編號，倉架位置＝上層／下層。</b> 沒選倉架名稱代表還沒放上去；選了倉架後才指定上層或下層。</div>
     <form method="post" class="mini-form warehouse-layer-add-form">
       <input type="hidden" name="action" value="save_warehouse_item">
       <input type="hidden" name="warehouse_item_type" value="combo">
@@ -13196,7 +13185,7 @@ function layerNamesForLocation(warehouse, shelf, department) {
 function defaultWarehouseForDepartment(dept) {
   const name = String(dept || '').trim();
   const list = departmentWarehouseMap && departmentWarehouseMap[name];
-  return (list && list[0]) ? list[0] : '電腦倉';
+  return (list && list[0]) ? list[0] : '台灣倉';
 }
 function bindWarehouseSelects(warehouseId, shelfId, locationId, placeholders, departmentId) {
   const warehouse = document.getElementById(warehouseId);

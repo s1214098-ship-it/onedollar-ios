@@ -51,6 +51,10 @@ $summary = product_spec_summary([
 expect($summary === 'ASUS · B650M · R5 7600 · 32G · 1TB · 4060 · 黑', 'spec summary joins unique parts');
 expect(product_is_computer_archive('組裝硬體') === true, 'hardware group is computer archive');
 expect(product_is_computer_archive('男性專區') === false, 'clothing group is not computer archive');
+expect(default_warehouse_name('電腦部門') === '台灣倉', 'computer department defaults to Taiwan warehouse');
+expect(default_warehouse_name('服裝部門') === '台灣倉', 'clothing department defaults to Taiwan warehouse');
+expect(default_warehouse_name('') === '台灣倉', 'blank department still defaults to Taiwan warehouse');
+expect(department_warehouse_map()['電腦部門'][1] === '電腦倉', 'computer warehouse remains selectable after Taiwan default');
 
 $ops = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'one-dollar-auction' . DIRECTORY_SEPARATOR . 'operations.php');
 expect(str_contains($ops, 'product-workspace'), 'products page uses two-column workspace');
@@ -61,6 +65,9 @@ expect(str_contains($ops, 'class="product-item"'), 'product list uses compact ca
 expect(!preg_match('/id="productColorPairSelect"\s+size="6"/', $ops), 'color picker is a dropdown not a listbox');
 expect(!str_contains($ops, 'product-serial-note'), 'long barcode how-to banner is removed');
 expect(str_contains($ops, 'apply_product_computer_spec'), 'save_product persists computer spec');
+expect(str_contains($ops, "function defaultWarehouseForDepartment(dept) {"), 'quote UI uses department warehouse default');
+expect(str_contains($ops, "return (list && list[0]) ? list[0] : '台灣倉';"), 'JS warehouse fallback is Taiwan warehouse');
+expect(str_contains($ops, 'id="productQuickStockWarehouse" data-current="台灣倉"'), 'quick inbound defaults to Taiwan warehouse');
 
 if ($failed > 0) {
     fwrite(STDERR, $failed . " assertion(s) failed\n");
