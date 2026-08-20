@@ -8453,7 +8453,10 @@ function getSameStoreItems(){
         const rows = JSON.parse(localStorage.getItem("sameStoreItems") || "[]");
         const localRows = Array.isArray(rows) ? rows : [];
         const fallbackRows = Array.isArray(window.__sameStoreFallbackRows) ? window.__sameStoreFallbackRows : [];
-        return sameStoreDataScore(fallbackRows) > sameStoreDataScore(localRows) ? fallbackRows : localRows;
+        const sharedRows = parseSharedListValue(window.HUOMANGE_SHARED_DATA ? window.HUOMANGE_SHARED_DATA.sameStoreItems : null);
+        const candidates = [localRows, fallbackRows, sharedRows];
+        candidates.sort((a, b) => sameStoreDataScore(b) - sameStoreDataScore(a));
+        return candidates[0] || [];
     }catch(e){
         console.error("sameStoreItems parse failed", e);
         return Array.isArray(window.__sameStoreFallbackRows) ? window.__sameStoreFallbackRows : [];
@@ -9027,6 +9030,10 @@ function hasAnyDashboardLocalData(){
 }
 
 function loadDashboard(){
+    if(typeof ensureSameStoreSharedData === "function" && !window.__dashSameStoreEnsured){
+        window.__dashSameStoreEnsured = true;
+        ensureSameStoreSharedData().then(function(){ loadDashboard(); }).catch(function(){});
+    }
     if(window.HUOMANGE_SHARED_STORAGE && window.HUOMANGE_SHARED_READY !== true && !window.HUOMANGE_SHARED_PUBLIC_FALLBACK && !hasAnyDashboardLocalData()){
         ["saleCount","expireCount","soonCount","soldCount","targetCount","peerDashboardCount","sameStoreCount"].forEach(id=>setTextSafe(id, "同步中"));
         setTextSafe("sameStoreNote", "資料同步中");
@@ -9458,7 +9465,7 @@ function getObjectGalleryRef(item){
   }
   return item.contractNo || item.id || item.targetId || "";
 }
-function objectThumbHtml(item, altText){ const images=getObjectImages(item||{}); if(!images.length) return '<div class="object-list-thumb placeholder">\u5c1a\u672a<br>\u4e0a\u50b3\u7167\u7247</div>'; const ref=getObjectGalleryRef(item||{}); return '<img class="object-list-thumb" src="'+htmlEscape(images[0])+'" alt="'+htmlEscape(altText||"\u7269\u4ef6\u7167\u7247")+'" onclick="event.preventDefault();event.stopPropagation();showPropertyGallery(\''+htmlEscape(ref)+'\')">'; }
+function objectThumbHtml(item, altText){ const images=getObjectImages(item||{}); if(!images.length) return '<div class="object-list-thumb placeholder">\u5c1a\u672a<br>\u4e0a\u50b3\u7167\u7247</div>'; const src=compactExternalImageUrl(images[0]); const ref=getObjectGalleryRef(item||{}); return '<img class="object-list-thumb" src="'+htmlEscape(src)+'" alt="'+htmlEscape(altText||"\u7269\u4ef6\u7167\u7247")+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;object-list-thumb placeholder&quot;>照片<br>載入失敗</div>\'" onclick="event.preventDefault();event.stopPropagation();showPropertyGallery(\''+htmlEscape(ref)+'\')">'; }
 function dashboardItemRow(item,type){
   const expire=dashboardExpireInfo(item);
   const rowClass=expire.state==="expired"?" expired":expire.state==="soon"?" expire-soon":"";
@@ -10907,7 +10914,7 @@ function renderPeerDevelopmentList(){
             const key = htmlEscape(rawKey);
             const disabled = item.status === "已帶入賣主開發" ? "disabled" : "";
             const peerPhotos = getPeerDevelopmentImages(item);
-            const photoCount = peerPhotos.length;
+            const photoCount = Number(item.photoCount || 0) || peerPhotos.length;
             const deedCount = getPeerDevelopmentDeedImages(item).length;
             const deedFileCount = getPeerDevelopmentDeedFiles(item).length;
             const unitPrice = normalizePeerUnitPriceNumber(item);
