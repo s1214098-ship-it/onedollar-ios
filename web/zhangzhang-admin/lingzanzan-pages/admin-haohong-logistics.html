@@ -7,7 +7,7 @@
   <link rel="icon" href="./assets/brand-icon-192.png">
   <link rel="stylesheet" href="./assets/admin.css?v=20260819-purchase-dup-1">
   <link rel="stylesheet" href="./assets/admin-navigation.css?v=20260817-staff-no-finance-1" data-admin-navigation-style>
-  <link rel="stylesheet" href="./assets/admin-haohong-logistics.css?v=20260820-batch-expand-1">
+  <link rel="stylesheet" href="./assets/admin-haohong-logistics.css?v=20260820-signed-done-1">
 </head>
 <body class="labels-ready">
   <script>
@@ -53,7 +53,7 @@
           <div>
             <p>HAOHONG COMPARE</p>
             <h2>豪鴻集運對照</h2>
-            <span>這頁只給豪鴻批號、轉運單、包裹物流單搜尋與比對。批次表可點批號展開看裡面有哪些物流單。在豪鴻網站做好批次集運後，按「從豪鴻重新抓」讀清單；帶入後台仍走物流集運既有流程。</span>
+            <span>預設只看未簽收。豪鴻已簽收的批次寶輝都驗收過了，直接當已簽收完成，不必再核對品名。在豪鴻網站做好批次集運後，按「從豪鴻重新抓」讀清單。</span>
           </div>
           <div class="haohong-logistics-actions">
             <a class="ghost-button" href="https://member.haohong56.com/#/myOrder" target="_blank" rel="noopener">開啟豪鴻我的訂單</a>
@@ -65,6 +65,13 @@
         <form class="haohong-logistics-tools" onsubmit="return false">
           <label>搜尋
             <input type="search" data-haohong-search autocomplete="off" placeholder="批號 / 轉運單 / 物流單號 / 品名">
+          </label>
+          <label>狀態
+            <select data-haohong-status-filter>
+              <option value="unsigned" selected>未簽收（要看）</option>
+              <option value="signed">已簽收完成</option>
+              <option value="all">全部</option>
+            </select>
           </label>
           <label>比對
             <select data-haohong-filter>
@@ -90,6 +97,6 @@
   <script src="./assets/admin-labels.js?v=20260718-preorder-waiting-flow-2" defer></script>
   <script src="./assets/admin-ui-rescue.js?v=20260817-help-1" defer></script>
   <script src="./assets/admin-navigation.js?v=20260819-haohong-table-1" defer></script>
-  <script src="./assets/admin-haohong-logistics.js?v=20260820-batch-expand-2" defer></script>
+  <script src="./assets/admin-haohong-logistics.js?v=20260820-signed-done-1" defer></script>
 </body>
 </html>

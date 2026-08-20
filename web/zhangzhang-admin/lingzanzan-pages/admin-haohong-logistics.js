@@ -43,10 +43,25 @@
   }
 
   function compareClass(label) {
+    if (label === '已簽收完成') return 'is-signed-done';
     if (label === '已對上' || (label && label.indexOf('已帶入') !== -1)) return 'is-matched';
     if (label && (label.indexOf('未帶入') !== -1 || label.indexOf('未建檔') !== -1)) return 'is-missing';
     if (label && (label.indexOf('不同') !== -1 || label.indexOf('沒有') !== -1)) return 'is-diff';
     return '';
+  }
+
+  function isSignedRow(row) {
+    if (row && row.signed === true) return true;
+    var blob = [row && row.haohongStatus, row && row.packageStatus, row && row.localStatus, row && row.compare].map(function (value) {
+      return String(value || '');
+    }).join(' ');
+    if (/待[簽签]收|未[簽签]收/.test(blob)) return false;
+    return /已[簽签]收/.test(blob) || blob.indexOf('已簽收完成') !== -1;
+  }
+
+  function statusFilterValue() {
+    var el = $('[data-haohong-status-filter]');
+    return String((el && el.value) || 'unsigned');
   }
 
   function hay(row) {
@@ -110,23 +125,49 @@
   function filteredRows() {
     var q = searchQuery();
     var filter = String(($('[data-haohong-filter]') || {}).value || 'all');
+    var statusFilter = statusFilterValue();
     var rows = state.mode === 'packages' ? state.packages : state.batches;
     return rows.filter(function (row) {
       var haystack = state.mode === 'batches' ? batchHay(row) : hay(row);
       if (q && !queryHits(haystack, q)) return false;
+      var signed = isSignedRow(row);
+      if (!q) {
+        if (statusFilter === 'unsigned' && signed) return false;
+        if (statusFilter === 'signed' && !signed) return false;
+      } else if (statusFilter === 'unsigned' && signed) {
+        return false;
+      } else if (statusFilter === 'signed' && !signed) {
+        return false;
+      }
       var label = String(row.compare || '');
-      if (filter === 'matched') return label === '已對上' || label.indexOf('已帶入') !== -1;
-      if (filter === 'remote-only') return label.indexOf('豪鴻有') !== -1;
-      if (filter === 'local-only') return label.indexOf('後台有') !== -1 && label.indexOf('沒有') !== -1;
-      if (filter === 'diff') return label.indexOf('不同') !== -1;
+      if (filter === 'matched') return label === '已對上' || label.indexOf('已帶入') !== -1 || label === '已簽收完成';
+      if (filter === 'remote-only') return !signed && label.indexOf('豪鴻有') !== -1;
+      if (filter === 'local-only') return !signed && label.indexOf('後台有') !== -1 && label.indexOf('沒有') !== -1;
+      if (filter === 'diff') return !signed && label.indexOf('不同') !== -1;
       return true;
     });
   }
 
   function renderBatchPackages(row, q) {
     var pkgs = packagesForBatch(row);
+    var signed = isSignedRow(row);
     if (!pkgs.length) {
-      return '<p class="haohong-batch-empty">這個批次目前沒有物流單可展開。可改看「包裹表」，或按「從豪鴻重新抓」。</p>';
+      return signed
+        ? '<p class="haohong-batch-empty">已簽收完成。豪鴻已簽收，寶輝已驗收，不必再核對。</p>'
+        : '<p class="haohong-batch-empty">這個批次目前沒有物流單可展開。可改看「包裹表」，或按「從豪鴻重新抓」。</p>';
+    }
+    if (signed) {
+      return '<div class="haohong-batch-detail-head"><strong>已簽收完成</strong><span>豪鴻已簽收，寶輝已驗收，不必再核對品名或建檔。本批 ' + pkgs.length + ' 筆物流。</span></div>' +
+        '<table class="haohong-batch-detail-table"><thead><tr>' +
+        '<th>物流單號</th><th>豪鴻品名</th><th>豪鴻狀態</th><th>後台商品</th><th>比對</th>' +
+        '</tr></thead><tbody>' + pkgs.map(function (pkg) {
+          var hit = queryHitsPackage(pkg, q);
+          return '<tr><td class="' + (hit ? 'haohong-hit-tracking' : '') + '">' + escapeHtml(pkg.trackingNo || '') +
+            '</td><td>' + escapeHtml(pkg.productName || '') +
+            '</td><td>' + escapeHtml(pkg.packageStatus || '已簽收完成') +
+            '</td><td>' + escapeHtml([pkg.backendCode, pkg.backendProduct].filter(Boolean).join(' ')) +
+            '</td><td class="is-signed-done">已簽收完成</td></tr>';
+        }).join('') + '</tbody></table>';
     }
     var missing = pkgs.filter(function (pkg) { return String(pkg.compare || '').indexOf('未建檔') !== -1; }).length;
     var filed = pkgs.length - missing;
@@ -146,13 +187,16 @@
   function renderSummary() {
     var el = $('[data-haohong-summary]');
     if (!el) return;
-    var remoteOnly = state.batches.filter(function (row) { return String(row.compare).indexOf('豪鴻有') !== -1; }).length;
-    var matched = state.batches.filter(function (row) { return row.compare === '已對上'; }).length;
+    var unsigned = state.batches.filter(function (row) { return !isSignedRow(row); }).length;
+    var signedDone = state.batches.filter(isSignedRow).length;
+    var remoteOnly = state.batches.filter(function (row) { return !isSignedRow(row) && String(row.compare).indexOf('豪鴻有') !== -1; }).length;
+    var matched = state.batches.filter(function (row) { return !isSignedRow(row) && row.compare === '已對上'; }).length;
     el.innerHTML = [
-      '<span>批次 ' + state.batches.length + '</span>',
+      '<span>未簽收 ' + unsigned + '</span>',
+      '<span>已簽收完成 ' + signedDone + '</span>',
+      '<span>未簽收已對上 ' + matched + '</span>',
+      '<span>未簽收未帶入 ' + remoteOnly + '</span>',
       '<span>包裹 ' + state.packages.length + '</span>',
-      '<span>已對上 ' + matched + '</span>',
-      '<span>豪鴻有未帶入 ' + remoteOnly + '</span>',
       '<span>' + (state.hasSnapshot ? ('豪鴻清單 ' + (state.snapshotAt || '已抓')) : '尚未重抓豪鴻，目前只顯示後台已帶入') + '</span>',
       state.mode === 'batches' ? '<button type="button" data-haohong-expand-all>全部展開</button><button type="button" data-haohong-collapse-all>全部收合</button>' : ''
     ].join('');
@@ -236,8 +280,8 @@
         if (!res.ok || payload.ok === false) throw new Error(payload.error || '無法讀取豪鴻對照表');
         applyPayload(payload);
         setStatus(payload.hasSnapshot
-          ? ('豪鴻清單時間：' + (payload.snapshotAt || '已抓') + '。點批號可展開看裡面的物流單。')
-          : '目前先顯示後台已帶入的豪鴻批號。點批號可展開看物流單；按「從豪鴻重新抓」才會跟豪鴻官網清單對上。');
+          ? ('預設只看未簽收。豪鴻清單時間：' + (payload.snapshotAt || '已抓') + '。已簽收的當已驗收完成。')
+          : '預設只看未簽收。按「從豪鴻重新抓」才會跟豪鴻官網清單對上。');
         return payload;
       });
     }).catch(function (error) {
@@ -278,12 +322,36 @@
     });
   }
 
+  function ensureStatusFilter() {
+    if ($('[data-haohong-status-filter]')) return;
+    var tools = document.querySelector('.haohong-logistics-tools');
+    var compare = $('[data-haohong-filter]');
+    var compareLabel = compare && compare.closest('label');
+    if (!tools || !compareLabel) return;
+    var label = document.createElement('label');
+    label.appendChild(document.createTextNode('狀態'));
+    var sel = document.createElement('select');
+    sel.setAttribute('data-haohong-status-filter', '');
+    [['unsigned', '未簽收（要看）'], ['signed', '已簽收完成'], ['all', '全部']].forEach(function (opt) {
+      var option = document.createElement('option');
+      option.value = opt[0];
+      option.textContent = opt[1];
+      if (opt[0] === 'unsigned') option.selected = true;
+      sel.appendChild(option);
+    });
+    label.appendChild(sel);
+    tools.insertBefore(label, compareLabel);
+  }
+
   function bind() {
+    ensureStatusFilter();
     var search = $('[data-haohong-search]');
     var filter = $('[data-haohong-filter]');
+    var statusFilter = $('[data-haohong-status-filter]');
     var refresh = $('[data-haohong-refresh]');
     if (search) search.addEventListener('input', function () { paint(); });
     if (filter) filter.addEventListener('change', function () { paint(); });
+    if (statusFilter) statusFilter.addEventListener('change', function () { paint(); });
     if (refresh) refresh.addEventListener('click', refreshFromHaohong);
     document.querySelectorAll('[data-haohong-mode]').forEach(function (button) {
       button.addEventListener('click', function () {

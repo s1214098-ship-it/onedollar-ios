@@ -17,7 +17,7 @@
 }
 .haohong-logistics-tools {
   display: grid;
-  grid-template-columns: minmax(240px, 1.4fr) minmax(180px, .8fr) auto;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(150px, .7fr) minmax(170px, .8fr) auto;
   gap: 12px;
   align-items: end;
   margin: 0 0 14px;
@@ -107,6 +107,7 @@
   background: rgba(240, 198, 94, .06);
 }
 .haohong-logistics-table .is-matched { color: #8af0cb; font-weight: 800; }
+.haohong-logistics-table .is-signed-done { color: #9ad7ff; font-weight: 800; }
 .haohong-logistics-table .is-missing { color: #ff9aad; font-weight: 800; }
 .haohong-logistics-table .is-diff { color: #ffd166; font-weight: 800; }
 .haohong-batch-toggle {
@@ -194,6 +195,7 @@
   font-weight: 900;
   background: #32282f;
 }
+.haohong-batch-detail-table .is-signed-done { color: #9ad7ff; font-weight: 800; }
 .haohong-hit-tracking {
   color: #79dfd1;
   letter-spacing: .04em;
