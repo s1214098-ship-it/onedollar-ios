@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-@ini_set('memory_limit', '512M');
+@ini_set('memory_limit', '1024M');
+@ini_set('max_execution_time', '180');
+@set_time_limit(180);
 
 session_name('HUOMANGE_ADMIN');
 $sessionLifetime = 86400;
@@ -79,6 +81,84 @@ function serveJsonCache(string $dataFile, string $cacheFile, $builder): void {
     header('X-Db-Cache: miss');
     echo $payload;
     exit;
+}
+
+function stubJsonKeyValue(string $json, string $key): string {
+    $needle = '"' . $key . '"';
+    $pos = strpos($json, $needle);
+    if ($pos === false) return $json;
+    $colon = strpos($json, ':', $pos + strlen($needle));
+    if ($colon === false) return $json;
+    $len = strlen($json);
+    $i = $colon + 1;
+    while ($i < $len && ctype_space($json[$i])) $i++;
+    if ($i >= $len) return $json;
+    if ($json[$i] === '"') {
+        $i++;
+        while ($i < $len) {
+            if ($json[$i] === '\\') {
+                $i += 2;
+                continue;
+            }
+            if ($json[$i] === '"') {
+                $i++;
+                break;
+            }
+            $i++;
+        }
+        return substr($json, 0, $colon + 1) . ' "[]"' . substr($json, $i);
+    }
+    if ($json[$i] === '[') {
+        $depth = 0;
+        $inStr = false;
+        $esc = false;
+        for ($j = $i; $j < $len; $j++) {
+            $ch = $json[$j];
+            if ($inStr) {
+                if ($esc) {
+                    $esc = false;
+                    continue;
+                }
+                if ($ch === '\\') {
+                    $esc = true;
+                    continue;
+                }
+                if ($ch === '"') $inStr = false;
+                continue;
+            }
+            if ($ch === '"') {
+                $inStr = true;
+                continue;
+            }
+            if ($ch === '[') $depth++;
+            elseif ($ch === ']') {
+                $depth--;
+                if ($depth === 0) {
+                    return substr($json, 0, $colon + 1) . ' []' . substr($json, $j + 1);
+                }
+            }
+        }
+    }
+    return $json;
+}
+
+function stubHeavyJsonKeys(string $json, array $keepKeys): string {
+    foreach (['peerDevelopmentItems', 'storeDevelopmentItems'] as $key) {
+        if (in_array($key, $keepKeys, true)) continue;
+        $json = stubJsonKeyValue($json, $key);
+    }
+    return $json;
+}
+
+function readDbForKeys(string $dataFile, array $keys): array {
+    if (!file_exists($dataFile)) return [];
+    $json = stubHeavyJsonKeys((string)file_get_contents($dataFile), $keys);
+    $data = json_decode($json ?: '{}', true);
+    if (!is_array($data)) {
+        $data = [];
+    }
+    unset($json);
+    return stripBlockedListingsFromDb(pickDbKeys($data, $keys ?: array_keys($data)));
 }
 
 function readDb(string $dataFile): array {
@@ -169,6 +249,26 @@ function stripBlockedListingsFromDb(array $db): array {
     return $db;
 }
 
+function writeKeyedCaches(string $dataFile, array $db): void {
+    $adminKeys = ['properties','borrowItems','sameStoreItems','archivedObjects','importLogs','customers','targets','ycutFollowIds','employees','passwordRecords','layouts','types','expireStart','expireLimit','agentInfo'];
+    $phpPublicKeys = ['properties','sameStoreItems','borrowItems','layouts','types','agentInfo'];
+    $jsPublicKeys = ['properties','layouts','types','agentInfo','sameStoreItems','borrowItems'];
+    $dir = cacheDir($dataFile);
+    if (!is_dir($dir)) @mkdir($dir, 0775, true);
+    @file_put_contents(
+        keyCacheFile($dataFile, 'admin', $adminKeys),
+        json_encode(['ok' => true, 'data' => pickDbKeys($db, $adminKeys)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    );
+    @file_put_contents(
+        keyCacheFile($dataFile, 'public', $phpPublicKeys),
+        json_encode(['ok' => true, 'public' => true, 'data' => pickDbKeys($db, $phpPublicKeys)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    );
+    @file_put_contents(
+        keyCacheFile($dataFile, 'public', $jsPublicKeys),
+        json_encode(['ok' => true, 'public' => true, 'data' => pickDbKeys($db, $jsPublicKeys)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    );
+}
+
 function writeDb(string $dataFile, array $data): void {
     $dir = dirname($dataFile);
     if (!is_dir($dir)) {
@@ -189,13 +289,15 @@ function writeDb(string $dataFile, array $data): void {
     flock($fp, LOCK_UN);
     fclose($fp);
     clearReadCaches($dataFile);
+    writeKeyedCaches($dataFile, $data);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $requestedKeys = array_values(array_filter(array_map('trim', explode(',', (string)($_GET['keys'] ?? '')))));
     if (($_GET['public'] ?? '') === '1') {
         serveJsonCache($dataFile, keyCacheFile($dataFile, 'public', $requestedKeys ?: $publicKeys), function () use ($dataFile, $publicKeys, $requestedKeys) {
-            $db = readDb($dataFile);
+            $keys = $requestedKeys ?: $publicKeys;
+            $db = readDbForKeys($dataFile, $keys);
             return ['ok' => true, 'public' => true, 'data' => publicDb($db, $publicKeys, $requestedKeys)];
         });
     }
@@ -204,8 +306,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     if ($requestedKeys) {
         serveJsonCache($dataFile, keyCacheFile($dataFile, 'admin', $requestedKeys), function () use ($dataFile, $requestedKeys) {
-            $db = readDb($dataFile);
-            return ['ok' => true, 'data' => pickDbKeys($db, $requestedKeys)];
+            $db = readDbForKeys($dataFile, $requestedKeys);
+            return ['ok' => true, 'data' => $db];
         });
     }
     $db = readDb($dataFile);

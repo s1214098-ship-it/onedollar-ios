@@ -162,6 +162,16 @@
     return false;
   }
 
+  function shouldKeepExistingSameStore(incoming, existing) {
+    const oldRows = parseListValue(existing);
+    if (!existing || oldRows.length < 20) return false;
+    return shouldBlockSameStoreSync(incoming, existing);
+  }
+
+  function isEmptyListValue(value) {
+    return parseListValue(normalizeSharedValue(value)).length === 0;
+  }
+
   function scheduleSet(key, value, oldValue) {
     if (isHydrating || !SYNC_KEYS.includes(key)) return;
     value = stripBlockedListings(key, value);
@@ -207,7 +217,13 @@
         if (!response.ok) throw new Error(url + " returned " + response.status);
         const payload = await response.json();
         window.HUOMANGE_SHARED_PUBLIC_FALLBACK = !PUBLIC_READ && /public=1/.test(url);
-        return payload && payload.data ? payload.data : (payload || {});
+        const data = payload && payload.data ? payload.data : (payload || {});
+        const props = parseListValue(normalizeSharedValue(data.properties));
+        const same = parseListValue(normalizeSharedValue(data.sameStoreItems));
+        const targets = parseListValue(normalizeSharedValue(data.targets));
+        const looksEmpty = !payload || payload.ok === false || (props.length === 0 && same.length === 0 && targets.length === 0);
+        if (looksEmpty && !/public=1/.test(url)) throw new Error("admin payload empty");
+        return data;
       } catch (error) {
         lastError = error;
       }
@@ -234,7 +250,12 @@
             return;
           }
 
-          if (key === "sameStoreItems" && existing && shouldBlockSameStoreSync(normalized, existing)) {
+          if (isEmptyListValue(normalized) && !isEmptyListValue(existing) && (key === "sameStoreItems" || key === "properties" || key === "targets" || key === "borrowItems")) {
+            window.HUOMANGE_SHARED_SKIPPED_KEYS.push(key);
+            return;
+          }
+
+          if (key === "sameStoreItems" && shouldKeepExistingSameStore(normalized, existing)) {
             window.HUOMANGE_SHARED_SKIPPED_KEYS.push(key);
             return;
           }
@@ -257,9 +278,21 @@
     }
   }
 
+  function refreshDashboardIfPresent() {
+    try {
+      if (typeof window.loadDashboard === "function") window.loadDashboard();
+    } catch (error) {}
+  }
+
   window.HUOMANGE_SHARED_STORAGE = {
-    ready: hydrate(),
-    reload: hydrate,
+    ready: hydrate().then(function () {
+      refreshDashboardIfPresent();
+    }),
+    reload: function () {
+      return hydrate().then(function () {
+        refreshDashboardIfPresent();
+      });
+    },
     flush: function () { flushPending(false); }
   };
 

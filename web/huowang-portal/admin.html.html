@@ -4039,7 +4039,7 @@ input[list*="List"],input[list]{
   </div>
 </div>
 
-<script src="shared-storage.js?v=202608200708"></script>
+<script src="shared-storage.js?v=202608200800"></script>
 <script>
 const areas = {
 "臺北市":["中正區","大同區","中山區","松山區","大安區","萬華區","信義區","士林區","北投區","內湖區","南港區","文山區"],
@@ -9063,9 +9063,15 @@ function filterDashboard(type) {
 function goSoonExpireProperties() { currentDashboardFilter = "soon"; window.dashboardAreaFilter = null; show("dashboard"); searchDashboard(); }
 function goExpiredProperties() { currentDashboardFilter = "expire"; window.dashboardAreaFilter = null; show("dashboard"); searchDashboard(); }
 function hasAnyDashboardLocalData(){
-    return ["properties","targets","sameStoreItems","borrowItems","peerDevelopmentItems","customers"].some(function(key){
+    const hasLocal = ["properties","targets","sameStoreItems","borrowItems","peerDevelopmentItems","customers"].some(function(key){
         const value = localStorage.getItem(key);
         return value && value !== "[]" && value !== "{}";
+    });
+    if(hasLocal) return true;
+    const shared = window.HUOMANGE_SHARED_DATA || {};
+    return ["properties","targets","sameStoreItems","borrowItems","peerDevelopmentItems"].some(function(key){
+        const rows = typeof parseSharedListValue === "function" ? parseSharedListValue(shared[key]) : [];
+        return rows.length > 0;
     });
 }
 
@@ -9073,6 +9079,17 @@ function loadDashboard(){
     if(typeof ensureSameStoreSharedData === "function" && !window.__dashSameStoreEnsured){
         window.__dashSameStoreEnsured = true;
         ensureSameStoreSharedData().then(function(){ loadDashboard(); }).catch(function(){});
+    }
+    if(typeof getPeerDevelopmentItems === "function" && !getPeerDevelopmentItems().length && !window.__peerDashCountTried){
+        window.__peerDashCountTried = true;
+        fetch("api/peer-list.json?ts=" + Date.now(), {cache:"no-store"}).then(function(res){ return res.json(); }).then(function(payload){
+            const rows = parseSharedListValue(payload && payload.data ? payload.data.peerDevelopmentItems : null);
+            if(rows.length){
+                window.HUOMANGE_SHARED_DATA = window.HUOMANGE_SHARED_DATA || {};
+                window.HUOMANGE_SHARED_DATA.peerDevelopmentItems = rows;
+            }
+            loadDashboard();
+        }).catch(function(){});
     }
     if(window.HUOMANGE_SHARED_STORAGE && window.HUOMANGE_SHARED_READY !== true && !window.HUOMANGE_SHARED_PUBLIC_FALLBACK && !hasAnyDashboardLocalData()){
         ["saleCount","expireCount","soonCount","soldCount","targetCount","peerDashboardCount","sameStoreCount"].forEach(id=>setTextSafe(id, "同步中"));
@@ -9224,8 +9241,19 @@ function getTodayAiImportCount(){
         }).length;
     }catch(e){ return 0; }
 }
-function getDashboardProperties(){ return JSON.parse(localStorage.getItem("properties")||"[]").map((item, idx)=>Object.assign({_idx:idx,_scope:"property"}, item || {})); }
-function getDashboardTargets(){ return JSON.parse(localStorage.getItem("targets")||"[]").map((item, idx)=>Object.assign({_idx:idx,_scope:"target"}, item || {})); }
+function readDashboardStorageList(key){
+    let localRows = [];
+    try{
+        const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+        localRows = Array.isArray(parsed) ? parsed : [];
+    }catch(e){ localRows = []; }
+    const sharedRows = typeof parseSharedListValue === "function"
+        ? parseSharedListValue(window.HUOMANGE_SHARED_DATA ? window.HUOMANGE_SHARED_DATA[key] : null)
+        : [];
+    return sharedRows.length > localRows.length ? sharedRows : localRows;
+}
+function getDashboardProperties(){ return readDashboardStorageList("properties").map((item, idx)=>Object.assign({_idx:idx,_scope:"property"}, item || {})); }
+function getDashboardTargets(){ return readDashboardStorageList("targets").map((item, idx)=>Object.assign({_idx:idx,_scope:"target"}, item || {})); }
 function getDashboardSameStoreItems(){ return getSameStoreItems().map((item, idx)=>Object.assign({_idx:idx,_scope:"sameStore", county:item.city||item.county, area:item.district||item.area, title:item.title||"同店物件", price:item.price, addressRoad:item.road, addressDetail:item.nearby, saleStatus:item.status==="已成交"?"sold":"available", expireDate:item.expireDate||"", owner:item.contact||"", buyer:""}, item || {})); }
 function getDashboardBorrowItems(){ return getBorrowItems().map((item, idx)=>Object.assign({_idx:idx,_scope:"borrow", county:item.city||item.county, area:item.district||item.area, title:item.title||"異店物件", price:item.price, addressRoad:item.road, addressDetail:item.nearby, saleStatus:item.status==="已成交"?"sold":"available", expireDate:item.expireDate||"", owner:item.contact||"", buyer:""}, item || {})); }
 function isDashboardActiveSameStoreItem(item){
@@ -13599,7 +13627,7 @@ window.onload=async function(){
     if (window.HUOMANGE_SHARED_STORAGE) {
         await Promise.race([
             window.HUOMANGE_SHARED_STORAGE.ready.catch(()=>{}),
-            new Promise(resolve=>setTimeout(resolve, 2500))
+            new Promise(resolve=>setTimeout(resolve, 12000))
         ]);
     }
     initCounties(); 
