@@ -425,7 +425,7 @@ function ensure_product_category_rule(&$categories, $group, $type, $brand = '', 
     $type = trim((string)$type);
     $brand = trim((string)$brand);
     $spec = trim((string)$spec);
-    if ($group === '') $group = '電腦部門';
+    if ($group === '') $group = function_exists('product_category_root_groups') ? '組裝硬體' : '電腦部門';
     if ($type === '') return null;
     $existing = find_product_category_rule($categories, $group, $type, $brand, $spec);
     if ($existing) return $existing;
@@ -446,7 +446,7 @@ function ensure_product_category_rule(&$categories, $group, $type, $brand = '', 
     ];
     $categories[] = $row;
     write_data('product_categories', $categories);
-    if (in_array($group, ['電腦部門', '電腦'], true)) sync_lingzanzan_computer_type($type, $typeCode);
+    if (in_array($group, ['電腦部門', '電腦', '組裝硬體'], true)) sync_lingzanzan_computer_type($type, $typeCode);
     return $row;
 }
 function uploaded_image_ext($name, $mime = '') {
@@ -603,6 +603,10 @@ function category_type_code_map() {
         '電腦零組件' => 'PART', '周邊設備' => 'PER', '生活周邊' => 'LIFE',
         '其他電腦零組件' => 'PART', '其他電腦周邊' => 'PER', '其他電腦商品' => 'ITEM', '電腦商品' => 'ITEM',
     ];
+    if (function_exists('product_category_extra_type_codes')) {
+        $map = array_merge($map, product_category_extra_type_codes());
+    }
+    return $map;
 }
 function category_type_code($type, $explicit = '', $barcodePrefix = '') {
     $explicit = normalize_barcode_prefix($explicit);
@@ -1179,6 +1183,7 @@ function unique_values_from_categories($categories, $field) {
     sort($values, SORT_NATURAL);
     return $values;
 }
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-category-tree.php';
 function warehouse_items($items, $type) {
     return array_values(array_filter($items, function($i) use ($type) { return ($i['type'] ?? '') === $type; }));
 }
@@ -1985,7 +1990,7 @@ if (!$productCategories) {
     write_data('product_categories', $productCategories);
 }
 $requiredComputerCategoryTypes = [
-    '生活周邊' => ['type_code' => 'LIFE', 'brand' => '不指定品牌', 'spec' => '一般規格', 'note' => '電腦部生活周邊，與服裝生活用品分開'],
+    '主機板' => ['group' => '組裝硬體', 'type_code' => 'MB', 'brand' => '不指定品牌', 'spec' => '一般規格', 'note' => '組裝硬體：主機板 → 廠牌 → 規格 → 商品'],
 ];
 $categorySeedChanged = false;
 foreach ($requiredComputerCategoryTypes as $typeName => $meta) {
@@ -1994,15 +1999,16 @@ foreach ($requiredComputerCategoryTypes as $typeName => $meta) {
         if (!is_array($row)) continue;
         $group = trim((string)($row['group'] ?? ''));
         $type = trim((string)($row['type'] ?? ''));
-        if ($type === $typeName && in_array($group, ['電腦部門', '電腦'], true)) {
+        $wantGroup = $meta['group'] ?? '組裝硬體';
+        if ($type === $typeName && $group === $wantGroup) {
             $exists = true;
             break;
         }
     }
     if (!$exists) {
         $productCategories[] = [
-            'id' => uid('pc_life_peripherals'),
-            'group' => '電腦部門',
+            'id' => uid('pc_tree_'),
+            'group' => $meta['group'] ?? '組裝硬體',
             'type' => $typeName,
             'type_code' => $meta['type_code'],
             'barcode_prefix' => $meta['type_code'],
@@ -2530,14 +2536,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $type = trim((string)($_POST['category_type'] ?? ''));
         $brand = trim((string)($_POST['category_brand'] ?? ''));
         $spec = trim((string)($_POST['category_spec'] ?? ''));
-        if ($group === '') $group = trim((string)($_POST['department'] ?? '電腦部門')) ?: '電腦部門';
+        if ($group === '') $group = trim((string)($_POST['category_group'] ?? '')) ?: '組裝硬體';
         if ($type === '') {
             $notice = '請先輸入分類大綱再儲存。';
             $respondOption(false, $notice);
         } else {
             $rule = ensure_product_category_rule($productCategories, $group, $type, $brand, $spec);
             $notice = $rule
-                ? ('已記住「' . $type . ($brand !== '' ? ' / ' . $brand : '') . ($spec !== '' ? ' / ' . $spec : '') . '」，下次可直接選。電腦部門會同步領讚讚。')
+                ? ('已記住「' . $type . ($brand !== '' ? ' / ' . $brand : '') . ($spec !== '' ? ' / ' . $spec : '') . '」，下次可直接選。')
                 : '選單紀錄儲存失敗。';
             $respondOption((bool)$rule, $notice, [
                 'rule' => $rule,
@@ -3290,7 +3296,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $postedCategoryType = trim($_POST['category_type'] ?? '');
         $postedCategoryBrand = trim($_POST['category_brand'] ?? '');
         $postedCategorySpec = trim($_POST['category_spec'] ?? '');
-        if ($postedCategoryGroup === '') $postedCategoryGroup = trim($_POST['department'] ?? '電腦部門') ?: '電腦部門';
+        if ($postedCategoryGroup === '') $postedCategoryGroup = '組裝硬體';
         $selectedCategoryRule = find_product_category_rule($productCategories, $postedCategoryGroup, $postedCategoryType, $postedCategoryBrand, $postedCategorySpec);
         if ($selectedCategoryRule === null && $postedCategoryType !== '') {
             $selectedCategoryRule = ensure_product_category_rule($productCategories, $postedCategoryGroup, $postedCategoryType, $postedCategoryBrand, $postedCategorySpec);
@@ -6134,6 +6140,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         write_data('members', $members);
         $notice = '已刪除選取排程，並扣回預約庫存。';
     }
+
+    if ($action === 'apply_product_category_tree') {
+        $treeNotice = product_category_tree_migrate($productCategories, $products, $marketplaceCategoryMappings, true);
+        $opsInitialTab = 'product-categories';
+        $notice = '已依新分類樹分辨並搬移商品：組裝硬體／男性專區／女性專區／生活周邊，共 ' . (int)$treeNotice['moved_products'] . ' 件。倉庫部門沒有改。';
+    }
 }
 
 $products = read_data('products');
@@ -6148,6 +6160,14 @@ $cloudInventoryIssueRows = array_values(array_filter($cloudInventoryRows, functi
     return empty($row['product_id']) || empty($row['balance_valid']);
 }));
 $productCategories = read_data('product_categories');
+$marketplaceCategoryMappings = read_data('marketplace_category_mappings');
+if (product_category_tree_needed()) {
+    $treeNotice = product_category_tree_migrate($productCategories, $products, $marketplaceCategoryMappings, true);
+    if ($notice === '') {
+        $notice = '已套用新分類樹：組裝硬體／男性專區／女性專區／生活周邊，搬移 ' . (int)$treeNotice['moved_products'] . ' 件商品。倉別部門沒有改。';
+        $opsInitialTab = 'product-categories';
+    }
+}
 $deliveryNotes = read_data('delivery_notes');
 $shipFilterQ = trim((string)($_GET['ship_q'] ?? ''));
 $shipFilterCustomer = trim((string)($_GET['ship_customer'] ?? ''));
@@ -6273,10 +6293,10 @@ sort($warehouseOptions, SORT_NATURAL);
 $shelfOptions = location_values([], $warehouses, 'shelf_code', 'shelf');
 $layerOptions = ['上層', '下層'];
 $categoryGroups = unique_values_from_categories($productCategories, 'group');
-$categoryGroupOptions = array_values(array_unique(array_filter(array_merge($departmentOptions, $categoryGroups), function($v) {
-    return trim((string)$v) !== '' && !in_array(trim((string)$v), ['電腦倉', '台灣倉', '中國倉', '印尼倉', '服裝倉'], true);
+$categoryGroupOptions = array_values(array_unique(array_filter(array_merge(product_category_root_groups(), $categoryGroups), function($v) {
+    return trim((string)$v) !== '' && !in_array(trim((string)$v), ['電腦倉', '台灣倉', '中國倉', '印尼倉', '服裝倉', '電腦部門', '服裝部門', '電腦', '服裝'], true);
 })));
-sort($categoryGroupOptions, SORT_NATURAL);
+$categoryGroupOptions = array_values(array_unique(array_merge(product_category_root_groups(), $categoryGroupOptions)));
 $categoryTypes = unique_values_from_categories($productCategories, 'type');
 $categoryBrands = unique_values_from_categories($productCategories, 'brand');
 $categorySpecs = unique_values_from_categories($productCategories, 'spec');
@@ -8063,13 +8083,16 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         $editPrintedBarcode = $isEditingProduct ? latest_cost_barcode($editProduct) : '';
       ?>
       <input type="hidden" name="id" id="productSerialInput" value="<?=h($editSerial ?: ($editProduct['id'] ?? ''))?>" data-system-value="<?=h($editSerial ?: ($editProduct['id'] ?? ''))?>" data-existing="<?=h($editSerial ?: ($editProduct['id'] ?? ''))?>">
-      <label>產品編號 / 列印條碼<input name="barcode" id="productBarcodeInput" placeholder="例如 COM001P15096" value="<?=h($editPrintedBarcode ?: ($editProduct['barcode'] ?? ''))?>" data-existing="<?=h($editPrintedBarcode ?: ($editProduct['barcode'] ?? ''))?>" readonly><small class="muted" id="productBarcodeHint">先選分類大綱、填成本、加入顏色後自動組成。格式固定為 英文流水 + P + 成本 + 顏色碼。</small></label>
+      <label>產品編號 / 列印條碼<input name="barcode" id="productBarcodeInput" placeholder="例如 COM001P15096" value="<?=h($editPrintedBarcode ?: ($editProduct['barcode'] ?? ''))?>" data-existing="<?=h($editPrintedBarcode ?: ($editProduct['barcode'] ?? ''))?>" readonly><small class="muted" id="productBarcodeHint">先選主大綱與分類大綱、填成本、加入顏色後自動組成。格式固定為 英文流水 + P + 成本 + 顏色碼。</small></label>
       <label>產品名稱<input name="title" required value="<?=h($editProduct['title'] ?? '')?>"></label>
-      <input type="hidden" name="category_group" id="productCategoryGroupInput" value="<?=h($editProduct['category_group'] ?? ($editProduct['department'] ?? '電腦部門'))?>">
+      <label>主大綱<select name="category_group" id="productCategoryGroupInput">
+        <?php $editCategoryGroup = trim((string)($editProduct['category_group'] ?? '')); if ($editCategoryGroup === '' || in_array($editCategoryGroup, ['電腦部門', '服裝部門', '電腦', '服裝'], true)) $editCategoryGroup = '組裝硬體'; ?>
+        <?php foreach($categoryGroupOptions as $groupName): ?><option value="<?=h($groupName)?>" <?=$editCategoryGroup===$groupName?'selected':''?>><?=h($groupName)?></option><?php endforeach; ?>
+      </select><small class="muted">組裝硬體／男性專區／女性專區／生活周邊。倉別部門在下面另選，不會跟主大綱綁在一起。</small></label>
       <input type="hidden" name="category_type" id="productCategoryTypeInput" value="<?=h($editProduct['category_type'] ?? '')?>">
       <div class="spec-combo record-combo is-wide" id="productCategoryTypeComboBox">
         <div class="spec-combo-head">
-          <label>分類大綱<input id="productCategoryTypeCombo" autocomplete="off" placeholder="可選或手打，例如 顯示卡 / 主機 / 筆記型電腦" value="<?=h($editProduct['category_type'] ?? '')?>"><small class="muted">手打新分類後按儲存，下次就能選；電腦部門會同步領讚讚後台。</small></label>
+          <label>分類大綱<input id="productCategoryTypeCombo" autocomplete="off" placeholder="組裝硬體選主機板；服裝選鞋子／包包；生活周邊選衛生紙／廚房用具" value="<?=h($editProduct['category_type'] ?? '')?>"><small class="muted">手打新分類後按儲存，下次就能選。</small></label>
           <button type="button" class="button-like" id="saveCategoryTypeOption">儲存此分類</button>
         </div>
         <div class="spec-combo-menu" id="productCategoryTypeMenu" hidden></div>
@@ -8334,19 +8357,23 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 </script>
   <section class="ops-card ops-tab" id="product-categories">
     <h2>產品分類</h2>
-    <p class="muted">分類固定依序建立：主大綱（電腦部門）→ 分類大綱（主機板、顯示卡）→ 品牌 → 細分類。產品建檔、庫存、排程、商城與出貨皆共用同一條分類路徑。</p>
+    <p class="muted">分類固定依序：主大綱 → 分類大綱 → 品牌 → 細分類 → 商品。例如組裝硬體 → 主機板 → 華碩 → LGA1700 → 該商品；男性專區／女性專區分開 → 鞋子／包包 → 商品；生活周邊 → 衛生紙／廚房用具／手工具／行李箱 → 商品。</p>
+    <form method="post" action="operations.php#product-categories" class="inline-form" onsubmit="return confirm('會依商品名稱自動分辨並搬到新主大綱。倉別（電腦部門／服裝部門）不會改。');">
+      <input type="hidden" name="action" value="apply_product_category_tree">
+      <button class="primary" type="submit">依此模式重新分辨並搬移現有商品</button>
+    </form>
     <form method="post" action="operations.php#product-categories" class="product-form">
       <input type="hidden" name="action" value="save_product_category">
       <label>主大綱<select name="category_group" required>
         <option value="">請選擇主大綱</option>
         <?php foreach($categoryGroupOptions as $groupName): ?><option value="<?=h($groupName)?>"><?=h($groupName)?></option><?php endforeach; ?>
       </select></label>
-      <label>分類大綱<input name="category_type" list="computerCategoryTypeSuggestions" required placeholder="例如：主機板 / 顯示卡 / 主機"></label>
+      <label>分類大綱<input name="category_type" list="computerCategoryTypeSuggestions" required placeholder="主機板／鞋子／包包／衛生紙／廚房用具"></label>
       <label>分類英文碼<input name="category_type_code" maxlength="8" pattern="[A-Za-z0-9]+" placeholder="例如：COM / GPU / MB"><small class="muted">產品編號用這個英文碼連流水。主機 COMPUTER 請填 COM。</small></label>
       <label>品牌<input name="category_brand" list="computerBrandSuggestions" placeholder="例如：ASUS / MSI / 不指定品牌"></label>
       <label>細分類<input name="category_spec" placeholder="例如：RTX 系列 / DDR5 / NVMe"></label>
       <datalist id="computerCategoryTypeSuggestions">
-        <option value="主機"><option value="處理器"><option value="主機板"><option value="顯示卡"><option value="記憶體"><option value="硬碟SSD"><option value="電源供應器"><option value="電腦機箱"><option value="散熱設備"><option value="電腦螢幕"><option value="筆電"><option value="網路設備"><option value="印表機"><option value="電腦周邊"><option value="生活周邊"><option value="鍵盤與滑鼠"><option value="軟體專區">
+        <option value="主機板"><option value="顯示卡"><option value="處理器"><option value="記憶體"><option value="硬碟SSD"><option value="電源供應器"><option value="電腦機箱"><option value="散熱設備"><option value="電腦螢幕"><option value="筆電"><option value="電腦周邊"><option value="鞋子"><option value="包包"><option value="上衣"><option value="褲子"><option value="衛生紙"><option value="廚房用具"><option value="手工具"><option value="行李箱"><option value="健康設備"><option value="燈飾">
       </datalist>
       <datalist id="computerBrandSuggestions">
         <option value="Intel"><option value="AMD"><option value="ASUS"><option value="MSI"><option value="GIGABYTE"><option value="ASRock"><option value="Kingston"><option value="Crucial"><option value="ADATA"><option value="TeamGroup"><option value="Transcend"><option value="Samsung"><option value="WD"><option value="Seagate"><option value="KIOXIA"><option value="SK hynix"><option value="ZOTAC"><option value="SAPPHIRE"><option value="PowerColor"><option value="Acer"><option value="BenQ"><option value="LG"><option value="Dell"><option value="Cooler Master"><option value="Thermaltake"><option value="CORSAIR"><option value="Seasonic"><option value="Logitech"><option value="TP-Link"><option value="D-Link"><option value="Synology"><option value="QNAP">
@@ -8438,7 +8465,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       });
     ?>
     <style>#product-categories > .table-wrap,#product-categories > .pager{display:none}</style>
-    <p class="muted">商城公開選單會依「分類大綱 → 品牌 → 細分類 → 商品」分層進入。可拖曳同一主大綱內的分類大綱調整商城順序；手機版可使用上移、下移。</p>
+    <p class="muted">商城公開選單會依「主大綱 → 分類大綱 → 品牌 → 細分類 → 商品」分層進入。可拖曳同一主大綱內的分類大綱調整商城順序；手機版可使用上移、下移。</p>
     <form id="categoryTypeOrderForm" method="post" action="operations.php#product-categories" hidden>
       <input type="hidden" name="action" value="reorder_product_category_types">
       <input type="hidden" name="category_group" id="categoryTypeOrderGroup">
@@ -12409,6 +12436,7 @@ const productSpecs = <?php echo json_encode(array_values($productSpecs), JSON_UN
 const purchaseSourceOptions = <?php echo json_encode(array_values($purchaseSourceOptions), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 const categoryTypeCodeMap = <?php echo json_encode(category_type_code_map(), json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const sharedCategoryTypes = <?php echo json_encode($sharedCategoryTypes, json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
+const productCategoryTypesByGroup = <?php echo json_encode(product_category_types_by_group(), json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const productCategoryRules = <?php echo json_encode($productCategoryRulesForJs, json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const stockCategoryRules = <?php echo json_encode($stockCategoryRulesForJs, json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const salesCustomerDirectory = <?php echo json_encode(member_contact_directory($members), json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
@@ -13207,7 +13235,7 @@ function setupProductCategoryCascade() {
   const isEditing = Boolean(String(editingInput?.value || '').trim());
   const existingSerial = String(serialInput?.dataset.existing || serialInput?.value || '').trim();
   const uniqueList = (values) => Array.from(new Set((values || []).map((value) => String(value || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
-  const currentGroup = () => String(departmentSelect?.value || groupInput.value || '電腦部門').trim() || '電腦部門';
+  const currentGroup = () => String(groupInput.value || '組裝硬體').trim() || '組裝硬體';
   const currentType = () => String(typeCombo.value || '').trim();
   const currentBrand = () => String(brandInput.value || '').trim();
   const currentSpec = () => String(specInput.value || '').trim();
@@ -13217,7 +13245,7 @@ function setupProductCategoryCascade() {
     if (brand != null && brand !== '' && String(rule.brand || '').trim() !== brand) return false;
     return true;
   });
-  const typeOptions = () => uniqueList((sharedCategoryTypes || []).concat((productCategoryRules || []).map((rule) => rule.type)));
+  const typeOptions = () => uniqueList(((productCategoryTypesByGroup && productCategoryTypesByGroup[currentGroup()]) || []).concat((sharedCategoryTypes || [])).concat((productCategoryRules || []).filter((rule) => String(rule.group || '').trim() === currentGroup() || !currentGroup()).map((rule) => rule.type)));
   const brandOptions = () => uniqueList(rulesFor(currentGroup(), currentType()).map((rule) => rule.brand).concat((productCategoryRules || []).filter((rule) => String(rule.type || '').trim() === currentType()).map((rule) => rule.brand)));
   const specOptions = () => uniqueList(rulesFor(currentGroup(), currentType(), currentBrand()).map((rule) => rule.spec));
   const renderMenu = (menu, options, query) => {
@@ -13304,7 +13332,7 @@ function setupProductCategoryCascade() {
         form.append('action', 'save_product_category_option');
         form.append('ajax', '1');
         form.append('category_group', currentGroup());
-        form.append('department', currentGroup());
+        form.append('department', String(departmentSelect?.value || '電腦部門'));
         form.append('category_type', type);
         form.append('category_brand', extra.includeBrand ? currentBrand() : '');
         form.append('category_spec', extra.includeSpec ? currentSpec() : '');
@@ -13333,8 +13361,8 @@ function setupProductCategoryCascade() {
   saveOption('saveCategoryTypeOption', { includeBrand: false, includeSpec: false });
   saveOption('saveCategoryBrandOption', { includeBrand: true, includeSpec: false });
   saveOption('saveCategorySpecOption', { includeBrand: true, includeSpec: true });
+  if (groupInput && groupInput.tagName === 'SELECT') groupInput.addEventListener('change', updateBarcodePreview);
   if (departmentSelect) departmentSelect.addEventListener('change', () => {
-    groupInput.value = currentGroup();
     updateBarcodePreview();
   });
   groupInput.value = currentGroup();
