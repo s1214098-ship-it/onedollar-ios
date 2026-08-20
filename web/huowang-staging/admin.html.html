@@ -3495,7 +3495,7 @@ input[list*="List"],input[list]{
       <select id="peerCountyFilter" onchange="refreshPeerAreaOptions()"></select>
       <select id="peerAreaFilter"></select>
       <select id="peerSourceFilter">
-        <option value="all">全部來源門店</option>
+        <option value="all">全部公司分類</option>
       </select>
       <select id="peerFeatureFilter" style="display:none">
         <option value="all">全部分類</option>
@@ -10436,6 +10436,60 @@ function peerFeatureLabel(item){
     return labels.join("、");
 }
 
+function peerRegionParts(item){
+    return {
+        county: String((item && (item.county || item.city)) || "未設定縣市").trim() || "未設定縣市",
+        area: String((item && (item.area || item.district)) || "未設定鄉鎮").trim() || "未設定鄉鎮"
+    };
+}
+
+function peerRegionLabel(item){
+    const parts = peerRegionParts(item);
+    return parts.county + "／" + parts.area;
+}
+
+function peerPriceRangeInfo(item){
+    const price = normalizePeerPriceNumber(item);
+    if(!(price > 0)) return {key:"all", label:"價格未填"};
+    if(price <= 500) return {key:"under500", label:"500萬以下"};
+    if(price <= 1000) return {key:"500-1000", label:"500-1000萬"};
+    if(price <= 1500) return {key:"1000-1500", label:"1000-1500萬"};
+    if(price <= 2000) return {key:"1500-2000", label:"1500-2000萬"};
+    return {key:"2000+", label:"2000萬以上"};
+}
+
+function applyPeerCardRegion(county, area){
+    const countySel = document.getElementById("peerCountyFilter");
+    const areaSel = document.getElementById("peerAreaFilter");
+    if(countySel){
+        if(![...countySel.options].some(o=>o.value===county)){
+            countySel.insertAdjacentHTML("beforeend", `<option value="${htmlEscape(county)}">${htmlEscape(county)}</option>`);
+        }
+        countySel.value = county;
+    }
+    refreshPeerAreaOptions();
+    if(areaSel){
+        if(![...areaSel.options].some(o=>o.value===area)){
+            areaSel.insertAdjacentHTML("beforeend", `<option value="${htmlEscape(area)}">${htmlEscape(area)}</option>`);
+        }
+        areaSel.value = area;
+    }
+    applyPeerDevelopmentSearch();
+}
+
+function applyPeerCardCompany(name){
+    initPeerDevelopmentSourceFilter();
+    const sourceSel = document.getElementById("peerSourceFilter");
+    if(sourceSel) sourceSel.value = peerSourceKey(name);
+    applyPeerDevelopmentSearch();
+}
+
+function applyPeerCardPriceRange(range){
+    const priceSel = document.getElementById("peerPriceRangeFilter");
+    if(priceSel) priceSel.value = range || "all";
+    applyPeerDevelopmentSearch();
+}
+
 function normalizePeerTypeText(item){
     return [
         item && item.type,
@@ -10482,10 +10536,11 @@ function matchPeerUnitPriceRange(unitPrice, range){
 }
 
 function normalizePeerSourceName(item){
-    const text = [item && item.sourceCompany, item && item.company, item && item.storeName, item && item.sourceSystem, item && item.sourceUrl, item && item.rawText, item && item.title].filter(Boolean).join(" ");
+    const text = [item && item.sourceCompany, item && item.company, item && item.storeName, item && item.sourceSystem, item && item.sourceHost, item && item.sourceUrl, item && item.brand, item && item.rawText, item && item.title].filter(Boolean).join(" ");
     if(/太平洋|pacific\.com\.tw/i.test(text)) return "太平洋房屋";
     if(/21世紀|century21|new\.century21\.com\.tw/i.test(text)) return "21世紀不動產";
     if(/信義|sinyi\.com\.tw/i.test(text)) return "信義房屋";
+    if(/永慶|yungching\.com\.tw|ycut/i.test(text)) return "永慶不動產";
     return String((item && (item.sourceCompany || item.company || item.storeName || item.sourceSystem)) || "來源未填").trim();
 }
 
@@ -10494,7 +10549,7 @@ function peerSourceKey(name){
 }
 
 function getPeerWatchedSourceNames(){
-    return ["太平洋房屋","21世紀不動產","信義房屋"];
+    return ["太平洋房屋","21世紀不動產","信義房屋","永慶不動產"];
 }
 
 function initPeerDevelopmentSourceFilter(){
@@ -10505,7 +10560,7 @@ function initPeerDevelopmentSourceFilter(){
     getPeerWatchedSourceNames().concat(getPeerDevelopmentItems().map(normalizePeerSourceName)).forEach(name=>{
         if(name && !names.includes(name)) names.push(name);
     });
-    sourceSel.innerHTML = '<option value="all">全部來源門店</option>' + names.map(name=>`<option value="${htmlEscape(peerSourceKey(name))}">${htmlEscape(name)}</option>`).join("");
+    sourceSel.innerHTML = '<option value="all">全部公司分類</option>' + names.map(name=>`<option value="${htmlEscape(peerSourceKey(name))}">${htmlEscape(name)}</option>`).join("");
     sourceSel.value = [...sourceSel.options].some(o=>o.value===keep) ? keep : "all";
 }
 
@@ -11002,6 +11057,11 @@ function renderPeerDevelopmentList(){
             </div>`;
             const listedDate = item.listedDate || normalizePeerListedDate(item.listedAtText) || item.listedAtText || "未填";
             const feature = peerFeatureLabel(item);
+            const region = peerRegionParts(item);
+            const companyName = normalizePeerSourceName(item);
+            const priceRange = peerPriceRangeInfo(item);
+            const storeName = String(item.storeName || item.sourceCompany || item.company || "").trim();
+            const showStore = storeName && storeName !== companyName;
             return `<article class="object-row area-picker-item peer-property-card">
                 <input type="checkbox" class="peer-dev-check" value="${key}" ${disabled} aria-label="勾選 ${htmlEscape(item.title || "未命名同業物件")}">
                 <div class="peer-thumb-wrap">
@@ -11011,15 +11071,19 @@ function renderPeerDevelopmentList(){
                 <div class="object-main">
                   <header class="peer-card-header">
                     <div>
+                      <div class="peer-class-row">
+                        <button type="button" class="peer-class-chip region" onclick="applyPeerCardRegion('${htmlEscape(region.county)}','${htmlEscape(region.area)}')"><b>地區分類</b>${htmlEscape(peerRegionLabel(item))}</button>
+                        <button type="button" class="peer-class-chip company" onclick="applyPeerCardCompany('${htmlEscape(companyName)}')"><b>公司分類</b>${htmlEscape(companyName)}</button>
+                        <button type="button" class="peer-class-chip price" onclick="applyPeerCardPriceRange('${htmlEscape(priceRange.key)}')"><b>價格區間</b>${htmlEscape(priceRange.label)}</button>
+                      </div>
                       <div class="peer-card-badges">
-                        <span class="peer-source-badge">${htmlEscape(normalizePeerSourceName(item))}</span>
                         ${feature ? `<span class="peer-feature-badge">${htmlEscape(feature)}</span>` : ""}
                         <span class="peer-status-badge">${htmlEscape(item.status || "待勾選")}</span>
                       </div>
                       <h3>${htmlEscape(item.title || "未命名同業物件")}</h3>
                     </div>
                   </header>
-                  <div class="peer-address"><span>位置</span><strong>${htmlEscape(item.address || [item.county,item.area].filter(Boolean).join(" ") || "未填")}</strong></div>
+                  <div class="peer-address"><span>位置</span><strong>${htmlEscape(item.address || [region.county, region.area, item.road].filter(Boolean).join("") || "未填")}</strong></div>
                   <div class="peer-facts">
                     <div><span>總價</span><strong>${htmlEscape(item.price || "面議")}</strong></div>
                     <div><span>單價</span><strong>${unitPrice ? htmlEscape(unitPrice) + " 萬/坪" : "未填"}</strong></div>
@@ -11029,7 +11093,7 @@ function renderPeerDevelopmentList(){
                     <div><span>地坪</span><strong>${htmlEscape(item.landArea || "-")}</strong></div>
                   </div>
                   <div class="peer-card-meta">
-                    <span>原來源：${htmlEscape(item.sourceCompany || item.sourceSystem || "未填")}</span>
+                    <span>公司：${htmlEscape(companyName)}${showStore ? "｜門市 " + htmlEscape(storeName) : ""}</span>
                     <span>上架：${htmlEscape(listedDate)}</span>
                     <span>權狀：${deedCount + deedFileCount} 件</span>
                   </div>
@@ -11038,7 +11102,7 @@ function renderPeerDevelopmentList(){
                 </div>
             </article>`;
         }).join("");
-        return `<div class="target-area-group">📌 ${htmlEscape(group)}｜本頁 ${groups[group].length} 件</div>${cards}`;
+        return `<div class="target-area-group">📌 地區分類｜${htmlEscape(group)}｜本頁 ${groups[group].length} 件</div>${cards}`;
     }).join("");
     const pager = `<div class="batch-tools peer-page-tools">
         <button type="button" class="gray" onclick="setPeerDevelopmentPage(${peerDevelopmentCurrentPage - 1})" ${peerDevelopmentCurrentPage <= 1 ? "disabled" : ""}>上一頁</button>
@@ -15875,11 +15939,39 @@ body.sidebar-hover-open .main{
 }
 #peerDevelopment .peer-card-header{display:flex;justify-content:space-between;gap:12px;margin-bottom:8px}
 #peerDevelopment .peer-card-header h3{margin:7px 0 0;font-size:20px;line-height:1.35;color:#0F172A;letter-spacing:0}
-#peerDevelopment .peer-card-badges{display:flex;flex-wrap:wrap;gap:6px}
-#peerDevelopment .peer-card-badges span{padding:4px 8px;border-radius:4px;font-size:12px;font-weight:900}
+#peerDevelopment .peer-card-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#peerDevelopment .peer-card-badges span{padding:4px 8px;border-radius:4px;font-size:13px;font-weight:900}
 #peerDevelopment .peer-source-badge{background:#E0F2FE;color:#075985}
 #peerDevelopment .peer-feature-badge{background:#FEF3C7;color:#92400E}
 #peerDevelopment .peer-status-badge{background:#ECFDF5;color:#047857}
+#peerDevelopment .peer-class-row{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 4px}
+#peerDevelopment .peer-class-chip{
+  display:inline-flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:2px;
+  margin:0 !important;
+  padding:8px 12px !important;
+  border:0 !important;
+  border-radius:8px !important;
+  font-size:16px !important;
+  font-weight:900 !important;
+  line-height:1.25;
+  cursor:pointer;
+  text-align:left;
+  box-shadow:none !important;
+  transform:none !important;
+}
+#peerDevelopment .peer-class-chip b{
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.5px;
+  opacity:.88;
+}
+#peerDevelopment .peer-class-chip.region{background:#DCFCE7 !important;color:#14532D !important;-webkit-text-fill-color:#14532D !important}
+#peerDevelopment .peer-class-chip.company{background:#DBEAFE !important;color:#1E3A8A !important;-webkit-text-fill-color:#1E3A8A !important}
+#peerDevelopment .peer-class-chip.price{background:#FFEDD5 !important;color:#9A3412 !important;-webkit-text-fill-color:#9A3412 !important}
+#peerDevelopment .peer-class-chip:hover{transform:translateY(-1px) !important;filter:brightness(.97)}
 #peerDevelopment .peer-address{
   display:grid;
   grid-template-columns:48px minmax(0,1fr);
