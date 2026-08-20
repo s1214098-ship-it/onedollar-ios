@@ -135,9 +135,9 @@ const HELPERS = `
 
 const CARD_FN = `  function freightFifoWaitNotifyCardHtml(row, index) {`;
 
-const ACTIONS_OLD = `'<div class="freight-fifo-actions">' + freightFifoWaitNotifyNoteHtml(row) + freightFifoWaitNotifyButtonHtml(row, true) + freightFifoBlacklistButtonHtml(ids.inquiryId || ids.orderId || row.id || '') + '<span class="freight-fifo-action-status" data-freight-fifo-action-status aria-live="polite"></span></div></article>';`;
+const ACTIONS_OLD = `freightFifoWaitNotifyNoteHtml(row) + freightFifoWaitNotifyButtonHtml(row, true)`;
 
-const ACTIONS_NEW = `'<div class="freight-fifo-actions">' + freightFifoWaitNotifyNoteHtml(row) + freightFifoWaitNotifyOpenShipmentHtml(row) + freightFifoWaitNotifyButtonHtml(row, true) + freightFifoBlacklistButtonHtml(ids.inquiryId || ids.orderId || row.id || '') + '<span class="freight-fifo-action-status" data-freight-fifo-action-status aria-live="polite"></span></div></article>';`;
+const ACTIONS_NEW = `freightFifoWaitNotifyNoteHtml(row) + freightFifoWaitNotifyOpenShipmentHtml(row) + freightFifoWaitNotifyButtonHtml(row, true)`;
 
 if (!fs.existsSync(ADMIN_JS)) {
   console.log("Not on PHT-SR");
@@ -150,6 +150,7 @@ if (js.indexOf(MARKER) !== -1 && js.indexOf("data-freight-fifo-wait-notify-open"
   console.log("js already patched");
 } else {
   js = replaceOnce(js, CARD_FN, HELPERS + CARD_FN, "wait-notify open-old helpers");
+  console.log("actions needle idx", js.indexOf(ACTIONS_OLD), "count-hint", js.split(ACTIONS_OLD).length - 1);
   js = replaceOnce(js, ACTIONS_OLD, ACTIONS_NEW, "wait-notify card open-old button");
 }
 if (js.indexOf(MARKER) === -1) throw new Error("open-old helper missing after patch");
