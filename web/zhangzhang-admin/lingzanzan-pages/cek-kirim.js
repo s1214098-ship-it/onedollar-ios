@@ -10,12 +10,12 @@
       label: 'Telepon / nomor resi',
       placeholder: '0812… atau nomor resi',
       submit: 'Cek sekarang',
-      hint: 'Ketik beberapa angka, langsung cari. Awal telepon, 4 terakhir, nama, atau resi.',
+      hint: 'Ketik beberapa angka, langsung cari. Awal telepon, 4 terakhir, nama, resi, daftar hitam, atau yang pernah return.',
       addhome: 'Di HP: buka tautan ini → bagikan → Tambah ke Layar Utama. Nanti cukup ketuk ikon.',
       recent: 'Baru dicari',
       searching: 'Mencari…',
       need: 'Ketik minimal 3 angka, atau 2 huruf nama.',
-      empty: 'Tidak ketemu. Coba awal telepon, 4 terakhir, nama, atau resi.',
+      empty: 'Tidak ketemu. Coba telepon, nama, resi, daftar hitam, atau yang pernah return.',
       fail: 'Gagal cek. Coba lagi.',
       failFile: 'Jangan buka file. Pakai https://www.lingzanzan.com/cek.html',
       found: 'Ketemu',
@@ -58,6 +58,15 @@
       lockFail: 'Gagal kunci. Coba lagi.',
       lockReasonOverdue: 'Tidak ambil / lewat batas',
       lockReasonSales: 'Sales kunci pelanggan',
+      blacklistTitle: 'Daftar hitam',
+      blacklistHint: 'Sales sudah kunci. Order baru akan ditahan.',
+      returnedTitle: 'Pernah dikembalikan',
+      returnedHint: 'Pernah return / ditolak. Bisa dicari dari telepon atau nama.',
+      returnTag: 'Pernah return',
+      returnCount: 'Jumlah return',
+      lastReturn: 'Return terakhir',
+      reason: 'Alasan',
+      riskEmpty: 'Tidak ada.',
       states: {
         pending: 'Menunggu dikirim',
         ready: 'Siap dikirim',
@@ -65,7 +74,8 @@
         in_transit: 'Dalam pengiriman',
         arrived_store: 'Sudah di toko, belum diambil',
         delivered: 'Sudah diterima / diambil',
-        returned: 'Dikembalikan'
+        returned: 'Dikembalikan',
+        blacklist: 'Daftar hitam'
       }
     },
     zh: {
@@ -74,12 +84,12 @@
       label: '電話／物流單號',
       placeholder: '電話或物流單號',
       submit: '立刻查貨',
-      hint: '打幾個字就會找。電話開頭、後四碼、姓名或物流單號都可以。',
+      hint: '打幾個字就會找。電話開頭、後四碼、姓名、物流單號、黑名單或退貨過的客人都可以。',
       addhome: '手機：打開這個網址 → 分享 → 加入主畫面。以後點圖示就能查。',
       recent: '最近查過',
       searching: '查詢中…',
       need: '至少打 3 碼電話，或 2 個字的姓名。',
-      empty: '找不到。改打電話開頭、後四碼、姓名或物流單號。',
+      empty: '找不到。改打電話、姓名、物流單號、黑名單或退貨過的客人。',
       fail: '查詢失敗，再試一次。',
       failFile: '不要直接開檔案。請用 https://www.lingzanzan.com/cek.html',
       found: '找到',
@@ -122,6 +132,15 @@
       lockFail: '鎖定失敗，再試一次。',
       lockReasonOverdue: '未取件／過期退回',
       lockReasonSales: '業務鎖定客戶',
+      blacklistTitle: '黑名單',
+      blacklistHint: '業務鎖過。之後打單會擋，要管理後台才能解除。',
+      returnedTitle: '退貨過的客戶',
+      returnedHint: '曾經退貨或拒收。電話、姓名都可以查。',
+      returnTag: '退貨過',
+      returnCount: '退貨次數',
+      lastReturn: '最近退貨',
+      reason: '原因',
+      riskEmpty: '目前沒有。',
       states: {
         pending: '待出貨',
         ready: '待出貨',
@@ -129,7 +148,8 @@
         in_transit: '配送中',
         arrived_store: '已到門市待取',
         delivered: '已送達／已取件',
-        returned: '已退回'
+        returned: '已退回',
+        blacklist: '黑名單'
       }
     }
   };
@@ -227,8 +247,24 @@
     return '<button type="button" class="is-lock" data-cek-lock-phone="' + esc(phone) + '" data-cek-lock-name="' + esc(row.customerName || '') + '" data-cek-lock-reason="' + esc(reason) + '">' + esc(copy.lock) + '</button>';
   }
   function blacklistTagHtml(row) {
-    if (!row.blacklisted) return '';
+    if (!row.blacklisted && row.kind !== 'blacklist' && row.state !== 'blacklist') return '';
     return '<em class="cek-blacklist-tag">' + esc(t().lockTag) + '</em>';
+  }
+  function returnTagHtml(row) {
+    var n = Number(row.returnCount || 0);
+    if (!row.returnedBefore && n <= 0 && row.kind !== 'returned_customer' && row.state !== 'returned') return '';
+    var label = t().returnTag;
+    if (n > 0) label += ' ×' + n;
+    return '<em class="cek-return-tag">' + esc(label) + '</em>';
+  }
+  function tagsHtml(row) {
+    return blacklistTagHtml(row) + returnTagHtml(row);
+  }
+  function resultCardHtml(row) {
+    if (row.kind === 'blacklist' || row.kind === 'returned_customer') {
+      return riskCardHtml(row, row.kind === 'returned_customer');
+    }
+    return cardHtml(row);
   }
   function cardHtml(row) {
     var copy = t();
@@ -250,7 +286,7 @@
     }
     return '<article class="' + cls + '">' +
       photos +
-      '<header><div><h2 class="cek-name">' + esc(row.customerName || '-') + blacklistTagHtml(row) + '</h2><p class="phone">' + esc(row.phone || copy.noPhone) + '</p>' + codHtml(row) + '</div><span class="cek-state">' + esc(stateLabel(row)) + '</span></header>' +
+      '<header><div><h2 class="cek-name">' + esc(row.customerName || '-') + tagsHtml(row) + '</h2><p class="phone">' + esc(row.phone || copy.noPhone) + '</p>' + codHtml(row) + '</div><span class="cek-state">' + esc(stateLabel(row)) + '</span></header>' +
       '<div class="cek-grid">' +
         '<div><small>' + esc(copy.order) + '</small><b>' + esc(row.orderId || '-') + '</b></div>' +
         '<div><small>' + esc(copy.carrier) + '</small><b>' + esc(row.carrier || '-') + '</b></div>' +
@@ -316,7 +352,7 @@
     }
     return '<article class="cek-simple' + (danger ? ' is-danger' : '') + (row.blacklisted ? ' is-blacklisted' : '') + '">' +
       photos +
-      '<b class="cek-name">' + esc(row.customerName || '-') + blacklistTagHtml(row) + '</b>' +
+      '<b class="cek-name">' + esc(row.customerName || '-') + tagsHtml(row) + '</b>' +
       '<p>' + esc(row.phone || copy.noPhone) + '</p>' +
       codHtml(row) +
       '<p>' + esc(copy.toko) + ': ' + esc(store || '-') + '</p>' +
@@ -330,6 +366,44 @@
       '</div>' +
     '</article>';
   }
+  function riskCardHtml(row, danger) {
+    var copy = t();
+    var phone = digits(row.phone);
+    var tracking = String(row.trackingNo || '').trim();
+    var reason = String(row.blacklistReason || '').trim();
+    var products = productText(row);
+    var lastReturn = String(row.lastReturnAt || '').slice(0, 10);
+    var n = Number(row.returnCount || 0);
+    var customerImg = String(row.customerImage || '').trim();
+    var photos = customerImg
+      ? '<div class="cek-photos"><img class="is-customer" src="' + esc(customerImg) + '" alt="' + esc(row.customerName || '') + '" loading="lazy"></div>'
+      : '';
+    var cls = 'cek-simple' + (danger ? ' is-danger' : '') + (row.blacklisted || row.kind === 'blacklist' ? ' is-blacklisted' : '') + (row.kind === 'returned_customer' ? ' is-returned-customer' : '');
+    return '<article class="' + cls + '">' +
+      photos +
+      '<b class="cek-name">' + esc(row.customerName || '-') + tagsHtml(row) + '</b>' +
+      '<p>' + esc(row.phone || copy.noPhone) + '</p>' +
+      (Number(row.codAmount) > 0 ? codHtml(row) : '') +
+      (reason ? '<p class="cek-reason">' + esc(copy.reason) + ': ' + esc(reason) + '</p>' : '') +
+      (n > 0 ? '<p>' + esc(copy.returnCount) + ': ' + n + (lastReturn ? ' · ' + esc(copy.lastReturn) + ' ' + esc(lastReturn) : '') + '</p>' : (lastReturn ? '<p>' + esc(copy.lastReturn) + ': ' + esc(lastReturn) + '</p>' : '')) +
+      (row.orderId ? '<p>' + esc(copy.order) + ': ' + esc(row.orderId) + '</p>' : '') +
+      (tracking ? '<p>' + esc(copy.tracking) + ': ' + esc(tracking) + '</p>' : '') +
+      (products ? '<p>' + esc(copy.barang) + ': ' + esc(products) + '</p>' : '') +
+      '<div class="cek-actions">' +
+        (phone ? '<a class="is-call" href="tel:' + esc(phone) + '">' + esc(copy.call) + '</a>' : '<span></span>') +
+        (tracking ? '<button type="button" data-cek-copy="' + esc(tracking) + '">' + esc(copy.copy) + '</button>' : '<span></span>') +
+        lockButtonHtml(row, false) +
+      '</div>' +
+    '</article>';
+  }
+  function boardBlockHtml(cls, title, hint, rows, cardFn) {
+    var copy = t();
+    return '<section class="cek-board-block' + (cls ? ' ' + cls : '') + '">' +
+      '<h3>' + esc(title) + ' (' + rows.length + ')</h3>' +
+      '<p>' + esc(hint) + '</p>' +
+      (rows.length ? rows.map(cardFn).join('') : '<p class="cek-board-empty">' + esc(copy.riskEmpty) + '</p>') +
+    '</section>';
+  }
   function renderBoard(data) {
     var box = $('[data-cek-board]');
     if (!box) return;
@@ -340,22 +414,22 @@
     }
     var returning = Array.isArray(data.returning) ? data.returning : [];
     var waiting = Array.isArray(data.waiting) ? data.waiting : [];
-    if (!returning.length && !waiting.length) {
+    var blacklist = Array.isArray(data.blacklist) ? data.blacklist : [];
+    var returned = Array.isArray(data.returnedCustomers) ? data.returnedCustomers : [];
+    var hasPickup = returning.length || waiting.length;
+    var hasRisk = blacklist.length || returned.length;
+    if (!hasPickup && !hasRisk) {
       box.innerHTML = '<h2>' + esc(copy.boardTitle) + '</h2><p class="cek-board-status">' + esc(copy.boardEmpty) + '</p>';
       return;
     }
     box.innerHTML =
       '<h2>' + esc(copy.boardTitle) + '</h2>' +
-      '<section class="cek-board-block is-return">' +
-        '<h3>' + esc(copy.returningTitle) + ' (' + returning.length + ')</h3>' +
-        '<p>' + esc(copy.returningHint) + '</p>' +
-        (returning.length ? returning.map(function (row) { return simpleCardHtml(row, true); }).join('') : '<p class="cek-board-empty">-</p>') +
-      '</section>' +
-      '<section class="cek-board-block">' +
-        '<h3>' + esc(copy.waitingTitle) + ' (' + waiting.length + ')</h3>' +
-        '<p>' + esc(copy.waitingHint) + '</p>' +
-        (waiting.length ? waiting.map(function (row) { return simpleCardHtml(row, false); }).join('') : '<p class="cek-board-empty">-</p>') +
-      '</section>';
+      (hasPickup
+        ? boardBlockHtml('is-return', copy.returningTitle, copy.returningHint, returning, function (row) { return simpleCardHtml(row, true); }) +
+          boardBlockHtml('', copy.waitingTitle, copy.waitingHint, waiting, function (row) { return simpleCardHtml(row, false); })
+        : '<p class="cek-board-status">' + esc(copy.boardEmpty) + '</p>') +
+      boardBlockHtml('is-blacklist', copy.blacklistTitle, copy.blacklistHint, blacklist, function (row) { return riskCardHtml(row, true); }) +
+      boardBlockHtml('is-returned', copy.returnedTitle, copy.returnedHint, returned, function (row) { return riskCardHtml(row, false); });
   }
   function loadBoard() {
     var box = $('[data-cek-board]');
@@ -410,7 +484,7 @@
     renderRecent();
     if (boardCache) renderBoard(boardCache);
     var list = $('[data-cek-list]');
-    if (list && lastSearchRows.length) list.innerHTML = lastSearchRows.map(cardHtml).join('');
+    if (list && lastSearchRows.length) list.innerHTML = lastSearchRows.map(resultCardHtml).join('');
   }
   var liveSearchTimer = 0;
   var liveSearchAbort = null;
@@ -469,7 +543,7 @@
           setStatus(t().empty, 'warn');
           return;
         }
-        list.innerHTML = rows.map(cardHtml).join('');
+        list.innerHTML = rows.map(resultCardHtml).join('');
         setStatus(t().found + ' ' + rows.length + (data.ambiguous ? ' · ' + t().many : ''), data.ambiguous ? 'warn' : 'ok');
       })
       .catch(function (error) {
@@ -574,11 +648,28 @@
         if (boardCache) {
           stamp(boardCache.returning);
           stamp(boardCache.waiting);
+          stamp(boardCache.blacklist);
+          stamp(boardCache.returnedCustomers);
+          var already = false;
+          (boardCache.blacklist || []).forEach(function (row) {
+            if (digits(row.phone) === phone) already = true;
+          });
+          if (!already) {
+            boardCache.blacklist = [{
+              kind: 'blacklist',
+              state: 'blacklist',
+              customerName: name,
+              phone: phone,
+              blacklisted: true,
+              blacklistReason: reason,
+              returnCount: 0
+            }].concat(boardCache.blacklist || []);
+          }
           renderBoard(boardCache);
         }
         stamp(lastSearchRows);
         var list = $('[data-cek-list]');
-        if (list && lastSearchRows.length) list.innerHTML = lastSearchRows.map(cardHtml).join('');
+        if (list && lastSearchRows.length) list.innerHTML = lastSearchRows.map(resultCardHtml).join('');
         setStatus(t().lockOk, 'ok');
       }).catch(function () {
         lockBtn.disabled = false;

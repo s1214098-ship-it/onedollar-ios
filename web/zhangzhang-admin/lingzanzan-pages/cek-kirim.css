@@ -234,7 +234,8 @@ body {
 .cek-card.is-blacklisted {
   border-color: #ff8aa5;
 }
-.cek-blacklist-tag {
+.cek-blacklist-tag,
+.cek-return-tag {
   display: inline-block;
   margin-left: 6px;
   padding: 2px 8px;
@@ -244,6 +245,16 @@ body {
   font-size: 12px;
   font-weight: 900;
   vertical-align: middle;
+}
+.cek-return-tag {
+  background: var(--gold);
+  color: #1a1214;
+}
+.cek-simple.is-returned-customer {
+  border-color: var(--gold);
+}
+.cek-reason {
+  color: #ffd0da !important;
 }
 .cek-actions a,
 .cek-actions button {
@@ -295,7 +306,9 @@ body {
   font-size: 14px;
   font-weight: 800;
 }
-.cek-board-block.is-return h3 { color: var(--rose); }
+.cek-board-block.is-return h3,
+.cek-board-block.is-blacklist h3 { color: var(--rose); }
+.cek-board-block.is-returned h3 { color: var(--gold); }
 .cek-simple {
   display: grid;
   gap: 4px;
