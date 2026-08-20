@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "peaklink"
+version = "1.0.0"
+description = "峰連遠端：Windows 遠端協助（免費 5 分鐘／會員時段、Taliscale 與一般遠端、兩岸中繼）"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "峰連遠端" }]
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "websockets>=14.0",
+  "httpx>=0.27.0",
+  "cryptography>=43.0.0",
+  "Pillow>=10.4.0",
+]
+
+[project.optional-dependencies]
+desktop = [
+  "mss>=9.0.1",
+  "pynput>=1.7.7",
+]
+dev = ["pytest>=8.3.0", "pytest-asyncio>=0.24.0"]
+
+[project.scripts]
+peaklink-server = "peaklink.server.app:main"
+peaklink-host = "peaklink.host.app:main"
+peaklink-viewer = "peaklink.viewer.app:main"
+peaklink-app = "peaklink.launcher:main"
+peaklink-license = "peaklink.admin.issue_license:main"
+peaklink-gen-keys = "peaklink.admin.gen_keys:main"
+
+[tool.setuptools.packages.find]
+include = ["peaklink*"]
+
+[tool.setuptools.package-data]
+peaklink = ["keys/*.pem", "keys/*.json"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
