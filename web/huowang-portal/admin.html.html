@@ -528,9 +528,22 @@ button.purple{background:#7E22CE}
 }
 .search-bar{
   display:flex;
-  gap:12px;
+  gap:8px 10px;
   flex-wrap:wrap;
-  margin-bottom:25px;
+  align-items:center;
+  margin-bottom:16px;
+}
+.search-bar > input,
+.search-bar > select,
+.search-bar > button{
+  width:auto;
+  max-width:100%;
+  margin:0;
+  flex:1 1 160px;
+}
+.search-bar > button{
+  flex:0 0 auto;
+  min-width:96px;
 }
 .contract-item{
   padding:20px;
@@ -3491,7 +3504,7 @@ input[list*="List"],input[list]{
       <div class="peer-count-card"><strong id="peerPhotoCount">0</strong><span>已有照片</span></div>
       <div class="peer-count-card"><strong id="peerImportedCount">0</strong><span>已帶入賣方開發</span></div>
     </div>
-    <div class="search-bar">
+    <div class="search-bar peer-search-bar">
       <select id="peerCountyFilter" onchange="refreshPeerAreaOptions()"></select>
       <select id="peerAreaFilter"></select>
       <select id="peerSourceFilter">
@@ -16473,6 +16486,52 @@ body{overscroll-behavior-x:none!important}
 .contract-item.property-card-item .property-list-row{
   display:grid!important;
   grid-template-columns:34px 132px minmax(0,1fr)!important;
+}
+/* peer-search-compact-20260820 */
+.search-bar > input,
+.search-bar > select,
+.search-bar > button{
+  width:auto;
+  max-width:100%;
+  margin:0;
+}
+#peerDevelopment .search-bar.peer-search-bar{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:8px 10px!important;
+  align-items:stretch!important;
+  width:100%!important;
+}
+#peerDevelopment .search-bar.peer-search-bar > input,
+#peerDevelopment .search-bar.peer-search-bar > select,
+#peerDevelopment .search-bar.peer-search-bar > button{
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+  margin:0!important;
+  flex:none!important;
+  min-height:44px;
+  padding:10px 12px!important;
+}
+#peerDevelopment .search-bar.peer-search-bar #peerKeyword{
+  grid-column:span 2;
+}
+#peerDevelopment .search-bar.peer-search-bar button.blue{
+  grid-column:span 2;
+}
+@media(max-width:1100px){
+  #peerDevelopment .search-bar.peer-search-bar{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+}
+@media(max-width:768px){
+  #peerDevelopment .search-bar.peer-search-bar{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #peerDevelopment .search-bar.peer-search-bar #peerKeyword,
+  #peerDevelopment .search-bar.peer-search-bar button.blue{
+    grid-column:1 / -1;
+  }
 }
 </style>
 <script>
