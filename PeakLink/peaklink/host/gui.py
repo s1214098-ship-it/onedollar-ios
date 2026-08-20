@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 from typing import Any
 
 from peaklink.config import AppConfig
@@ -24,6 +24,24 @@ from peaklink.license import (
 from peaklink.relay import pick_relay
 from peaklink.tailscale import probe_tailscale
 from peaklink.ui_bridge import AsyncBridge
+from peaklink.ui_theme import (
+    ACCENT,
+    BG,
+    CARD,
+    MUTED,
+    TEXT,
+    AccentButton,
+    Header,
+    Pill,
+    StatusDot,
+    apply_window,
+    card,
+    copy_text,
+    heading,
+    mono_font,
+    muted,
+    ui_font,
+)
 
 
 def _license_document() -> dict:
@@ -66,63 +84,113 @@ class HostWindow:
             messagebox.showwarning(APP_NAME, f"授權檔無效，改用免費版。\n{exc}")
             self.license = free_payload()
 
-        root.title(f"{APP_NAME} — 被控端")
-        root.geometry("560x640")
-        root.minsize(520, 600)
+        apply_window(root, title=f"{APP_NAME}  被控端", size="640x760", minsize=(600, 700))
 
-        pad = {"padx": 12, "pady": 6}
-        ttk.Label(root, text=APP_NAME, font=("Microsoft JhengHei UI", 18, "bold")).pack(**pad)
-        ttk.Label(root, text="把 ID 與密碼給客戶，即可用一般遠端連進來。").pack()
+        Header(root, subtitle="把下面這組 ID 與密碼給客戶，即可連進來", badge="被控端").pack(fill="x", padx=20, pady=(16, 12))
 
-        id_frame = ttk.LabelFrame(root, text="本機遠端 ID（分享給客戶）")
-        id_frame.pack(fill="x", padx=12, pady=8)
+        cred = card(root, fill="x", padx=20, pady=(0, 12))
+        body = tk.Frame(cred, bg=CARD)
+        body.pack(fill="x", padx=20, pady=18)
+        top = tk.Frame(body, bg=CARD)
+        top.pack(fill="x")
+        heading(top, "本機遠端 ID").pack(side="left")
+        AccentButton(top, "複製 ID", self.copy_id, variant="ghost").pack(side="right")
         self.id_var = tk.StringVar(value=format_session_id(self.session_id))
-        ttk.Label(id_frame, textvariable=self.id_var, font=("Consolas", 28, "bold")).pack(pady=8)
+        tk.Label(body, textvariable=self.id_var, bg=CARD, fg=ACCENT, font=mono_font(28)).pack(anchor="w", pady=(4, 12))
+
+        pw_row = tk.Frame(body, bg=CARD)
+        pw_row.pack(fill="x")
+        heading(pw_row, "連線密碼", 12).pack(side="left")
+        AccentButton(pw_row, "複製密碼", self.copy_pw, variant="ghost").pack(side="right")
         self.pw_var = tk.StringVar(value=self.password)
-        ttk.Label(id_frame, text="連線密碼").pack()
-        ttk.Label(id_frame, textvariable=self.pw_var, font=("Consolas", 20)).pack(pady=(0, 8))
+        tk.Label(body, textvariable=self.pw_var, bg=CARD, fg=TEXT, font=mono_font(22)).pack(anchor="w", pady=(4, 0))
+        muted(body, "每次開啟或按「重新產生」都會換成新的隨機組合。").pack(fill="x", pady=(8, 0))
 
+        meta = tk.Frame(root, bg=BG)
+        meta.pack(fill="x", padx=20, pady=(0, 12))
         self.license_var = tk.StringVar(value=self.license.display_status())
-        ttk.Label(root, textvariable=self.license_var).pack()
+        self.license_pill = Pill(
+            meta,
+            self.license.display_status(),
+            kind="ok" if self.license.edition == "member" else "accent",
+        )
+        self.license_pill.pack(side="left")
 
-        mode = ttk.LabelFrame(root, text="連線模式")
-        mode.pack(fill="x", padx=12, pady=8)
+        mode = card(root, fill="x", padx=20, pady=(0, 12))
+        mode_in = tk.Frame(mode, bg=CARD)
+        mode_in.pack(fill="x", padx=20, pady=16)
+        heading(mode_in, "連線方式").pack(anchor="w")
         self.classic_var = tk.BooleanVar(value=True)
         self.ts_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(mode, text="一般遠端（中繼，給客戶用）", variable=self.classic_var).pack(anchor="w", padx=8)
-        ttk.Checkbutton(mode, text="Taliscale 模式（Tailscale 100.x 直連）", variable=self.ts_var).pack(anchor="w", padx=8)
+        tk.Checkbutton(
+            mode_in,
+            text="一般遠端（中繼，給客戶用）",
+            variable=self.classic_var,
+            bg=CARD,
+            fg=TEXT,
+            activebackground=CARD,
+            font=ui_font(11),
+            selectcolor=CARD,
+            anchor="w",
+        ).pack(fill="x", pady=(10, 2))
+        tk.Checkbutton(
+            mode_in,
+            text="Taliscale 模式（Tailscale 100.x 直連）",
+            variable=self.ts_var,
+            bg=CARD,
+            fg=TEXT,
+            activebackground=CARD,
+            font=ui_font(11),
+            selectcolor=CARD,
+            anchor="w",
+        ).pack(fill="x", pady=2)
         self.ts_status = tk.StringVar(value=self.ts.summary())
-        ttk.Label(mode, textvariable=self.ts_status).pack(anchor="w", padx=8, pady=4)
-
+        muted(mode_in, var=self.ts_status).pack(fill="x", pady=(6, 8))
         self.auto_accept = tk.BooleanVar(value=bool(self.cfg.auto_accept_member and self.license.edition == "member"))
-        ttk.Checkbutton(
-            root,
+        tk.Checkbutton(
+            mode_in,
             text="會員：自動接受連入（無人值守）。免費版仍會詢問。",
             variable=self.auto_accept,
-        ).pack(anchor="w", padx=16)
+            bg=CARD,
+            fg=MUTED,
+            activebackground=CARD,
+            font=ui_font(10),
+            selectcolor=CARD,
+            anchor="w",
+        ).pack(fill="x")
 
-        self.status_var = tk.StringVar(value="尚未上線")
-        ttk.Label(root, textvariable=self.status_var, foreground="#0a5").pack(pady=4)
-
-        btns = ttk.Frame(root)
-        btns.pack(pady=8)
-        self.go_btn = ttk.Button(btns, text="上線等待連線", command=self.start)
-        self.go_btn.pack(side="left", padx=6)
-        ttk.Button(btns, text="重新產生 ID", command=self.regen).pack(side="left", padx=6)
-        ttk.Button(btns, text="匯入授權", command=self.import_license).pack(side="left", padx=6)
-
+        status_card = card(root, fill="x", padx=20, pady=(0, 12))
+        status_in = tk.Frame(status_card, bg=CARD)
+        status_in.pack(fill="x", padx=20, pady=14)
+        self.status = StatusDot(status_in)
+        self.status.pack(anchor="w")
+        self.status.set("尚未上線", kind="muted")
         self.remaining_var = tk.StringVar(value="")
-        ttk.Label(root, textvariable=self.remaining_var).pack()
+        muted(status_in, var=self.remaining_var).pack(anchor="w", pady=(6, 0))
 
-        note = (
-            f"免費版每一次遠端最長 {FREE_SESSION_SECONDS // 60} 分鐘。"
-            "會員依付款天數使用，單次不限時長。\n"
-            "兩岸連線請把中繼架在台灣與大陸都連得到的位置（建議 443 / WSS），"
-            "Taliscale 則走 Tailscale 網內直連。"
-        )
-        ttk.Label(root, text=note, wraplength=500, justify="left").pack(padx=12, pady=8)
+        btns = tk.Frame(root, bg=BG)
+        btns.pack(fill="x", padx=20, pady=(0, 8))
+        self.go_btn = AccentButton(btns, "上線等待連線", self.start, variant="primary")
+        self.go_btn.pack(side="left")
+        AccentButton(btns, "重新產生 ID", self.regen, variant="ghost").pack(side="left", padx=8)
+        AccentButton(btns, "匯入授權", self.import_license, variant="ghost").pack(side="left")
+
+        muted(
+            root,
+            f"免費版每一次遠端最長 {FREE_SESSION_SECONDS // 60} 分鐘。會員依付款天數使用。"
+            "兩岸請走兩邊都連得到的中繼（建議 443 / WSS）。",
+            wrap=580,
+        ).pack(fill="x", padx=24, pady=(4, 16))
 
         root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def copy_id(self) -> None:
+        copy_text(self.root, self.session_id)
+        self.status.set("已複製遠端 ID", kind="ok")
+
+    def copy_pw(self) -> None:
+        copy_text(self.root, self.password)
+        self.status.set("已複製連線密碼", kind="ok")
 
     def regen(self) -> None:
         if self.agent:
@@ -132,6 +200,7 @@ class HostWindow:
         self.password = generate_password()
         self.id_var.set(format_session_id(self.session_id))
         self.pw_var.set(self.password)
+        self.status.set("已產生新的 ID 與密碼", kind="accent")
 
     def import_license(self) -> None:
         path = filedialog.askopenfilename(
@@ -146,6 +215,7 @@ class HostWindow:
             save_license_file(document)
             self.license = payload
             self.license_var.set(payload.display_status())
+            self.license_pill.configure(text=payload.display_status())
             messagebox.showinfo(APP_NAME, f"已匯入授權\n{payload.display_status()}")
         except (OSError, LicenseError) as exc:
             messagebox.showerror(APP_NAME, f"無法匯入授權：{exc}")
@@ -158,7 +228,8 @@ class HostWindow:
             messagebox.showerror(APP_NAME, "請至少選一種連線模式")
             return
         self.go_btn.configure(text="停止上線")
-        self.status_var.set("正在探測中繼…")
+        self.go_btn.apply_variant("danger")
+        self.status.set("正在探測中繼…", kind="warn")
         self.bridge.submit(self._run())
 
     async def _stop(self) -> None:
@@ -172,7 +243,8 @@ class HostWindow:
 
     def _stopped(self) -> None:
         self.go_btn.configure(text="上線等待連線")
-        self.status_var.set("已停止")
+        self.go_btn.apply_variant("primary")
+        self.status.set("已停止", kind="muted")
         self.remaining_var.set("")
 
     async def _run(self) -> None:
@@ -230,13 +302,13 @@ class HostWindow:
             try:
                 await self.direct.start()
             except OSError as exc:
-                self.bridge.ui(self.status_var.set, f"Taliscale 直連埠無法開啟：{exc}（一般遠端仍可用）")
+                self.bridge.ui(self.status.set, f"Taliscale 直連埠無法開啟：{exc}（一般遠端仍可用）", "warn")
         self.bridge.ui(self.ts_status.set, self.ts.summary())
-        self.bridge.ui(self.status_var.set, f"已上線｜中繼：{best.label}")
+        self.bridge.ui(self.status.set, f"已上線｜中繼：{best.label}", "ok")
         try:
             await agent.run()
         except Exception as exc:  # noqa: BLE001
-            self.bridge.ui(self.status_var.set, f"連線中斷：{exc}")
+            self.bridge.ui(self.status.set, f"連線中斷：{exc}", "danger")
         finally:
             if self.direct:
                 await self.direct.stop()
@@ -258,13 +330,13 @@ class HostWindow:
                 self.remaining_var.set("遠端進行中（會員不限單次時長）")
             else:
                 self.remaining_var.set(f"遠端進行中，剩餘 {int(remaining)} 秒")
-            self.status_var.set("正在被遠端控制（畫面與滑鼠鍵盤已分享）")
+            self.status.set("正在被遠端控制（畫面與滑鼠鍵盤已分享）", kind="warn")
         elif kind == "session_tick":
             remaining = event.get("remaining")
             if remaining is not None:
                 self.remaining_var.set(f"遠端進行中，剩餘 {int(remaining)} 秒")
         elif kind == "session_end":
-            self.status_var.set(event.get("message") or "遠端已結束，仍在等待下一次連線")
+            self.status.set(event.get("message") or "遠端已結束，仍在等待下一次連線", kind="ok")
             self.remaining_var.set("")
 
     def on_close(self) -> None:
@@ -275,11 +347,5 @@ class HostWindow:
 
 def launch() -> None:
     root = tk.Tk()
-    try:
-        style = ttk.Style()
-        if "vista" in style.theme_names():
-            style.theme_use("vista")
-    except tk.TclError:
-        pass
     HostWindow(root)
     root.mainloop()

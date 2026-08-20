@@ -34,6 +34,8 @@ hidden += [
 
 icon = str(root / "packaging" / "peaklink.ico")
 version = str(root / "packaging" / "file_version_info.txt")
+if Path(icon).exists():
+    datas.append((icon, "packaging"))
 
 a = Analysis(
     [str(root / "peaklink" / "launcher.py")],

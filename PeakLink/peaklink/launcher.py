@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 
-from peaklink.constants import APP_NAME, DEFAULT_RELAY_PORT, FREE_SESSION_SECONDS, VERSION
+from peaklink.constants import APP_NAME, DEFAULT_RELAY_PORT, FREE_SESSION_SECONDS
 from peaklink.license import (
     LicenseError,
     bundled_public_key_pem,
@@ -14,18 +14,55 @@ from peaklink.license import (
     save_license_file,
     verify_document,
 )
+from peaklink.ui_theme import (
+    ACCENT,
+    ACCENT_SOFT,
+    CARD,
+    LINE,
+    MUTED,
+    TEXT,
+    AccentButton,
+    Header,
+    apply_window,
+    card,
+    muted,
+    ui_font,
+)
+
+
+def _action_row(parent: tk.Misc, title: str, desc: str, button: str, command, *, primary: bool = False) -> None:
+    row = tk.Frame(parent, bg=CARD)
+    row.pack(fill="x", padx=18, pady=8)
+    texts = tk.Frame(row, bg=CARD)
+    texts.pack(side="left", fill="x", expand=True)
+    tk.Label(texts, text=title, bg=CARD, fg=TEXT, font=ui_font(13, bold=True), anchor="w").pack(fill="x")
+    tk.Label(texts, text=desc, bg=CARD, fg=MUTED, font=ui_font(10), anchor="w", justify="left", wraplength=280).pack(fill="x")
+    AccentButton(row, button, command, variant="primary" if primary else "ghost").pack(side="right", padx=(12, 0))
 
 
 def main() -> None:
     root = tk.Tk()
-    root.title(APP_NAME)
-    root.geometry("420x420")
-    ttk.Label(root, text=APP_NAME, font=("Microsoft JhengHei UI", 20, "bold")).pack(pady=16)
-    ttk.Label(
-        root,
-        text=f"v{VERSION}｜免費版單次遠端 {FREE_SESSION_SECONDS // 60} 分鐘\n會員依付款天數使用",
-        justify="center",
-    ).pack()
+    apply_window(root, title=APP_NAME, size="520x620", minsize=(480, 580))
+
+    Header(root, subtitle="遠端協助｜把 ID 給客戶，或連進別人的電腦", badge="Windows").pack(fill="x", padx=20, pady=(20, 12))
+
+    hero = card(root, fill="x", padx=20, pady=(0, 12))
+    inner = tk.Frame(hero, bg=CARD)
+    inner.pack(fill="x", padx=18, pady=16)
+    tk.Label(inner, text="免費用戶單次遠端 5 分鐘", bg=ACCENT_SOFT, fg=ACCENT, font=ui_font(10, bold=True), padx=10, pady=4).pack(anchor="w")
+    tk.Label(
+        inner,
+        text=f"會員依付款天數使用，單次不限時長。免費版最長 {FREE_SESSION_SECONDS // 60} 分鐘。",
+        bg=CARD,
+        fg=MUTED,
+        font=ui_font(10),
+        wraplength=440,
+        justify="left",
+        anchor="w",
+    ).pack(fill="x", pady=(8, 0))
+
+    actions = card(root, fill="both", expand=True, padx=20, pady=(0, 12))
+    tk.Label(actions, text="開始使用", bg=CARD, fg=TEXT, font=ui_font(12, bold=True)).pack(anchor="w", padx=18, pady=(16, 4))
 
     def host() -> None:
         root.destroy()
@@ -65,11 +102,16 @@ def main() -> None:
             f"本機中繼已啟動於埠 {DEFAULT_RELAY_PORT}。\n請開防火牆，或只給區網／Taliscale 使用。",
         )
 
-    ttk.Button(root, text="我要被遠端（被控端，給客戶連）", command=host).pack(fill="x", padx=40, pady=8)
-    ttk.Button(root, text="我要連到別人（操作端）", command=viewer).pack(fill="x", padx=40, pady=8)
-    ttk.Button(root, text="匯入會員授權檔", command=import_license).pack(fill="x", padx=40, pady=8)
-    ttk.Button(root, text="啟動本機中繼伺服器", command=start_relay).pack(fill="x", padx=40, pady=8)
-    ttk.Label(root, text="Taliscale 模式需本機已登入 Tailscale。").pack(pady=12)
+    _action_row(actions, "被控端", "產生隨機 ID 與密碼，讓客戶連進來控制這台電腦", "開啟", host, primary=True)
+    tk.Frame(actions, bg=LINE, height=1).pack(fill="x", padx=18)
+    _action_row(actions, "操作端", "輸入對方的 ID 與密碼，連過去遠端協助", "連線", viewer)
+    tk.Frame(actions, bg=LINE, height=1).pack(fill="x", padx=18)
+    _action_row(actions, "會員授權", "匯入付款後取得的 .peaklic 檔", "匯入", import_license)
+    tk.Frame(actions, bg=LINE, height=1).pack(fill="x", padx=18)
+    _action_row(actions, "本機中繼", "在這台電腦開中繼，給區網或測試使用", "啟動", start_relay)
+    tk.Label(actions, text="", bg=CARD).pack(pady=4)
+
+    muted(root, "Taliscale 模式需本機已登入 Tailscale。一般遠端只要有中繼即可。", wrap=460).pack(padx=24, pady=(0, 16))
     root.mainloop()
 
 
