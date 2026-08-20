@@ -744,6 +744,20 @@ async function main() {
   console.log(JSON.stringify(printSummary, null, 2));
 }
 
+if (process.argv.includes("--rebuild-photos")) {
+  const raw = JSON.parse(fs.readFileSync(dbPath, "utf8"));
+  const peers = rejectBlocked(parseMaybeJson(raw.peerDevelopmentItems, []));
+  writePeerListCache(peers);
+  let multi = 0;
+  for (const item of peers) {
+    const n = Array.isArray(item.images) ? item.images.length : 0;
+    const p = Array.isArray(item.photos) ? item.photos.length : 0;
+    if (Math.max(n, p) > 1) multi += 1;
+  }
+  console.log(JSON.stringify({ rebuilt: peers.length, multiImageRows: multi }, null, 2));
+  process.exit(0);
+}
+
 main().catch((error) => {
   console.error(error);
   process.exit(1);

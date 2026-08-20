@@ -10561,6 +10561,8 @@ async function loadPeerDevelopmentGallery(item, key){
     const params = new URLSearchParams();
     if(item && item.id) params.set("id", item.id);
     if(item && item.externalId) params.set("externalId", item.externalId);
+    if(item && item.publicNo) params.set("publicNo", item.publicNo);
+    if(item && item.sourceHost && item.externalId) params.set("hostKey", item.sourceHost + "|" + item.externalId);
     if(key) params.set("key", key);
     try{
         const res = await fetch("api/peer-photos.php?" + params.toString(), {cache:"no-store"});
@@ -10568,6 +10570,7 @@ async function loadPeerDevelopmentGallery(item, key){
         const remote = Array.isArray(payload && payload.images) ? payload.images.map(String).filter(Boolean) : [];
         if(remote.length > local.length){
             item.images = remote.map((src, idx)=>({name:"照片" + String(idx + 1).padStart(2, "0"), data:src}));
+            item.photos = item.images;
             item.photoCount = remote.length;
             return remote;
         }

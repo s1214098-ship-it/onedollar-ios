@@ -51,3 +51,47 @@ function peerPhotoLookup(array $item): array {
     if ($host !== '' && $external !== '') $keys[] = $host . '|' . $external;
     return array_values(array_unique($keys));
 }
+
+function parsePeerList($value): array {
+    if (is_array($value)) return $value;
+    if (is_string($value)) {
+        $decoded = json_decode($value ?: '[]', true);
+        return is_array($decoded) ? $decoded : [];
+    }
+    return [];
+}
+
+function peerSaveShardImages(string $id, array $images): void {
+    $id = trim($id);
+    if ($id === '' || !$images) return;
+    $dir = peerPhotoCacheDir();
+    if (!is_dir($dir)) @mkdir($dir, 0775, true);
+    $file = $dir . '/' . peerPhotoShardName($id);
+    $map = [];
+    if (is_file($file)) {
+        $decoded = json_decode((string)file_get_contents($file), true);
+        if (is_array($decoded)) $map = $decoded;
+    }
+    $map[$id] = array_values($images);
+    @file_put_contents($file, json_encode($map, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+}
+
+function peerFindImagesByIds(array $ids): array {
+    $ids = array_values(array_filter(array_map('trim', $ids)));
+    if (!$ids) return [];
+    $dataFile = dirname(peerPhotoCacheDir()) . '/shared-db.json';
+    if (!is_file($dataFile)) return [];
+    $db = json_decode((string)file_get_contents($dataFile), true);
+    if (!is_array($db)) return [];
+    $want = array_fill_keys($ids, true);
+    foreach (parsePeerList($db['peerDevelopmentItems'] ?? []) as $item) {
+        if (!is_array($item)) continue;
+        foreach (peerPhotoLookup($item) as $lookupId) {
+            if (isset($want[$lookupId])) {
+                $images = peerAllImageSrcs($item);
+                if ($images) return $images;
+            }
+        }
+    }
+    return [];
+}

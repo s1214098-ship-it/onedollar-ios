@@ -56,6 +56,8 @@ function clearReadCaches(string $dataFile): void {
     $dir = cacheDir($dataFile);
     if (!is_dir($dir)) return;
     foreach (glob($dir . '/*.json') ?: [] as $file) {
+        $name = basename($file);
+        if (strpos($name, 'photos-') === 0 || $name === 'peer-list.json') continue;
         @unlink($file);
     }
 }
