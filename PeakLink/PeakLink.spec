@@ -30,6 +30,8 @@ hidden += [
     "peaklink.host.gui",
     "peaklink.viewer.gui",
     "peaklink.server.app",
+    "peaklink.dashboard",
+    "peaklink.boot",
 ]
 
 icon = str(root / "packaging" / "peaklink.ico")

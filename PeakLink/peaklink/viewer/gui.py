@@ -34,14 +34,23 @@ from peaklink.viewer.client import ViewerClient
 
 
 class ViewerWindow:
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(
+        self,
+        root: tk.Tk | tk.Toplevel,
+        *,
+        session_id: str = "",
+        password: str = "",
+        mode: str = "classic",
+        ts_ip: str = "",
+        auto_connect: bool = False,
+    ) -> None:
         self.root = root
         self.cfg = AppConfig.load()
         self.bridge = AsyncBridge(root)
         self.client: ViewerClient | None = None
         self.photo = None
         self.remote_size = (0, 0)
-        self.mode = tk.StringVar(value="classic")
+        self.mode = tk.StringVar(master=root, value=mode)
 
         apply_window(root, title=f"{APP_NAME}  操作端", size="1080x740", minsize=(900, 620))
 
@@ -85,7 +94,7 @@ class ViewerWindow:
         self._ts_btn.pack(side="left", padx=(6, 0))
         self._classic_btn.bind("<Button-1>", lambda _e: self._set_mode("classic"))
         self._ts_btn.bind("<Button-1>", lambda _e: self._set_mode("taliscale"))
-        self._set_mode("classic")
+        self._set_mode(mode)
 
         self.go_btn = AccentButton(inner, "連線", self.connect, variant="primary")
         self.go_btn.pack(side="right", pady=(12, 0))
@@ -118,6 +127,14 @@ class ViewerWindow:
         root.bind("<KeyPress>", lambda e: self._key(e, True))
         root.bind("<KeyRelease>", lambda e: self._key(e, False))
         root.protocol("WM_DELETE_WINDOW", self.on_close)
+        if session_id:
+            self.id_entry.insert(0, session_id)
+        if password:
+            self.pw_entry.insert(0, password)
+        if ts_ip:
+            self.ts_entry.insert(0, ts_ip)
+        if auto_connect and session_id and password:
+            self.root.after(200, self.connect)
 
     def _set_mode(self, value: str) -> None:
         self.mode.set(value)
@@ -287,6 +304,6 @@ class ViewerWindow:
 
 
 def launch() -> None:
-    root = tk.Tk()
-    ViewerWindow(root)
-    root.mainloop()
+    from peaklink.boot import run_app
+
+    run_app(lambda root: ViewerWindow(root))

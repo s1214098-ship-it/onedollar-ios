@@ -22,7 +22,7 @@ from peaklink.license import (
     verify_document,
 )
 from peaklink.relay import pick_relay
-from peaklink.tailscale import probe_tailscale
+from peaklink.tailscale import TailscaleStatus, probe_tailscale
 from peaklink.ui_bridge import AsyncBridge
 from peaklink.ui_theme import (
     ACCENT,
@@ -71,20 +71,19 @@ def _license_document() -> dict:
 class HostWindow:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
+        apply_window(root, title=f"{APP_NAME}  被控端", size="640x760", minsize=(600, 700))
         self.cfg = AppConfig.load()
         self.bridge = AsyncBridge(root)
         self.session_id = generate_session_id()
         self.password = generate_password()
         self.agent: HostAgent | None = None
         self.direct: DirectHostServer | None = None
-        self.ts = probe_tailscale()
+        self.ts = TailscaleStatus(False, False, None, None, None, None)
         try:
             self.license = load_installed_license()
         except LicenseError as exc:
             messagebox.showwarning(APP_NAME, f"授權檔無效，改用免費版。\n{exc}")
             self.license = free_payload()
-
-        apply_window(root, title=f"{APP_NAME}  被控端", size="640x760", minsize=(600, 700))
 
         Header(root, subtitle="把下面這組 ID 與密碼給客戶，即可連進來", badge="被控端").pack(fill="x", padx=20, pady=(16, 12))
 
@@ -95,20 +94,20 @@ class HostWindow:
         top.pack(fill="x")
         heading(top, "本機遠端 ID").pack(side="left")
         AccentButton(top, "複製 ID", self.copy_id, variant="ghost").pack(side="right")
-        self.id_var = tk.StringVar(value=format_session_id(self.session_id))
+        self.id_var = tk.StringVar(master=root, value=format_session_id(self.session_id))
         tk.Label(body, textvariable=self.id_var, bg=CARD, fg=ACCENT, font=mono_font(28)).pack(anchor="w", pady=(4, 12))
 
         pw_row = tk.Frame(body, bg=CARD)
         pw_row.pack(fill="x")
         heading(pw_row, "連線密碼", 12).pack(side="left")
         AccentButton(pw_row, "複製密碼", self.copy_pw, variant="ghost").pack(side="right")
-        self.pw_var = tk.StringVar(value=self.password)
+        self.pw_var = tk.StringVar(master=root, value=self.password)
         tk.Label(body, textvariable=self.pw_var, bg=CARD, fg=TEXT, font=mono_font(22)).pack(anchor="w", pady=(4, 0))
         muted(body, "每次開啟或按「重新產生」都會換成新的隨機組合。").pack(fill="x", pady=(8, 0))
 
         meta = tk.Frame(root, bg=BG)
         meta.pack(fill="x", padx=20, pady=(0, 12))
-        self.license_var = tk.StringVar(value=self.license.display_status())
+        self.license_var = tk.StringVar(master=root, value=self.license.display_status())
         self.license_pill = Pill(
             meta,
             self.license.display_status(),
@@ -120,8 +119,8 @@ class HostWindow:
         mode_in = tk.Frame(mode, bg=CARD)
         mode_in.pack(fill="x", padx=20, pady=16)
         heading(mode_in, "連線方式").pack(anchor="w")
-        self.classic_var = tk.BooleanVar(value=True)
-        self.ts_var = tk.BooleanVar(value=True)
+        self.classic_var = tk.BooleanVar(master=root, value=True)
+        self.ts_var = tk.BooleanVar(master=root, value=True)
         tk.Checkbutton(
             mode_in,
             text="一般遠端（中繼，給客戶用）",
@@ -144,9 +143,9 @@ class HostWindow:
             selectcolor=CARD,
             anchor="w",
         ).pack(fill="x", pady=2)
-        self.ts_status = tk.StringVar(value=self.ts.summary())
+        self.ts_status = tk.StringVar(master=root, value="正在檢查 Tailscale…")
         muted(mode_in, var=self.ts_status).pack(fill="x", pady=(6, 8))
-        self.auto_accept = tk.BooleanVar(value=bool(self.cfg.auto_accept_member and self.license.edition == "member"))
+        self.auto_accept = tk.BooleanVar(master=root, value=bool(self.cfg.auto_accept_member and self.license.edition == "member"))
         tk.Checkbutton(
             mode_in,
             text="會員：自動接受連入（無人值守）。免費版仍會詢問。",
@@ -165,7 +164,7 @@ class HostWindow:
         self.status = StatusDot(status_in)
         self.status.pack(anchor="w")
         self.status.set("尚未上線", kind="muted")
-        self.remaining_var = tk.StringVar(value="")
+        self.remaining_var = tk.StringVar(master=root, value="")
         muted(status_in, var=self.remaining_var).pack(anchor="w", pady=(6, 0))
 
         btns = tk.Frame(root, bg=BG)
@@ -183,6 +182,14 @@ class HostWindow:
         ).pack(fill="x", padx=24, pady=(4, 16))
 
         root.protocol("WM_DELETE_WINDOW", self.on_close)
+        root.after(50, self._refresh_tailscale)
+
+    def _refresh_tailscale(self) -> None:
+        try:
+            self.ts = probe_tailscale()
+            self.ts_status.set(self.ts.summary())
+        except Exception as exc:  # noqa: BLE001
+            self.ts_status.set(f"Tailscale 檢查失敗：{exc}")
 
     def copy_id(self) -> None:
         copy_text(self.root, self.session_id)
@@ -346,6 +353,6 @@ class HostWindow:
 
 
 def launch() -> None:
-    root = tk.Tk()
-    HostWindow(root)
-    root.mainloop()
+    from peaklink.boot import run_app
+
+    run_app(lambda root: HostWindow(root))
