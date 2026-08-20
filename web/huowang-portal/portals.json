@@ -329,5 +329,38 @@
       "status": "ok",
       "note": "房仲物件刊登與會員後台。"
     }
-  ]
+  ],
+  "rightSideLookup": {
+    "recordedAt": "2026-08-20",
+    "purpose": "峰志指定右邊快捷網站，之後請這支火旺 agent 查資訊時用這份清單。雲端看不到本機螢幕，以先前「指定網站開在右邊」快捷 1–9 為準。",
+    "shortcuts": [
+      {"key": "1", "name": "永慶加盟系統 IS 首頁", "url": "https://is.ycut.com.tw/is/home", "note": "現行快捷 1。帶看／委託／聯賣／改價只在這裡做。舊 dramax 登入已不是快捷 1。"},
+      {"key": "2", "name": "591 房屋交易", "url": "https://www.591.com.tw/"},
+      {"key": "3", "name": "007 實價登錄比價王", "url": "https://007.houseprice.tw/"},
+      {"key": "4", "name": "我家網 VIP 登入", "url": "https://www.myhomes.com.tw/vip2/login.php"},
+      {"key": "5", "name": "Facebook", "url": "https://www.facebook.com/"},
+      {"key": "6", "name": "內政部地籍圖資", "url": "https://easymap.moi.gov.tw/Z10Web/Index"},
+      {"key": "7", "name": "YES319 房屋市集登入", "url": "https://www.yes319.com/my319/login/"},
+      {"key": "8", "name": "永慶 SSO 登入", "url": "https://opid.ycut.com.tw/YcutPortal/Login", "account": "C56026"},
+      {"key": "9", "name": "總控台 paohui.org", "url": "https://paohui.org/"}
+    ],
+    "related": [
+      {"name": "火旺前台", "url": "https://huowang.paohui.org/"},
+      {"name": "火旺後台", "url": "https://huowang.paohui.org/admin.html.html"},
+      {"name": "火旺前台物件預覽", "url": "https://huowang.paohui.org/front.html"},
+      {"name": "火旺伯外部物件選單", "url": "https://huowang.paohui.org/huowang/"},
+      {"name": "火旺伯外部物件後台", "url": "https://huowang.paohui.org/huowang/admin.html"},
+      {"name": "上架物件簡化版", "url": "https://house.paohui.org/HUOWAN%20HOUSE%20MENU/"},
+      {"name": "自有物件網站", "url": "https://paohui.org/huomange-original-multi/front.html"},
+      {"name": "永慶本店官網", "url": "https://shop.yungching.com.tw/039519001/"},
+      {"name": "本店買屋清單", "url": "https://shop.yungching.com.tw/039519001/list"},
+      {"name": "我家網郭火旺銷售頁", "url": "https://sales.myhomes.com.tw/0911294374"},
+      {"name": "Yahoo 奇摩", "url": "https://tw.yahoo.com/"},
+      {"name": "FOUNDI 房地工具", "url": "https://agent.foundi.info/tool/property/list?trading_type=sale&geo=address&city=%E5%8F%B0%E5%8C%97%E5%B8%82&order_by=property_first_seen"},
+      {"name": "地籍圖資服務網", "url": "https://easymap.land.moi.gov.tw/Z10Web/Normal"},
+      {"name": "國土測繪圖資服務雲", "url": "https://maps.nlsc.gov.tw/"},
+      {"name": "宜蘭縣地政", "url": "https://land.e-land.gov.tw/"},
+      {"name": "電子謄本", "url": "https://ep.land.nat.gov.tw/"}
+    ]
+  }
 }
