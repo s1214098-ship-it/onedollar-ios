@@ -25,6 +25,11 @@ function coolpc_quote_source_url(): string
     return 'https://coolpc.com.tw/evaluate.php';
 }
 
+function coolpc_quote_cache_ttl(): int
+{
+    return 3600;
+}
+
 function coolpc_quote_cache_path(): string
 {
     $configured = trim((string)getenv('BAOHUI_ACCOUNTING_DATA_DIR'));
@@ -257,7 +262,7 @@ function coolpc_quote_load_live(bool $force = false): array
     if (!$force && is_file($path)) {
         $cached = json_decode((string)file_get_contents($path), true);
         $age = time() - (int)($cached['fetchedAtUnix'] ?? 0);
-        if (is_array($cached) && !empty($cached['ok']) && $age >= 0 && $age < 900) {
+        if (is_array($cached) && !empty($cached['ok']) && $age >= 0 && $age < coolpc_quote_cache_ttl()) {
             return $cached;
         }
     }

@@ -22,20 +22,28 @@
     el.id = "coolpcQuoteStyles";
     el.textContent = [
       "#coolpcQuoteBox{background:#fff}",
-      ".cpq-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}",
-      ".cpq-head h6{margin:0;font-size:18px;font-weight:800}",
-      ".cpq-stamp{color:#64748b;font-weight:700}",
-      ".cpq-pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;max-height:132px;overflow:auto}",
-      ".cpq-pill{border:1px solid #d6e1ef;background:#fff;border-radius:999px;padding:7px 12px;font-weight:800;color:#334155;cursor:pointer}",
-      ".cpq-pill.is-active{background:#0f766e;border-color:#0f766e;color:#fff}",
+      ".cpq-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:flex-end;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e8eef5}",
+      ".cpq-head h6{margin:0;font-size:16px;font-weight:800;letter-spacing:.02em;color:#0f172a}",
+      ".cpq-stamp{color:#64748b;font-size:13px;font-weight:700}",
+      ".cpq-body{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:stretch}",
+      ".cpq-nav{display:flex;flex-direction:column;gap:2px;max-height:460px;overflow:auto;padding:6px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}",
+      ".cpq-cat{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;border:0;background:transparent;border-radius:8px;padding:8px 10px;text-align:left;font-weight:700;color:#334155;cursor:pointer}",
+      ".cpq-cat:hover{background:#eef4f3;color:#0f172a}",
+      ".cpq-cat.is-active{background:#0f766e;color:#fff;box-shadow:0 6px 14px rgba(15,118,110,.18)}",
+      ".cpq-cat-label{min-width:0;line-height:1.3}",
+      ".cpq-cat-count{flex:0 0 auto;min-width:28px;text-align:right;font-size:12px;font-weight:800;opacity:.72;font-variant-numeric:tabular-nums}",
+      ".cpq-main{min-width:0}",
       ".cpq-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}",
       ".cpq-toolbar input{min-width:min(280px,100%)}",
       ".cpq-list{display:grid;gap:6px;max-height:420px;overflow:auto}",
-      ".cpq-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;border:1px solid #dbe5f2;border-radius:10px;background:#f8fafc;padding:8px 10px}",
-      ".cpq-row b{display:block;color:#0f172a;font-size:14px;line-height:1.35}",
-      ".cpq-row small{display:block;color:#64748b;font-weight:700}",
-      ".cpq-price{font-weight:900;color:#0f766e;white-space:nowrap}",
+      ".cpq-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:9px 12px}",
+      ".cpq-row:hover{border-color:#99c4bf;background:#f8fbfb}",
+      ".cpq-row b{display:block;color:#0f172a;font-size:14px;line-height:1.35;font-weight:700}",
+      ".cpq-row small{display:block;color:#64748b;font-weight:700;margin-top:2px}",
+      ".cpq-price{font-weight:900;color:#0f766e;white-space:nowrap;font-variant-numeric:tabular-nums}",
       ".cpq-empty{border:1px dashed #cbd5e1;border-radius:10px;padding:16px;color:#64748b;font-weight:700}",
+      "@media(max-width:860px){.cpq-body{grid-template-columns:1fr}.cpq-nav{flex-direction:row;max-height:none;overflow-x:auto;padding:6px}}",
+      "@media(max-width:860px){.cpq-cat{flex:0 0 auto;width:auto;white-space:nowrap}}",
     ].join("");
     document.head.appendChild(el);
   }
@@ -91,17 +99,20 @@
       '<div class="cpq-head">' +
         "<div><h6>原價屋即時報價</h6></div>" +
         '<div class="d-flex flex-wrap gap-2 align-items-center">' +
-          '<span class="cpq-stamp" id="coolpcQuoteStamp">' + esc(stamp) + (count ? "｜" + count + " 筆" : "") + "</span>" +
+          '<span class="cpq-stamp" id="coolpcQuoteStamp">' + esc(stamp) + (count ? "｜" + count + " 筆" : "") + "｜每小時更新</span>" +
           '<button class="btn btn-sm btn-outline-primary" type="button" data-coolpc-refresh="1">重新整理</button>' +
           '<a class="btn btn-sm btn-outline-primary" href="https://coolpc.com.tw/evaluate.php" target="_blank" rel="noopener">開原價屋官網</a>' +
         "</div>" +
       "</div>" +
-      '<div class="cpq-pills">' + cats.map((cat) => {
+      '<div class="cpq-body">' +
+      '<nav class="cpq-nav" aria-label="原價屋分類">' + cats.map((cat) => {
         const on = cat.id === state.activeCat ? " is-active" : "";
-        return '<button type="button" class="cpq-pill' + on + '" data-coolpc-cat="' + esc(cat.id) + '">' +
-          esc(cat.label) + " " + esc(cat.count || 0) +
+        return '<button type="button" class="cpq-cat' + on + '" data-coolpc-cat="' + esc(cat.id) + '">' +
+          '<span class="cpq-cat-label">' + esc(cat.label) + "</span>" +
+          '<span class="cpq-cat-count">' + esc(cat.count || 0) + "</span>" +
           "</button>";
-      }).join("") + "</div>" +
+      }).join("") + "</nav>" +
+      '<div class="cpq-main">' +
       '<div class="cpq-toolbar"><input class="form-control form-control-sm" id="coolpcQuoteFilter" value="' + esc(state.filter) + '" placeholder="搜尋原價屋品項 / 廠牌 / 規格"></div>' +
       (items.length
         ? '<div class="cpq-list">' + items.map((item) => {
@@ -111,7 +122,8 @@
               '<button type="button" class="btn btn-sm btn-primary" data-coolpc-insert="' + esc(item.id) + '">帶入</button>' +
               "</div>";
           }).join("") + "</div>"
-        : '<div class="cpq-empty">這個分類沒有符合的原價屋品項。</div>');
+        : '<div class="cpq-empty">這個分類沒有符合的原價屋品項。</div>') +
+      "</div></div>";
     bind(catalog);
   }
 

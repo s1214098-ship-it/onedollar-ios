@@ -52,6 +52,10 @@ expect(!str_contains($jsQuote, 'coolpcQuoteFrame'), 'quotation page no longer if
 expect(str_contains($jsCoolpc, 'coolpc-quote-catalog.php'), 'CoolPC UI loads live catalog API');
 expect(str_contains($jsCoolpc, 'addQuoteItemRow'), 'CoolPC items insert into the quote');
 expect(str_contains($jsCoolpc, '原價屋即時報價'), 'CoolPC box is labeled as live CoolPC quotes');
+expect(str_contains($jsCoolpc, '每小時更新'), 'CoolPC stamp says hourly refresh');
+expect(str_contains($jsCoolpc, 'cpq-nav'), 'CoolPC categories use a side nav');
+expect(!str_contains($jsCoolpc, 'cpq-pills'), 'CoolPC categories no longer wrap as pills');
+expect(coolpc_quote_cache_ttl() === 3600, 'CoolPC catalog cache is one hour');
 
 $jsBuilder = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'admin-quote-builder.js');
 expect(str_contains($jsBuilder, '寶輝組裝估價'), 'Baohui builder stays Baohui');
