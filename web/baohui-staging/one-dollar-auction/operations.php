@@ -3,6 +3,7 @@ require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-embed-auth-lib.php';
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'member-sync-bridge.php';
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-document-no.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'document-print-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'monthly-settlement-lib.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
@@ -5984,10 +5985,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $notice = '請款單建立失敗：請選擇客戶並勾選至少一筆尚未結清的單據。';
         } else {
             foreach ($deliveryNotes as $delivery) {
+                $deliveryDate = substr((string)($delivery['date'] ?? ($delivery['delivery_date'] ?? ($delivery['created_at'] ?? ''))), 0, 10);
                 foreach ($items as &$item) {
-                    if (in_array($item['schedule_id'], $delivery['schedule_ids'] ?? [], true)) $item['delivery_no'] = $delivery['delivery_no'] ?? '';
+                    $matchesSchedule = in_array($item['schedule_id'], $delivery['schedule_ids'] ?? [], true);
+                    if (!$matchesSchedule) {
+                        foreach (($delivery['items'] ?? []) as $deliveryItem) {
+                            if (is_array($deliveryItem) && ($deliveryItem['schedule_id'] ?? '') === ($item['schedule_id'] ?? '')) {
+                                $matchesSchedule = true;
+                                break;
+                            }
+                        }
+                    }
+                    if ($matchesSchedule) {
+                        $item['delivery_no'] = $delivery['delivery_no'] ?? '';
+                        $item['delivery_date'] = $deliveryDate;
+                    }
                 }
                 unset($item);
+            }
+            $cycleType = trim((string)($_POST['billing_cycle_type'] ?? 'monthly'));
+            if (!in_array($cycleType, ['monthly', 'custom'], true)) $cycleType = 'custom';
+            $dateBasis = trim((string)($_POST['billing_date_basis'] ?? 'document'));
+            if (!in_array($dateBasis, ['document', 'delivery'], true)) $dateBasis = 'document';
+            $cycleMonth = trim((string)($_POST['billing_cycle_month'] ?? ''));
+            $periodFrom = trim((string)($_POST['billing_period_from'] ?? ''));
+            $periodTo = trim((string)($_POST['billing_period_to'] ?? ''));
+            if ($cycleType === 'monthly') {
+                if ($cycleMonth === '') $cycleMonth = baohui_monthly_settlement_cycle()['month'];
+                $cycle = baohui_monthly_settlement_cycle_for_month($cycleMonth);
+                if ($periodFrom === '') $periodFrom = $cycle['from'];
+                if ($periodTo === '') $periodTo = $cycle['to'];
             }
             $billingRequests[] = [
                 'id' => uid('ar_'),
@@ -5999,6 +6026,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'total_amount' => array_sum(array_column($items, 'request_amount')),
                 'status' => trim((string)($_POST['billing_status'] ?? '待請款')),
                 'note' => trim((string)($_POST['billing_note'] ?? '')),
+                'cycle_type' => $cycleType,
+                'cycle_month' => $cycleMonth,
+                'period_from' => $periodFrom,
+                'period_to' => $periodTo,
+                'date_basis' => $dateBasis,
                 'operator' => current_operator(),
                 'created_at' => date('c'),
             ];
@@ -6012,6 +6044,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $billingRequests = array_values(array_filter($billingRequests, function($request) use ($billingRequestId) { return ($request['id'] ?? '') !== $billingRequestId; }));
         write_data('billing_requests', $billingRequests);
         $notice = '請款單已刪除。';
+    }
+
+    if ($action === 'update_billing_request_status') {
+        $billingRequestId = trim((string)($_POST['billing_request_id'] ?? ''));
+        $nextStatus = trim((string)($_POST['billing_status'] ?? ''));
+        $allowed = ['待請款','已送出','部分收款','已結清','已結款','取消'];
+        if ($billingRequestId === '' || !in_array($nextStatus, $allowed, true)) {
+            $notice = '請款單狀態更新失敗。';
+        } else {
+            $updated = false;
+            foreach ($billingRequests as &$request) {
+                if (($request['id'] ?? '') !== $billingRequestId) continue;
+                $request['status'] = $nextStatus;
+                $request['updated_at'] = date('c');
+                $request['updated_by'] = current_operator();
+                $updated = true;
+                break;
+            }
+            unset($request);
+            if ($updated) {
+                write_data('billing_requests', $billingRequests);
+                $notice = '請款單狀態已更新為「' . $nextStatus . '」。';
+            } else {
+                $notice = '找不到這張請款單。';
+            }
+        }
     }
 
     if ($action === 'save_bad_debt') {
@@ -7201,7 +7259,7 @@ body{overflow:hidden}
 .inventory-approval-panel{display:flex;gap:8px;align-items:end;flex-wrap:wrap;min-width:310px}.inventory-approval-panel label{min-width:180px}.inventory-approval-panel input{min-width:180px}
 .reminder-card.scene-inventory{grid-column:1/-1;background:linear-gradient(180deg,#fff,#fff7ed);border-color:#fed7aa}.reminder-card.scene-inventory:before{background:#ea580c}.reminder-card.scene-inventory .button-like,.reminder-card.scene-inventory .status-pill{border-color:#fed7aa;color:#c2410c;background:#fff}
 .reconcile-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.reconcile-actions{display:flex;gap:8px;flex-wrap:wrap}.reconcile-summary-table{min-width:900px}.reconcile-detail-table{min-width:1500px}.reconcile-customer{font-weight:900;color:#0f172a}.reconcile-source{font-size:12px;color:#475569}.reconcile-status{display:inline-flex;padding:4px 8px;border-radius:999px;border:1px solid #cbd5e1;background:#f8fafc;font-weight:800;font-size:12px}.reconcile-status.paid{border-color:#86efac;background:#f0fdf4;color:#166534}.reconcile-status.partial{border-color:#fcd34d;background:#fffbeb;color:#92400e}.reconcile-status.unpaid,.reconcile-status.over{border-color:#fca5a5;background:#fef2f2;color:#991b1b}.reconcile-section-title{margin:22px 0 8px}.reconcile-print-title{display:none}
-.customer-document-picker{grid-column:1/-1;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;padding:12px}.customer-document-picker h3{margin:0 0 8px;font-size:16px}.customer-document-list{display:grid;gap:7px}.customer-document-option{display:grid;grid-template-columns:auto minmax(120px,.6fr) minmax(220px,1.4fr) repeat(3,minmax(90px,.45fr));gap:10px;align-items:center;border:1px solid #d8e0ea;border-radius:7px;background:#fff;padding:9px 10px}.customer-document-option input{width:18px;height:18px}.customer-document-option small{color:#64748b}.customer-document-option strong:last-child{color:#b91c1c}.customer-document-empty{padding:14px;border:1px dashed #cbd5e1;border-radius:7px;background:#fff;color:#64748b}.billing-request-card{border:1px solid #d8e0ea;border-radius:8px;margin:12px 0;background:#fff;overflow:hidden}.billing-request-card summary{cursor:pointer;display:flex;justify-content:space-between;gap:12px;padding:13px 15px;background:#f8fafc;font-weight:900}.billing-request-meta{display:flex;gap:12px;flex-wrap:wrap}.billing-request-body{padding:14px}.billing-request-table{min-width:1100px}
+.customer-document-picker{grid-column:1/-1;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;padding:12px}.customer-document-picker h3{margin:0 0 8px;font-size:16px}.customer-document-list{display:grid;gap:7px}.customer-document-option{display:grid;grid-template-columns:auto minmax(120px,.6fr) minmax(220px,1.4fr) repeat(3,minmax(90px,.45fr));gap:10px;align-items:center;border:1px solid #d8e0ea;border-radius:7px;background:#fff;padding:9px 10px}.customer-document-option input{width:18px;height:18px}.customer-document-option small{color:#64748b}.customer-document-option strong:last-child{color:#b91c1c}.customer-document-empty{padding:14px;border:1px dashed #cbd5e1;border-radius:7px;background:#fff;color:#64748b}.billing-request-card{border:1px solid #d8e0ea;border-radius:8px;margin:12px 0;background:#fff;overflow:hidden}.billing-request-card summary{cursor:pointer;display:flex;justify-content:space-between;gap:12px;padding:13px 15px;background:#f8fafc;font-weight:900}.billing-request-meta{display:flex;gap:12px;flex-wrap:wrap}.billing-request-body{padding:14px}.billing-request-table{min-width:1100px}.period-hint{margin:0 0 10px;color:#0f766e;font-size:13px}.settle-pill{display:inline-flex;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:800}.settle-pill.open{background:#fff7ed;color:#c2410c;border:1px solid #fdba74}.settle-pill.paid{background:#ecfdf5;color:#047857;border:1px solid #6ee7b7}
 .bad-debt-card{border:1px solid #fecaca;border-left:5px solid #dc2626;border-radius:8px;margin:12px 0;background:#fff;overflow:hidden}.bad-debt-card summary{cursor:pointer;display:flex;justify-content:space-between;gap:12px;padding:13px 15px;background:#fff7f7;font-weight:900}.bad-debt-body{padding:14px}.bad-debt-followups{min-width:900px}.bad-debt-amount{color:#b91c1c;font-weight:900}
 @media(max-width:900px){.customer-document-option{grid-template-columns:auto 1fr}.customer-document-option span,.customer-document-option strong{grid-column:2}}
 @media(max-width:820px){.reconcile-head{display:block}.reconcile-actions{margin-top:10px}.reconcile-actions button,.reconcile-actions a{flex:1 1 140px}}
@@ -11417,13 +11475,20 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       $reconcileStatusFilter = trim((string)($_GET['reconcile_status'] ?? ''));
 
       $deliveryBySchedule = [];
+      $deliveryDateBySchedule = [];
       foreach ($deliveryNotes as $delivery) {
+          $deliveryNo = $delivery['delivery_no'] ?? '';
+          $deliveryDate = substr((string)($delivery['date'] ?? ($delivery['delivery_date'] ?? ($delivery['created_at'] ?? ''))), 0, 10);
           foreach (($delivery['schedule_ids'] ?? []) as $scheduleId) {
-              $deliveryBySchedule[(string)$scheduleId] = $delivery['delivery_no'] ?? '';
+              $scheduleId = (string)$scheduleId;
+              $deliveryBySchedule[$scheduleId] = $deliveryNo;
+              if ($deliveryDate !== '') $deliveryDateBySchedule[$scheduleId] = $deliveryDate;
           }
           foreach (($delivery['items'] ?? []) as $item) {
               $scheduleId = trim((string)($item['schedule_id'] ?? ''));
-              if ($scheduleId !== '') $deliveryBySchedule[$scheduleId] = $delivery['delivery_no'] ?? '';
+              if ($scheduleId === '') continue;
+              $deliveryBySchedule[$scheduleId] = $deliveryNo;
+              if ($deliveryDate !== '') $deliveryDateBySchedule[$scheduleId] = $deliveryDate;
           }
       }
 
@@ -11531,6 +11596,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
               'schedule_id' => $scheduleId,
               'document_no' => $orderNo,
               'delivery_no' => $deliveryNo,
+              'delivery_date' => trim((string)($deliveryDateBySchedule[$scheduleId] ?? '')),
               'invoice_no' => trim((string)($schedule['invoice_no'] ?? '')),
               'customer' => $customerName,
               'phone' => trim((string)($schedule['winner_phone'] ?? '')),
@@ -11753,9 +11819,10 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
   <section class="ops-card ops-tab" id="finance-collection">
     <h2>財務系統 / 收款單</h2>
-    <p class="muted">用來記錄客戶付款、訂金、尾款、匯款或現金收款。之後可串銷售單據、對帳單與公司帳。</p>
+    <p class="muted">不用點進單張也能查：已結款、未結款，以及月結請款週期（上月 25 日到本月 24 日）。也可以改選任意日期／年份，依請款單或出貨單期間過濾。</p>
 
     <?php
+      $currentSettlementCycle = baohui_monthly_settlement_cycle();
       $receiptCustomerOptions = [];
       foreach ($members as $member) {
           $name = trim((string)($member['name'] ?? ''));
@@ -11785,7 +11852,18 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label>收款單號<input name="receipt_no" placeholder="系統可自動產生"></label>
       <label>收款日期<input name="receipt_date" type="date" value="<?=h(date('Y-m-d'))?>"></label>
       <label class="wide">客戶名稱<input id="receiptCustomerName" name="customer_name" list="receiptCustomerOptions" autocomplete="off" placeholder="輸入姓名、Facebook 名稱或電話後挑選"></label>
-      <div class="customer-document-picker"><h3>這位客戶的未結單據</h3><div id="receiptCustomerDocuments" class="customer-document-list"><div class="customer-document-empty">請先輸入並選擇客戶，系統會列出可勾選的單據。</div></div></div>
+      <div class="customer-document-picker">
+        <h3>這位客戶的未結單據</h3>
+        <div class="inline-actions billing-period-controls" data-period-for="receipt">
+          <label>期間<select class="js-period-mode"><option value="monthly">月結週期（25–24）</option><option value="custom">自訂日期</option></select></label>
+          <label>月份請款<input class="js-period-month" type="month" value="<?=h($currentSettlementCycle['month'])?>"></label>
+          <label>日期依據<select class="js-period-basis"><option value="document">訂單／請款單日期</option><option value="delivery">出貨單日期</option></select></label>
+          <label>起日<input class="js-period-from" type="date" value="<?=h($currentSettlementCycle['from'])?>"></label>
+          <label>迄日<input class="js-period-to" type="date" value="<?=h($currentSettlementCycle['to'])?>"></label>
+        </div>
+        <p class="period-hint js-period-label">目前月結週期：<?=h($currentSettlementCycle['label'])?></p>
+        <div id="receiptCustomerDocuments" class="customer-document-list"><div class="customer-document-empty">請先輸入並選擇客戶，系統會列出可勾選的單據。</div></div>
+      </div>
       <label>收款方式<select name="payment_method"><option>現金</option><option>匯款</option><option>轉帳</option><option>刷卡</option><option>LINE Pay</option><option>其他</option></select></label>
       <label>收款帳戶<input name="account_name" placeholder="例如：現金 / 銀行 / 郵局"></label>
       <label>收款金額<input name="amount" type="number" step="1" value="0"></label>
@@ -11805,37 +11883,108 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     <?php
       $receiptQ = trim($_GET['receipt_q'] ?? '');
       $receiptStatus = trim($_GET['receipt_status'] ?? '');
+      $receiptSettle = trim($_GET['receipt_settle'] ?? '');
+      $receiptMode = trim($_GET['receipt_period_mode'] ?? 'all');
+      if (!in_array($receiptMode, ['monthly', 'custom', 'all'], true)) $receiptMode = 'all';
+      $receiptMonth = trim($_GET['receipt_month'] ?? $currentSettlementCycle['month']);
+      $receiptBasis = trim($_GET['receipt_date_basis'] ?? 'receipt');
+      if (!in_array($receiptBasis, ['receipt', 'billing', 'delivery'], true)) $receiptBasis = 'receipt';
       $receiptFrom = trim($_GET['receipt_from'] ?? '');
       $receiptTo = trim($_GET['receipt_to'] ?? '');
-      $receiptShown = array_values(array_filter($collectionReceipts, function($r) use ($receiptQ, $receiptStatus, $receiptFrom, $receiptTo) {
-          $date = (string)($r['receipt_date'] ?? $r['date'] ?? '');
+      $receiptCycle = $currentSettlementCycle;
+      if ($receiptMode === 'monthly') {
+          if ($receiptMonth === '') $receiptMonth = $currentSettlementCycle['month'];
+          $receiptCycle = baohui_monthly_settlement_cycle_for_month($receiptMonth);
+          if ($receiptFrom === '') $receiptFrom = $receiptCycle['from'];
+          if ($receiptTo === '') $receiptTo = $receiptCycle['to'];
+      } elseif ($receiptMode === 'all') {
+          $receiptFrom = '';
+          $receiptTo = '';
+      }
+      $receiptDeliveryDates = [];
+      foreach ($allReconcileRows ?? [] as $row) {
+          $deliveryDate = trim((string)($row['delivery_date'] ?? ''));
+          if ($deliveryDate === '') continue;
+          foreach ([$row['schedule_id'] ?? '', $row['document_no'] ?? '', $row['delivery_no'] ?? ''] as $key) {
+              $key = mb_strtolower(trim((string)$key), 'UTF-8');
+              if ($key !== '') $receiptDeliveryDates[$key] = $deliveryDate;
+          }
+      }
+      $receiptShown = array_values(array_filter($collectionReceipts, function($r) use ($receiptQ, $receiptStatus, $receiptSettle, $receiptFrom, $receiptTo, $receiptBasis, $billingRequests, $receiptDeliveryDates) {
           $hay = implode(' ', [$r['receipt_no'] ?? '', $r['customer_name'] ?? '', $r['document_no'] ?? '', $r['payment_method'] ?? '', $r['account_name'] ?? '', $r['handler'] ?? '', $r['note'] ?? '']);
           if ($receiptQ !== '' && mb_stripos($hay, $receiptQ, 0, 'UTF-8') === false) return false;
           if ($receiptStatus !== '' && ($r['status'] ?? '') !== $receiptStatus) return false;
-          if ($receiptFrom !== '' && $date < $receiptFrom) return false;
-          if ($receiptTo !== '' && $date > $receiptTo) return false;
+          if ($receiptSettle === 'settled' && !baohui_receipt_is_settled($r)) return false;
+          if ($receiptSettle === 'open' && (baohui_receipt_is_settled($r) || ($r['status'] ?? '') === '作廢')) return false;
+          if ($receiptFrom === '' && $receiptTo === '') return true;
+          if ($receiptBasis === 'billing') {
+              $customer = trim((string)($r['customer_name'] ?? ''));
+              foreach ($billingRequests as $request) {
+                  if (trim((string)($request['customer_name'] ?? '')) !== $customer) continue;
+                  if (baohui_billing_matches_range($request, $receiptFrom, $receiptTo, 'document')) return true;
+              }
+              return false;
+          }
+          $date = baohui_receipt_match_date($r, 'receipt');
+          if ($receiptBasis === 'delivery') {
+              $keys = array_filter([
+                  trim((string)($r['document_no'] ?? '')),
+              ]);
+              foreach ((array)($r['document_nos'] ?? []) as $no) $keys[] = trim((string)$no);
+              foreach ((array)($r['allocations'] ?? []) as $allocation) {
+                  $keys[] = trim((string)($allocation['schedule_id'] ?? ''));
+                  $keys[] = trim((string)($allocation['document_no'] ?? ''));
+                  $keys[] = trim((string)($allocation['delivery_no'] ?? ''));
+              }
+              foreach ($keys as $key) {
+                  $lookup = mb_strtolower($key, 'UTF-8');
+                  if ($lookup !== '' && isset($receiptDeliveryDates[$lookup])) {
+                      $date = $receiptDeliveryDates[$lookup];
+                      break;
+                  }
+              }
+          }
+          if ($receiptFrom !== '' && $date !== '' && $date < $receiptFrom) return false;
+          if ($receiptTo !== '' && $date !== '' && $date > $receiptTo) return false;
           return true;
       }));
       usort($receiptShown, function($a, $b) { return strcmp((string)($b['receipt_date'] ?? ''), (string)($a['receipt_date'] ?? '')); });
       $receiptTotal = array_sum(array_map(function($r) { return (float)($r['amount'] ?? 0); }, $receiptShown));
+      $billingShownOnCollection = array_values(array_filter($billingRequests ?? [], function($request) use ($receiptSettle, $receiptQ, $receiptFrom, $receiptTo, $receiptBasis) {
+          $basis = $receiptBasis === 'delivery' ? 'delivery' : 'document';
+          if (!baohui_billing_matches_range($request, $receiptFrom, $receiptTo, $basis)) return false;
+          if ($receiptSettle === 'settled' && !baohui_billing_is_settled($request)) return false;
+          if ($receiptSettle === 'open' && (baohui_billing_is_settled($request) || ($request['status'] ?? '') === '取消')) return false;
+          if ($receiptQ !== '') {
+              $hay = implode(' ', [$request['request_no'] ?? '', $request['customer_name'] ?? '', $request['note'] ?? '', $request['status'] ?? '']);
+              if (mb_stripos($hay, $receiptQ, 0, 'UTF-8') === false) return false;
+          }
+          return true;
+      }));
+      usort($billingShownOnCollection, function($a, $b) { return strcmp(($b['request_date'] ?? '') . ($b['request_no'] ?? ''), ($a['request_date'] ?? '') . ($a['request_no'] ?? '')); });
     ?>
 
     <div class="metric-grid">
       <div class="metric"><span>收款單筆數</span><strong><?=h(count($receiptShown))?> 筆</strong></div>
       <div class="metric"><span>收款合計</span><strong><?=money($receiptTotal)?></strong></div>
-      <div class="metric"><span>已確認</span><strong><?=h(count(array_filter($receiptShown, function($r){ return ($r['status'] ?? '') === '已確認'; })))?> 筆</strong></div>
-      <div class="metric"><span>待確認</span><strong><?=h(count(array_filter($receiptShown, function($r){ return ($r['status'] ?? '') === '待確認'; })))?> 筆</strong></div>
+      <div class="metric"><span>已結款</span><strong><?=h(count(array_filter($receiptShown, 'baohui_receipt_is_settled')))?> 筆</strong></div>
+      <div class="metric"><span>未結款</span><strong><?=h(count(array_filter($receiptShown, function($r){ return !baohui_receipt_is_settled($r) && ($r['status'] ?? '') !== '作廢'; })))?> 筆</strong></div>
     </div>
 
-    <form method="get" class="inline-actions">
+    <form method="get" action="operations.php#finance-collection" class="inline-actions">
       <input type="hidden" name="v" value="<?=h($_GET['v'] ?? '')?>">
       <label>搜尋<input name="receipt_q" value="<?=h($receiptQ)?>" placeholder="客戶 / 單號 / 帳戶 / 備註"></label>
-      <label>狀態<select name="receipt_status"><option value="">全部</option><?php foreach(['待確認','已確認','部分收款','作廢'] as $v): ?><option value="<?=h($v)?>" <?=$receiptStatus===$v?'selected':''?>><?=h($v)?></option><?php endforeach; ?></select></label>
+      <label>結款<select name="receipt_settle"><option value="">全部</option><option value="open" <?=$receiptSettle==='open'?'selected':''?>>未結款</option><option value="settled" <?=$receiptSettle==='settled'?'selected':''?>>已結款</option></select></label>
+      <label>收款狀態<select name="receipt_status"><option value="">全部</option><?php foreach(['待確認','已確認','部分收款','作廢'] as $v): ?><option value="<?=h($v)?>" <?=$receiptStatus===$v?'selected':''?>><?=h($v)?></option><?php endforeach; ?></select></label>
+      <label>期間<select name="receipt_period_mode"><option value="monthly" <?=$receiptMode==='monthly'?'selected':''?>>月份請款（25–24）</option><option value="custom" <?=$receiptMode==='custom'?'selected':''?>>自訂日期</option><option value="all" <?=$receiptMode==='all'?'selected':''?>>不限期間</option></select></label>
+      <label>月份<input name="receipt_month" type="month" value="<?=h($receiptMonth)?>"></label>
+      <label>日期依據<select name="receipt_date_basis"><option value="receipt" <?=$receiptBasis==='receipt'?'selected':''?>>收款單日期</option><option value="billing" <?=$receiptBasis==='billing'?'selected':''?>>請款單日期</option><option value="delivery" <?=$receiptBasis==='delivery'?'selected':''?>>出貨單日期</option></select></label>
       <label>起日<input name="receipt_from" type="date" value="<?=h($receiptFrom)?>"></label>
       <label>迄日<input name="receipt_to" type="date" value="<?=h($receiptTo)?>"></label>
       <button class="secondary">查詢</button>
       <a class="secondary-link" href="operations.php#finance-collection">清除</a>
     </form>
+    <?php if($receiptMode === 'monthly'): ?><p class="period-hint">目前查詢月結週期：<?=h($receiptCycle['label'])?>。例如今天 8/20 就是 7/25～8/24。</p><?php endif; ?>
 
     <form id="collectionReceiptBulkDeleteForm" method="post" onsubmit="return confirm('確定刪除勾選收款單？');"><input type="hidden" name="action" value="delete_collection_receipts"></form>
     <div class="bulk-bar"><label class="check"><input type="checkbox" data-select-all="receipt_ids[]"> 全選收款單</label><button class="danger-button" type="submit" form="collectionReceiptBulkDeleteForm">刪除勾選收款單</button></div>
@@ -11865,6 +12014,24 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           <button class="danger small">刪除</button>
         </form></td>
       </tr><?php endforeach; ?>
+    </tbody></table></div>
+
+    <h3 class="reconcile-section-title">月份請款單</h3>
+    <p class="muted">同一組篩選條件下的請款單，已結款／未結款直接列在這裡，不必再點進請款單頁。</p>
+    <div class="table-wrap"><table><thead><tr><th>請款單號</th><th>客戶</th><th>請款日</th><th>週期</th><th>金額</th><th>結款</th><th>狀態</th><th>列印</th></tr></thead><tbody>
+      <?php foreach($billingShownOnCollection as $request): $settled=baohui_billing_is_settled($request); $periodLabel=trim((string)($request['period_from']??'').' ～ '.(string)($request['period_to']??''),' ～'); if($periodLabel==='') $periodLabel=(string)($request['request_date']??''); ?>
+        <tr>
+          <td><b><?=h($request['request_no']??'')?></b></td>
+          <td><?=h($request['customer_name']??'')?></td>
+          <td><?=h($request['request_date']??'')?></td>
+          <td><?=h($periodLabel)?></td>
+          <td><?=money($request['total_amount']??0)?></td>
+          <td><span class="settle-pill <?=$settled?'paid':'open'?>"><?=$settled?'已結款':'未結款'?></span></td>
+          <td><?=h($request['status']??'')?></td>
+          <td><?= baohui_ops_print_link_html((string)($request['request_no'] ?? ($request['id'] ?? '')), '請款單') ?> <a class="secondary small" href="#finance-request">看明細</a></td>
+        </tr>
+      <?php endforeach; ?>
+      <?php if(!$billingShownOnCollection): ?><tr><td colspan="8" class="muted">這個期間沒有符合的請款單。</td></tr><?php endif; ?>
     </tbody></table></div>
   </section>
 
@@ -11965,26 +12132,108 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
   <section class="ops-card ops-tab" id="finance-request">
     <h2>財務系統 / 請款單</h2>
-    <p class="muted">先選客戶，再勾選這位客戶尚未結清的單據。系統會依日期與單號排序，保存完整品項及金額明細。</p>
+    <p class="muted">月結客戶預設請款上月 25 日到本月 24 日；也可以改成自訂任何一天、任何一年，並依請款單或出貨單日期勾選明細。</p>
+    <?php $billingCreateCycle = $currentSettlementCycle ?? baohui_monthly_settlement_cycle(); ?>
     <form method="post" class="product-form billing-create-form">
       <input type="hidden" name="action" value="save_billing_request">
       <label class="wide">客戶名稱<input id="billingCustomerName" name="billing_customer_name" list="receiptCustomerOptions" autocomplete="off" required placeholder="輸入客戶名稱後挑選"></label>
+      <label>請款週期<select id="billingCycleType" name="billing_cycle_type"><option value="monthly" selected>月結週期（上月25日～本月24日）</option><option value="custom">自訂期間</option></select></label>
+      <label>月份請款<input id="billingCycleMonth" name="billing_cycle_month" type="month" value="<?=h($billingCreateCycle['month'])?>"></label>
+      <label>日期依據<select id="billingDateBasis" name="billing_date_basis"><option value="document">訂單／請款日期</option><option value="delivery">出貨單日期</option></select></label>
+      <label>期間起日<input id="billingPeriodFrom" name="billing_period_from" type="date" value="<?=h($billingCreateCycle['from'])?>"></label>
+      <label>期間迄日<input id="billingPeriodTo" name="billing_period_to" type="date" value="<?=h($billingCreateCycle['to'])?>"></label>
       <label>請款日期<input type="date" name="billing_request_date" value="<?=h(date('Y-m-d'))?>" required></label>
-      <label>付款期限<input type="date" name="billing_due_date" value="<?=h(date('Y-m-d', strtotime('+7 days')))?>"></label>
+      <label>付款期限<input type="date" name="billing_due_date" value="<?=h($billingCreateCycle['to'])?>"></label>
       <label>狀態<select name="billing_status"><option>待請款</option><option>已送出</option><option>部分收款</option><option>已結清</option><option>取消</option></select></label>
-      <div class="customer-document-picker"><h3>勾選要列入請款單的未結單據</h3><div id="billingCustomerDocuments" class="customer-document-list"><div class="customer-document-empty">請先選擇客戶。</div></div></div>
+      <div class="customer-document-picker">
+        <h3>勾選要列入請款單的未結單據</h3>
+        <p class="period-hint js-period-label" id="billingPeriodLabel">目前月結週期：<?=h($billingCreateCycle['label'])?></p>
+        <div id="billingCustomerDocuments" class="customer-document-list"><div class="customer-document-empty">請先選擇客戶。</div></div>
+      </div>
       <label class="wide">請款備註<input name="billing_note" placeholder="付款方式、匯款帳戶、聯絡說明"></label>
       <button class="primary">產生請款單</button>
     </form>
 
+    <?php
+      $billingQ = trim((string)($_GET['billing_q'] ?? ''));
+      $billingSettle = trim((string)($_GET['billing_settle'] ?? ''));
+      $billingMode = trim((string)($_GET['billing_period_mode'] ?? 'monthly'));
+      if (!in_array($billingMode, ['monthly', 'custom', 'all'], true)) $billingMode = 'all';
+      $billingMonth = trim((string)($_GET['billing_month'] ?? ''));
+      $billingBasis = trim((string)($_GET['billing_date_basis'] ?? 'document'));
+      if (!in_array($billingBasis, ['document', 'delivery'], true)) $billingBasis = 'document';
+      $billingFrom = trim((string)($_GET['billing_from'] ?? ''));
+      $billingTo = trim((string)($_GET['billing_to'] ?? ''));
+      $billingListCycle = $billingCreateCycle;
+      if ($billingMode === 'monthly') {
+          if ($billingMonth === '') $billingMonth = $billingCreateCycle['month'];
+          $billingListCycle = baohui_monthly_settlement_cycle_for_month($billingMonth);
+          if ($billingFrom === '') $billingFrom = $billingListCycle['from'];
+          if ($billingTo === '') $billingTo = $billingListCycle['to'];
+      } elseif ($billingMode === 'all') {
+          $billingFrom = '';
+          $billingTo = '';
+      }
+      $billingRequestsSorted = array_values(array_filter($billingRequests ?? [], function($request) use ($billingQ, $billingSettle, $billingFrom, $billingTo, $billingBasis) {
+          if ($billingSettle === 'settled' && !baohui_billing_is_settled($request)) return false;
+          if ($billingSettle === 'open' && (baohui_billing_is_settled($request) || ($request['status'] ?? '') === '取消')) return false;
+          if (!baohui_billing_matches_range($request, $billingFrom, $billingTo, $billingBasis)) return false;
+          if ($billingQ !== '') {
+              $hay = implode(' ', [$request['request_no'] ?? '', $request['customer_name'] ?? '', $request['note'] ?? '', $request['status'] ?? '']);
+              foreach ((array)($request['items'] ?? []) as $item) {
+                  if (!is_array($item)) continue;
+                  $hay .= ' ' . implode(' ', [$item['document_no'] ?? '', $item['delivery_no'] ?? '', $item['product_title'] ?? '']);
+              }
+              if (mb_stripos($hay, $billingQ, 0, 'UTF-8') === false) return false;
+          }
+          return true;
+      }));
+      usort($billingRequestsSorted, function($a, $b) { return strcmp(($b['request_date'] ?? '') . ($b['request_no'] ?? ''), ($a['request_date'] ?? '') . ($a['request_no'] ?? '')); });
+    ?>
+
     <h3 class="reconcile-section-title">已建立請款單</h3>
-    <?php if(!$billingRequests): ?><div class="customer-document-empty">目前尚未建立請款單。</div><?php endif; ?>
-    <?php $billingRequestsSorted=$billingRequests; usort($billingRequestsSorted,function($a,$b){return strcmp(($b['request_date']??'').($b['request_no']??''),($a['request_date']??'').($a['request_no']??''));}); ?>
+    <form method="get" action="operations.php#finance-request" class="inline-actions">
+      <input type="hidden" name="v" value="<?=h($_GET['v'] ?? '')?>">
+      <label>搜尋<input name="billing_q" value="<?=h($billingQ)?>" placeholder="單號 / 客戶 / 出貨單 / 品項"></label>
+      <label>結款<select name="billing_settle"><option value="">全部</option><option value="open" <?=$billingSettle==='open'?'selected':''?>>未結款</option><option value="settled" <?=$billingSettle==='settled'?'selected':''?>>已結款</option></select></label>
+      <label>期間<select name="billing_period_mode"><option value="all" <?=$billingMode==='all'?'selected':''?>>不限期間</option><option value="monthly" <?=$billingMode==='monthly'?'selected':''?>>月份請款（25–24）</option><option value="custom" <?=$billingMode==='custom'?'selected':''?>>自訂日期</option></select></label>
+      <label>月份<input name="billing_month" type="month" value="<?=h($billingMonth)?>"></label>
+      <label>日期依據<select name="billing_date_basis"><option value="document" <?=$billingBasis==='document'?'selected':''?>>請款／訂單日期</option><option value="delivery" <?=$billingBasis==='delivery'?'selected':''?>>出貨單日期</option></select></label>
+      <label>起日<input name="billing_from" type="date" value="<?=h($billingFrom)?>"></label>
+      <label>迄日<input name="billing_to" type="date" value="<?=h($billingTo)?>"></label>
+      <button class="secondary">查詢</button>
+      <a class="secondary-link" href="operations.php#finance-request">清除</a>
+    </form>
+    <?php if($billingMode === 'monthly'): ?><p class="period-hint">月份請款週期：<?=h($billingListCycle['label'])?></p><?php endif; ?>
+
+    <div class="table-wrap"><table><thead><tr><th>請款單號</th><th>客戶</th><th>請款日</th><th>週期</th><th>金額</th><th>結款</th><th>狀態</th><th>操作</th></tr></thead><tbody>
+      <?php foreach($billingRequestsSorted as $request): $settled=baohui_billing_is_settled($request); $periodLabel=trim((string)($request['period_from']??'').' ～ '.(string)($request['period_to']??''),' ～'); if($periodLabel==='') $periodLabel=(string)($request['request_date']??''); ?>
+        <tr>
+          <td><b><?=h($request['request_no']??'')?></b><br><a class="secondary small" href="#billing-request-<?=h($request['id']??'')?>">明細</a></td>
+          <td><?=h($request['customer_name']??'')?></td>
+          <td><?=h($request['request_date']??'')?></td>
+          <td><?=h($periodLabel)?></td>
+          <td><?=money($request['total_amount']??0)?></td>
+          <td><span class="settle-pill <?=$settled?'paid':'open'?>"><?=$settled?'已結款':'未結款'?></span></td>
+          <td>
+            <form method="post" class="inline-form">
+              <input type="hidden" name="action" value="update_billing_request_status">
+              <input type="hidden" name="billing_request_id" value="<?=h($request['id']??'')?>">
+              <select name="billing_status"><?php foreach(['待請款','已送出','部分收款','已結清','取消'] as $status): ?><option value="<?=h($status)?>" <?=$status===($request['status']??'')?'selected':''?>><?=h($status)?></option><?php endforeach; ?></select>
+              <button class="secondary small">更新</button>
+            </form>
+          </td>
+          <td><?= baohui_ops_print_link_html((string)($request['request_no'] ?? ($request['id'] ?? '')), '請款單') ?></td>
+        </tr>
+      <?php endforeach; ?>
+      <?php if(!$billingRequestsSorted): ?><tr><td colspan="8" class="muted">目前沒有符合條件的請款單。</td></tr><?php endif; ?>
+    </tbody></table></div>
+
     <?php foreach($billingRequestsSorted as $request): ?>
       <details class="billing-request-card" id="billing-request-<?=h($request['id']??'')?>">
         <summary>
           <span><?=h($request['request_no']??'')?>｜<?=h($request['customer_name']??'')?></span>
-          <span class="billing-request-meta"><span><?=h($request['request_date']??'')?></span><span>請款 <?=money($request['total_amount']??0)?></span><span><?=h($request['status']??'')?></span></span>
+          <span class="billing-request-meta"><span><?=h($request['request_date']??'')?></span><span><?=h(trim((string)($request['period_from']??'').' ～ '.(string)($request['period_to']??''),' ～') ?: '未記週期')?></span><span>請款 <?=money($request['total_amount']??0)?></span><span class="settle-pill <?=baohui_billing_is_settled($request)?'paid':'open'?>"><?=baohui_billing_is_settled($request)?'已結款':'未結款'?></span><span><?=h($request['status']??'')?></span></span>
         </summary>
         <div class="billing-request-body">
           <div class="billing-request-meta"><b><?=h($companyProfile['company_name']??'寶輝科技有限公司')?></b><span>請款日期：<?=h($request['request_date']??'')?></span><span>付款期限：<?=h($request['due_date']??'')?></span><span>建立人：<?=h($request['operator']??'')?></span></div>
@@ -14849,30 +15098,106 @@ document.addEventListener('change', async event => {
 document.querySelector('#productMasterForm input[name="image"]')?.addEventListener('change', renderProductUploadPreview);
 document.querySelector('#productMasterForm input[name="photos[]"]')?.addEventListener('change', renderProductUploadPreview);
 
-function customerDocumentRows(customerValue, sourceRows) {
+function customerDocumentRows(customerValue, sourceRows, from, to, basis) {
   const query = normalizeProductSearch(customerValue);
   if (!query) return [];
   const rows = Array.isArray(sourceRows) ? sourceRows : [];
   const exact = rows.filter(row => normalizeProductSearch(row.customer) === query);
   const matches = exact.length ? exact : rows.filter(row => normalizeProductSearch(row.customer).includes(query));
-  return matches.slice().sort((a, b) => `${a.date || ''}${a.document_no || ''}`.localeCompare(`${b.date || ''}${b.document_no || ''}`, 'zh-Hant'));
+  return matches.filter(row => {
+    const date = (basis === 'delivery' ? (row.delivery_date || row.date) : row.date) || '';
+    if (from && date && date < from) return false;
+    if (to && date && date > to) return false;
+    return true;
+  }).slice().sort((a, b) => `${a.date || ''}${a.document_no || ''}`.localeCompare(`${b.date || ''}${b.document_no || ''}`, 'zh-Hant'));
+}
+function baohuiMonthlyCycle(yearMonth, endDay) {
+  const parts = String(yearMonth || '').split('-');
+  if (parts.length !== 2) return null;
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  if (!year || !month) return null;
+  const pad = (value) => String(value).padStart(2, '0');
+  const closeDay = endDay || 24;
+  const prev = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+  return {
+    from: prev.year + '-' + pad(prev.month) + '-25',
+    to: year + '-' + pad(month) + '-' + pad(closeDay),
+    label: prev.year + '-' + pad(prev.month) + '-25 ～ ' + year + '-' + pad(month) + '-' + pad(closeDay)
+  };
+}
+function readPeriodControls(root) {
+  if (!root) return { mode: 'custom', from: '', to: '', basis: 'document' };
+  const mode = root.querySelector('.js-period-mode')?.value || 'custom';
+  const month = root.querySelector('.js-period-month')?.value || '';
+  const fromInput = root.querySelector('.js-period-from');
+  const toInput = root.querySelector('.js-period-to');
+  const basis = root.querySelector('.js-period-basis')?.value || 'document';
+  if (mode === 'monthly') {
+    const cycle = baohuiMonthlyCycle(month);
+    if (cycle) {
+      if (fromInput) fromInput.value = cycle.from;
+      if (toInput) toInput.value = cycle.to;
+      const hint = root.parentElement?.querySelector('.js-period-label') || root.querySelector('.js-period-label');
+      if (hint) hint.textContent = '目前月結週期：' + cycle.label;
+      return { mode, from: cycle.from, to: cycle.to, basis };
+    }
+  }
+  return { mode, from: fromInput?.value || '', to: toInput?.value || '', basis };
 }
 function customerDocumentOption(row, inputName) {
-  return `<label class="customer-document-option"><input type="checkbox" name="${inputName}" value="${escapeHtml(row.schedule_id || '')}" data-outstanding="${Number(row.outstanding || 0)}"><span><b>${escapeHtml(row.date || '-')}</b><small>${escapeHtml(row.document_no || '')}</small></span><span><b>${escapeHtml(row.product || '-')}</b><small>${escapeHtml([row.delivery_no,row.invoice_no].filter(Boolean).join(' / '))}</small></span><span>應收<br><b>${escapeHtml(String(row.receivable || 0))}</b></span><span>已收<br><b>${escapeHtml(String(row.paid || 0))}</b></span><strong>未收<br>${escapeHtml(String(row.outstanding || 0))}</strong></label>`;
+  return `<label class="customer-document-option"><input type="checkbox" name="${inputName}" value="${escapeHtml(row.schedule_id || '')}" data-outstanding="${Number(row.outstanding || 0)}"><span><b>${escapeHtml(row.date || '-')}</b><small>${escapeHtml(row.document_no || '')}${row.delivery_date ? '／出貨 ' + escapeHtml(row.delivery_date) : ''}</small></span><span><b>${escapeHtml(row.product || '-')}</b><small>${escapeHtml([row.delivery_no,row.invoice_no].filter(Boolean).join(' / '))}</small></span><span>應收<br><b>${escapeHtml(String(row.receivable || 0))}</b></span><span>已收<br><b>${escapeHtml(String(row.paid || 0))}</b></span><strong>未收<br>${escapeHtml(String(row.outstanding || 0))}</strong></label>`;
 }
-function renderCustomerDocumentPicker(inputId, boxId, inputName, sourceRows) {
+function renderCustomerDocumentPicker(inputId, boxId, inputName, sourceRows, period) {
   const input = document.getElementById(inputId);
   const box = document.getElementById(boxId);
   if (!input || !box) return;
-  const rows = customerDocumentRows(input.value, sourceRows);
-  box.innerHTML = rows.length ? rows.map(row => customerDocumentOption(row, inputName)).join('') : '<div class="customer-document-empty">找不到這位客戶的未結單據。</div>';
+  const from = period && period.from ? period.from : '';
+  const to = period && period.to ? period.to : '';
+  const basis = period && period.basis ? period.basis : 'document';
+  const rows = customerDocumentRows(input.value, sourceRows, from, to, basis);
+  box.innerHTML = rows.length ? rows.map(row => customerDocumentOption(row, inputName)).join('') : '<div class="customer-document-empty">找不到這位客戶在這個期間的未結單據。</div>';
 }
-document.getElementById('receiptCustomerName')?.addEventListener('input', () => renderCustomerDocumentPicker('receiptCustomerName', 'receiptCustomerDocuments', 'document_nos[]', window.receiptDocumentCandidates));
-document.getElementById('receiptCustomerName')?.addEventListener('change', () => renderCustomerDocumentPicker('receiptCustomerName', 'receiptCustomerDocuments', 'document_nos[]', window.receiptDocumentCandidates));
-document.getElementById('billingCustomerName')?.addEventListener('input', () => renderCustomerDocumentPicker('billingCustomerName', 'billingCustomerDocuments', 'billing_schedule_ids[]', window.receiptDocumentCandidates));
-document.getElementById('billingCustomerName')?.addEventListener('change', () => renderCustomerDocumentPicker('billingCustomerName', 'billingCustomerDocuments', 'billing_schedule_ids[]', window.receiptDocumentCandidates));
+function refreshFinanceDocumentPickers() {
+  const receiptPeriod = readPeriodControls(document.querySelector('[data-period-for="receipt"]'));
+  renderCustomerDocumentPicker('receiptCustomerName', 'receiptCustomerDocuments', 'document_nos[]', window.receiptDocumentCandidates, receiptPeriod);
+  const billingFrom = document.getElementById('billingPeriodFrom')?.value || '';
+  const billingTo = document.getElementById('billingPeriodTo')?.value || '';
+  const billingBasis = document.getElementById('billingDateBasis')?.value || 'document';
+  renderCustomerDocumentPicker('billingCustomerName', 'billingCustomerDocuments', 'billing_schedule_ids[]', window.receiptDocumentCandidates, { from: billingFrom, to: billingTo, basis: billingBasis });
+  renderCustomerDocumentPicker('badDebtCustomerName', 'badDebtCustomerDocuments', 'bad_debt_schedule_ids[]', window.badDebtDocumentCandidates);
+}
+function syncBillingCreatePeriod() {
+  const type = document.getElementById('billingCycleType')?.value || 'monthly';
+  const monthInput = document.getElementById('billingCycleMonth');
+  const fromInput = document.getElementById('billingPeriodFrom');
+  const toInput = document.getElementById('billingPeriodTo');
+  const hint = document.getElementById('billingPeriodLabel');
+  if (type === 'monthly' && monthInput?.value) {
+    const cycle = baohuiMonthlyCycle(monthInput.value);
+    if (cycle && fromInput && toInput) {
+      fromInput.value = cycle.from;
+      toInput.value = cycle.to;
+      if (hint) hint.textContent = '目前月結週期：' + cycle.label;
+    }
+  }
+  refreshFinanceDocumentPickers();
+}
+document.getElementById('receiptCustomerName')?.addEventListener('input', refreshFinanceDocumentPickers);
+document.getElementById('receiptCustomerName')?.addEventListener('change', refreshFinanceDocumentPickers);
+document.getElementById('billingCustomerName')?.addEventListener('input', refreshFinanceDocumentPickers);
+document.getElementById('billingCustomerName')?.addEventListener('change', refreshFinanceDocumentPickers);
 document.getElementById('badDebtCustomerName')?.addEventListener('input', () => renderCustomerDocumentPicker('badDebtCustomerName', 'badDebtCustomerDocuments', 'bad_debt_schedule_ids[]', window.badDebtDocumentCandidates));
 document.getElementById('badDebtCustomerName')?.addEventListener('change', () => renderCustomerDocumentPicker('badDebtCustomerName', 'badDebtCustomerDocuments', 'bad_debt_schedule_ids[]', window.badDebtDocumentCandidates));
+document.querySelectorAll('[data-period-for="receipt"] select, [data-period-for="receipt"] input').forEach(el => {
+  el.addEventListener('change', refreshFinanceDocumentPickers);
+  el.addEventListener('input', refreshFinanceDocumentPickers);
+});
+['billingCycleType','billingCycleMonth','billingDateBasis','billingPeriodFrom','billingPeriodTo'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('change', id === 'billingCycleType' || id === 'billingCycleMonth' ? syncBillingCreatePeriod : refreshFinanceDocumentPickers);
+});
 document.getElementById('receiptCustomerDocuments')?.addEventListener('change', event => {
   if (!event.target.matches('input[type="checkbox"]')) return;
   const checked = Array.from(event.currentTarget.querySelectorAll('input[type="checkbox"]:checked'));
