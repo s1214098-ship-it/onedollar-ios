@@ -313,6 +313,60 @@ usort($batchesOut, static function ($a, $b) {
     return strcmp((string)($b['orderDate'] ?? ''), (string)($a['orderDate'] ?? ''));
 });
 
+foreach ($batchesOut as &$batch) {
+    $ids = array_values(array_filter([
+        hh_table_text($batch['batchNo'] ?? '', 80),
+        hh_table_text($batch['haohongOrderId'] ?? '', 80),
+        hh_table_text($batch['localId'] ?? '', 80),
+    ], static function ($value) {
+        return $value !== '';
+    }));
+    $attached = [];
+    $seenTrack = [];
+    foreach ($packagesOut as $pkg) {
+        if (!in_array((string)($pkg['batchNo'] ?? ''), $ids, true)) continue;
+        $attached[] = $pkg;
+        $key = hh_table_track_key((string)($pkg['trackingNo'] ?? ''));
+        if ($key !== '') $seenTrack[$key] = true;
+    }
+    foreach ($localBatches as $local) {
+        $localIds = [$local['id'], $local['batchNo'], $local['haohongOrderId'], $local['haohongOrderCode']];
+        $overlap = false;
+        foreach ($ids as $id) {
+            if (in_array($id, $localIds, true)) { $overlap = true; break; }
+        }
+        if (!$overlap) continue;
+        foreach ($local['trackingNumbers'] as $no) {
+            $key = hh_table_track_key((string)$no);
+            if ($key === '' || isset($seenTrack[$key])) continue;
+            $hits = $itemsByTrack[$key] ?? [];
+            $attached[] = [
+                'trackingNo' => hh_table_text((string)$no, 80),
+                'batchNo' => hh_table_text($batch['batchNo'] ?? '', 80),
+                'productName' => $hits ? hh_table_text($hits[0]['productName'] ?? '', 200) : '',
+                'warehouse' => '',
+                'receivedAt' => '',
+                'packageStatus' => $hits ? hh_table_text($hits[0]['trackingStatus'] ?? '', 80) : '',
+                'quantity' => $hits ? (int)($hits[0]['quantity'] ?? 1) : 1,
+                'actualWeightKg' => 0,
+                'volumeWeightKg' => 0,
+                'billedWeightKg' => $hits ? (float)($hits[0]['billedWeightKg'] ?? 0) : 0,
+                'note' => '',
+                'inBackend' => true,
+                'backendProduct' => $hits ? hh_table_text($hits[0]['productName'] ?? '', 200) : '',
+                'backendCode' => $hits ? hh_table_text($hits[0]['productCode'] ?? '', 80) : '',
+                'backendStatus' => $hits ? hh_table_text($hits[0]['trackingStatus'] ?? '', 80) : '',
+                'compare' => '後台已帶入',
+                'source' => 'backend',
+            ];
+            $seenTrack[$key] = true;
+        }
+    }
+    $batch['packages'] = $attached;
+    $batch['packageListCount'] = count($attached);
+}
+unset($batch);
+
 hh_table_out(200, [
     'ok' => true,
     'snapshotAt' => hh_table_text($snapshot['savedAt'] ?? ($snapshot['syncedAt'] ?? ''), 40),

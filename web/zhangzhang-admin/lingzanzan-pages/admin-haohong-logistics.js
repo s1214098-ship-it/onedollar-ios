@@ -2,7 +2,7 @@
   'use strict';
 
   var LOGIN_KEY = 'lingzanzan-v1-admin-login';
-  var state = { batches: [], packages: [], snapshotAt: '', hasSnapshot: false, mode: 'batches' };
+  var state = { batches: [], packages: [], snapshotAt: '', hasSnapshot: false, mode: 'batches', expanded: {} };
 
   function $(selector) {
     return document.querySelector(selector);
@@ -50,7 +50,14 @@
   }
 
   function hay(row) {
-    return Object.keys(row || {}).map(function (key) { return String(row[key] == null ? '' : row[key]); }).join(' ').toLowerCase();
+    return Object.keys(row || {}).map(function (key) {
+      var value = row[key];
+      if (Array.isArray(value)) {
+        return value.map(function (item) { return typeof item === 'object' ? hay(item) : String(item == null ? '' : item); }).join(' ');
+      }
+      if (value && typeof value === 'object') return '';
+      return String(value == null ? '' : value);
+    }).join(' ').toLowerCase();
   }
 
   function digitHit(haystack, q) {
@@ -65,15 +72,48 @@
     return keys.some(function (key) { return key.length >= 4 && blob.indexOf(key) !== -1; });
   }
 
+  function searchQuery() {
+    return String(($('[data-haohong-search]') || {}).value || '').trim().toLowerCase();
+  }
+
+  function batchId(row) {
+    return String((row && (row.localId || row.haohongOrderId || row.batchNo)) || '');
+  }
+
+  function packagesForBatch(row) {
+    if (Array.isArray(row && row.packages) && row.packages.length) return row.packages;
+    var ids = [row && row.batchNo, row && row.haohongOrderId, row && row.localId].filter(Boolean).map(String);
+    return (state.packages || []).filter(function (pkg) {
+      return ids.indexOf(String(pkg.batchNo || '')) !== -1;
+    });
+  }
+
+  function queryHits(haystack, q) {
+    if (!q) return true;
+    return String(haystack || '').indexOf(q) !== -1 || digitHit(haystack, q);
+  }
+
+  function queryHitsPackage(pkg, q) {
+    return !!q && queryHits(hay(pkg), q);
+  }
+
+  function batchHay(row) {
+    return hay(row) + ' ' + packagesForBatch(row).map(hay).join(' ');
+  }
+
+  function isBatchOpen(row, q) {
+    var id = batchId(row);
+    if (Object.prototype.hasOwnProperty.call(state.expanded, id)) return !!state.expanded[id];
+    return !!(q && packagesForBatch(row).some(function (pkg) { return queryHitsPackage(pkg, q); }));
+  }
+
   function filteredRows() {
-    var q = String(($('[data-haohong-search]') || {}).value || '').trim().toLowerCase();
+    var q = searchQuery();
     var filter = String(($('[data-haohong-filter]') || {}).value || 'all');
     var rows = state.mode === 'packages' ? state.packages : state.batches;
     return rows.filter(function (row) {
-      if (q) {
-        var haystack = hay(row);
-        if (haystack.indexOf(q) === -1 && !digitHit(haystack, q)) return false;
-      }
+      var haystack = state.mode === 'batches' ? batchHay(row) : hay(row);
+      if (q && !queryHits(haystack, q)) return false;
       var label = String(row.compare || '');
       if (filter === 'matched') return label === '已對上' || label.indexOf('已帶入') !== -1;
       if (filter === 'remote-only') return label.indexOf('豪鴻有') !== -1;
@@ -81,6 +121,24 @@
       if (filter === 'diff') return label.indexOf('不同') !== -1;
       return true;
     });
+  }
+
+  function renderBatchPackages(row, q) {
+    var pkgs = packagesForBatch(row);
+    if (!pkgs.length) {
+      return '<p class="haohong-batch-empty">這個批次目前沒有物流單可展開。可改看「包裹表」，或按「從豪鴻重新抓」。</p>';
+    }
+    return '<div class="haohong-batch-detail-head"><strong>本批物流 ' + pkgs.length + ' 筆</strong><span>再點批號可收合</span></div>' +
+      '<table class="haohong-batch-detail-table"><thead><tr>' +
+      '<th>物流單號</th><th>豪鴻品名</th><th>豪鴻狀態</th><th>後台商品</th><th>比對</th>' +
+      '</tr></thead><tbody>' + pkgs.map(function (pkg) {
+        var hit = queryHitsPackage(pkg, q);
+        return '<tr><td class="' + (hit ? 'haohong-hit-tracking' : '') + '">' + escapeHtml(pkg.trackingNo || '') +
+          '</td><td>' + escapeHtml(pkg.productName || '') +
+          '</td><td>' + escapeHtml(pkg.packageStatus || '') +
+          '</td><td>' + escapeHtml([pkg.backendCode, pkg.backendProduct].filter(Boolean).join(' ')) +
+          '</td><td class="' + compareClass(pkg.compare) + '">' + escapeHtml(pkg.compare || '') + '</td></tr>';
+      }).join('') + '</tbody></table>';
   }
 
   function renderSummary() {
@@ -93,13 +151,15 @@
       '<span>包裹 ' + state.packages.length + '</span>',
       '<span>已對上 ' + matched + '</span>',
       '<span>豪鴻有未帶入 ' + remoteOnly + '</span>',
-      '<span>' + (state.hasSnapshot ? ('豪鴻清單 ' + (state.snapshotAt || '已抓')) : '尚未重抓豪鴻，目前只顯示後台已帶入') + '</span>'
+      '<span>' + (state.hasSnapshot ? ('豪鴻清單 ' + (state.snapshotAt || '已抓')) : '尚未重抓豪鴻，目前只顯示後台已帶入') + '</span>',
+      state.mode === 'batches' ? '<button type="button" data-haohong-expand-all>全部展開</button><button type="button" data-haohong-collapse-all>全部收合</button>' : ''
     ].join('');
   }
 
   function renderTable() {
     var host = $('[data-haohong-table]');
     if (!host) return;
+    var q = searchQuery();
     var rows = filteredRows();
     if (!rows.length) {
       host.innerHTML = '<p class="haohong-logistics-empty">沒有符合的豪鴻資料。可改關鍵字，或按「從豪鴻重新抓」。</p>';
@@ -110,7 +170,7 @@
       html = '<table class="haohong-logistics-table"><thead><tr>' +
         '<th>物流單號</th><th>批號</th><th>豪鴻品名</th><th>豪鴻狀態</th><th>倉別</th><th>計費重</th><th>後台商品</th><th>比對</th>' +
         '</tr></thead><tbody>' + rows.map(function (row) {
-          return '<tr><td>' + escapeHtml(row.trackingNo) + '</td><td>' + escapeHtml(row.batchNo) + '</td><td>' + escapeHtml(row.productName) +
+          return '<tr><td class="' + (queryHitsPackage(row, q) ? 'haohong-hit-tracking' : '') + '">' + escapeHtml(row.trackingNo) + '</td><td>' + escapeHtml(row.batchNo) + '</td><td>' + escapeHtml(row.productName) +
             '</td><td>' + escapeHtml(row.packageStatus) + '</td><td>' + escapeHtml(row.warehouse) +
             '</td><td>' + escapeHtml(row.billedWeightKg || 0) + ' kg</td><td>' + escapeHtml([row.backendCode, row.backendProduct].filter(Boolean).join(' ')) +
             '</td><td class="' + compareClass(row.compare) + '">' + escapeHtml(row.compare) + '</td></tr>';
@@ -119,13 +179,22 @@
       html = '<table class="haohong-logistics-table"><thead><tr>' +
         '<th>批號</th><th>豪鴻狀態</th><th>日期</th><th>轉運單</th><th>豪鴻包裹</th><th>計費重</th><th>運費</th><th>後台</th><th>後台狀態</th><th>比對</th>' +
         '</tr></thead><tbody>' + rows.map(function (row) {
-          return '<tr><td><b>' + escapeHtml(row.batchNo) + '</b></td><td>' + escapeHtml(row.haohongStatus) +
+          var id = batchId(row);
+          var open = isBatchOpen(row, q);
+          var count = packagesForBatch(row).length;
+          var main = '<tr class="haohong-batch-row' + (open ? ' is-open' : '') + '">' +
+            '<td><button type="button" class="haohong-batch-toggle" data-haohong-expand="' + escapeHtml(id) + '" aria-expanded="' + (open ? 'true' : 'false') + '"><span class="haohong-batch-chevron"></span><b>' + escapeHtml(row.batchNo) + '</b><small>' + count + ' 筆物流</small></button></td>' +
+            '<td>' + escapeHtml(row.haohongStatus) +
             '</td><td>' + escapeHtml(String(row.orderDate || '').replace('T', ' ').slice(0, 16)) +
             '</td><td>' + escapeHtml(row.transferOrderNo) + '</td><td>' + escapeHtml(row.remotePackageCount) +
             '</td><td>' + escapeHtml(row.remoteBilledKg || 0) + ' kg</td><td>NT$' + escapeHtml(row.remoteFeeTwd || 0) +
             '</td><td>' + (row.inBackend ? escapeHtml(row.localId || '已帶入') : '未帶入') +
             '</td><td>' + escapeHtml(row.localStatus) +
             '</td><td class="' + compareClass(row.compare) + '">' + escapeHtml(row.compare) + '</td></tr>';
+          var detail = open
+            ? '<tr class="haohong-batch-detail-row"><td colspan="10"><div class="haohong-batch-detail">' + renderBatchPackages(row, q) + '</div></td></tr>'
+            : '';
+          return main + detail;
         }).join('') + '</tbody></table>';
     }
     host.innerHTML = html;
@@ -144,6 +213,15 @@
     paint();
   }
 
+  function setAllExpanded(open) {
+    state.expanded = {};
+    state.batches.forEach(function (row) {
+      var id = batchId(row);
+      if (id) state.expanded[id] = !!open;
+    });
+    paint();
+  }
+
   function loadList() {
     setStatus('正在讀取後台豪鴻批號與上次豪鴻清單…');
     return fetch('./haohong-logistics-api.php', {
@@ -156,8 +234,8 @@
         if (!res.ok || payload.ok === false) throw new Error(payload.error || '無法讀取豪鴻對照表');
         applyPayload(payload);
         setStatus(payload.hasSnapshot
-          ? ('豪鴻清單時間：' + (payload.snapshotAt || '已抓') + '。可用搜尋比對批號／物流單。')
-          : '目前先顯示後台已帶入的豪鴻批號。按「從豪鴻重新抓」才會跟豪鴻官網清單對上。');
+          ? ('豪鴻清單時間：' + (payload.snapshotAt || '已抓') + '。點批號可展開看裡面的物流單。')
+          : '目前先顯示後台已帶入的豪鴻批號。點批號可展開看物流單；按「從豪鴻重新抓」才會跟豪鴻官網清單對上。');
         return payload;
       });
     }).catch(function (error) {
@@ -213,6 +291,24 @@
         });
         paint();
       });
+    });
+    document.addEventListener('click', function (event) {
+      var expand = event.target.closest('[data-haohong-expand]');
+      if (expand) {
+        var id = String(expand.getAttribute('data-haohong-expand') || '');
+        if (!id) return;
+        var row = state.batches.filter(function (item) { return batchId(item) === id; })[0];
+        state.expanded[id] = !(row && isBatchOpen(row, searchQuery()));
+        paint();
+        return;
+      }
+      if (event.target.closest('[data-haohong-expand-all]')) {
+        setAllExpanded(true);
+        return;
+      }
+      if (event.target.closest('[data-haohong-collapse-all]')) {
+        setAllExpanded(false);
+      }
     });
     var q = new URLSearchParams(location.search).get('q');
     if (q && search) {
