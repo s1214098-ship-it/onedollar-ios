@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'coolpc-quote-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-json-response.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -20,9 +21,7 @@ session_start();
 
 function coolpc_quote_respond(array $payload, int $status = 200): void
 {
-    http_response_code($status);
-    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
+    baohui_json_send($payload, $status);
 }
 
 if (empty($_SESSION['baohui_logged_in']) || trim((string)($_SESSION['baohui_user'] ?? '')) === '') {

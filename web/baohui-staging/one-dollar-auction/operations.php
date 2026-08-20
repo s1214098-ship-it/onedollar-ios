@@ -5,24 +5,34 @@ require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-document-no.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'document-print-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'monthly-settlement-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-color-variants-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-data-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-product-index-lib.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
 baohui_ops_boot_hq_session();
 
 function baohui_main_data(): array {
+    static $cached = null;
+    static $loaded = false;
+    if ($loaded) return is_array($cached) ? $cached : [];
+    $loaded = true;
     $db = dirname(__DIR__) . '/data/baohui.sqlite';
-    if (!is_file($db)) return [];
+    if (!is_file($db)) {
+        $cached = [];
+        return $cached;
+    }
     try {
         $pdo = new PDO('sqlite:' . $db);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $stmt = $pdo->query('SELECT json_data FROM app_data WHERE id = 1');
         $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
         $data = json_decode((string)($row['json_data'] ?? ''), true);
-        return is_array($data) ? $data : [];
+        $cached = is_array($data) ? $data : [];
     } catch (Throwable $e) {
-        return [];
+        $cached = [];
     }
+    return $cached;
 }
 
 function baohui_main_employees(): array {
@@ -187,31 +197,6 @@ function current_operator() {
     return trim((string)$u) !== '' ? trim((string)$u) : 'unknown';
 }
 function money($v) { return '$' . number_format((float)$v, 0); }
-function data_path($name) { global $dataDir; return $dataDir . '/' . $name . '.json'; }
-function json_flags($flags = 0) {
-    return $flags | (defined('JSON_INVALID_UTF8_SUBSTITUTE') ? JSON_INVALID_UTF8_SUBSTITUTE : 0);
-}
-function read_data($name) {
-    $file = data_path($name);
-    if (!file_exists($file)) return [];
-    $raw = file_get_contents($file);
-    if ($raw === false || $raw === '') return [];
-    if (strncmp($raw, "\xEF\xBB\xBF", 3) === 0) $raw = substr($raw, 3);
-    $data = json_decode($raw, true, 512, json_flags());
-    return is_array($data) ? $data : [];
-}
-function read_json_object($name) {
-    $file = data_path($name);
-    if (!file_exists($file)) return [];
-    $raw = file_get_contents($file);
-    if ($raw === false || $raw === '') return [];
-    if (strncmp($raw, "\xEF\xBB\xBF", 3) === 0) $raw = substr($raw, 3);
-    $data = json_decode($raw, true, 512, json_flags());
-    return is_array($data) ? $data : [];
-}
-function write_data($name, $data) {
-    file_put_contents(data_path($name), json_encode(array_values($data), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
-}
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'marketplace-channels.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'post-reply-sets.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'facebook-daily-report.php';
@@ -1399,6 +1384,21 @@ function default_warehouse_name($department = '電腦部門') {
     $dept = trim((string)$department);
     if ($dept !== '' && !empty($map[$dept][0])) return $map[$dept][0];
     return '電腦倉';
+}
+
+function ops_should_sync_members(): bool
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        $action = (string)($_POST['action'] ?? '');
+        if ($action !== '' && preg_match('/member|schedule|settle|delivery|payment|order|winner/i', $action)) return true;
+    }
+    $tab = (string)($_GET['tab'] ?? '');
+    if (in_array($tab, ['members', 'settlement', 'orders', 'customer-shipping'], true)) return true;
+    $stamp = ops_data_dir() . DIRECTORY_SEPARATOR . '_member_sync_stamp.txt';
+    $last = is_file($stamp) ? (int)@file_get_contents($stamp) : 0;
+    if ($last > 0 && (time() - $last) < 300) return false;
+    @file_put_contents($stamp, (string)time(), LOCK_EX);
+    return true;
 }
 
 function warehouse_department_for($warehouse, $fallback = '電腦部門') {
@@ -6472,7 +6472,7 @@ $mobileAssetMovements = read_data('mobile_asset_movements');
 [$fixedExpensePayments, $fixedExpenseAutoCreated] = generate_fixed_expense_payments($fixedExpenses, $fixedExpensePayments, date('Y-m'), true);
 [$fixedExpensePayments, $fixedExpenseOverdueChanged] = refresh_fixed_expense_overdue($fixedExpensePayments);
 if ($fixedExpenseAutoCreated > 0 || $fixedExpenseOverdueChanged) write_data('fixed_expense_payments', $fixedExpensePayments);
-if (function_exists('bhm_sync_members_between_systems')) {
+if (function_exists('bhm_sync_members_between_systems') && ops_should_sync_members()) {
     $memberSync = bhm_sync_members_between_systems(null, null, $members);
     $members = $memberSync['auction_members'];
     if (!empty($memberSync['changed_admin'])) bhm_write_admin_data($memberSync['admin_data']);
@@ -10340,11 +10340,10 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
   </section>
 <section class="ops-card ops-tab" id="schedule">
     <h2>排程上架工作台</h2>
-    <datalist id="schedule-product-options"><?php foreach($products as $p): ?><option value="<?=h(($p['id']??'').' / '.($p['barcode']??'').' / '.($p['title']??''))?>"></option><?php endforeach; ?></datalist>
     <form method="post" enctype="multipart/form-data" class="schedule-form">
       <input type="hidden" name="action" value="create_schedule">
       <input type="hidden" name="schedule_image" id="selectedScheduleImage">
-      <label class="wide">產品關鍵字<input id="scheduleProductSearch" list="schedule-product-options" autocomplete="off" placeholder="輸入產品編號、條碼、名稱、類別、細分類、顏色或尺寸"><span class="schedule-search-hint" id="scheduleProductSearchHint">共 <?=h(count($products))?> 個商品；零庫存商品也會顯示。</span></label>
+      <label class="wide">產品關鍵字<input id="scheduleProductSearch" autocomplete="off" placeholder="輸入產品編號、條碼、名稱、類別、細分類、顏色或尺寸"><span class="schedule-search-hint" id="scheduleProductSearchHint">共 <?=h(count($products))?> 個商品；零庫存商品也會顯示。</span></label>
       <input type="hidden" id="scheduleProductKey" name="product_key">
       <div class="wide schedule-product-picker">
         <div class="picker-head">
@@ -12982,7 +12981,7 @@ const sharedCategoryTypes = <?php echo json_encode($sharedCategoryTypes, json_fl
 const productCategoryTypesByGroup = <?php echo json_encode(product_category_types_by_group(), json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const productCategoryRules = <?php echo json_encode($productCategoryRulesForJs, json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const stockCategoryRules = <?php echo json_encode($stockCategoryRulesForJs, json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
-const salesCustomerDirectory = <?php echo json_encode(member_contact_directory($members), json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
+let salesCustomerDirectory = [];
 const productColorCodeMap = <?php echo json_encode($barcodeColorCodes, json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const productColorThumbMap = <?php echo json_encode($productColorThumbMap ?? [], json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
 const productSizeCodeMap = <?php echo json_encode($barcodeSizeCodes, json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>;
@@ -13971,6 +13970,7 @@ function setupSalesCustomerAutofill() {
   nameInput.addEventListener('input', () => {
     if (findCustomer(nameInput.value)) fill();
   });
+  nameInput.addEventListener('focus', () => { loadSalesCustomerDirectory(); });
 }
 setupSalesCustomerAutofill();
 function sanitizeProductSerialInput() {
@@ -13998,7 +13998,7 @@ document.querySelectorAll('[data-order-check-all]').forEach((box) => {
   async function syncOpsStatus(){
     if (!status) return;
     try {
-      const response = await fetch('operations.php?partial=ops_status', {cache:'no-store', credentials:'same-origin'});
+      const response = await fetch('ops-status.php', {cache:'no-store', credentials:'same-origin'});
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const data = await response.json();
       status.classList.remove('is-error');
@@ -14543,7 +14543,46 @@ document.getElementById('productPurchaseSource')?.addEventListener('change', eve
 document.getElementById('productPurchaseUnitCost')?.addEventListener('input', refreshProductPurchaseConversion);
 document.getElementById('productPurchaseRate')?.addEventListener('input', refreshProductPurchaseConversion);
 refreshProductPurchaseConversion();
-const scheduleProducts = <?php echo json_encode(array_map(function($p){ return ['id'=>$p['id']??'', 'barcode'=>$p['barcode']??'', 'title'=>$p['title']??'', 'product_condition'=>$p['product_condition']??'', 'category_group'=>$p['category_group']??'', 'category_type'=>$p['category_type']??'', 'category_brand'=>$p['category_brand']??'', 'category_spec'=>$p['category_spec']??'', 'color'=>$p['color']??'', 'color_code'=>$p['color_code']??'', 'size'=>$p['size']??'', 'size_code'=>$p['size_code']??'', 'spec'=>$p['spec']??'', 'warehouse_name'=>$p['warehouse_name']??'', 'shelf_code'=>$p['shelf_code']??'', 'warehouse_location'=>$p['warehouse_location']??'', 'stock_total'=>(int)($p['stock_total']??0), 'stock_reserved'=>(int)($p['stock_reserved']??0), 'cloud_auction_reserved'=>(int)($p['cloud_auction_reserved']??0), 'cloud_auction_locked'=>!empty($p['cloud_auction_locked']), 'stock_sold'=>(int)($p['stock_sold']??0), 'cost'=>(float)($p['cost']??0), 'purchase_source'=>$p['purchase_source']??'其他', 'purchase_source_currency'=>$p['purchase_source_currency']??'TWD', 'purchase_source_unit_cost'=>(float)($p['purchase_source_unit_cost']??0), 'purchase_exchange_rate'=>(float)($p['purchase_exchange_rate']??1), 'sale_price'=>(float)($p['sale_price']??0), 'reference_price'=>(float)($p['reference_price']??0), 'images'=>product_images($p), 'description'=>$p['description']??'']; }, $products), json_flags(JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)); ?>;
+let scheduleProducts = [];
+let scheduleProductsPromise = null;
+let scheduleProductsLoaded = false;
+let salesCustomerDirectoryPromise = null;
+function loadScheduleProducts(force) {
+  if (!force && scheduleProductsPromise) return scheduleProductsPromise;
+  const hint = document.getElementById('scheduleProductSearchHint');
+  if (hint && !scheduleProducts.length) hint.textContent = '商品目錄載入中…';
+  scheduleProductsPromise = fetch('ops-product-index.php', { credentials: 'same-origin' })
+    .then((res) => res.json())
+    .then((data) => {
+      scheduleProducts = Array.isArray(data.items) ? data.items : [];
+      scheduleProductsLoaded = true;
+      if (hint) hint.textContent = `共 ${scheduleProducts.length} 個商品；零庫存商品也會顯示。`;
+      return scheduleProducts;
+    })
+    .catch(() => {
+      scheduleProductsPromise = null;
+      if (hint) hint.textContent = '商品目錄載入失敗，請再試一次搜尋。';
+      return scheduleProducts;
+    });
+  return scheduleProductsPromise;
+}
+function loadSalesCustomerDirectory() {
+  if (salesCustomerDirectoryPromise) return salesCustomerDirectoryPromise;
+  salesCustomerDirectoryPromise = fetch('ops-member-directory.php', { credentials: 'same-origin' })
+    .then((res) => res.json())
+    .then((data) => {
+      salesCustomerDirectory = Array.isArray(data.items) ? data.items : [];
+      return salesCustomerDirectory;
+    })
+    .catch(() => {
+      salesCustomerDirectoryPromise = null;
+      return salesCustomerDirectory;
+    });
+  return salesCustomerDirectoryPromise;
+}
+function withScheduleProducts(fn) {
+  return loadScheduleProducts().then((rows) => fn(rows));
+}
 function scheduleProductReservedTotal(p){ return (Number(p.stock_reserved)||0) + (Number(p.cloud_auction_reserved)||0); }
 function scheduleProductAvailableRaw(p){ return (Number(p.stock_total)||0) - scheduleProductReservedTotal(p) - (Number(p.stock_sold)||0); }
 function scheduleProductAvailable(p){ return Math.max(0, scheduleProductAvailableRaw(p)); }
@@ -14739,20 +14778,27 @@ function setProductQuickStockProduct(product) {
 document.getElementById('productQuickStockBarcode')?.addEventListener('keydown', event => {
   if (event.key !== 'Enter') return;
   event.preventDefault();
-  const product = findScheduleProduct(event.currentTarget.value);
-  const info = document.getElementById('productQuickStockProductInfo');
-  if (!product) {
-    if (info) info.textContent = `找不到條碼：${event.currentTarget.value}，請先建立產品主檔。`;
-    return;
-  }
-  setProductQuickStockProduct(product);
-  document.getElementById('productQuickStockQty')?.focus();
+  withScheduleProducts(() => {
+    const product = findScheduleProduct(event.currentTarget.value);
+    const info = document.getElementById('productQuickStockProductInfo');
+    if (!product) {
+      if (info) info.textContent = `找不到條碼：${event.currentTarget.value}，請先建立產品主檔。`;
+      return;
+    }
+    setProductQuickStockProduct(product);
+    document.getElementById('productQuickStockQty')?.focus();
+  });
 });
 ['productQuickStockQty','productQuickStockUnitCost'].forEach(id => {
   document.getElementById(id)?.addEventListener('input', refreshProductQuickStockCost);
 });
 document.getElementById('productQuickStockForm')?.addEventListener('submit', event => {
   const barcode = document.getElementById('productQuickStockBarcode');
+  if (!scheduleProductsLoaded) {
+    event.preventDefault();
+    withScheduleProducts(() => document.getElementById('productQuickStockForm')?.requestSubmit?.());
+    return;
+  }
   const product = findScheduleProduct(barcode?.value || '');
   if (!product) {
     event.preventDefault();
@@ -14979,6 +15025,11 @@ function renderScheduleProductResults(){
   const box = document.getElementById('scheduleProductResults');
   const hint = document.getElementById('scheduleProductSearchHint');
   if (!input || !box) return;
+  if (!scheduleProductsLoaded) {
+    box.innerHTML = '<div class="muted">商品目錄載入中…</div>';
+    loadScheduleProducts().then(() => renderScheduleProductResults());
+    return;
+  }
   const value = input.value || '';
   const matches = productSearchMatches(value, 8);
   box.innerHTML = matches.length ? matches.map(p => productCardHtml(p, 'schedule')).join('') : '<div class="muted">找不到符合的產品，請改用產品編號、條碼或名稱搜尋。</div>';
@@ -15174,6 +15225,11 @@ function renderStockProductResults() {
   const input = document.getElementById('stockProductSearch');
   const box = document.getElementById('stockProductResults');
   if (!input || !box) return;
+  if (!scheduleProductsLoaded) {
+    box.innerHTML = '<div class="muted">商品目錄載入中…</div>';
+    loadScheduleProducts().then(() => renderStockProductResults());
+    return;
+  }
   const matches = productSearchMatches(input.value, 10);
   box.innerHTML = matches.length ? matches.map(p => productCardHtml(p, 'stock')).join('') : '';
 }
@@ -15238,6 +15294,11 @@ function renderSalesProductResults() {
   const input = document.getElementById('salesProductSearch');
   const box = document.getElementById('salesProductResults');
   if (!input || !box) return;
+  if (!scheduleProductsLoaded) {
+    box.innerHTML = '<div class="muted">商品目錄載入中…</div>';
+    loadScheduleProducts().then(() => renderSalesProductResults());
+    return;
+  }
   const matches = productSearchMatches(input.value, 10);
   box.innerHTML = matches.length ? matches.map(p => productCardHtml(p, 'sales')).join('') : '';
 }
@@ -15256,8 +15317,10 @@ document.getElementById('scheduleProductSearch')?.addEventListener('focus', rend
 document.getElementById('scheduleProductSearch')?.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter') return;
   event.preventDefault();
-  const product = productSearchMatches(event.currentTarget.value, 1)[0];
-  if (product) setScheduleProduct(product);
+  withScheduleProducts(() => {
+    const product = productSearchMatches(event.currentTarget.value, 1)[0];
+    if (product) setScheduleProduct(product);
+  });
 });
 document.getElementById('confirmScheduleProduct')?.addEventListener('click', confirmScheduleProduct);
 document.getElementById('scheduleTimeModalClose')?.addEventListener('click', closeScheduleTimeModal);
@@ -15306,14 +15369,18 @@ document.getElementById('stockProductSearch')?.addEventListener('keydown', (even
   if (event.key !== 'Enter') return;
   event.preventDefault();
   const input = event.currentTarget;
-  const product = findScheduleProduct(input.value) || productSearchMatches(input.value, 1)[0];
-  if (product) setStockProduct(product);
+  withScheduleProducts(() => {
+    const product = findScheduleProduct(input.value) || productSearchMatches(input.value, 1)[0];
+    if (product) setStockProduct(product);
+  });
 });
 document.getElementById('salesProductSearch')?.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter') return;
   event.preventDefault();
-  const product = findScheduleProduct(event.currentTarget.value) || productSearchMatches(event.currentTarget.value, 1)[0];
-  if (product) setSalesProduct(product);
+  withScheduleProducts(() => {
+    const product = findScheduleProduct(event.currentTarget.value) || productSearchMatches(event.currentTarget.value, 1)[0];
+    if (product) setSalesProduct(product);
+  });
 });
 document.addEventListener('click', (event) => {
   const card = event.target.closest?.('.product-result-card');
@@ -15324,7 +15391,19 @@ document.addEventListener('click', (event) => {
   if (card.dataset.mode === 'stock') { setStockProduct(p); const box = document.getElementById('stockProductResults'); if (box) box.innerHTML = ''; }
   if (card.dataset.mode === 'sales') { setSalesProduct(p); const box = document.getElementById('salesProductResults'); if (box) box.innerHTML = ''; }
 });
-renderScheduleProductResults();
+(function prefetchOpsCatalogs() {
+  const orig = window.openOpsTab;
+  if (typeof orig === 'function') {
+    window.openOpsTab = function (id) {
+      const target = orig(id);
+      if (['schedule', 'stock-in', 'sales-out', 'inventory-count', 'stock-search'].indexOf(target) !== -1) loadScheduleProducts();
+      if (target === 'sales-out' || target === 'customer-shipping') loadSalesCustomerDirectory();
+      return target;
+    };
+  }
+  const idle = window.requestIdleCallback || function (fn) { setTimeout(fn, 800); };
+  idle(function () { loadScheduleProducts(); });
+})();
 document.addEventListener('click', (event) => {
   const remove = event.target.closest?.('.remove-stock-line');
   if (!remove) return;
