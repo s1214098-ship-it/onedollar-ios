@@ -10,12 +10,12 @@
       label: 'Telepon / nomor resi',
       placeholder: '0812… atau nomor resi',
       submit: 'Cek sekarang',
-      hint: 'Ketik nomor telepon pelanggan, 4 angka terakhir, atau nomor resi. Lalu tekan tombol besar.',
+      hint: 'Ketik beberapa angka, langsung cari. Awal telepon, 4 terakhir, nama, atau resi.',
       addhome: 'Di HP: buka tautan ini → bagikan → Tambah ke Layar Utama. Nanti cukup ketuk ikon.',
       recent: 'Baru dicari',
       searching: 'Mencari…',
-      need: 'Ketik minimal 3 angka telepon atau nomor resi.',
-      empty: 'Tidak ketemu. Coba telepon lengkap, 4 angka terakhir, atau nomor resi.',
+      need: 'Ketik minimal 3 angka, atau 2 huruf nama.',
+      empty: 'Tidak ketemu. Coba awal telepon, 4 terakhir, nama, atau resi.',
       fail: 'Gagal cek. Coba lagi.',
       failFile: 'Jangan buka file. Pakai https://www.lingzanzan.com/cek.html',
       found: 'Ketemu',
@@ -74,12 +74,12 @@
       label: '電話／物流單號',
       placeholder: '電話或物流單號',
       submit: '立刻查貨',
-      hint: '輸入客人電話、電話後四碼，或物流單號，再按金色大按鈕。',
+      hint: '打幾個字就會找。電話開頭、後四碼、姓名或物流單號都可以。',
       addhome: '手機：打開這個網址 → 分享 → 加入主畫面。以後點圖示就能查。',
       recent: '最近查過',
       searching: '查詢中…',
-      need: '至少輸入 3 碼電話或物流單號。',
-      empty: '找不到。改打完整電話、後四碼或物流單號。',
+      need: '至少打 3 碼電話，或 2 個字的姓名。',
+      empty: '找不到。改打電話開頭、後四碼、姓名或物流單號。',
       fail: '查詢失敗，再試一次。',
       failFile: '不要直接開檔案。請用 https://www.lingzanzan.com/cek.html',
       found: '找到',
@@ -412,24 +412,55 @@
     var list = $('[data-cek-list]');
     if (list && lastSearchRows.length) list.innerHTML = lastSearchRows.map(cardHtml).join('');
   }
-  function search(query) {
+  var liveSearchTimer = 0;
+  var liveSearchAbort = null;
+  function queryTooShort(query) {
+    var raw = String(query || '').trim();
+    var num = digits(raw);
+    var compact = raw.replace(/[\s-]+/g, '');
+    if (num && num === compact) return num.length < 3;
+    return raw.length < 2;
+  }
+  function showBoard(show) {
+    var board = $('[data-cek-board]');
+    if (board) board.hidden = !show;
+  }
+  function search(query, opts) {
+    opts = opts || {};
     query = String(query || '').trim();
     var input = $('[data-cek-query]');
     var button = $('[data-cek-submit]');
     var list = $('[data-cek-list]');
-    if (input) input.value = query;
-    if (query.length < 2) {
-      setStatus(t().need, 'err');
-      if (input) input.focus();
+    if (input && !opts.keepTyping) input.value = query;
+    if (queryTooShort(query)) {
+      lastSearchRows = [];
+      if (list) list.innerHTML = '';
+      showBoard(true);
+      if (!opts.live) {
+        setStatus(t().need, 'err');
+        if (input) input.focus();
+      } else {
+        setStatus('');
+      }
       return;
     }
+    showBoard(false);
+    if (liveSearchAbort && typeof liveSearchAbort.abort === 'function') {
+      try { liveSearchAbort.abort(); } catch (error) {}
+    }
+    liveSearchAbort = typeof AbortController === 'function' ? new AbortController() : null;
     if (button) button.disabled = true;
     setStatus(t().searching);
-    fetch(apiUrl('q=' + encodeURIComponent(query)), { cache: 'no-store' })
+    fetch(apiUrl('q=' + encodeURIComponent(query)), {
+      cache: 'no-store',
+      signal: liveSearchAbort ? liveSearchAbort.signal : undefined
+    })
       .then(readApi)
       .then(function (data) {
-        saveRecent(query);
-        renderRecent();
+        if (!opts.live) {
+          saveRecent(query);
+          renderRecent();
+        }
         var rows = Array.isArray(data.results) ? data.results : [];
         lastSearchRows = rows;
         if (!list) return;
@@ -442,6 +473,7 @@
         setStatus(t().found + ' ' + rows.length + (data.ambiguous ? ' · ' + t().many : ''), data.ambiguous ? 'warn' : 'ok');
       })
       .catch(function (error) {
+        if (error && error.name === 'AbortError') return;
         if (list) list.innerHTML = '';
         setStatus(failText(error), 'err');
       })
@@ -449,12 +481,29 @@
         if (button) button.disabled = false;
       });
   }
+  function scheduleLiveSearch(query) {
+    if (liveSearchTimer) window.clearTimeout(liveSearchTimer);
+    liveSearchTimer = window.setTimeout(function () {
+      liveSearchTimer = 0;
+      search(query, { live: true, keepTyping: true });
+    }, 180);
+  }
 
   var form = $('[data-cek-form]');
   if (form) {
     form.addEventListener('submit', function (event) {
       event.preventDefault();
+      if (liveSearchTimer) window.clearTimeout(liveSearchTimer);
       search(($('[data-cek-query]') || {}).value);
+    });
+  }
+  var queryInput = $('[data-cek-query]');
+  if (queryInput) {
+    queryInput.addEventListener('input', function () {
+      scheduleLiveSearch(queryInput.value);
+    });
+    queryInput.addEventListener('compositionend', function () {
+      scheduleLiveSearch(queryInput.value);
     });
   }
   try { localize(); } catch (error) {}
