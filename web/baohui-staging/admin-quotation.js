@@ -281,10 +281,15 @@
     ensureStore();
     var box = $id('quoteItemHistoryList');
     if (!box) return;
-    var kw = (($id('quoteItemHistorySearch') && $id('quoteItemHistorySearch').value) || '').toLowerCase();
+    var kw = (($id('quoteItemHistorySearch') && $id('quoteItemHistorySearch').value) || '').trim();
+    var link = window.baohuiQuoteLink;
     var rows = data.quoteItemHistory.filter(function (it) {
-      return !kw || [it.name, it.brand, it.spec, it.warranty, it.price].join(' ').toLowerCase().indexOf(kw) !== -1;
-    }).slice(0, 24);
+      if (!kw) return true;
+      if (link) return link.score(kw, it) > 0;
+      return [it.name, it.brand, it.spec, it.warranty, it.price].join(' ').toLowerCase().indexOf(kw.toLowerCase()) !== -1;
+    });
+    if (kw && link) rows = rows.sort(function (a, b) { return link.score(kw, b) - link.score(kw, a); });
+    rows = rows.slice(0, 24);
     if (!rows.length) {
       box.innerHTML = '<div class="text-muted small">目前沒有常用品項紀錄。儲存估價單後會自動記錄，之後可編輯預設價格、保固與稅金模式。</div>';
       return;
@@ -431,6 +436,199 @@
     addQuoteItemRow(Object.assign({}, preset));
     updateQuotePreviewTotal();
   };
+  var QUOTE_BRANDS = ['華碩','技嘉','微星','華擎','映泰','Intel','AMD','NVIDIA','金士頓','威剛','十銓','美光','Samsung','WD','Seagate','Toshiba','東芝','海韻','全漢','安鈦克','酷碼','MONTECH','LIAN LI','NZXT','Corsair','EVGA','ASUS','GIGABYTE','MSI','羅技','Razer'];
+  var quoteSuggestState = { input: null, items: [], index: -1, timer: null };
+  var quoteCatalogSuggestCache = { __items: [] };
+  function quoteLinkApi() { return window.baohuiQuoteLink || null; }
+  function quoteLinkPool() {
+    ensureStore();
+    var history = data.quoteItemHistory || [];
+    var quotes = [];
+    (data.quotations || []).forEach(function (q) {
+      (q.items || []).forEach(function (it) { quotes.push(it); });
+    });
+    var presets = Object.keys(quoteComputerServicePresets || {}).map(function (k) { return quoteComputerServicePresets[k]; });
+    var rows = Array.from(document.querySelectorAll('#quoteItemRows .quote-item-row')).map(function (tr) {
+      return {
+        name: (tr.querySelector('.quote-item-name') || {}).value || '',
+        brand: (tr.querySelector('.quote-item-brand') || {}).value || '',
+        spec: (tr.querySelector('.quote-item-spec') || {}).value || ''
+      };
+    });
+    var link = quoteLinkApi();
+    var lists = [history, quotes, presets, rows, quoteCatalogSuggestCache.__items];
+    return link ? link.mergePool(lists) : history.concat(quotes, presets, rows);
+  }
+  function quoteBrandList() {
+    var brands = QUOTE_BRANDS.slice();
+    quoteLinkPool().forEach(function (it) { if (it && it.brand) brands.push(it.brand); });
+    return brands;
+  }
+  function hideQuoteSuggest() {
+    document.querySelectorAll('.quote-suggest').forEach(function (el) { el.remove(); });
+    quoteSuggestState.input = null;
+    quoteSuggestState.items = [];
+    quoteSuggestState.index = -1;
+  }
+  function highlightQuoteSuggest() {
+    var box = document.querySelector('.quote-suggest');
+    if (!box) return;
+    box.querySelectorAll('button').forEach(function (btn, i) {
+      btn.classList.toggle('is-active', i === quoteSuggestState.index);
+      if (i === quoteSuggestState.index) btn.scrollIntoView({ block: 'nearest' });
+    });
+  }
+  function applyQuoteSuggest(input, item) {
+    var tr = input && input.closest && input.closest('.quote-item-row');
+    if (!tr || !item) return;
+    var link = quoteLinkApi();
+    var current = {
+      name: tr.querySelector('.quote-item-name').value,
+      brand: tr.querySelector('.quote-item-brand').value,
+      spec: tr.querySelector('.quote-item-spec').value,
+      price: tr.querySelector('.quote-item-price').value,
+      warranty: tr.querySelector('.quote-item-warranty').value,
+      taxMode: tr.querySelector('.quote-item-tax').value
+    };
+    var filled = link ? link.linkedFill(current, item) : item;
+    if (link && !filled.brand) filled.brand = link.guessBrand(filled.name, quoteBrandList());
+    if (link) filled.spec = link.cleanSpec(filled.brand, filled.spec);
+    tr.querySelector('.quote-item-name').value = filled.name || '';
+    tr.querySelector('.quote-item-brand').value = filled.brand || '';
+    tr.querySelector('.quote-item-spec').value = filled.spec || '';
+    if (num(filled.price) && !num(current.price)) tr.querySelector('.quote-item-price').value = String(num(filled.price));
+    hideQuoteSuggest();
+    updateQuotePreviewTotal();
+  }
+  function renderQuoteSuggest(input, items) {
+    var prevInput = quoteSuggestState.input;
+    document.querySelectorAll('.quote-suggest').forEach(function (el) { el.remove(); });
+    if (!input || !items || !items.length) {
+      quoteSuggestState.input = null;
+      quoteSuggestState.items = [];
+      quoteSuggestState.index = -1;
+      return;
+    }
+    var wrap = input.closest('.quote-suggest-wrap') || input.parentElement;
+    if (!wrap) return;
+    wrap.classList.add('quote-suggest-wrap');
+    var box = document.createElement('div');
+    box.className = 'quote-suggest';
+    box.innerHTML = items.map(function (it, i) {
+      var meta = [it.brand, it.spec].filter(Boolean).join(' ／ ');
+      return '<button type="button" data-suggest-index="' + i + '"><b>' + esc(it.name || '-') + '</b><small>' + esc(meta || '相關品項') + '</small></button>';
+    }).join('');
+    wrap.appendChild(box);
+    quoteSuggestState.input = input;
+    quoteSuggestState.items = items;
+    quoteSuggestState.index = prevInput === input ? Math.min(quoteSuggestState.index, items.length - 1) : 0;
+    if (quoteSuggestState.index < 0) quoteSuggestState.index = 0;
+    box.querySelectorAll('button').forEach(function (btn) {
+      btn.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        applyQuoteSuggest(input, items[Number(btn.getAttribute('data-suggest-index') || 0)]);
+      });
+    });
+    highlightQuoteSuggest();
+  }
+  function fetchQuoteCatalogSuggest(q, cb) {
+    var key = String(q || '').trim().toLowerCase();
+    if (!key) return cb([]);
+    if (quoteCatalogSuggestCache[key]) return cb(quoteCatalogSuggestCache[key]);
+    fetch('api.php?action=product_catalog&q=' + encodeURIComponent(q), { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (res) { return res.json(); })
+      .then(function (payload) {
+        var items = ((payload && payload.items) || []).map(function (item) {
+          return {
+            name: item.name || '',
+            brand: item.brand || '',
+            spec: item.spec || [item.category, item.subcategory].filter(Boolean).join(' / '),
+            price: num(item.sale_price) || num(item.reference_price),
+            warranty: '依產品或原廠保固條件辦理'
+          };
+        });
+        quoteCatalogSuggestCache[key] = items;
+        quoteCatalogSuggestCache.__items = (quoteCatalogSuggestCache.__items || []).concat(items);
+        cb(items);
+      })
+      .catch(function () { cb([]); });
+  }
+  function showQuoteSuggest(input) {
+    var link = quoteLinkApi();
+    if (!link || !input) return;
+    var q = String(input.value || '').trim();
+    if (q.length < 1) { renderQuoteSuggest(input, []); return; }
+    renderQuoteSuggest(input, link.rank(q, quoteLinkPool(), 8));
+    clearTimeout(quoteSuggestState.timer);
+    if (q.length < 2) return;
+    quoteSuggestState.timer = setTimeout(function () {
+      fetchQuoteCatalogSuggest(q, function (extra) {
+        if (quoteSuggestState.input !== input && document.activeElement !== input) return;
+        renderQuoteSuggest(input, link.rank(q, link.mergePool([quoteLinkPool(), extra]), 8));
+      });
+    }, 280);
+  }
+  function autoFillLinked(input) {
+    var link = quoteLinkApi();
+    var tr = input && input.closest && input.closest('.quote-item-row');
+    if (!link || !tr) return;
+    var nameEl = tr.querySelector('.quote-item-name');
+    var brandEl = tr.querySelector('.quote-item-brand');
+    var specEl = tr.querySelector('.quote-item-spec');
+    var name = (nameEl && nameEl.value) || '';
+    if (brandEl && !String(brandEl.value || '').trim()) brandEl.value = link.guessBrand(name, quoteBrandList());
+    var query = name || (specEl && specEl.value) || (brandEl && brandEl.value) || '';
+    var best = query ? link.rank(query, quoteLinkPool(), 1)[0] : null;
+    if (best && link.score(query, best) >= 80) {
+      if (brandEl && !String(brandEl.value || '').trim()) brandEl.value = best.brand || brandEl.value;
+      if (specEl && (!String(specEl.value || '').trim() || specEl.value === brandEl.value)) specEl.value = link.cleanSpec(brandEl.value, best.spec || specEl.value);
+    }
+    if (specEl) specEl.value = link.cleanSpec(brandEl.value, specEl.value);
+  }
+  function bindQuoteItemLink() {
+    if (document.body.dataset.quoteItemLinkBound) return;
+    document.body.dataset.quoteItemLinkBound = '1';
+    document.addEventListener('input', function (e) {
+      var input = e.target.closest && e.target.closest('.quote-item-name, .quote-item-brand, .quote-item-spec');
+      if (input) showQuoteSuggest(input);
+    });
+    document.addEventListener('focusin', function (e) {
+      var input = e.target.closest && e.target.closest('.quote-item-name, .quote-item-brand, .quote-item-spec');
+      if (input && String(input.value || '').trim()) showQuoteSuggest(input);
+    });
+    document.addEventListener('blur', function (e) {
+      var input = e.target.closest && e.target.closest('.quote-item-name, .quote-item-brand, .quote-item-spec');
+      if (!input) return;
+      setTimeout(function () { autoFillLinked(input); }, 120);
+    }, true);
+    document.addEventListener('keydown', function (e) {
+      if (!quoteSuggestState.input || !document.querySelector('.quote-suggest')) return;
+      if (e.key === 'Escape') { hideQuoteSuggest(); return; }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        quoteSuggestState.index = Math.min(quoteSuggestState.items.length - 1, quoteSuggestState.index + 1);
+        highlightQuoteSuggest();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        quoteSuggestState.index = Math.max(0, quoteSuggestState.index - 1);
+        highlightQuoteSuggest();
+      } else if (e.key === 'Enter' && quoteSuggestState.items[quoteSuggestState.index]) {
+        e.preventDefault();
+        applyQuoteSuggest(quoteSuggestState.input, quoteSuggestState.items[quoteSuggestState.index]);
+      }
+    });
+    if (window.baohuiQuoteBuilder && typeof window.baohuiQuoteBuilder.loadCatalog === 'function') {
+      window.baohuiQuoteBuilder.loadCatalog().then(function (catalog) {
+        var items = [];
+        (catalog.slots || []).concat(catalog.extra || []).forEach(function (slot) {
+          (slot.items || []).forEach(function (it) {
+            items.push({ name: it.name || '', brand: it.brand || '', spec: it.spec || '', price: it.price || 0 });
+          });
+        });
+        quoteCatalogSuggestCache.__items = items.concat(quoteCatalogSuggestCache.__items || []);
+      }).catch(function () {});
+    }
+  }
   function ensureNav() {
     var sidebar = document.querySelector('.sidebar'); if (!sidebar) return;
     var link = document.querySelector('[data-page="' + PAGE + '"]');
@@ -457,6 +655,12 @@
       '.quote-item-table th,.quote-item-table td{vertical-align:middle}' +
       '.quote-item-table .quote-item-qty,.quote-item-table .quote-item-price{min-width:108px;width:100%;font-size:16px;font-weight:600;padding:8px 10px;text-align:right}' +
       '.quote-item-table .quote-item-name,.quote-item-table .quote-item-brand,.quote-item-table .quote-item-spec,.quote-item-table .quote-item-warranty,.quote-item-table .quote-item-tax{font-size:15px}' +
+      '.quote-suggest-wrap{position:relative}' +
+      '.quote-suggest{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:80;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 28px rgba(15,23,42,.14);max-height:260px;overflow:auto}' +
+      '.quote-suggest button{display:block;width:100%;text-align:left;border:0;background:#fff;padding:8px 10px;color:#0f172a}' +
+      '.quote-suggest button:hover,.quote-suggest button.is-active{background:#ecfdf5}' +
+      '.quote-suggest b{display:block;font-size:14px}' +
+      '.quote-suggest small{display:block;color:#64748b;font-weight:700}' +
       '</style>' +
       '<h4 class="mb-4">寶輝科技正式估價單</h4>' +
       '<div class="alert alert-info">估價單號自動產生 VAL-當天日期-流水號。清單按「轉現貨出貨單」後，出貨單也是 VAL-日期-流水；正規銷售出庫單是 SELL-日期-流水。客戶與品項會進銷售出庫單，可列印、篩選、修正。</div>' +
@@ -617,9 +821,9 @@
     var mode = it.taxMode || 'none';
     var c = itemCalc(it);
     return '<tr class="quote-item-row">' +
-      '<td><input class="form-control quote-item-name" value="' + esc(it.name || '') + '" placeholder="品項名稱"></td>' +
-      '<td><input class="form-control quote-item-brand" value="' + esc(it.brand || '') + '" placeholder="廠牌"></td>' +
-      '<td><input class="form-control quote-item-spec" value="' + esc(it.spec || '') + '" placeholder="規格 / 型號 / 說明"></td>' +
+      '<td><div class="quote-suggest-wrap"><input class="form-control quote-item-name" autocomplete="off" value="' + esc(it.name || '') + '" placeholder="品項名稱"></div></td>' +
+      '<td><div class="quote-suggest-wrap"><input class="form-control quote-item-brand" autocomplete="off" value="' + esc(it.brand || '') + '" placeholder="廠牌"></div></td>' +
+      '<td><div class="quote-suggest-wrap"><input class="form-control quote-item-spec" autocomplete="off" value="' + esc(it.spec || '') + '" placeholder="規格 / 型號 / 說明"></div></td>' +
       '<td><input type="text" inputmode="decimal" class="form-control quote-item-qty" value="' + esc(it.qty || 1) + '" oninput="updateQuotePreviewTotal()" onblur="cleanMoneyInput(this); updateQuotePreviewTotal();" placeholder="數量" title="數量"></td>' +
       '<td><input type="text" inputmode="decimal" class="form-control quote-item-price" value="' + esc(it.price || 0) + '" oninput="updateQuotePreviewTotal()" onblur="cleanMoneyInput(this); updateQuotePreviewTotal();" placeholder="單價" title="單價"></td>' +
       '<td>' + warrantySelectHtml(it.warranty) + '</td>' +
@@ -951,7 +1155,7 @@
 
   var oldEnsure = window.ensureDataShape; if (typeof oldEnsure === 'function') window.ensureDataShape = function () { var r = oldEnsure.apply(this, arguments); ensureStore(); return r; };
   var oldFilter = window.filterSidebarByPermission; if (typeof oldFilter === 'function') window.filterSidebarByPermission = function () { var r = oldFilter.apply(this, arguments); ensureNav(); return r; };
-  var oldGo = window.goPage; if (typeof oldGo === 'function') window.goPage = function (pg) { ensureNav(); ensurePage(); var r = oldGo.apply(this, arguments); if (pg === PAGE) { if (!canUseQuotation()) return alert('你沒有估價單管理權限'); renderQuotationList(); renderQuoteItemHistory(); if (!$id('quoteItemRows').children.length) clearQuoteForm(); } return r; };
-  document.addEventListener('DOMContentLoaded', function () { ensureStore(); ensureNav(); ensurePage(); refreshCustomerList(); });
-  window.addEventListener('load', function () { setTimeout(function () { ensureStore(); ensureNav(); ensurePage(); refreshCustomerList(); }, 200); });
+  var oldGo = window.goPage; if (typeof oldGo === 'function') window.goPage = function (pg) { ensureNav(); ensurePage(); bindQuoteItemLink(); var r = oldGo.apply(this, arguments); if (pg === PAGE) { if (!canUseQuotation()) return alert('你沒有估價單管理權限'); renderQuotationList(); renderQuoteItemHistory(); if (!$id('quoteItemRows').children.length) clearQuoteForm(); } return r; };
+  document.addEventListener('DOMContentLoaded', function () { ensureStore(); ensureNav(); ensurePage(); refreshCustomerList(); bindQuoteItemLink(); });
+  window.addEventListener('load', function () { setTimeout(function () { ensureStore(); ensureNav(); ensurePage(); refreshCustomerList(); bindQuoteItemLink(); }, 200); });
 })();
