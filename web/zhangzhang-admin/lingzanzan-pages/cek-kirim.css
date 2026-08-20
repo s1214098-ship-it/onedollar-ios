@@ -218,6 +218,33 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+.cek-actions .is-lock {
+  grid-column: 1 / -1;
+  border-color: #ff8aa5;
+  color: #ff8aa5;
+  background: rgba(255, 138, 165, .12);
+}
+.cek-actions .is-locked {
+  grid-column: 1 / -1;
+  border-color: #8c728d;
+  color: #eadde8;
+  background: #3a2e3d;
+}
+.cek-simple.is-blacklisted,
+.cek-card.is-blacklisted {
+  border-color: #ff8aa5;
+}
+.cek-blacklist-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ff8aa5;
+  color: #1a1214;
+  font-size: 12px;
+  font-weight: 900;
+  vertical-align: middle;
+}
 .cek-actions a,
 .cek-actions button {
   display: flex;
@@ -240,4 +267,82 @@ body {
   margin-top: 18px;
   padding-top: 12px;
   border-top: 1px solid var(--line);
+}
+
+.cek-board {
+  margin: 8px 0 18px;
+}
+.cek-board > h2 {
+  margin: 8px 0 12px;
+  font-size: 22px;
+}
+.cek-board-status,
+.cek-board-empty {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-weight: 800;
+}
+.cek-board-block {
+  margin-bottom: 18px;
+}
+.cek-board-block h3 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+.cek-board-block > p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+.cek-board-block.is-return h3 { color: var(--rose); }
+.cek-simple {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 14px;
+  border: 1px solid #8c728d;
+  border-radius: 16px;
+  background: #241b24;
+}
+.cek-simple.is-danger {
+  border-color: var(--rose);
+  background: #3a1f28;
+}
+.cek-simple b {
+  font-size: 20px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.cek-simple p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.cek-simple .cek-batas { color: var(--gold); }
+.cek-simple.is-danger .cek-batas { color: var(--rose); }
+.cek-simple .cek-actions { margin-top: 8px; }
+
+.cek-photos {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-bottom: 8px;
+  padding-bottom: 2px;
+}
+.cek-photos img {
+  flex: 0 0 auto;
+  object-fit: cover;
+  background: #120e12;
+  border-radius: 12px;
+}
+.cek-photos .is-customer {
+  width: 92px;
+  height: 92px;
+}
+.cek-photos .is-product {
+  width: 72px;
+  height: 92px;
 }

@@ -17,6 +17,7 @@
       need: 'Ketik minimal 3 angka telepon atau nomor resi.',
       empty: 'Tidak ketemu. Coba telepon lengkap, 4 angka terakhir, atau nomor resi.',
       fail: 'Gagal cek. Coba lagi.',
+      failFile: 'Jangan buka file. Pakai https://www.lingzanzan.com/cek.html',
       found: 'Ketemu',
       many: 'Ada beberapa hasil. Cek nama / telepon yang benar.',
       order: 'Nomor pesanan',
@@ -34,6 +35,28 @@
       days: ' hari',
       overdue: 'Lewat ',
       today: 'Hari ini terakhir ambil',
+      boardTitle: 'Catatan 7 hari',
+      returningTitle: 'Hampir dikembalikan',
+      waitingTitle: 'Masih di toko',
+      returningHint: 'Ambil hari ini. Nanti dikembalikan.',
+      waitingHint: 'Sudah di toko, belum diambil.',
+      boardLoading: 'Memuat daftar 7 hari…',
+      boardEmpty: 'Tidak ada paket di toko 7 hari ini.',
+      boardFail: 'Gagal muat daftar.',
+      toko: 'Toko',
+      barang: 'Barang',
+      todayLimit: 'Hari ini 23:59',
+      overdueShort: 'Sudah lewat',
+      noDeadline: 'Batas belum ada',
+      lock: 'Kunci daftar hitam',
+      locked: 'Sudah dikunci',
+      lockTag: 'Blacklist',
+      lockConfirm: 'Kunci pelanggan ini? Order baru akan ditahan. Admin yang bisa buka.',
+      lockNeedPhone: 'Tidak ada telepon, tidak bisa kunci.',
+      lockOk: 'Sudah dikunci.',
+      lockFail: 'Gagal kunci. Coba lagi.',
+      lockReasonOverdue: 'Tidak ambil / lewat batas',
+      lockReasonSales: 'Sales kunci pelanggan',
       states: {
         pending: 'Menunggu dikirim',
         ready: 'Siap dikirim',
@@ -57,6 +80,7 @@
       need: '至少輸入 3 碼電話或物流單號。',
       empty: '找不到。改打完整電話、後四碼或物流單號。',
       fail: '查詢失敗，再試一次。',
+      failFile: '不要直接開檔案。請用 https://www.lingzanzan.com/cek.html',
       found: '找到',
       many: '找到多筆，請對一下姓名／電話。',
       order: '訂單編號',
@@ -74,6 +98,28 @@
       days: ' 天',
       overdue: '已超過 ',
       today: '今天是最後取件日',
+      boardTitle: '七天內取件',
+      returningTitle: '快退回',
+      waitingTitle: '還在門市',
+      returningHint: '今天要取，不然會退回。',
+      waitingHint: '貨已到門市，還沒取。',
+      boardLoading: '載入七天清單…',
+      boardEmpty: '這七天沒有待取包裹。',
+      boardFail: '清單載入失敗。',
+      toko: '門市',
+      barang: '商品',
+      todayLimit: '今天 23:59',
+      overdueShort: '已過期',
+      noDeadline: '尚未標截止',
+      lock: '鎖定黑名單',
+      locked: '已鎖定',
+      lockTag: '黑名單',
+      lockConfirm: '確定把這個客人鎖進黑名單？之後打單會擋，要管理後台才能解除。',
+      lockNeedPhone: '沒有電話，不能鎖定。',
+      lockOk: '已鎖定黑名單。',
+      lockFail: '鎖定失敗，再試一次。',
+      lockReasonOverdue: '未取件／過期退回',
+      lockReasonSales: '業務鎖定客戶',
       states: {
         pending: '待出貨',
         ready: '待出貨',
@@ -93,7 +139,11 @@
     });
   }
   function lang() {
-    return localStorage.getItem(LANG_KEY) === 'zh' ? 'zh' : 'id';
+    try {
+      return localStorage.getItem(LANG_KEY) === 'zh' ? 'zh' : 'id';
+    } catch (error) {
+      return 'id';
+    }
   }
   function t() {
     return COPY[lang()];
@@ -110,13 +160,36 @@
     }
   }
   function saveRecent(query) {
-    var next = [query].concat(loadRecent().filter(function (item) { return item !== query; })).slice(0, 8);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+    try {
+      var next = [query].concat(loadRecent().filter(function (item) { return item !== query; })).slice(0, 8);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+    } catch (error) {}
   }
   function setStatus(message, kind) {
     var el = $('[data-cek-status]');
+    if (!el) return;
     el.textContent = message || '';
     el.className = 'cek-status' + (kind ? ' is-' + kind : '');
+  }
+  function apiUrl(qs) {
+    return './customer-shipping-lookup-api.php?' + qs + '&_=' + Date.now();
+  }
+  function readApi(response) {
+    return response.text().then(function (text) {
+      var data = null;
+      try { data = JSON.parse(text); } catch (error) { data = null; }
+      if (!data || typeof data !== 'object') {
+        throw new Error(location.protocol === 'file:' ? 'file' : ('http-' + (response.status || 0)));
+      }
+      if (!response.ok || !data.ok) throw new Error(data.error || ('http-' + response.status));
+      return data;
+    });
+  }
+  function failText(error) {
+    var code = String((error && error.message) || '');
+    if (code === 'file' || location.protocol === 'file:') return t().failFile;
+    if (code.indexOf('http-') === 0) return t().fail + ' (' + code.slice(5) + ')';
+    return t().fail;
   }
   function stateLabel(row) {
     var map = t().states;
@@ -134,13 +207,41 @@
     if (row.pickupDeadline) text += '（' + String(row.pickupDeadline).slice(0, 10) + '）';
     return '<div class="cek-deadline' + ((days != null && days <= 1) ? ' is-danger' : '') + '">' + esc(text) + '</div>';
   }
+  function lockButtonHtml(row, danger) {
+    var copy = t();
+    var phone = digits(row.phone);
+    if (!phone) return '';
+    if (row.blacklisted) {
+      return '<button type="button" class="is-locked" disabled>' + esc(copy.locked) + '</button>';
+    }
+    var reason = danger ? copy.lockReasonOverdue : copy.lockReasonSales;
+    return '<button type="button" class="is-lock" data-cek-lock-phone="' + esc(phone) + '" data-cek-lock-name="' + esc(row.customerName || '') + '" data-cek-lock-reason="' + esc(reason) + '">' + esc(copy.lock) + '</button>';
+  }
+  function blacklistTagHtml(row) {
+    if (!row.blacklisted) return '';
+    return '<em class="cek-blacklist-tag">' + esc(t().lockTag) + '</em>';
+  }
   function cardHtml(row) {
     var copy = t();
     var phone = digits(row.phone);
     var tracking = String(row.trackingNo || '').trim();
-    var cls = 'cek-card is-' + esc(row.state || 'pending');
+    var cls = 'cek-card is-' + esc(row.state || 'pending') + (row.blacklisted ? ' is-blacklisted' : '');
+    var customerImg = String(row.customerImage || '').trim();
+    var productImgs = (Array.isArray(row.items) ? row.items : []).map(function (item) {
+      return String((item && item.image) || '').trim();
+    }).filter(Boolean).filter(function (url, index, list) { return list.indexOf(url) === index; }).slice(0, 4);
+    var photos = '';
+    if (customerImg || productImgs.length) {
+      photos = '<div class="cek-photos">' +
+        (customerImg ? '<img class="is-customer" src="' + esc(customerImg) + '" alt="' + esc(row.customerName || '') + '" loading="lazy">' : '') +
+        productImgs.map(function (url) {
+          return '<img class="is-product" src="' + esc(url) + '" alt="" loading="lazy">';
+        }).join('') +
+      '</div>';
+    }
     return '<article class="' + cls + '">' +
-      '<header><div><h2>' + esc(row.customerName || '-') + '</h2><p class="phone">' + esc(row.phone || copy.noPhone) + '</p></div><span class="cek-state">' + esc(stateLabel(row)) + '</span></header>' +
+      photos +
+      '<header><div><h2>' + esc(row.customerName || '-') + blacklistTagHtml(row) + '</h2><p class="phone">' + esc(row.phone || copy.noPhone) + '</p></div><span class="cek-state">' + esc(stateLabel(row)) + '</span></header>' +
       '<div class="cek-grid">' +
         '<div><small>' + esc(copy.order) + '</small><b>' + esc(row.orderId || '-') + '</b></div>' +
         '<div><small>' + esc(copy.carrier) + '</small><b>' + esc(row.carrier || '-') + '</b></div>' +
@@ -152,11 +253,118 @@
       '<div class="cek-actions">' +
         (phone ? '<a class="is-call" href="tel:' + esc(phone) + '">' + esc(copy.call) + '</a>' : '<span></span>') +
         (tracking ? '<button type="button" data-cek-copy="' + esc(tracking) + '">' + esc(copy.copy) + '</button>' : '<span></span>') +
+        lockButtonHtml(row, row.state === 'arrived_store' && Number(row.remainingPickupDays) <= 1) +
       '</div>' +
     '</article>';
   }
+  var boardCache = null;
+  var lastSearchRows = [];
+  var COLOR_ID = {
+    '紅': 'merah', '粉紅': 'pink', '粉': 'pink', '藍': 'biru', '深藍': 'biru tua',
+    '白': 'putih', '黑': 'hitam', '綠': 'hijau', '咖啡': 'kopi', '紫': 'ungu',
+    '黃': 'kuning', '棕': 'coklat', '灰': 'abu', '米': 'krem', '卡其': 'khaki'
+  };
+  function productText(row) {
+    var raw = String(row.products || '').trim();
+    if (!raw && Array.isArray(row.items)) {
+      raw = row.items.map(function (item) {
+        return String((item && item.code) || '') + ' ' + String((item && item.color) || '');
+      }).join(' · ').trim();
+    }
+    if (lang() !== 'id' || !raw) return raw;
+    return raw.replace(/粉紅|深藍|咖啡|卡其|紅|粉|藍|白|黑|綠|紫|黃|棕|灰|米/g, function (word) {
+      return COLOR_ID[word] || word;
+    });
+  }
+  function batasText(row) {
+    var copy = t();
+    var days = row.remainingPickupDays;
+    if (days == null) return copy.noDeadline;
+    if (days < 0) return copy.overdueShort;
+    if (days === 0) return copy.todayLimit;
+    var date = String(row.pickupDeadline || '').slice(0, 10);
+    return copy.leftover + days + copy.days + (date ? ' (' + date.slice(5).replace('-', '/') + ')' : '');
+  }
+  function simpleCardHtml(row, danger) {
+    var copy = t();
+    var phone = digits(row.phone);
+    var tracking = String(row.trackingNo || '').trim();
+    var store = String(row.store || row.carrier || '-').trim();
+    if (lang() === 'id') store = store.replace(/全家/g, 'FamilyMart');
+    var products = productText(row);
+    var customerImg = String(row.customerImage || '').trim();
+    var productImgs = (Array.isArray(row.items) ? row.items : []).map(function (item) {
+      return String((item && item.image) || '').trim();
+    }).filter(Boolean).filter(function (url, index, list) { return list.indexOf(url) === index; }).slice(0, 4);
+    var photos = '';
+    if (customerImg || productImgs.length) {
+      photos = '<div class="cek-photos">' +
+        (customerImg ? '<img class="is-customer" src="' + esc(customerImg) + '" alt="' + esc(row.customerName || '') + '" loading="lazy">' : '') +
+        productImgs.map(function (url) {
+          return '<img class="is-product" src="' + esc(url) + '" alt="" loading="lazy">';
+        }).join('') +
+      '</div>';
+    }
+    return '<article class="cek-simple' + (danger ? ' is-danger' : '') + (row.blacklisted ? ' is-blacklisted' : '') + '">' +
+      photos +
+      '<b>' + esc(row.customerName || '-') + blacklistTagHtml(row) + '</b>' +
+      '<p>' + esc(row.phone || copy.noPhone) + '</p>' +
+      '<p>' + esc(copy.toko) + ': ' + esc(store || '-') + '</p>' +
+      '<p>' + esc(copy.tracking) + ': ' + esc(tracking || copy.noTracking) + '</p>' +
+      '<p class="cek-batas">' + esc(copy.deadline) + ': ' + esc(batasText(row)) + '</p>' +
+      (products ? '<p>' + esc(copy.barang) + ': ' + esc(products) + '</p>' : '') +
+      '<div class="cek-actions">' +
+        (phone ? '<a class="is-call" href="tel:' + esc(phone) + '">' + esc(copy.call) + '</a>' : '<span></span>') +
+        (tracking ? '<button type="button" data-cek-copy="' + esc(tracking) + '">' + esc(copy.copy) + '</button>' : '<span></span>') +
+        lockButtonHtml(row, danger) +
+      '</div>' +
+    '</article>';
+  }
+  function renderBoard(data) {
+    var box = $('[data-cek-board]');
+    if (!box) return;
+    var copy = t();
+    if (!data || !data.ok) {
+      box.innerHTML = '<h2>' + esc(copy.boardTitle) + '</h2><p class="cek-board-status">' + esc(copy.boardFail) + '</p>';
+      return;
+    }
+    var returning = Array.isArray(data.returning) ? data.returning : [];
+    var waiting = Array.isArray(data.waiting) ? data.waiting : [];
+    if (!returning.length && !waiting.length) {
+      box.innerHTML = '<h2>' + esc(copy.boardTitle) + '</h2><p class="cek-board-status">' + esc(copy.boardEmpty) + '</p>';
+      return;
+    }
+    box.innerHTML =
+      '<h2>' + esc(copy.boardTitle) + '</h2>' +
+      '<section class="cek-board-block is-return">' +
+        '<h3>' + esc(copy.returningTitle) + ' (' + returning.length + ')</h3>' +
+        '<p>' + esc(copy.returningHint) + '</p>' +
+        (returning.length ? returning.map(function (row) { return simpleCardHtml(row, true); }).join('') : '<p class="cek-board-empty">-</p>') +
+      '</section>' +
+      '<section class="cek-board-block">' +
+        '<h3>' + esc(copy.waitingTitle) + ' (' + waiting.length + ')</h3>' +
+        '<p>' + esc(copy.waitingHint) + '</p>' +
+        (waiting.length ? waiting.map(function (row) { return simpleCardHtml(row, false); }).join('') : '<p class="cek-board-empty">-</p>') +
+      '</section>';
+  }
+  function loadBoard() {
+    var box = $('[data-cek-board]');
+    if (!box) return;
+    box.innerHTML = '<p class="cek-board-status">' + esc(t().boardLoading) + '</p>';
+    fetch(apiUrl('board=1'), { cache: 'no-store' })
+      .then(readApi)
+      .then(function (data) {
+        boardCache = data;
+        renderBoard(data);
+      })
+      .catch(function () {
+        boardCache = null;
+        renderBoard(null);
+      });
+  }
   function renderRecent() {
     var box = $('[data-cek-recent]');
+    if (!box) return;
     var rows = loadRecent();
     if (!rows.length) {
       box.hidden = true;
@@ -171,42 +379,50 @@
   function localize() {
     var copy = t();
     document.documentElement.lang = lang() === 'zh' ? 'zh-Hant' : 'id';
-    $('[data-cek-title]').textContent = copy.title;
-    $('[data-cek-sub]').textContent = copy.sub;
-    $('[data-cek-label]').textContent = copy.label;
-    $('[data-cek-query]').placeholder = copy.placeholder;
-    $('[data-cek-submit]').textContent = copy.submit;
-    $('[data-cek-hint]').textContent = copy.hint;
-    $('[data-cek-addhome]').textContent = copy.addhome;
+    var map = [
+      ['[data-cek-title]', 'title'],
+      ['[data-cek-sub]', 'sub'],
+      ['[data-cek-label]', 'label'],
+      ['[data-cek-hint]', 'hint'],
+      ['[data-cek-addhome]', 'addhome']
+    ];
+    map.forEach(function (pair) {
+      var el = $(pair[0]);
+      if (el) el.textContent = copy[pair[1]];
+    });
+    var input = $('[data-cek-query]');
+    if (input) input.placeholder = copy.placeholder;
+    var submit = $('[data-cek-submit]');
+    if (submit) submit.textContent = copy.submit;
     document.querySelectorAll('[data-cek-lang]').forEach(function (btn) {
       btn.classList.toggle('is-active', btn.getAttribute('data-cek-lang') === lang());
     });
     renderRecent();
+    if (boardCache) renderBoard(boardCache);
+    var list = $('[data-cek-list]');
+    if (list && lastSearchRows.length) list.innerHTML = lastSearchRows.map(cardHtml).join('');
   }
   function search(query) {
     query = String(query || '').trim();
     var input = $('[data-cek-query]');
     var button = $('[data-cek-submit]');
     var list = $('[data-cek-list]');
-    input.value = query;
+    if (input) input.value = query;
     if (query.length < 2) {
       setStatus(t().need, 'err');
-      input.focus();
+      if (input) input.focus();
       return;
     }
-    button.disabled = true;
+    if (button) button.disabled = true;
     setStatus(t().searching);
-    fetch('./customer-shipping-lookup-api.php?q=' + encodeURIComponent(query), { cache: 'no-store' })
-      .then(function (response) {
-        return response.json().then(function (data) {
-          if (!response.ok || !data.ok) throw new Error(data.error || 'fail');
-          return data;
-        });
-      })
+    fetch(apiUrl('q=' + encodeURIComponent(query)), { cache: 'no-store' })
+      .then(readApi)
       .then(function (data) {
         saveRecent(query);
         renderRecent();
         var rows = Array.isArray(data.results) ? data.results : [];
+        lastSearchRows = rows;
+        if (!list) return;
         if (!rows.length) {
           list.innerHTML = '';
           setStatus(t().empty, 'warn');
@@ -215,24 +431,30 @@
         list.innerHTML = rows.map(cardHtml).join('');
         setStatus(t().found + ' ' + rows.length + (data.ambiguous ? ' · ' + t().many : ''), data.ambiguous ? 'warn' : 'ok');
       })
-      .catch(function () {
-        list.innerHTML = '';
-        setStatus(t().fail, 'err');
+      .catch(function (error) {
+        if (list) list.innerHTML = '';
+        setStatus(failText(error), 'err');
       })
-      .finally(function () {
-        button.disabled = false;
+      .then(function () {
+        if (button) button.disabled = false;
       });
   }
 
-  localize();
-  $('[data-cek-form]').addEventListener('submit', function (event) {
-    event.preventDefault();
-    search($('[data-cek-query]').value);
-  });
+  var form = $('[data-cek-form]');
+  if (form) {
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      search(($('[data-cek-query]') || {}).value);
+    });
+  }
+  try { localize(); } catch (error) {}
+  try { loadBoard(); } catch (error) {}
   document.addEventListener('click', function (event) {
     var langBtn = event.target.closest('[data-cek-lang]');
     if (langBtn) {
-      localStorage.setItem(LANG_KEY, langBtn.getAttribute('data-cek-lang') === 'zh' ? 'zh' : 'id');
+      try {
+        localStorage.setItem(LANG_KEY, langBtn.getAttribute('data-cek-lang') === 'zh' ? 'zh' : 'id');
+      } catch (error) {}
       localize();
       var list = $('[data-cek-list]');
       if (list && $('[data-cek-query]').value.trim()) search($('[data-cek-query]').value);
@@ -255,6 +477,54 @@
       } else {
         window.prompt(t().copy, text);
       }
+      return;
+    }
+    var lockBtn = event.target.closest('[data-cek-lock-phone]');
+    if (lockBtn) {
+      var phone = digits(lockBtn.getAttribute('data-cek-lock-phone'));
+      var name = String(lockBtn.getAttribute('data-cek-lock-name') || '').trim();
+      var reason = String(lockBtn.getAttribute('data-cek-lock-reason') || t().lockReasonSales).trim();
+      if (!phone) {
+        setStatus(t().lockNeedPhone, 'err');
+        return;
+      }
+      if (!window.confirm(t().lockConfirm + '\n' + (name || '-') + ' / ' + phone)) return;
+      lockBtn.disabled = true;
+      fetch('./member-risk-api-v3.php', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save',
+          phone: phone,
+          name: name,
+          reason: reason,
+          createdBy: '業務查貨'
+        })
+      }).then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok || !data.ok) throw new Error(data.error || 'fail');
+          return data;
+        });
+      }).then(function () {
+        function stamp(list) {
+          (list || []).forEach(function (row) {
+            if (digits(row.phone) === phone) row.blacklisted = true;
+          });
+        }
+        if (boardCache) {
+          stamp(boardCache.returning);
+          stamp(boardCache.waiting);
+          renderBoard(boardCache);
+        }
+        stamp(lastSearchRows);
+        var list = $('[data-cek-list]');
+        if (list && lastSearchRows.length) list.innerHTML = lastSearchRows.map(cardHtml).join('');
+        setStatus(t().lockOk, 'ok');
+      }).catch(function () {
+        lockBtn.disabled = false;
+        setStatus(t().lockFail, 'err');
+      });
     }
   });
 
