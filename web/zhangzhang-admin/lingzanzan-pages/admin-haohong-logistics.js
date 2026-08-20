@@ -44,7 +44,7 @@
 
   function compareClass(label) {
     if (label === '已對上' || (label && label.indexOf('已帶入') !== -1)) return 'is-matched';
-    if (label && label.indexOf('未帶入') !== -1) return 'is-missing';
+    if (label && (label.indexOf('未帶入') !== -1 || label.indexOf('未建檔') !== -1)) return 'is-missing';
     if (label && (label.indexOf('不同') !== -1 || label.indexOf('沒有') !== -1)) return 'is-diff';
     return '';
   }
@@ -128,7 +128,9 @@
     if (!pkgs.length) {
       return '<p class="haohong-batch-empty">這個批次目前沒有物流單可展開。可改看「包裹表」，或按「從豪鴻重新抓」。</p>';
     }
-    return '<div class="haohong-batch-detail-head"><strong>本批物流 ' + pkgs.length + ' 筆</strong><span>再點批號可收合</span></div>' +
+    var missing = pkgs.filter(function (pkg) { return String(pkg.compare || '').indexOf('未建檔') !== -1; }).length;
+    var filed = pkgs.length - missing;
+    return '<div class="haohong-batch-detail-head"><strong>本批物流 ' + pkgs.length + ' 筆</strong><span>後台商品 ' + filed + ' 筆' + (missing ? '／豪鴻有單未建檔 ' + missing + ' 筆' : '') + '。再點批號可收合</span></div>' +
       '<table class="haohong-batch-detail-table"><thead><tr>' +
       '<th>物流單號</th><th>豪鴻品名</th><th>豪鴻狀態</th><th>後台商品</th><th>比對</th>' +
       '</tr></thead><tbody>' + pkgs.map(function (pkg) {

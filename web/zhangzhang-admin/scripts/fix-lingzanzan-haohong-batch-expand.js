@@ -14,7 +14,7 @@ const PAGES = process.env.HH_PAGES || [
   path.join(__dirname, "..", "lingzanzan-pages"),
   path.join(__dirname, "lingzanzan-pages"),
 ].find((dir) => fs.existsSync(path.join(dir, "admin-haohong-logistics.js")));
-const STAMP = "20260820-batch-expand-1";
+const STAMP = "20260820-batch-expand-2";
 
 function backup(file, tag) {
   const dir = path.join(ROOT, "data", "audit");

@@ -340,24 +340,25 @@ foreach ($batchesOut as &$batch) {
             $key = hh_table_track_key((string)$no);
             if ($key === '' || isset($seenTrack[$key])) continue;
             $hits = $itemsByTrack[$key] ?? [];
+            $hasItem = $hits ? true : false;
             $attached[] = [
                 'trackingNo' => hh_table_text((string)$no, 80),
                 'batchNo' => hh_table_text($batch['batchNo'] ?? '', 80),
-                'productName' => $hits ? hh_table_text($hits[0]['productName'] ?? '', 200) : '',
+                'productName' => $hasItem ? hh_table_text($hits[0]['productName'] ?? '', 200) : '後台尚未建檔',
                 'warehouse' => '',
                 'receivedAt' => '',
-                'packageStatus' => $hits ? hh_table_text($hits[0]['trackingStatus'] ?? '', 80) : '',
-                'quantity' => $hits ? (int)($hits[0]['quantity'] ?? 1) : 1,
+                'packageStatus' => $hasItem ? hh_table_text($hits[0]['trackingStatus'] ?? '', 80) : '',
+                'quantity' => $hasItem ? (int)($hits[0]['quantity'] ?? 1) : 1,
                 'actualWeightKg' => 0,
                 'volumeWeightKg' => 0,
-                'billedWeightKg' => $hits ? (float)($hits[0]['billedWeightKg'] ?? 0) : 0,
+                'billedWeightKg' => $hasItem ? (float)($hits[0]['billedWeightKg'] ?? 0) : 0,
                 'note' => '',
-                'inBackend' => true,
-                'backendProduct' => $hits ? hh_table_text($hits[0]['productName'] ?? '', 200) : '',
-                'backendCode' => $hits ? hh_table_text($hits[0]['productCode'] ?? '', 80) : '',
-                'backendStatus' => $hits ? hh_table_text($hits[0]['trackingStatus'] ?? '', 80) : '',
-                'compare' => '後台已帶入',
-                'source' => 'backend',
+                'inBackend' => $hasItem,
+                'backendProduct' => $hasItem ? hh_table_text($hits[0]['productName'] ?? '', 200) : '後台尚未建檔',
+                'backendCode' => $hasItem ? hh_table_text($hits[0]['productCode'] ?? '', 80) : '',
+                'backendStatus' => $hasItem ? hh_table_text($hits[0]['trackingStatus'] ?? '', 80) : '',
+                'compare' => $hasItem ? '後台已帶入' : '豪鴻有單、後台未建檔',
+                'source' => $hasItem ? 'backend' : 'haohong-only',
             ];
             $seenTrack[$key] = true;
         }
