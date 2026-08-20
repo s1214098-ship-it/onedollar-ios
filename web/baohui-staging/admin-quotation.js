@@ -465,7 +465,7 @@
     return brands;
   }
   function hideQuoteSuggest() {
-    document.querySelectorAll('.quote-suggest').forEach(function (el) { el.remove(); });
+    document.querySelectorAll('.quote-suggest-row').forEach(function (el) { el.remove(); });
     quoteSuggestState.input = null;
     quoteSuggestState.items = [];
     quoteSuggestState.index = -1;
@@ -502,23 +502,28 @@
   }
   function renderQuoteSuggest(input, items) {
     var prevInput = quoteSuggestState.input;
-    document.querySelectorAll('.quote-suggest').forEach(function (el) { el.remove(); });
+    document.querySelectorAll('.quote-suggest-row').forEach(function (el) { el.remove(); });
     if (!input || !items || !items.length) {
       quoteSuggestState.input = null;
       quoteSuggestState.items = [];
       quoteSuggestState.index = -1;
       return;
     }
-    var wrap = input.closest('.quote-suggest-wrap') || input.parentElement;
-    if (!wrap) return;
-    wrap.classList.add('quote-suggest-wrap');
+    var tr = input.closest('.quote-item-row');
+    if (!tr || !tr.parentNode) return;
+    var row = document.createElement('tr');
+    row.className = 'quote-suggest-row';
     var box = document.createElement('div');
     box.className = 'quote-suggest';
     box.innerHTML = items.map(function (it, i) {
       var meta = [it.brand, it.spec].filter(Boolean).join(' ／ ');
-      return '<button type="button" data-suggest-index="' + i + '"><b>' + esc(it.name || '-') + '</b><small>' + esc(meta || '相關品項') + '</small></button>';
+      return '<button type="button" data-suggest-index="' + i + '"><b>' + esc(it.name || '-') + '</b>' + (meta ? '<small>' + esc(meta) + '</small>' : '') + '</button>';
     }).join('');
-    wrap.appendChild(box);
+    var cell = document.createElement('td');
+    cell.colSpan = 9;
+    cell.appendChild(box);
+    row.appendChild(cell);
+    tr.parentNode.insertBefore(row, tr.nextSibling);
     quoteSuggestState.input = input;
     quoteSuggestState.items = items;
     quoteSuggestState.index = prevInput === input ? Math.min(quoteSuggestState.index, items.length - 1) : 0;
@@ -655,10 +660,10 @@
       '.quote-item-table th,.quote-item-table td{vertical-align:middle}' +
       '.quote-item-table .quote-item-qty,.quote-item-table .quote-item-price{min-width:108px;width:100%;font-size:16px;font-weight:600;padding:8px 10px;text-align:right}' +
       '.quote-item-table .quote-item-name,.quote-item-table .quote-item-brand,.quote-item-table .quote-item-spec,.quote-item-table .quote-item-warranty,.quote-item-table .quote-item-tax{font-size:15px}' +
-      '.quote-suggest-wrap{position:relative}' +
-      '.quote-suggest{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:80;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 28px rgba(15,23,42,.14);max-height:260px;overflow:auto}' +
-      '.quote-suggest button{display:block;width:100%;text-align:left;border:0;background:#fff;padding:8px 10px;color:#0f172a}' +
-      '.quote-suggest button:hover,.quote-suggest button.is-active{background:#ecfdf5}' +
+      '.quote-item-table .quote-suggest-row td{background:#f8fafc;padding:8px 10px;border-top:0}' +
+      '.quote-suggest{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;max-height:160px;overflow:auto}' +
+      '.quote-suggest button{display:block;width:100%;text-align:left;border:1px solid #dbe5f2;background:#fff;border-radius:8px;padding:8px 10px;color:#0f172a}' +
+      '.quote-suggest button:hover,.quote-suggest button.is-active{background:#ecfdf5;border-color:#0f766e}' +
       '.quote-suggest b{display:block;font-size:14px}' +
       '.quote-suggest small{display:block;color:#64748b;font-weight:700}' +
       '</style>' +
