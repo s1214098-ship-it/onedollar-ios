@@ -309,10 +309,31 @@ body {
   border-color: var(--rose);
   background: #3a1f28;
 }
-.cek-simple b {
-  font-size: 20px;
-  line-height: 1.25;
+.cek-simple b,
+.cek-simple .cek-name,
+.cek-card h2,
+.cek-card .cek-name {
+  font-size: 28px;
+  line-height: 1.2;
+  color: #fff8ed;
+  font-weight: 900;
   overflow-wrap: anywhere;
+}
+.cek-cod {
+  margin: 6px 0 8px !important;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(240, 189, 84, .2);
+  color: #f0bd54;
+  font-size: 16px;
+  font-weight: 900;
+}
+.cek-cod strong {
+  display: inline-block;
+  margin-left: 6px;
+  color: #fff8ed;
+  font-size: 26px;
+  letter-spacing: .02em;
 }
 .cek-simple p {
   margin: 0;

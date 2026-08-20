@@ -45,6 +45,7 @@
       boardFail: 'Gagal muat daftar.',
       toko: 'Toko',
       barang: 'Barang',
+      cod: 'COD toko',
       todayLimit: 'Hari ini 23:59',
       overdueShort: 'Sudah lewat',
       noDeadline: 'Batas belum ada',
@@ -108,6 +109,7 @@
       boardFail: '清單載入失敗。',
       toko: '門市',
       barang: '商品',
+      cod: '物流代收金額',
       todayLimit: '今天 23:59',
       overdueShort: '已過期',
       noDeadline: '尚未標截止',
@@ -150,6 +152,13 @@
   }
   function digits(value) {
     return String(value || '').replace(/\D+/g, '');
+  }
+  function moneyText(value) {
+    var amount = Math.max(0, Math.round(Number(value || 0)));
+    return 'NT$' + amount.toLocaleString('en-US');
+  }
+  function codHtml(row) {
+    return '<p class="cek-cod">' + esc(t().cod) + ' <strong>' + esc(moneyText(row.codAmount)) + '</strong></p>';
   }
   function loadRecent() {
     try {
@@ -241,7 +250,7 @@
     }
     return '<article class="' + cls + '">' +
       photos +
-      '<header><div><h2>' + esc(row.customerName || '-') + blacklistTagHtml(row) + '</h2><p class="phone">' + esc(row.phone || copy.noPhone) + '</p></div><span class="cek-state">' + esc(stateLabel(row)) + '</span></header>' +
+      '<header><div><h2 class="cek-name">' + esc(row.customerName || '-') + blacklistTagHtml(row) + '</h2><p class="phone">' + esc(row.phone || copy.noPhone) + '</p>' + codHtml(row) + '</div><span class="cek-state">' + esc(stateLabel(row)) + '</span></header>' +
       '<div class="cek-grid">' +
         '<div><small>' + esc(copy.order) + '</small><b>' + esc(row.orderId || '-') + '</b></div>' +
         '<div><small>' + esc(copy.carrier) + '</small><b>' + esc(row.carrier || '-') + '</b></div>' +
@@ -307,8 +316,9 @@
     }
     return '<article class="cek-simple' + (danger ? ' is-danger' : '') + (row.blacklisted ? ' is-blacklisted' : '') + '">' +
       photos +
-      '<b>' + esc(row.customerName || '-') + blacklistTagHtml(row) + '</b>' +
+      '<b class="cek-name">' + esc(row.customerName || '-') + blacklistTagHtml(row) + '</b>' +
       '<p>' + esc(row.phone || copy.noPhone) + '</p>' +
+      codHtml(row) +
       '<p>' + esc(copy.toko) + ': ' + esc(store || '-') + '</p>' +
       '<p>' + esc(copy.tracking) + ': ' + esc(tracking || copy.noTracking) + '</p>' +
       '<p class="cek-batas">' + esc(copy.deadline) + ': ' + esc(batasText(row)) + '</p>' +
