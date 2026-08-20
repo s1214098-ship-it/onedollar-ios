@@ -7,13 +7,20 @@ const { URL } = require("url");
 const root = path.resolve(__dirname, "..");
 const dbPath = path.join(root, "data", "shared-db.json");
 const summaryPath = path.join(root, "本次同業開發池同步摘要.json");
+const syncLogPath = path.join(root, "logs", "peer-brands-sync.log");
 const HOME_TOWNS = ["羅東鎮", "五結鄉", "冬山鄉", "宜蘭市", "礁溪鄉", "員山鄉"];
 const PACIFIC_AUTH = "Basic cHJtczpwcm1z";
 const C21_STORES = ["j312", "j313", "j318", "j325", "j333"];
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125 Safari/537.36";
 
 function log(msg) {
-  process.stdout.write(String(msg) + "\n");
+  const line = String(msg);
+  try {
+    process.stdout.write(line + "\n");
+  } catch {}
+  try {
+    fs.appendFileSync(syncLogPath, `[${new Date().toISOString()}] ${line}\n`);
+  } catch {}
 }
 
 function parseMaybeJson(value, fallback) {
@@ -78,6 +85,7 @@ function peerKey(item) {
 }
 
 function fetchText(url, options = {}) {
+  const timeoutMs = Number(options.timeout || 20000);
   return new Promise((resolve, reject) => {
     const target = new URL(url);
     const lib = target.protocol === "http:" ? http : https;
@@ -90,15 +98,31 @@ function fetchText(url, options = {}) {
       ...(options.headers || {}),
     };
     if (body) headers["content-length"] = String(body.length);
-    const req = lib.request(
+    let settled = false;
+    let req;
+    const finish = (err, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(hardTimer);
+      if (err && req) {
+        try {
+          req.destroy();
+        } catch {}
+      }
+      if (err) reject(err);
+      else resolve(value);
+    };
+    const hardTimer = setTimeout(() => finish(new Error("timeout " + url)), timeoutMs);
+    req = lib.request(
       {
         hostname: target.hostname,
         port: target.port || (target.protocol === "http:" ? 80 : 443),
         path: target.pathname + target.search,
         method: options.method || "GET",
         headers,
-        timeout: options.timeout || 20000,
+        timeout: timeoutMs,
         agent: false,
+        family: 4,
       },
       (res) => {
         const chunks = [];
@@ -120,7 +144,7 @@ function fetchText(url, options = {}) {
               }
             },
           };
-          resolve({
+          finish(null, {
             ok: res.statusCode >= 200 && res.statusCode < 400,
             status: res.statusCode,
             text: Buffer.concat(chunks).toString("utf8"),
@@ -129,10 +153,8 @@ function fetchText(url, options = {}) {
         });
       }
     );
-    req.on("timeout", () => {
-      req.destroy(new Error("timeout " + url));
-    });
-    req.on("error", reject);
+    req.on("timeout", () => finish(new Error("timeout " + url)));
+    req.on("error", (error) => finish(error));
     if (body) req.write(body);
     req.end();
   });
@@ -275,7 +297,8 @@ async function syncPacific(summary) {
     }
     summary.pacific.pages = page;
     log(`pacific page ${page}/${maxPages} batch=${list.length} rows=${rows.length} total=${total}`);
-    await sleep(400);
+    if (page % 10 === 0) await sleep(2500);
+    else await sleep(900);
     if (list.length < 8) break;
   }
   summary.pacific.listed = total;
