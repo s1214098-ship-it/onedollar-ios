@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>張張管理後台</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <section class="login-screen" id="loginScreen">
+    <form class="login-card" id="loginForm">
+      <p class="kicker">ZHANGZHANG SERVER</p>
+      <h1>張張管理後台</h1>
+      <p class="muted">電腦現貨入庫、產品條碼、貨倉、競標排程與得標結算。獨立伺服器，不必再從寶輝總部登入。</p>
+      <label>帳號<input name="account" autocomplete="username" required placeholder="admin"></label>
+      <label>密碼<input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="primary" type="submit">登入後台</button>
+      <p class="error" id="loginError" hidden></p>
+      <p class="hint">預設 admin / ChangeMe-2026!，上線後請立刻改密碼。可把 one-dollar-auction 的 JSON 匯入本機資料庫。</p>
+    </form>
+  </section>
+
+  <div class="app-shell" id="appShell" hidden>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">張</span>
+        <div>
+          <strong>張張管理後台</strong>
+          <small>電商營運伺服器</small>
+        </div>
+      </div>
+      <nav id="nav">
+        <a href="#overview" class="active">總覽</a>
+        <a href="#receipts">張張電腦已帶入</a>
+        <a href="#products">產品建檔</a>
+        <a href="#stock">庫存管理</a>
+        <a href="#warehouses">貨倉管理</a>
+        <a href="#schedule">排程上架</a>
+        <a href="#settlement">得標結算</a>
+        <a href="#members">客戶 / 會員</a>
+        <a href="#suppliers">廠商建檔</a>
+        <a href="#analytics">數據分析</a>
+        <a href="#backup">備份匯入</a>
+      </nav>
+      <div class="user-card">
+        <span>目前登入</span>
+        <strong id="currentUser">—</strong>
+        <button type="button" class="ghost" id="logoutBtn">登出</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="kicker" id="pageKicker">OVERVIEW</p>
+          <h1 id="pageTitle">總覽</h1>
+          <p class="muted" id="pageDesc">產品、現貨、排程與應收出貨集中在這台伺服器。</p>
+        </div>
+        <div class="top-actions">
+          <input id="searchBox" placeholder="搜尋條碼、品名、客戶、單號">
+          <button type="button" class="secondary" id="reloadBtn">重新整理</button>
+        </div>
+      </header>
+      <div id="view"></div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+  <script src="./app.js"></script>
+</body>
+</html>
