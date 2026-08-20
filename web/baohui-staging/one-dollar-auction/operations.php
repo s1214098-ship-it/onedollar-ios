@@ -11819,7 +11819,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
   <section class="ops-card ops-tab" id="finance-collection">
     <h2>財務系統 / 收款單</h2>
-    <p class="muted">不用點進單張也能查：已結款、未結款，以及月結請款週期（上月 25 日到本月 24 日）。也可以改選任意日期／年份，依請款單或出貨單期間過濾。</p>
+    <p class="muted">用來記錄客戶付款、訂金、尾款、匯款或現金收款。之後可串銷售單據、對帳單與公司帳。</p>
 
     <?php
       $currentSettlementCycle = baohui_monthly_settlement_cycle();
@@ -11855,13 +11855,12 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <div class="customer-document-picker">
         <h3>這位客戶的未結單據</h3>
         <div class="inline-actions billing-period-controls" data-period-for="receipt">
-          <label>期間<select class="js-period-mode"><option value="monthly">月結週期（25–24）</option><option value="custom">自訂日期</option></select></label>
+          <label>期間<select class="js-period-mode"><option value="monthly">月份請款</option><option value="custom">自訂日期</option></select></label>
           <label>月份請款<input class="js-period-month" type="month" value="<?=h($currentSettlementCycle['month'])?>"></label>
           <label>日期依據<select class="js-period-basis"><option value="document">訂單／請款單日期</option><option value="delivery">出貨單日期</option></select></label>
           <label>起日<input class="js-period-from" type="date" value="<?=h($currentSettlementCycle['from'])?>"></label>
           <label>迄日<input class="js-period-to" type="date" value="<?=h($currentSettlementCycle['to'])?>"></label>
         </div>
-        <p class="period-hint js-period-label">目前月結週期：<?=h($currentSettlementCycle['label'])?></p>
         <div id="receiptCustomerDocuments" class="customer-document-list"><div class="customer-document-empty">請先輸入並選擇客戶，系統會列出可勾選的單據。</div></div>
       </div>
       <label>收款方式<select name="payment_method"><option>現金</option><option>匯款</option><option>轉帳</option><option>刷卡</option><option>LINE Pay</option><option>其他</option></select></label>
@@ -11976,7 +11975,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label>搜尋<input name="receipt_q" value="<?=h($receiptQ)?>" placeholder="客戶 / 單號 / 帳戶 / 備註"></label>
       <label>結款<select name="receipt_settle"><option value="">全部</option><option value="open" <?=$receiptSettle==='open'?'selected':''?>>未結款</option><option value="settled" <?=$receiptSettle==='settled'?'selected':''?>>已結款</option></select></label>
       <label>收款狀態<select name="receipt_status"><option value="">全部</option><?php foreach(['待確認','已確認','部分收款','作廢'] as $v): ?><option value="<?=h($v)?>" <?=$receiptStatus===$v?'selected':''?>><?=h($v)?></option><?php endforeach; ?></select></label>
-      <label>期間<select name="receipt_period_mode"><option value="monthly" <?=$receiptMode==='monthly'?'selected':''?>>月份請款（25–24）</option><option value="custom" <?=$receiptMode==='custom'?'selected':''?>>自訂日期</option><option value="all" <?=$receiptMode==='all'?'selected':''?>>不限期間</option></select></label>
+      <label>期間<select name="receipt_period_mode"><option value="monthly" <?=$receiptMode==='monthly'?'selected':''?>>月份請款</option><option value="custom" <?=$receiptMode==='custom'?'selected':''?>>自訂日期</option><option value="all" <?=$receiptMode==='all'?'selected':''?>>不限期間</option></select></label>
       <label>月份<input name="receipt_month" type="month" value="<?=h($receiptMonth)?>"></label>
       <label>日期依據<select name="receipt_date_basis"><option value="receipt" <?=$receiptBasis==='receipt'?'selected':''?>>收款單日期</option><option value="billing" <?=$receiptBasis==='billing'?'selected':''?>>請款單日期</option><option value="delivery" <?=$receiptBasis==='delivery'?'selected':''?>>出貨單日期</option></select></label>
       <label>起日<input name="receipt_from" type="date" value="<?=h($receiptFrom)?>"></label>
@@ -11984,7 +11983,6 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <button class="secondary">查詢</button>
       <a class="secondary-link" href="operations.php#finance-collection">清除</a>
     </form>
-    <?php if($receiptMode === 'monthly'): ?><p class="period-hint">目前查詢月結週期：<?=h($receiptCycle['label'])?>。例如今天 8/20 就是 7/25～8/24。</p><?php endif; ?>
 
     <form id="collectionReceiptBulkDeleteForm" method="post" onsubmit="return confirm('確定刪除勾選收款單？');"><input type="hidden" name="action" value="delete_collection_receipts"></form>
     <div class="bulk-bar"><label class="check"><input type="checkbox" data-select-all="receipt_ids[]"> 全選收款單</label><button class="danger-button" type="submit" form="collectionReceiptBulkDeleteForm">刪除勾選收款單</button></div>
@@ -12017,7 +12015,6 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     </tbody></table></div>
 
     <h3 class="reconcile-section-title">月份請款單</h3>
-    <p class="muted">同一組篩選條件下的請款單，已結款／未結款直接列在這裡，不必再點進請款單頁。</p>
     <div class="table-wrap"><table><thead><tr><th>請款單號</th><th>客戶</th><th>請款日</th><th>週期</th><th>金額</th><th>結款</th><th>狀態</th><th>列印</th></tr></thead><tbody>
       <?php foreach($billingShownOnCollection as $request): $settled=baohui_billing_is_settled($request); $periodLabel=trim((string)($request['period_from']??'').' ～ '.(string)($request['period_to']??''),' ～'); if($periodLabel==='') $periodLabel=(string)($request['request_date']??''); ?>
         <tr>
@@ -12132,12 +12129,12 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
   <section class="ops-card ops-tab" id="finance-request">
     <h2>財務系統 / 請款單</h2>
-    <p class="muted">月結客戶預設請款上月 25 日到本月 24 日；也可以改成自訂任何一天、任何一年，並依請款單或出貨單日期勾選明細。</p>
+    <p class="muted">先選客戶，再勾選這位客戶尚未結清的單據。系統會依日期與單號排序，保存完整品項及金額明細。</p>
     <?php $billingCreateCycle = $currentSettlementCycle ?? baohui_monthly_settlement_cycle(); ?>
     <form method="post" class="product-form billing-create-form">
       <input type="hidden" name="action" value="save_billing_request">
       <label class="wide">客戶名稱<input id="billingCustomerName" name="billing_customer_name" list="receiptCustomerOptions" autocomplete="off" required placeholder="輸入客戶名稱後挑選"></label>
-      <label>請款週期<select id="billingCycleType" name="billing_cycle_type"><option value="monthly" selected>月結週期（上月25日～本月24日）</option><option value="custom">自訂期間</option></select></label>
+      <label>請款週期<select id="billingCycleType" name="billing_cycle_type"><option value="monthly" selected>月份請款</option><option value="custom">自訂期間</option></select></label>
       <label>月份請款<input id="billingCycleMonth" name="billing_cycle_month" type="month" value="<?=h($billingCreateCycle['month'])?>"></label>
       <label>日期依據<select id="billingDateBasis" name="billing_date_basis"><option value="document">訂單／請款日期</option><option value="delivery">出貨單日期</option></select></label>
       <label>期間起日<input id="billingPeriodFrom" name="billing_period_from" type="date" value="<?=h($billingCreateCycle['from'])?>"></label>
@@ -12147,7 +12144,6 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label>狀態<select name="billing_status"><option>待請款</option><option>已送出</option><option>部分收款</option><option>已結清</option><option>取消</option></select></label>
       <div class="customer-document-picker">
         <h3>勾選要列入請款單的未結單據</h3>
-        <p class="period-hint js-period-label" id="billingPeriodLabel">目前月結週期：<?=h($billingCreateCycle['label'])?></p>
         <div id="billingCustomerDocuments" class="customer-document-list"><div class="customer-document-empty">請先選擇客戶。</div></div>
       </div>
       <label class="wide">請款備註<input name="billing_note" placeholder="付款方式、匯款帳戶、聯絡說明"></label>
@@ -12196,7 +12192,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <input type="hidden" name="v" value="<?=h($_GET['v'] ?? '')?>">
       <label>搜尋<input name="billing_q" value="<?=h($billingQ)?>" placeholder="單號 / 客戶 / 出貨單 / 品項"></label>
       <label>結款<select name="billing_settle"><option value="">全部</option><option value="open" <?=$billingSettle==='open'?'selected':''?>>未結款</option><option value="settled" <?=$billingSettle==='settled'?'selected':''?>>已結款</option></select></label>
-      <label>期間<select name="billing_period_mode"><option value="all" <?=$billingMode==='all'?'selected':''?>>不限期間</option><option value="monthly" <?=$billingMode==='monthly'?'selected':''?>>月份請款（25–24）</option><option value="custom" <?=$billingMode==='custom'?'selected':''?>>自訂日期</option></select></label>
+      <label>期間<select name="billing_period_mode"><option value="all" <?=$billingMode==='all'?'selected':''?>>不限期間</option><option value="monthly" <?=$billingMode==='monthly'?'selected':''?>>月份請款</option><option value="custom" <?=$billingMode==='custom'?'selected':''?>>自訂日期</option></select></label>
       <label>月份<input name="billing_month" type="month" value="<?=h($billingMonth)?>"></label>
       <label>日期依據<select name="billing_date_basis"><option value="document" <?=$billingBasis==='document'?'selected':''?>>請款／訂單日期</option><option value="delivery" <?=$billingBasis==='delivery'?'selected':''?>>出貨單日期</option></select></label>
       <label>起日<input name="billing_from" type="date" value="<?=h($billingFrom)?>"></label>
@@ -12204,7 +12200,6 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <button class="secondary">查詢</button>
       <a class="secondary-link" href="operations.php#finance-request">清除</a>
     </form>
-    <?php if($billingMode === 'monthly'): ?><p class="period-hint">月份請款週期：<?=h($billingListCycle['label'])?></p><?php endif; ?>
 
     <div class="table-wrap"><table><thead><tr><th>請款單號</th><th>客戶</th><th>請款日</th><th>週期</th><th>金額</th><th>結款</th><th>狀態</th><th>操作</th></tr></thead><tbody>
       <?php foreach($billingRequestsSorted as $request): $settled=baohui_billing_is_settled($request); $periodLabel=trim((string)($request['period_from']??'').' ～ '.(string)($request['period_to']??''),' ～'); if($periodLabel==='') $periodLabel=(string)($request['request_date']??''); ?>
@@ -15156,7 +15151,7 @@ function renderCustomerDocumentPicker(inputId, boxId, inputName, sourceRows, per
   const to = period && period.to ? period.to : '';
   const basis = period && period.basis ? period.basis : 'document';
   const rows = customerDocumentRows(input.value, sourceRows, from, to, basis);
-  box.innerHTML = rows.length ? rows.map(row => customerDocumentOption(row, inputName)).join('') : '<div class="customer-document-empty">找不到這位客戶在這個期間的未結單據。</div>';
+  box.innerHTML = rows.length ? rows.map(row => customerDocumentOption(row, inputName)).join('') : '<div class="customer-document-empty">找不到這位客戶的未結單據。</div>';
 }
 function refreshFinanceDocumentPickers() {
   const receiptPeriod = readPeriodControls(document.querySelector('[data-period-for="receipt"]'));
