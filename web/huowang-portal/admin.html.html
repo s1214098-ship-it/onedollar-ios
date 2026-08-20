@@ -9453,6 +9453,70 @@ function updatePriceReviewItem(scope, idx){
   alert("價格已更新，並已解除價格審核標記");
 }
 function findPropertyForObject(item){ const props=JSON.parse(localStorage.getItem("properties")||"[]"); const keys=[item&&item.contractNo,item&&item.id,item&&item.targetId].filter(v=>String(v||"").trim()); return props.find(p=>keys.some(k=>String(p.contractNo||"")===String(k)))||null; }
+function listingIdentityKeys(item){
+  return [item&&item.contractNo,item&&item.publicNo,item&&item.id,item&&item.externalId,item&&item.showCaseNo,item&&item.caseId]
+    .map(function(v){ return String(v||"").trim(); })
+    .filter(Boolean);
+}
+function listingAddressKey(item){
+  return String([
+    item&&(item.county||item.city)||"",
+    item&&(item.area||item.district)||"",
+    item&&(item.addressDetail||item.address)||"",
+    item&&(item.road||item.roadName||item.addressRoad)||"",
+    item&&(item.nearby||item.doorNo)||""
+  ].join("")).replace(/[\s　]/g,"").replace(/台灣|臺灣/g,"");
+}
+function listingAddressDoor(value){
+  const m = String(value||"").match(/(?:\d+巷)?(?:\d+弄)?(?:\d+之\d+號|\d+號)/);
+  return m ? m[0] : "";
+}
+function listingAddressesMatch(a, b){
+  if(!a || !b) return false;
+  if(a === b) return true;
+  const da = listingAddressDoor(a);
+  const db = listingAddressDoor(b);
+  if(!da || !db || da !== db) return false;
+  const streetA = a.replace(da, "");
+  const streetB = b.replace(db, "");
+  return !streetA || !streetB || streetA.indexOf(streetB) >= 0 || streetB.indexOf(streetA) >= 0;
+}
+function relatedListingPools(){
+  const pools = [];
+  ["sameStoreItems","borrowItems","peerDevelopmentItems","storeDevelopmentItems","properties","targets"].forEach(function(key){
+    try{
+      const local = JSON.parse(localStorage.getItem(key)||"[]");
+      if(Array.isArray(local) && local.length) pools.push(local);
+    }catch(e){}
+    const shared = typeof parseSharedListValue === "function"
+      ? parseSharedListValue(window.HUOMANGE_SHARED_DATA ? window.HUOMANGE_SHARED_DATA[key] : null)
+      : [];
+    if(shared.length) pools.push(shared);
+  });
+  return pools;
+}
+function findRelatedListing(item){
+  item = item || {};
+  const keys = new Set(listingIdentityKeys(item));
+  const addr = listingAddressKey(item);
+  let best = null;
+  let bestScore = 0;
+  relatedListingPools().forEach(function(list){
+    (list || []).forEach(function(row){
+      if(!row || row === item) return;
+      const idHit = listingIdentityKeys(row).some(function(k){ return keys.has(k); });
+      const addrHit = listingAddressesMatch(addr, listingAddressKey(row));
+      if(!idHit && !addrHit) return;
+      const photos = collectObjectImageSources(row).length;
+      const score = (idHit ? 100000 : 0) + (addrHit ? 10000 : 0) + photos;
+      if(photos && score > bestScore){
+        bestScore = score;
+        best = row;
+      }
+    });
+  });
+  return best;
+}
 function normalizeObjectImageSrc(img){
   if(!img) return "";
   if(typeof img === "string") return img;
@@ -9479,7 +9543,9 @@ function getObjectImages(item){
   const own=collectObjectImageSources(item);
   if(own.length) return own;
   const prop=findPropertyForObject(item||{});
-  return collectObjectImageSources(prop);
+  const fromProp=collectObjectImageSources(prop);
+  if(fromProp.length) return fromProp;
+  return collectObjectImageSources(findRelatedListing(item||{}) || {});
 }
 function getObjectThumbImages(item){
   return getObjectImages(item || {}).map(compactExternalImageUrl).filter(Boolean);
@@ -11842,39 +11908,33 @@ function searchProperty(){
                 }
             }
             let saleTag = item.saleStatus==="sold" ? "<span class='sale-tag sale-yes'>已售出</span>" : "<span class='sale-tag sale-no'>未賣出</span>";
-            let ownerTag = item.owner ? `<span class='owner-tag'>賣主：${item.owner}</span>` : "";
             let followTag = item.businessFavorite ? `<span class='sale-tag sale-yes'>♥ 已追蹤</span>` : "";
-            const imageList = Array.isArray(item.images) ? item.images.filter(Boolean) : [];
-            const thumb = imageList.length ? imageList[0] : "";
-            const thumbHtml = thumb ? `<img class="property-list-thumb" src="${htmlEscape(thumb)}" alt="${htmlEscape(item.title || "物件照片")}" onclick="showPropertyGallery('${htmlEscape(item.contractNo || "")}')">` : "";
 
             h+=`<div class='contract-item property-card-item'>
 <div class="property-list-row">
   ${batchCheckHtml("property", item._idx)}
-  <div class="property-photo-cell">${thumbHtml || `<div class="property-list-thumb placeholder">尚未<br>上傳照片</div>`}</div>
+  <div class="property-photo-cell">${objectThumbHtml(item, item.title || "物件照片")}</div>
   <div class="property-info-cell">
     <div class="property-title-line">${htmlEscape(item.contractNo || "")} ${htmlEscape(item.title || "未命名物件")}</div>
     <div class="property-sub-line">${htmlEscape((item.county||"")+(item.area||""))}｜${htmlEscape(getObjectRoadText(item) || item.addressDetail || "未設定路段")}｜${htmlEscape(item.contractType || "")}</div>
     <div class="property-sub-line">${htmlEscape(item.price || "面議")}萬｜${htmlEscape(item.build || "")}坪｜${htmlEscape(item.layout || "")}</div>
-  </div>
-  <div class="property-party-cell">
-    <div><b>賣主：</b>${htmlEscape(item.owner || "未填")}</div>
-  </div>
-  <div class="property-status-cell">
-    <span class="${expireClass}">${htmlEscape(item.expireDate || '無')} ${htmlEscape(expireText)}</span>
-    <div>${saleTag} ${followTag}</div>
-  </div>
-  <div class="btns property-action-cell">
+    <div class="property-meta-line">
+      <div class="property-party-cell"><b>賣主：</b>${htmlEscape(item.owner || "未填")}</div>
+      <div class="property-status-cell"><span class="${expireClass}">${htmlEscape(item.expireDate || '無')} ${htmlEscape(expireText)}</span>${saleTag} ${followTag}</div>
+    </div>
+    <div class="btns property-action-cell">
       <button class="green" onclick="viewDashboardItem('property',${item._idx})">檢視文章</button>
       <button class="green" onclick="editProperty(${item._idx})">編輯</button>
-      <button class="orange" onclick="togglePropertyFollow(${item._idx})">${item.businessFavorite?"♥ 取消追蹤":"♡ 加入追蹤"}</button>
-      <button class="red" onclick="deleteOneProperty(${item._idx})">刪除</button>
-      <button class="blue" onclick="showCustomerModal('${htmlEscape(item.owner||'')}')">賣主</button>
       <button class="green" onclick="copyFBPostForProperty('${htmlEscape(item.contractNo || "")}', ${item._idx})">複製FB文案</button>
-      <button class="purple" onclick="copyFBImagesForProperty('${htmlEscape(item.contractNo || "")}', ${item._idx})">照片素材</button>
-      <button class="blue" onclick="printPropertyDMByIndex(${item._idx})">列印DM</button>
+      <button class="orange print-sheet-btn" onclick="printPropertySheet('${htmlEscape(item.contractNo || "")}',${item._idx})">列印資料表</button>
+      <button class="orange" onclick="togglePropertyFollow(${item._idx})">${item.businessFavorite?"♥ 取消追蹤":"♡ 加入追蹤"}</button>
       <button class="orange" onclick="printPropertySincereDMByIndex(${item._idx})">懇請DM</button>
       <button class="orange" onclick="downloadDMImagesForProperty('${htmlEscape(item.contractNo || "")}', ${item._idx})">下載DM照片</button>
+      <button class="red" onclick="deleteOneProperty(${item._idx})">刪除</button>
+      <button class="blue" onclick="showCustomerModal('${htmlEscape(item.owner||'')}')">賣主</button>
+      <button class="blue" onclick="printPropertyDMByIndex(${item._idx})">列印DM</button>
+      <button class="purple" onclick="copyFBImagesForProperty('${htmlEscape(item.contractNo || "")}', ${item._idx})">照片素材</button>
+    </div>
   </div>
 </div>
 </div>`;
@@ -15119,6 +15179,88 @@ a.blue *{
   -webkit-text-fill-color:#FFFFFF!important;
   font-weight:950!important;
 }
+/* property-card-align-20260820 */
+#prop .contract-item.property-card-item,
+.contract-item.property-card-item{
+  display:block!important;
+  grid-template-columns:none!important;
+  width:100%!important;
+}
+#prop .property-list-row,
+.contract-item.property-card-item .property-list-row{
+  display:grid!important;
+  grid-template-columns:34px 132px minmax(0,1fr)!important;
+  gap:14px 16px!important;
+  align-items:start!important;
+  width:100%!important;
+}
+#prop .property-photo-cell,
+.contract-item.property-card-item .property-photo-cell{
+  width:132px!important;
+}
+#prop .property-list-thumb,
+#prop .property-list-thumb.placeholder,
+#prop .property-photo-cell .object-list-thumb,
+#prop .property-photo-cell .object-list-thumb.placeholder{
+  width:132px!important;
+  height:100px!important;
+  object-fit:cover!important;
+}
+#prop .property-info-cell{
+  grid-column:3!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:6px!important;
+  min-width:0!important;
+}
+#prop .property-meta-line{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:8px 16px!important;
+  align-items:center!important;
+}
+#prop .property-party-cell,
+#prop .property-status-cell{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:8px!important;
+  align-items:center!important;
+}
+#prop .property-action-cell{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  justify-content:flex-start!important;
+  align-items:center!important;
+  gap:8px!important;
+  width:100%!important;
+  margin-top:8px!important;
+}
+#prop .property-action-cell button{
+  flex:0 0 auto!important;
+  width:auto!important;
+  min-width:96px!important;
+  min-height:38px!important;
+  white-space:nowrap!important;
+}
+@media(max-width:768px){
+  #prop .property-list-row,
+  .contract-item.property-card-item .property-list-row{
+    grid-template-columns:28px 96px minmax(0,1fr)!important;
+  }
+  #prop .property-photo-cell,
+  .contract-item.property-card-item .property-photo-cell,
+  #prop .property-list-thumb,
+  #prop .property-list-thumb.placeholder,
+  #prop .property-photo-cell .object-list-thumb,
+  #prop .property-photo-cell .object-list-thumb.placeholder{
+    width:96px!important;
+    height:74px!important;
+  }
+  #prop .property-action-cell button{
+    min-width:0!important;
+    flex:1 1 46%!important;
+  }
+}
 .internal-note{
   color:#475569!important;
   background:#F8FAFC!important;
@@ -16321,7 +16463,18 @@ body{overscroll-behavior-x:none!important}
     grid-template-columns:106px minmax(0,1fr)!important;
   }
   table{max-width:100%!important}
-}</style>
+}
+#prop .contract-item.property-card-item,
+.contract-item.property-card-item{
+  display:block!important;
+  grid-template-columns:none!important;
+}
+#prop .property-list-row,
+.contract-item.property-card-item .property-list-row{
+  display:grid!important;
+  grid-template-columns:34px 132px minmax(0,1fr)!important;
+}
+</style>
 <script>
 function copyCurrentPageUrl(){
   const url = location.href;
