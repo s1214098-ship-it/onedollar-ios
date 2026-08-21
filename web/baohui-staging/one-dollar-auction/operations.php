@@ -3365,15 +3365,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!is_array($selectedIds)) $selectedIds = [];
         $selectedIds = array_values(array_filter(array_map('trim', $selectedIds)));
         $catalogItems = baohui_reference_catalog_items(read_json_object('baohui_reference_catalog'));
+        $beforeCount = count($products);
         $applied = product_apply_rule_descriptions($products, $catalogItems, [
             'only_in_stock' => true,
             'product_ids' => $selectedIds,
             'min_similarity' => product_rule_description_min_similarity(),
         ]);
-        $products = $applied['products'];
-        if ($applied['updated'] > 0) write_data('products', $products);
-        $scope = $selectedIds ? '勾選且有庫存' : '有庫存';
-        $notice = '規格說明已比對 ' . (int)$applied['inspected'] . ' 筆' . $scope . '產品，型號相似度 ' . rtrim(rtrim(number_format((float)$applied['min_similarity'], 1, '.', ''), '0'), '.') . '% 以上才寫入；更新 ' . (int)$applied['updated'] . ' 筆，已相同 ' . (int)$applied['unchanged'] . ' 筆，未達標 ' . (int)$applied['skipped_below_threshold'] . ' 筆。';
+        if (count($applied['products']) < $beforeCount) {
+            $notice = '規格說明未寫入：產品筆數異常，已保留原主檔。';
+        } else {
+            $products = $applied['products'];
+            $saved = true;
+            if ($applied['updated'] > 0) $saved = write_data('products', $products);
+            $scope = $selectedIds ? '勾選且有庫存' : '有庫存';
+            $notice = $saved
+                ? ('規格說明已比對 ' . (int)$applied['inspected'] . ' 筆' . $scope . '產品，型號相似度 ' . rtrim(rtrim(number_format((float)$applied['min_similarity'], 1, '.', ''), '0'), '.') . '% 以上才寫入；更新 ' . (int)$applied['updated'] . ' 筆，已相同 ' . (int)$applied['unchanged'] . ' 筆，未達標 ' . (int)$applied['skipped_below_threshold'] . ' 筆。')
+                : '規格說明未寫入：產品主檔筆數保護啟動，請重整後再試。';
+        }
     }
 
     if ($action === 'quick_product_images') {

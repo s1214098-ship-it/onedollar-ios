@@ -74,12 +74,25 @@ function read_json_object($name)
 function write_data($name, $data)
 {
     $rows = array_values(is_array($data) ? $data : []);
+    if ($name === 'products' || $name === 'members') {
+        $existing = ops_decode_json_file(data_path($name));
+        $existingCount = is_array($existing) ? count($existing) : 0;
+        $newCount = count($rows);
+        if ($existingCount >= 200 && $newCount < (int)floor($existingCount * 0.85)) {
+            error_log('baohui write_data refused ' . $name . ': ' . $existingCount . ' -> ' . $newCount);
+            return false;
+        }
+    }
     $json = json_encode($rows, json_flags(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-    if ($json === false) $json = '[]';
+    if ($json === false) {
+        error_log('baohui write_data json_encode failed for ' . $name);
+        return false;
+    }
     file_put_contents(data_path($name), $json, LOCK_EX);
     $cache = &ops_data_cache();
     $cache['list:' . $name] = $rows;
     if ($name === 'products' && function_exists('ops_write_product_index_cache')) {
         ops_write_product_index_cache($rows);
     }
+    return true;
 }

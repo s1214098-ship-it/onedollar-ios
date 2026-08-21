@@ -326,6 +326,16 @@ function product_model_match_score(array $product, array $candidate): float
     }
 
     $productModel = product_match_extract_model($product);
+    if (product_model_is_generic($productModel) && product_brand_match_score($product, $candidate) < product_rule_description_min_similarity()) {
+        return 0.0;
+    }
+    $needle = product_match_normalize($productModel);
+    $hayNorm = product_match_normalize($candidateHay !== '' ? $candidateHay : ($candidate['name'] ?? ($candidate['title'] ?? '')));
+    if (preg_match('/^[A-Z0-9\-\/]+$/', $needle) && strlen($needle) >= 5 && $hayNorm !== '') {
+        $prefix = substr($needle, 0, 5);
+        if ($prefix !== '' && strpos($hayNorm, $prefix) === false) return 0.0;
+    }
+
     $candidateModel = product_catalog_item_model($candidate);
     if ($candidateModel === '') $candidateModel = product_match_extract_model($candidate);
     $score = product_match_similarity($productModel, $candidateModel);
@@ -342,9 +352,6 @@ function product_model_match_score(array $product, array $candidate): float
     if ($productPart !== '' && $candidateName !== '') {
         $partInName = product_match_similarity($productPart, $candidateName);
         if ($partInName > $score) $score = $partInName;
-    }
-    if (product_model_is_generic($productModel) && product_brand_match_score($product, $candidate) < product_rule_description_min_similarity()) {
-        return 0.0;
     }
     return $score;
 }

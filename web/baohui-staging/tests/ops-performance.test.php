@@ -54,6 +54,20 @@ expect(strpos($raw, "\n    ") === false, 'write_data stores compact JSON');
 expect(read_data('products')[0]['id'] === 'COM001P15096', 'read_data returns written products');
 expect(read_data('products') === read_data('products'), 'read_data reuses request cache');
 
+$many = [];
+for ($i = 0; $i < 220; $i++) {
+    $many[] = ['id' => 'KEEP' . $i, 'title' => '主檔' . $i];
+}
+write_data('products', $many);
+ops_data_forget('products');
+$refused = write_data('products', array_slice($many, 0, 10));
+expect($refused === false, 'write_data refuses dropping most products');
+expect(count(json_decode((string)file_get_contents(data_path('products')), true)) === 220, 'product master stays intact after refused write');
+@unlink(data_path('products'));
+@unlink(ops_product_index_path());
+ops_data_forget('products');
+write_data('products', $products);
+
 $indexFile = ops_product_index_path();
 expect(is_file($indexFile), 'product save writes search index cache');
 $index = ops_load_product_index();
