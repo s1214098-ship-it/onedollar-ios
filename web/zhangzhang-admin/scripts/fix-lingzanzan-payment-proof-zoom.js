@@ -68,11 +68,13 @@ const CLICK_OLD = `    section.addEventListener('click', function (event) {
     });`;
 
 const CLICK_NEW = `    section.addEventListener('click', function (event) {
-      var photo = event.target.closest ? event.target.closest('[data-order-photo]') : null;
+      var photo = event.target.closest ? event.target.closest('[data-order-photo], .freight-fifo-payment-proof-thumb') : null;
       if (photo && section.contains(photo)) {
         event.preventDefault();
         event.stopPropagation();
-        openOrderPhoto(photo.getAttribute('data-order-photo') || '', photo);
+        var img = photo.querySelector ? photo.querySelector('img') : null;
+        var src = (img && (img.currentSrc || img.src)) || photo.getAttribute('data-order-photo') || '';
+        openOrderPhoto(src, photo);
         return;
       }
       var removeButton = event.target.closest ? event.target.closest('[data-freight-fifo-payment-proof-remove]') : null;
