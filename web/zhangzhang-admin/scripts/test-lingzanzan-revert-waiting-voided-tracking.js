@@ -20,7 +20,7 @@ function revertBlocked(order, reason, extras) {
   if (["delivered", "returned", "refunded", "cancelled", "reverted_to_waiting"].indexOf(status) >= 0) return "closed";
   if (status === "shipped" || status === "in_transit" || deliveryState === "in_transit" || extras.shippedAt || extras.carrierHandoffAt) return "shipped";
   var tracking = leftoverTracking(order);
-  if (tracking && !String(reason || "").trim()) return "need-reason";
+  if (tracking && extras.requireReason && !String(reason || "").trim()) return "need-reason";
   return "";
 }
 
@@ -38,8 +38,8 @@ var nia = {
 };
 
 assert(leftoverTracking(nia) === "E85178398227", "detect leftover 7-11 number");
-assert(revertBlocked(nia, "") === "need-reason", "empty reason still blocked");
-assert(revertBlocked(nia, "已刪除超商編號") === "", "reason unlocks revert");
+assert(revertBlocked(nia, "") === "", "unshipped leftover tracking can revert without typing a reason");
+assert(revertBlocked(nia, "已刪除超商編號") === "", "explicit reason still allowed");
 assert(revertBlocked({ status: "accepted", trackingNo: "" }, "") === "", "no tracking does not need reason");
 assert(revertBlocked({ status: "in_transit", trackingNo: "E1" }, "已刪除") === "shipped", "in transit still blocked");
 assert(revertBlocked({ status: "accepted", trackingNo: "E1" }, "已刪除", { shippedAt: "2026-08-21" }) === "shipped", "handed off still blocked");
