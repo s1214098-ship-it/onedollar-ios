@@ -90,6 +90,14 @@ $nbRam = [[
 ]];
 expect(product_best_catalog_rule_match($desktopRam, $nbRam) === null, 'desktop RAM does not attach notebook RAM rule');
 
+$furyRam = [[
+    'name' => 'Kingston 金士頓 FURY Beast 獸獵者 DDR4 3200 8G(KF432C16BB/8)桌上型超頻記憶體',
+    'brand' => 'Kingston',
+    'category' => '記憶體',
+    'specs' => [['label' => '容量', 'value' => '8G']],
+]];
+expect(product_best_catalog_rule_match($desktopRam, $furyRam) === null, 'Micron RAM does not attach Kingston FURY spec');
+
 $adataRam = ['id' => 'rama', 'title' => '威剛 DDR4 2666 8G(S)AD4U26668G19-SGN', 'category_brand' => '威剛', 'stock_total' => 1, 'description' => ''];
 $transcendRam = [[
     'name' => 'Transcend 創見 Jetram DDR4 2666 8G PC RAM 記憶體',

@@ -149,15 +149,15 @@ function product_match_extract_model_token($text): string
     $text = product_match_strip_noise($text);
     if ($text === '') return '';
     $patterns = [
-        '/\b(?:DUAL|PRIME|TUF|ROG|STRIX|AORUS|GAMING|WINDFORCE|EAGLE|VENTUS|OC)?-?(?:GTX|RTX|RX)-?\d{3,4}[A-Z0-9\-]*\b/iu',
+        '/(?:^|[^A-Z0-9])((?:DUAL|PRIME|TUF|ROG|STRIX|AORUS|GAMING|WINDFORCE|EAGLE|VENTUS|OC)?-?(?:GTX|RTX|RX)-?\d{3,4}[A-Z0-9\-]*)/iu',
         '/\bGV-[A-Z0-9\-]+\b/iu',
-        '/\b(?:I[3579]|R[3579]|RYZEN(?:THREADRIPPER)?)\s*-?\s*\d{3,5}[A-Z]?\b/iu',
-        '/\b(?:DDR[2345])\s*\d{3,5}\s*\d+(?:\.\d+)?G(?:B)?(?:\(\d+G(?:B)?\*\d+\))?/iu',
+        '/(?:^|[^A-Z0-9])((?:I[3579]|R[3579]|RYZEN(?:THREADRIPPER)?)\s*-?\s*\d{3,5}[A-Z]?)/iu',
+        '/(?:^|[^A-Z0-9])((?:DDR[2345])\s*\d{3,5}\s*\d+(?:\.\d+)?G(?:B)?(?:\(\d+G(?:B)?\*\d+\))?)/iu',
         '/\b[A-Z]{2,}[A-Z0-9]*-[A-Z0-9\-]{4,}\b/iu',
     ];
     foreach ($patterns as $pattern) {
         if (preg_match($pattern, $text, $match)) {
-            return trim((string)$match[0]);
+            return trim((string)($match[1] ?? $match[0]));
         }
     }
     return '';
@@ -165,17 +165,13 @@ function product_match_extract_model_token($text): string
 
 function product_match_haystack(array $row): string
 {
-    return trim(implode(' ', array_filter([
-        $row['title'] ?? '',
-        $row['product_name'] ?? '',
-        $row['name'] ?? '',
-        $row['model'] ?? '',
-        $row['spec'] ?? '',
-        $row['category_spec'] ?? '',
-        $row['sku'] ?? '',
-    ], function ($value) {
-        return trim((string)$value) !== '';
-    })));
+    $parts = [];
+    foreach (['title', 'product_name', 'name', 'model', 'spec', 'category_spec', 'sku'] as $key) {
+        $value = trim((string)($row[$key] ?? ''));
+        if ($value === '' || in_array($value, $parts, true)) continue;
+        $parts[] = $value;
+    }
+    return trim(implode(' ', $parts));
 }
 
 function product_match_extract_part_number($text): string
@@ -241,8 +237,12 @@ function product_match_spec_conflict($left, $right): bool
 
 function product_model_is_generic($model): bool
 {
+    $model = trim((string)$model);
+    if ($model === '') return true;
+    if (product_match_extract_part_number($model) !== '') return false;
+    $fp = product_match_spec_fingerprint($model);
+    if ($fp['ddr'] !== '' && $fp['speed'] > 0 && $fp['size_g'] > 0) return true;
     $norm = product_match_normalize($model);
-    if ($norm === '') return true;
     return preg_match('/^DDR[2345]\d{3,5}\d+G(?:B)?$/i', $norm) === 1
         || preg_match('/^(GTX|RTX|RX)\d{3,4}$/i', $norm) === 1;
 }
