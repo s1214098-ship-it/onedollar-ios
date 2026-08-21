@@ -72,6 +72,35 @@ $gpu = ['id' => 'gpu1', 'title' => '華碩顯示卡', 'model' => 'DUAL-RTX3070-O
 $gpuMatch = product_best_catalog_rule_match($gpu, $catalog);
 expect($gpuMatch !== null && str_contains((string)($gpuMatch['block'] ?? ''), 'DUAL-RTX3070-O8G'), 'exact GPU model attaches catalog rule');
 
+$ram4g = ['id' => 'ram4', 'title' => 'AVEXIR DDR3 1600 4G(S)AVD3U16001104G-1BW', 'category_brand' => 'AVEXIR', 'stock_total' => 1, 'description' => ''];
+$ram8gCatalog = [[
+    'name' => 'Kingston DDR3 1600 8G PC用(KVR16N11/8) 記憶體',
+    'brand' => 'Kingston',
+    'category' => '記憶體',
+    'specs' => [['label' => '容量', 'value' => '8G']],
+]];
+expect(product_best_catalog_rule_match($ram4g, $ram8gCatalog) === null, 'DDR3 4G does not attach 8G rule at 90% similar_text');
+
+$desktopRam = ['id' => 'ramd', 'title' => '美光DDR4 3200 8G 桌上型記憶體(S)', 'category_brand' => '美光', 'stock_total' => 1, 'description' => ''];
+$nbRam = [[
+    'name' => '美光 DDR4 3200 8G NB RAM',
+    'brand' => 'MICRON',
+    'category' => '記憶體',
+    'specs' => [['label' => '容量', 'value' => '8G']],
+]];
+expect(product_best_catalog_rule_match($desktopRam, $nbRam) === null, 'desktop RAM does not attach notebook RAM rule');
+
+$adataRam = ['id' => 'rama', 'title' => '威剛 DDR4 2666 8G(S)AD4U26668G19-SGN', 'category_brand' => '威剛', 'stock_total' => 1, 'description' => ''];
+$transcendRam = [[
+    'name' => 'Transcend 創見 Jetram DDR4 2666 8G PC RAM 記憶體',
+    'brand' => 'Transcend',
+    'category' => '記憶體',
+    'specs' => [['label' => '容量', 'value' => '8G']],
+]];
+expect(product_best_catalog_rule_match($adataRam, $transcendRam) === null, 'generic RAM still needs matching brand or part number');
+
+expect(product_match_extract_part_number('KINGSTON DDR4 3200 16G(S)KVR32N22S8/16') === 'KVR32N22S8/16', 'part number is extracted from title');
+
 $ram = ['id' => 'ram1', 'title' => '威剛DDR3 1333 4G桌上型記憶體(S)', 'category_brand' => '威剛', 'stock_total' => 3, 'description' => ''];
 expect(product_best_catalog_rule_match($ram, $catalog) === null, 'DDR3 does not attach DDR4 rule below 90%');
 

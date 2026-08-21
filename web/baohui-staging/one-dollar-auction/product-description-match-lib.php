@@ -137,7 +137,7 @@ function product_match_strip_noise($value): string
 {
     $value = trim((string)$value);
     if ($value === '') return '';
-    $value = preg_replace('/\((?:S|N|全新|二手|新品|中古)\)/u', '', $value) ?? $value;
+    $value = preg_replace('/\((?:S|N|全新|二手|新品|中古)\)/u', ' ', $value) ?? $value;
     $value = preg_replace('/上網註冊[^／\/\-]*保固?/u', '', $value) ?? $value;
     $value = preg_replace('/盒裝/u', '', $value) ?? $value;
     $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
@@ -163,20 +163,98 @@ function product_match_extract_model_token($text): string
     return '';
 }
 
+function product_match_haystack(array $row): string
+{
+    return trim(implode(' ', array_filter([
+        $row['title'] ?? '',
+        $row['product_name'] ?? '',
+        $row['name'] ?? '',
+        $row['model'] ?? '',
+        $row['spec'] ?? '',
+        $row['category_spec'] ?? '',
+        $row['sku'] ?? '',
+    ], function ($value) {
+        return trim((string)$value) !== '';
+    })));
+}
+
+function product_match_extract_part_number($text): string
+{
+    $text = product_match_strip_noise($text);
+    if ($text === '') return '';
+    if (preg_match('/\(([A-Z]{2,}[A-Z0-9.\/\-_]{4,})\)/i', $text, $match)) {
+        return rtrim((string)$match[1], '.');
+    }
+    if (preg_match('/\b([A-Z]{2,}\d[A-Z0-9.\/\-_]{4,})\b/i', $text, $match)) {
+        return rtrim((string)$match[1], '.');
+    }
+    return '';
+}
+
+function product_match_spec_fingerprint($text): array
+{
+    $raw = (string)$text;
+    $norm = product_match_normalize($raw);
+    $ddr = '';
+    if (preg_match('/DDR([2345])/i', $norm, $match)) $ddr = 'DDR' . $match[1];
+    $speed = 0;
+    if (preg_match('/DDR[2345](\d{3,5})/i', $norm, $match)) $speed = (int)$match[1];
+    elseif (preg_match('/\b(1066|1333|1600|1866|2133|2400|2666|2800|2933|3000|3200|3600|4000|4800|5200|5600|6000|6400|7200|8000)\b/', $raw, $match)) $speed = (int)$match[1];
+    $size = 0;
+    if (preg_match('/(\d+(?:\.\d+)?)G(?:B)?(?:\(\d+G(?:B)?\*\d+\))?/i', $norm, $match)) $size = (int)round((float)$match[1]);
+    $nb = preg_match('/NB|筆電|筆記型|SODIMM|SO-DIMM/i', $raw) === 1;
+    $desktop = preg_match('/桌上|PC用|PC RAM|DIMM/i', $raw) === 1 && !$nb;
+    $gpu = '';
+    if (preg_match('/(GTX|RTX|RX)-?(\d{3,4})/i', $norm, $match)) $gpu = strtoupper($match[1] . $match[2]);
+    $cpu = '';
+    if (preg_match('/(I[3579]|R[3579])-?(\d{4,5}[A-Z]?)/i', $norm, $match)) $cpu = strtoupper($match[1] . $match[2]);
+    return [
+        'ddr' => $ddr,
+        'speed' => $speed,
+        'size_g' => $size,
+        'nb' => $nb,
+        'desktop' => $desktop,
+        'gpu' => $gpu,
+        'cpu' => $cpu,
+    ];
+}
+
+function product_match_spec_conflict($left, $right): bool
+{
+    $a = product_match_spec_fingerprint($left);
+    $b = product_match_spec_fingerprint($right);
+    if ($a['ddr'] !== '' && $b['ddr'] !== '' && $a['ddr'] !== $b['ddr']) return true;
+    if ($a['speed'] > 0 && $b['speed'] > 0 && $a['speed'] !== $b['speed']) return true;
+    if ($a['size_g'] > 0 && $b['size_g'] > 0 && $a['size_g'] !== $b['size_g']) return true;
+    if ($a['ddr'] !== '' && $b['ddr'] !== '') {
+        if ($a['nb'] !== $b['nb'] && ($a['nb'] || $b['nb'])) return true;
+        if ($a['desktop'] !== $b['desktop'] && ($a['desktop'] || $b['desktop'])) return true;
+    }
+    if ($a['gpu'] !== '' && $b['gpu'] !== '' && $a['gpu'] !== $b['gpu']) return true;
+    if ($a['cpu'] !== '' && $b['cpu'] !== '') {
+        $aCore = preg_replace('/[A-Z]$/', '', $a['cpu']);
+        $bCore = preg_replace('/[A-Z]$/', '', $b['cpu']);
+        if ($aCore !== $bCore && product_match_similarity($a['cpu'], $b['cpu']) < product_rule_description_min_similarity()) return true;
+    }
+    return false;
+}
+
+function product_model_is_generic($model): bool
+{
+    $norm = product_match_normalize($model);
+    if ($norm === '') return true;
+    return preg_match('/^DDR[2345]\d{3,5}\d+G(?:B)?$/i', $norm) === 1
+        || preg_match('/^(GTX|RTX|RX)\d{3,4}$/i', $norm) === 1;
+}
+
 function product_match_extract_model(array $row): string
 {
     $explicit = trim((string)($row['model'] ?? ''));
     if ($explicit !== '') return $explicit;
-    $hay = trim(implode(' ', array_filter([
-        $row['title'] ?? '',
-        $row['product_name'] ?? '',
-        $row['name'] ?? '',
-        $row['spec'] ?? '',
-        $row['category_spec'] ?? '',
-    ], function ($value) {
-        return trim((string)$value) !== '';
-    })));
+    $hay = product_match_haystack($row);
+    $part = product_match_extract_part_number($hay);
     $token = product_match_extract_model_token($hay);
+    if ($part !== '' && (product_model_is_generic($token) || $token === '')) return $part;
     if ($token !== '') return $token;
     $cleaned = product_match_strip_noise($hay);
     $brand = trim((string)($row['category_brand'] ?? ($row['brand'] ?? '')));
@@ -232,6 +310,21 @@ function product_catalog_item_model(array $item): string
 
 function product_model_match_score(array $product, array $candidate): float
 {
+    $productHay = product_match_haystack($product);
+    $candidateHay = product_match_haystack($candidate);
+    if ($candidateHay === '') {
+        $candidateHay = trim((string)($candidate['name'] ?? ($candidate['title'] ?? '')));
+    }
+    if (product_match_spec_conflict($productHay, $candidateHay)) return 0.0;
+
+    $productPart = product_match_extract_part_number($productHay);
+    $candidatePart = product_match_extract_part_number($candidateHay);
+    if ($productPart !== '' && $candidatePart !== '') {
+        $partScore = product_match_similarity($productPart, $candidatePart);
+        if ($partScore < product_rule_description_min_similarity()) return 0.0;
+        return $partScore;
+    }
+
     $productModel = product_match_extract_model($product);
     $candidateModel = product_catalog_item_model($candidate);
     if ($candidateModel === '') $candidateModel = product_match_extract_model($candidate);
@@ -245,6 +338,13 @@ function product_model_match_score(array $product, array $candidate): float
     if ($productModel !== '' && $sku !== '') {
         $skuScore = product_match_similarity($productModel, $sku);
         if ($skuScore > $score) $score = $skuScore;
+    }
+    if ($productPart !== '' && $candidateName !== '') {
+        $partInName = product_match_similarity($productPart, $candidateName);
+        if ($partInName > $score) $score = $partInName;
+    }
+    if (product_model_is_generic($productModel) && product_brand_match_score($product, $candidate) < product_rule_description_min_similarity()) {
+        return 0.0;
     }
     return $score;
 }
@@ -411,6 +511,7 @@ function product_apply_rule_descriptions(array $products, array $catalogItems, a
     $unchanged = 0;
     $inspected = 0;
     $now = date('c');
+    $originalProducts = $products;
 
     foreach ($products as $index => $product) {
         if (!is_array($product)) continue;
@@ -428,7 +529,7 @@ function product_apply_rule_descriptions(array $products, array $catalogItems, a
         }
         $match = product_best_catalog_rule_match($product, $catalogItems, $min);
         if ($match === null || trim((string)($match['block'] ?? '')) === '') {
-            $match = product_best_sibling_rule_match($product, $products, $min);
+            $match = product_best_sibling_rule_match($product, $originalProducts, $min);
         }
         if ($match === null || trim((string)($match['block'] ?? '')) === '') {
             $skippedBelow++;
