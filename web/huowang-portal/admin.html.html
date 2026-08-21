@@ -3033,7 +3033,7 @@ input[list*="List"],input[list]{
       <h2 style="margin-bottom:6px">📘 Facebook 發布與加入社團排程</h2>
       <p style="color:#475569;font-weight:800;margin-top:0">每天中午 12:00、晚上 18:00 自動更新。每日 50 件：粉絲團 20、真幸福 20、個人宜蘭社團 10。</p>
     </div>
-    <iframe src="./facebook-schedule.html" title="Facebook 發布與加入社團排程" style="display:block;width:100%;height:1900px;border:0;background:#f6f1e8"></iframe>
+    <iframe src="./facebook-schedule.html" title="Facebook 發布與加入社團排程" style="display:block;width:100%;height:2200px;border:0;background:#f6f1e8"></iframe>
   </div>
 
   <!-- 行事曆 / 帶看排程 -->
@@ -9347,6 +9347,13 @@ function renderAutomationCenter(){
             status:"",
             statusText:"每日 12:00、18:00 自動執行",
             actions:'<button class="blue" onclick="window.open(\'api/yungching-daily-sync-status.json\',\'_blank\')">看上次更新</button><button class="green" onclick="show(\'sameStore\',findSidebarLinkForPage(\'sameStore\'))">打開同店物件</button>'
+        },
+        {
+            title:"Facebook 上架排版與發出",
+            body:"後台產生直式房屋文案、照片與名片；本機 Chrome 擴充功能 0.5.32 依佇列發到粉絲團與社團。Service Worker 若顯示無法使用，請改載 F:\\\\Web\\\\huowang-staging\\\\chrome-extension。",
+            status:"",
+            statusText:"擴充功能 0.5.32｜每約 90 秒發一則",
+            actions:'<button class="blue" onclick="show(\'facebookAutomation\',document.querySelector(\'[onclick*=facebookAutomation]\'))">打開 Facebook 排程</button><button class="green" onclick="window.open(\'chrome-extension/INSTALL.txt\',\'_blank\')">安裝說明</button>'
         },
         {
             title:"網站健康檢查",

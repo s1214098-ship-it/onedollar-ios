@@ -1,0 +1,20 @@
+火旺專屬房屋自動化 0.5.32
+
+這個擴充功能要裝在「峰志自己已登入郭火旺 Facebook 的 Chrome」。
+雲端代理無法替你點 Chrome。Service Worker 顯示「無法使用」時，多半是舊資料夾被搬過、或用了會壞掉的 module worker。請改載這個資料夾。
+
+安裝
+1. 打開 chrome://extensions
+2. 右上角打開「開發人員模式」
+3. 若已有舊版「火旺專屬房屋自動化」，先移除
+4. 「載入未封裝項目」→ 選
+   F:\Web\huowang-staging\chrome-extension
+5. 重新載入後，Service Worker 應顯示「正在執行中」
+6. 點擴充功能圖示 → 選項：確認網站是 https://huowang.paohui.org，執行器已啟用
+7. Facebook 分頁保持登入「郭火旺（個人）」；發粉絲團時請先切到「羅東透天農舍 郭火旺」身份
+
+注意
+- 未封裝 ID 會隨資料夾路徑改變，不必執著舊 ID ddbdhilhpjfohmmfbfpoaddbahonkena
+- 發文文案、照片、名片由後台佇列提供；本擴充功能只負責貼上並按發佈
+- 若找不到發佈按鈕，會把文案放到剪貼簿並回報「待審核」，不會假裝已發出
+- 每約 90 秒領一件，避免 Facebook 擋頻繁發文

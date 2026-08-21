@@ -7,3 +7,4 @@ web/huowang-portal/secrets.local.json
 .DS_Store
 web/huowang-staging/api/peer-list.json
 web/huowang-staging/data/cache/
+web/huowang-staging/chrome-extension/config.local.js
