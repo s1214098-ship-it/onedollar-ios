@@ -6,6 +6,7 @@ require_once __DIR__ . DIRECTORY_SEPARATOR . 'document-print-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'monthly-settlement-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-color-variants-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-archive-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-description-match-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-data-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-product-index-lib.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -3358,6 +3359,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $notice = '已更新庫存管理建檔金額 ' . $updated . ' 筆。';
     }
 
+    if ($action === 'apply_stock_rule_descriptions') {
+        $opsInitialTab = 'stock-search';
+        $selectedIds = $_POST['product_ids'] ?? [];
+        if (!is_array($selectedIds)) $selectedIds = [];
+        $selectedIds = array_values(array_filter(array_map('trim', $selectedIds)));
+        $catalogItems = baohui_reference_catalog_items(read_json_object('baohui_reference_catalog'));
+        $applied = product_apply_rule_descriptions($products, $catalogItems, [
+            'only_in_stock' => true,
+            'product_ids' => $selectedIds,
+            'min_similarity' => product_rule_description_min_similarity(),
+        ]);
+        $products = $applied['products'];
+        if ($applied['updated'] > 0) write_data('products', $products);
+        $scope = $selectedIds ? '勾選且有庫存' : '有庫存';
+        $notice = '規格說明已比對 ' . (int)$applied['inspected'] . ' 筆' . $scope . '產品，型號相似度 ' . rtrim(rtrim(number_format((float)$applied['min_similarity'], 1, '.', ''), '0'), '.') . '% 以上才寫入；更新 ' . (int)$applied['updated'] . ' 筆，已相同 ' . (int)$applied['unchanged'] . ' 筆，未達標 ' . (int)$applied['skipped_below_threshold'] . ' 筆。';
+    }
 
     if ($action === 'quick_product_images') {
         $id = trim((string)($_POST['product_id'] ?? ''));
@@ -10044,6 +10061,17 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         align-items: center;
         margin: 10px 0 14px;
       }
+      #stock-search .stock-desc-preview {
+        margin-top: 8px;
+        padding: 8px 10px;
+        border: 1px solid #d7e0ec;
+        border-radius: 6px;
+        background: #f8fafc;
+        color: #334155;
+        font-size: 13px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+      }
       #stock-search .stock-card-grid {
         display: grid;
         grid-template-columns: 1fr;
@@ -10253,10 +10281,14 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     <form method="post" id="stockCostForm">
       <input type="hidden" name="action" value="update_stock_costs">
     </form>
+    <form method="post" id="stockRuleDescForm" onsubmit="return confirm('將為有庫存產品比對型號／廠牌，型號相似度 90% 以上才寫入規格說明。確定執行？');">
+      <input type="hidden" name="action" value="apply_stock_rule_descriptions">
+    </form>
     <div class="bulk-actions">
       <label class="check"><input type="checkbox" data-select-all="product_ids[]"> 全選本頁</label>
       <button class="danger" type="submit" form="stockProductsForm">刪除勾選產品</button>
       <button class="secondary" type="submit" form="stockCostForm">儲存本頁成本</button>
+      <button class="secondary" type="submit" form="stockRuleDescForm">套用規格說明</button>
       <span class="muted">第 <?=h($stockPage)?> / <?=h($stockPages)?> 頁，每頁 10 筆；目前符合 <?=h($stockFilteredTotal)?> 筆。</span>
     </div>
 
@@ -10296,6 +10328,17 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
               <span>已售 <?=h((int)($p['stock_sold']??0))?></span>
               <strong>可用 <?=h(stock_available($p))?></strong>
             </div>
+            <?php
+              $stockDescPreview = trim((string)($p['description'] ?? ''));
+              $stockRuleMatched = trim((string)($p['rule_description_matched_name'] ?? ''));
+              $stockRuleSimilarity = (float)($p['rule_description_similarity'] ?? 0);
+            ?>
+            <?php if($stockDescPreview !== ''): ?>
+              <div class="stock-desc-preview"><?=h(mb_substr($stockDescPreview, 0, 160))?><?= mb_strlen($stockDescPreview, 'UTF-8') > 160 ? '…' : '' ?></div>
+              <?php if($stockRuleMatched !== '' && $stockRuleSimilarity >= product_rule_description_min_similarity()): ?>
+                <div class="muted">規格說明 <?=h(rtrim(rtrim(number_format($stockRuleSimilarity, 1, '.', ''), '0'), '.'))?>%｜<?=h(mb_substr($stockRuleMatched, 0, 42))?></div>
+              <?php endif; ?>
+            <?php endif; ?>
             <?php if(!empty($p['cloud_auction_locked'])): ?><div class="ops-alert"><b>競標中鎖倉</b>：已有雲端競標場次，禁止重複排程上架。</div><?php endif; ?>
             <div class="barcode-print-actions">
               <a class="button-like" href="operations.php?edit_product=<?=urlencode($p['id']??'')?>#products">編輯產品</a>
@@ -14302,6 +14345,16 @@ document.getElementById('convertProductDescription')?.addEventListener('click', 
   if (target && !String(target.value || '').trim()) target.value = source;
   target?.focus();
   if (copied) alert('已複製轉換提示。請貼到 ChatGPT，再把整理後的文案貼到下面「AI 整理後」。');
+});
+document.getElementById('stockRuleDescForm')?.addEventListener('submit', function () {
+  this.querySelectorAll('input[name="product_ids[]"]').forEach((el) => el.remove());
+  document.querySelectorAll('#stock-search input[name="product_ids[]"]:checked').forEach((cb) => {
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'product_ids[]';
+    hidden.value = cb.value;
+    this.appendChild(hidden);
+  });
 });
 function buildAiMaterialText() {
   const rows = Array.from(document.querySelectorAll('.product-check:checked')).map((cb) => cb.closest('tr')).filter(Boolean);
