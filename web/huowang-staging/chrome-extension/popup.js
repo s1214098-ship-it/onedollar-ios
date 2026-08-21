@@ -1,7 +1,7 @@
 function render(state, version) {
   var s = state || {};
   var lines = [
-    "版本：" + (version || "0.5.33"),
+    "版本：" + (version || "0.5.34"),
     "Service Worker：運作中（有心跳才算活著）",
     "心跳：" + (s.heartbeatAt || "尚無"),
     "上次領件：" + (s.lastClaimAt || "尚無"),
