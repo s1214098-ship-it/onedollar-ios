@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
   "name": "火旺專屬房屋自動化",
-  "version": "0.5.32",
+  "version": "0.5.33",
   "description": "依房屋後台排程加入 Facebook 社團，並用固定直式排版發佈房屋物件。",
   "minimum_chrome_version": "116",
   "action": {
     "default_popup": "popup.html",
-    "default_title": "火旺 Facebook 發文 0.5.32",
+    "default_title": "火旺 Facebook 發文 0.5.33",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",

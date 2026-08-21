@@ -46,7 +46,7 @@ var HuowangFbComposer = (function () {
     box.textContent = text;
     box.style.cssText = "position:fixed;z-index:2147483647;left:16px;right:16px;top:12px;background:#0f766e;color:#fff;font:700 16px/1.4 sans-serif;padding:12px 16px;border-radius:10px;box-shadow:0 8px 24px #0006";
     document.documentElement.appendChild(box);
-    setTimeout(function () { if (box.parentNode) box.remove(); }, 20000);
+    setTimeout(function () { if (box.parentNode) box.remove(); }, 25000);
   }
 
   function looksLoggedOut() {
@@ -54,16 +54,54 @@ var HuowangFbComposer = (function () {
     return /登入 Facebook|Log in to Facebook|Forgot password|忘記密碼/.test(t) && !document.querySelector("[role=feed], [role=main] [contenteditable=true]");
   }
 
+  function dialogRoot() {
+    var dialogs = document.querySelectorAll("[role=dialog]");
+    for (var i = dialogs.length - 1; i >= 0; i--) {
+      if (visible(dialogs[i])) return dialogs[i];
+    }
+    return dialogs[dialogs.length - 1] || null;
+  }
+
   function composerBox() {
-    return document.querySelector("[role=dialog] [contenteditable=true][role=textbox]")
-      || document.querySelector("[role=dialog] [contenteditable=true]")
-      || document.querySelector("[aria-label*='建立公開貼文']")
-      || document.querySelector("[aria-label*='Create a public post']")
-      || document.querySelector("div[role=dialog] div[contenteditable=true]");
+    var dialog = dialogRoot();
+    if (!dialog) return null;
+    return dialog.querySelector("[contenteditable=true][role=textbox]")
+      || dialog.querySelector("[aria-label*='建立公開貼文']")
+      || dialog.querySelector("[aria-label*='Create a public post']")
+      || dialog.querySelector("[contenteditable=true]");
+  }
+
+  function snippet(text) {
+    return String(text || "").replace(/\s+/g, " ").trim().slice(0, 16);
+  }
+
+  function hasPostText(text) {
+    var dialog = dialogRoot();
+    var box = composerBox();
+    var hay = ((box && (box.innerText || box.textContent)) || "") + "\n" + ((dialog && dialog.innerText) || "");
+    var needle = snippet(text);
+    if (!needle) return false;
+    return hay.replace(/\s+/g, " ").indexOf(needle) >= 0;
+  }
+
+  async function waitForDialogBox(timeoutMs) {
+    var start = Date.now();
+    var stable = 0;
+    while (Date.now() - start < (timeoutMs || 12000)) {
+      var box = composerBox();
+      if (box && visible(box) && dialogRoot()) {
+        stable += 1;
+        if (stable >= 3) return box;
+      } else {
+        stable = 0;
+      }
+      await sleep(300);
+    }
+    return composerBox();
   }
 
   async function openComposer() {
-    var box = composerBox();
+    var box = await waitForDialogBox(1500);
     if (box) return box;
     var labels = [
       "撰寫貼文", "寫點什麼", "Write something", "What's on your mind", "What’s on your mind",
@@ -77,31 +115,50 @@ var HuowangFbComposer = (function () {
       || document.querySelector("[aria-label*='建立貼文']")
       || document.querySelector("[aria-label*='在想什麼']");
     if (opener) clickEl(opener);
-    for (var i = 0; i < 25; i++) {
-      await sleep(350);
-      box = composerBox();
-      if (box) return box;
-    }
-    return null;
+    return waitForDialogBox(15000);
   }
 
-  async function insertText(box, text) {
+  async function pasteInto(box, text) {
     box.focus();
-    await sleep(200);
-    try { document.execCommand("selectAll", false, null); } catch (e) {}
+    try { box.click(); } catch (e) {}
+    await sleep(180);
+    try {
+      document.execCommand("selectAll", false, null);
+      document.execCommand("delete", false, null);
+    } catch (e) {}
     var ok = false;
     try { ok = document.execCommand("insertText", false, text); } catch (e) { ok = false; }
+    try {
+      var dt = new DataTransfer();
+      dt.setData("text/plain", text);
+      box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    } catch (e) {}
+    try {
+      box.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true, inputType: "insertFromPaste", data: text }));
+      box.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertFromPaste", data: text }));
+    } catch (e) {}
     if (!ok) {
       try {
-        var dt = new DataTransfer();
-        dt.setData("text/plain", text);
-        box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+        await navigator.clipboard.writeText(text);
+        document.execCommand("paste");
       } catch (e) {}
     }
-    box.dispatchEvent(new InputEvent("input", { bubbles: true, data: text, inputType: "insertText" }));
-    await sleep(400);
-    var current = String(box.innerText || box.textContent || "");
-    return current.indexOf(String(text || "").slice(0, 10)) >= 0 || current.length >= Math.min(20, String(text || "").length);
+    return ok;
+  }
+
+  async function fillText(text) {
+    for (var attempt = 0; attempt < 8; attempt++) {
+      var box = composerBox() || await waitForDialogBox(4000);
+      if (!box) {
+        await sleep(400);
+        continue;
+      }
+      await pasteInto(box, text);
+      await sleep(700);
+      if (hasPostText(text)) return true;
+      showBanner("發文框文字被 Facebook 清掉，正在重貼第 " + (attempt + 1) + " 次");
+    }
+    return hasPostText(text);
   }
 
   async function copyText(text) {
@@ -126,7 +183,9 @@ var HuowangFbComposer = (function () {
   }
 
   function fileInput() {
-    return document.querySelector("[role=dialog] input[type=file]")
+    var dialog = dialogRoot() || document;
+    return dialog.querySelector("input[type=file]")
+      || document.querySelector("[role=dialog] input[type=file]")
       || document.querySelector("input[type=file][accept*='image']")
       || document.querySelector("form input[type=file][multiple]");
   }
@@ -135,11 +194,11 @@ var HuowangFbComposer = (function () {
     if (!files.length) return 0;
     var input = fileInput();
     if (!input) {
-      var photo = findByLabels(document.querySelector("[role=dialog]") || document, [
+      var photo = findByLabels(dialogRoot() || document, [
         "相片／影片", "相片/影片", "Photo/video", "Photo / video", "相片和影片", "照片／影片"
       ]);
       if (photo) clickEl(photo);
-      await sleep(800);
+      await sleep(1000);
       input = fileInput();
     }
     if (!input) return 0;
@@ -148,20 +207,29 @@ var HuowangFbComposer = (function () {
     input.files = dt.files;
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
-    await sleep(2500);
+    await sleep(2800);
+    await waitForDialogBox(8000);
     return files.length;
   }
 
   function actionButton(labels) {
-    var root = document.querySelector("[role=dialog]") || document;
+    var root = dialogRoot() || document;
     return findByLabels(root, labels, "[role=button], button");
   }
 
   async function clickPublish() {
-    var labels = ["發佈", "发布", "Post", "Publish", "立即發佈", "Next", "下一步"];
-    for (var round = 0; round < 3; round++) {
+    var labels = ["發佈", "发布", "Post", "Publish", "立即發佈"];
+    for (var round = 0; round < 4; round++) {
       var btn = actionButton(labels);
-      if (!btn) return false;
+      if (!btn) {
+        var next = actionButton(["Next", "下一步"]);
+        if (next) {
+          clickEl(next);
+          await sleep(1200);
+          continue;
+        }
+        return false;
+      }
       var disabled = btn.getAttribute("aria-disabled") === "true" || btn.hasAttribute("disabled");
       if (disabled) {
         await sleep(800);
@@ -177,7 +245,7 @@ var HuowangFbComposer = (function () {
   }
 
   async function runPost(job) {
-    showBanner("火旺自動化發文中，請勿關閉此分頁");
+    showBanner("火旺自動化發文中：先等彈窗穩定，再放照片，最後貼文案");
     if (looksLoggedOut()) {
       return { ok: false, status: "pending_review", note: "Facebook 尚未登入，請先用郭火旺帳號登入這個 Chrome" };
     }
@@ -186,19 +254,38 @@ var HuowangFbComposer = (function () {
     await copyText(text);
     var box = await openComposer();
     if (!box) {
-      return { ok: false, status: "pending_review", note: "找不到發文框。文案已複製，請在社團／粉絲團手動貼上。" };
+      return { ok: false, status: "pending_review", note: "找不到發文彈窗。文案已複製，請在社團／粉絲團手動貼上。" };
     }
-    var typed = await insertText(box, text);
     var urls = Array.isArray(job.imageUrls) ? job.imageUrls.slice(0, 10) : [];
     if (job.businessCardUrl) urls.push(job.businessCardUrl);
     var files = await filesFromUrls(urls);
     var attached = await attachFiles(files);
+    showBanner("照片已處理，正在貼上房屋文案");
+    var typed = await fillText(text);
+    if (!typed) {
+      typed = await fillText(text);
+    }
+    if (!hasPostText(text)) {
+      return {
+        ok: false,
+        status: "pending_review",
+        note: "發文框文字被 Facebook 清掉，已把完整文案放在剪貼簿。照片 " + attached + " 張。請 Ctrl+V 貼上後再按發佈。",
+        postUrl: location.href,
+        attached: attached
+      };
+    }
     var posted = await clickPublish();
+    await sleep(800);
+    if (dialogRoot() && !hasPostText(text)) {
+      showBanner("按發佈前文字又消失，正在重貼");
+      typed = await fillText(text);
+      if (hasPostText(text)) posted = await clickPublish();
+    }
     if (!posted) {
       return {
         ok: false,
         status: "pending_review",
-        note: (typed ? "文案已填入" : "文案可能沒填完整") + "，但找不到發佈按鈕。照片 " + attached + " 張。文案已在剪貼簿。",
+        note: (hasPostText(text) ? "文案還在發文框" : "文案已複製") + "，但找不到發佈按鈕。照片 " + attached + " 張。",
         postUrl: location.href
       };
     }
