@@ -6566,6 +6566,10 @@ $editProductId = trim((string)($_GET['edit_product'] ?? ''));
 $editProduct = $editProductId !== '' ? (product_by_id($products, $editProductId) ?: product_by_key($products, $editProductId)) : [];
 $isEditingProduct = !empty($editProduct);
 if ($isEditingProduct) $opsInitialTab = 'products';
+if ($opsInitialTab === '') {
+    $postedOpsTab = preg_replace('/[^a-z0-9_-]/i', '', (string)($_POST['ops_tab'] ?? ($_GET['ops_tab'] ?? '')));
+    if ($postedOpsTab !== '') $opsInitialTab = $postedOpsTab;
+}
 $productColorThumbMap = color_code_image_lookup($colorCodeImages);
 if ($isEditingProduct) {
     $editSerialForThumbs = product_serial_base($editProduct);
@@ -7006,11 +7010,32 @@ if (($_GET['partial'] ?? '') === 'ops_status') {
 }
 ?>
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant"<?php if (($opsInitialTab ?? '') !== '' && ($opsInitialTab ?? '') !== 'overview'): ?> data-ops-pending-tab="<?=h($opsInitialTab)?>"<?php endif; ?>>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>寶輝電腦部營運後台</title>
+<script>
+(function(){
+  function cleanTab(id){
+    return String(id || '').replace(/^#/, '').split('?')[0].replace(/[^a-z0-9_-]/gi, '').slice(0, 80);
+  }
+  var aliases = { stock: 'stock-search', analytics: 'finance-analytics', shipping: 'customer-shipping' };
+  var fromAttr = cleanTab(document.documentElement.getAttribute('data-ops-pending-tab') || '');
+  var fromHash = cleanTab(location.hash || '');
+  var stored = '';
+  try { stored = cleanTab(sessionStorage.getItem('baohuiOpsTab') || ''); } catch (e) {}
+  var tab = aliases[fromAttr] || fromAttr || aliases[fromHash] || fromHash || stored;
+  if (!tab || tab === 'overview') return;
+  document.documentElement.setAttribute('data-ops-pending-tab', tab);
+  var style = document.createElement('style');
+  style.id = 'ops-pending-tab-style';
+  style.textContent = 'html[data-ops-pending-tab] #overview.ops-tab{display:none!important}'
+    + 'html[data-ops-pending-tab="' + tab + '"] #' + tab + '.ops-tab{display:block!important}'
+    + 'html[data-ops-pending-tab="' + tab + '"] #' + tab + '.metric-grid.ops-tab{display:grid!important}';
+  document.head.appendChild(style);
+})();
+</script>
 <link rel="stylesheet" href="assets/app.css?v=form-wrap-20260817-01">
 <style>
 .ops-shell{min-height:100vh;display:grid;grid-template-columns:260px minmax(0,1fr);background:#f6f7f8}.ops-nav{position:sticky;top:0;height:100vh;max-height:100vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding:20px 14px 88px;background:#18201d;color:#fff;display:flex;flex-direction:column;gap:6px;scrollbar-gutter:stable}.ops-nav strong{display:block;padding:8px 10px 14px;font-size:18px}.ops-nav a{padding:11px 12px;border-radius:8px;color:#dfe7e2;text-decoration:none;font-weight:700}.ops-nav a:hover,.ops-nav a.active{background:#2c3b35;color:#fff}.ops-nav-group{border:1px solid rgba(255,255,255,.10);border-radius:10px;margin:4px 0;background:rgba(255,255,255,.03);overflow:visible;flex:0 0 auto}.ops-nav-group summary{cursor:pointer;list-style:none;padding:11px 12px;color:#fff;font-weight:900;display:flex;align-items:center;justify-content:space-between}.ops-nav-group summary::-webkit-details-marker{display:none}.ops-nav-group summary:after{content:'+';font-size:18px;line-height:1;color:#9fb3aa}.ops-nav-group[open] summary:after{content:'-'}.ops-nav-sub{display:flex;flex-direction:column;gap:4px;padding:0 8px 10px;max-height:none;overflow:visible}.ops-nav-sub a{font-size:14px;padding:9px 10px 9px 18px;border-radius:7px;color:#cbd8d1;background:transparent}.ops-nav-sub a.active{background:#31443c;color:#fff}.ops-nav a.active{background:#0f766e!important;color:#fff!important;box-shadow:inset 5px 0 0 #facc15,0 8px 18px rgba(0,0,0,.20);transform:translateX(2px)}.ops-nav-sub a.active{background:#0f766e!important;color:#fff!important;box-shadow:inset 4px 0 0 #facc15}.ops-nav-group.is-current{border-color:rgba(250,204,21,.75);background:rgba(15,118,110,.18)}.ops-nav-current-label{display:block;margin:0 10px 8px;padding:6px 9px;border-radius:999px;background:#facc15;color:#17201d;font-size:12px;font-weight:900}.ops-nav-sub a:before{content:'› ';color:#7dd3c7}.ops-wrap{padding:24px;max-width:1500px;width:100%;margin:0 auto}.ops-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}.ops-head h1{margin:0}.ops-head p{margin:8px 0 0}.ops-tab{display:none}.ops-tab.is-active{display:block}.metric-grid.ops-tab.is-active{display:grid}.ops-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.overview-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.overview-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.reminder-card{margin-bottom:0;position:relative;overflow:hidden}.reminder-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px}.reminder-card .section-head{padding-left:6px}.reminder-row{display:flex;justify-content:space-between;gap:12px;align-items:center;border-top:1px solid var(--line);padding:10px 0}.scene-metric{border-left:6px solid transparent}.scene-schedule{--scene:#2563eb;--scene-bg:#eff6ff;--scene-line:#bfdbfe}.scene-close{--scene:#d97706;--scene-bg:#fffbeb;--scene-line:#fde68a}.scene-ship{--scene:#dc2626;--scene-bg:#fff1f2;--scene-line:#fecdd3}.scene-relist{--scene:#7c3aed;--scene-bg:#f5f3ff;--scene-line:#ddd6fe}.scene-metric{background:linear-gradient(180deg,#fff,var(--scene-bg));border-left-color:var(--scene);border-color:var(--scene-line)}.reminder-card.scene-schedule,.reminder-card.scene-close,.reminder-card.scene-ship,.reminder-card.scene-relist{background:linear-gradient(180deg,#fff,var(--scene-bg));border-color:var(--scene-line)}.reminder-card.scene-schedule:before,.reminder-card.scene-close:before,.reminder-card.scene-ship:before,.reminder-card.scene-relist:before{background:var(--scene)}.reminder-card h2{color:#0f172a}.reminder-card .button-like{border-color:var(--scene-line);color:var(--scene);background:#fff}.reminder-card .status-pill{border-color:var(--scene-line);background:#fff;color:var(--scene);font-weight:800}.reminder-row:first-of-type{border-top:0}.ops-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}.thumb{width:74px;height:54px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}.settle-table{min-width:1800px}.member-picker{min-width:250px}.inline-actions{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.ops-card h2{margin-top:0}.status-pill{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:4px 8px;background:#fbfaf7;font-size:12px}.note-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.return-table{min-width:1300px}.order-group-card{border:1px solid var(--line);border-radius:8px;padding:14px;margin:14px 0;background:#fff}.order-group-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:10px}.order-group-head h3{margin:0}.order-total{text-align:right}.order-total strong{display:block;font-size:24px;color:#0f766e}.order-total small{display:block;color:#dc3545}.order-items-table{min-width:1200px}.payment-offset-panel{border:1px solid var(--line);border-radius:8px;padding:14px;background:#fbfaf7;margin:12px 0 16px}.payment-offset-card{border-top:1px solid var(--line);padding:12px 0}.payment-offset-head{display:grid;grid-template-columns:minmax(220px,.7fr) minmax(420px,1.3fr);gap:12px;align-items:end}.payment-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.payment-offset-table{min-width:900px}.order-actions{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;margin-top:12px}@media(max-width:900px){.order-group-head{display:block}.order-total{text-align:left;margin-top:8px}.order-actions,.payment-offset-head,.payment-inputs{grid-template-columns:1fr}}.member-search-panel{display:grid;grid-template-columns:1.3fr 2fr;gap:16px}.member-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.member-workbench{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(420px,1.4fr);gap:16px;margin-bottom:16px}.member-search-card,.member-editor-card{border:1px solid var(--line);border-radius:8px;padding:14px;background:#fbfaf7}.member-search-card h3,.member-editor-card h3{margin-top:0}.member-table{min-width:1500px}.member-table tr.is-blacklisted{background:#fff1f2}.member-table tr.is-watch{background:#fffbeb}.risk-reason{margin-top:6px;color:#b91c1c;font-weight:700}.danger-text{color:#dc3545}.barcode-code-panel{margin:14px 0;padding:14px;border:1px solid #d8e0ea;border-radius:10px;background:#f8fafc}.barcode-code-panel h3{margin:0 0 6px}.barcode-code-grid{display:grid;grid-template-columns:2fr 1fr;gap:12px}.barcode-code-grid h4{margin:8px 0}.code-chip{display:inline-flex;gap:6px;align-items:center;margin:4px 6px 4px 0;padding:5px 9px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;color:#0f172a}.code-chip b{color:#0f766e}@media(max-width:760px){.barcode-code-grid{grid-template-columns:1fr}}.member-inline-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:360px}.member-inline-form textarea,.member-inline-form button{grid-column:1/-1}.mini-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.mini-form .wide{grid-column:1/-1}.stock-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.stock-card{border:1px solid #d8e0ea;border-radius:10px;background:#fff;padding:12px}.stock-card-check{display:flex;gap:6px;align-items:center;font-weight:800;color:#475569;margin-bottom:8px}.stock-card-main{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;align-items:start}.stock-card-images{min-width:0}.stock-main-img,.stock-no-img{width:106px;height:106px;object-fit:cover;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-weight:800}.stock-thumb-row{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}.stock-thumb-row img{width:32px;height:32px;object-fit:cover;border:1px solid #cbd5e1;border-radius:6px}.stock-title{font-size:18px;font-weight:800;line-height:1.35}.stock-card-info .muted{font-size:13px}.stock-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.stock-chip{display:inline-flex;align-items:center;border:1px solid #d8e0ea;border-radius:999px;padding:4px 8px;font-size:13px;font-weight:800}.stock-chip.category{background:#eff6ff;color:#1e3a8a;border-color:#bfdbfe}.stock-chip.spec{background:#ecfdf5;color:#065f46;border-color:#a7f3d0}.stock-location{font-size:13px;color:#475569}.stock-numbers{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}.stock-numbers span,.stock-numbers strong{border:1px solid #e2e8f0;border-radius:7px;padding:4px 7px;background:#f8fafc;font-size:13px}.stock-numbers strong{background:#ecfdf5;color:#047857;border-color:#a7f3d0}.stock-cost-inline{display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800;color:#334155}.stock-cost-inline input{width:118px}.stock-empty{border:1px dashed #cbd5e1;border-radius:10px;padding:18px;text-align:center;background:#f8fafc}@media(max-width:900px){.ops-shell{grid-template-columns:1fr}.ops-nav{position:sticky;height:auto;z-index:4;overflow-x:auto;flex-direction:row;align-items:center}.ops-nav strong{display:none}.ops-nav a{white-space:nowrap}.ops-grid,.overview-metrics,.overview-board,.note-row,.member-search-panel,.member-summary-grid,.member-workbench,.mini-form,.stock-card-grid{grid-template-columns:1fr}.stock-card-main{grid-template-columns:88px minmax(0,1fr)}.stock-main-img,.stock-no-img{width:82px;height:82px}.ops-wrap{padding:14px}.settle-table,.return-table{min-width:1100px}.ops-head{display:block}}
@@ -7657,6 +7682,7 @@ body{overflow:hidden}
 .ops-tab { display: none !important; }
 .ops-tab.is-active { display: block !important; }
 .metric-grid.ops-tab.is-active { display: grid !important; }
+html[data-ops-pending-tab]:not([data-ops-pending-tab="overview"]):not(.ops-tabs-ready) #overview.ops-tab.is-active { display: none !important; }
 body:has(.ops-tab:target) .ops-tab.is-active { display: none !important; }
 body:has(.ops-tab:target) .ops-tab:target { display: block !important; }
 body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important; }
@@ -7897,15 +7923,25 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       }
     });
   }
-  function resolveOpsTab(id) {
-    var wanted = tabAliases[id] || String(id || '').replace(/^#/, '') || 'overview';
-    var el = document.getElementById(wanted);
+  function resolveOpsTab(id, fallback) {
+    var wanted = tabAliases[id] || String(id || '').replace(/^#/, '') || '';
+    var el = wanted ? document.getElementById(wanted) : null;
     if (el && el.classList.contains('ops-tab')) return wanted;
     if (el) {
       var wrap = el.closest('.ops-tab');
       if (wrap && wrap.id) return wrap.id;
     }
-    return document.getElementById('overview') ? 'overview' : wanted;
+    var current = document.querySelector('.ops-tab.is-active');
+    if (fallback === '') return current && current.id && current.id !== 'overview' ? current.id : '';
+    if (current && current.id) return current.id;
+    return document.getElementById('overview') ? 'overview' : (wanted || 'overview');
+  }
+  function rememberOpsTab(target) {
+    try { sessionStorage.setItem('baohuiOpsTab', target); } catch (err) {}
+    document.documentElement.setAttribute('data-ops-pending-tab', target);
+    document.documentElement.classList.add('ops-tabs-ready');
+    var pendingStyle = document.getElementById('ops-pending-tab-style');
+    if (pendingStyle) pendingStyle.remove();
   }
   function openOpsTab(id) {
     var target = resolveOpsTab(id);
@@ -7922,6 +7958,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       link.style.pointerEvents = 'auto';
     });
     markOpsNavCurrent(target);
+    rememberOpsTab(target);
     var mainPane = document.querySelector('.ops-main');
     if (mainPane) mainPane.scrollTop = 0;
     var nextHash = '#' + target;
@@ -7941,6 +7978,9 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     if (href.charAt(0) === '#' && href.length > 1) return decodeURIComponent(href.slice(1).split('?')[0]);
     return '';
   }
+  function rememberedOpsTab() {
+    try { return sessionStorage.getItem('baohuiOpsTab') || ''; } catch (err) { return ''; }
+  }
   function initialOpsTab() {
     var params = new URLSearchParams(location.search);
     var shippingKeys = ['edit_delivery','ship_q','ship_customer','ship_phone','ship_no','ship_status','ship_from','ship_to'];
@@ -7950,9 +7990,18 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     if (params.has('edit_product')) return 'products';
     var postedTab = document.body.getAttribute('data-ops-open-tab') || '';
     if (postedTab) return tabAliases[postedTab] || postedTab;
-    var qTab = params.get('tab') || '';
+    var qTab = params.get('tab') || params.get('ops_tab') || '';
     if (qTab) return tabAliases[qTab] || qTab;
-    return (location.hash || '#overview').replace(/^#/, '') || 'overview';
+    var pending = document.documentElement.getAttribute('data-ops-pending-tab') || '';
+    if (pending) return tabAliases[pending] || pending;
+    var fromHash = (location.hash || '').replace(/^#/, '');
+    if (fromHash) {
+      var resolved = resolveOpsTab(fromHash, '');
+      if (resolved) return resolved;
+    }
+    var stored = rememberedOpsTab();
+    if (stored) return tabAliases[stored] || stored;
+    return 'overview';
   }
   document.addEventListener('click', function (event) {
     var link = event.target.closest ? event.target.closest('[data-tab-link], [data-jump-tab], a.erp-action-card, .ops-nav a[href^="#"]') : null;
@@ -7962,9 +8011,37 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     event.preventDefault();
     openOpsTab(id);
   });
+  document.addEventListener('submit', function (event) {
+    var form = event.target;
+    if (!form || !form.tagName || form.tagName !== 'FORM') return;
+    var tab = ((location.hash || '').replace(/^#/, '') || rememberedOpsTab() || '').replace(/[^a-z0-9_-]/gi, '');
+    if (!tab) return;
+    if (!form.querySelector('input[name="ops_tab"]')) {
+      var input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'ops_tab';
+      input.value = tab;
+      form.appendChild(input);
+    }
+    var action = form.getAttribute('action');
+    if (action == null || action === '') {
+      form.setAttribute('action', location.pathname + location.search + '#' + tab);
+      return;
+    }
+    if (action.charAt(0) === '#') return;
+    if (action.indexOf('#') !== -1) return;
+    if (/operations\.php/i.test(action) || action.charAt(0) === '?' || action.indexOf('://') === -1) {
+      form.setAttribute('action', action + '#' + tab);
+    }
+  });
   window.openOpsTab = openOpsTab;
   window.showOpsTab = openOpsTab;
-  window.addEventListener('hashchange', function () { openOpsTab((location.hash || '#overview').slice(1)); });
+  window.resolveOpsTab = resolveOpsTab;
+  window.addEventListener('hashchange', function () {
+    var raw = (location.hash || '').replace(/^#/, '');
+    if (!raw) raw = rememberedOpsTab() || 'overview';
+    openOpsTab(raw);
+  });
   function bootOpsNav() { openOpsTab(initialOpsTab()); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootOpsNav);
   else bootOpsNav();
@@ -16131,9 +16208,11 @@ function setOpsStaffPermissionRole(role) {
       const tab = link.getAttribute('data-tab-link') || link.getAttribute('data-jump-tab');
       if (tab && !allowed.has(tab)) link.remove();
     });
-    const current = (location.hash || '#overview').slice(1);
+    const current = window.resolveOpsTab
+      ? window.resolveOpsTab((location.hash || '#overview').slice(1), 'overview')
+      : (location.hash || '#overview').slice(1);
     if (!allowed.has(current)) {
-      history.replaceState(null, '', '#overview');
+      history.replaceState(null, '', location.pathname + location.search + '#overview');
       if (window.openOpsTab) window.openOpsTab('overview');
     }
   }

@@ -70,6 +70,9 @@ expect(str_contains($ops, 'let scheduleProducts = []'), 'product catalog starts 
 expect(str_contains($ops, 'ops-member-directory.php'), 'member directory is lazy-loaded');
 expect(!str_contains($ops, 'json_encode(member_contact_directory($members)'), 'member directory is not embedded in HTML');
 expect(str_contains($ops, 'function ops_should_sync_members'), 'member sync is throttled');
+expect(str_contains($ops, 'data-ops-pending-tab'), 'operations page remembers the working tab before overview paints');
+expect(str_contains($ops, "sessionStorage.setItem('baohuiOpsTab'"), 'current ops tab is stored for reloads');
+expect(str_contains($ops, 'input[name="ops_tab"]'), 'form submits keep the current ops tab');
 
 $status = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'one-dollar-auction' . DIRECTORY_SEPARATOR . 'ops-status.php');
 expect(!str_contains($status, 'operations.php'), 'status endpoint does not boot the full operations page');
