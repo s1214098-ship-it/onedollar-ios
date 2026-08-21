@@ -12,8 +12,21 @@ const SKIP_NAMES = /backup|拷貝|copy|design-options|dark-indonesia|fresh-conce
 function shouldTouchFile(name, html) {
   if (!name || SKIP_NAMES.test(name)) return false;
   if (!/\.html$/i.test(name)) return false;
+  if (
+    !/^(admin|business|sales-)/i.test(name) &&
+    !/^(scanner|shipping-watch|stock-inquiry)\.html$/i.test(name)
+  ) {
+    return false;
+  }
   if (!html) return false;
-  if (html.indexOf("assets/admin.js") === -1 && html.indexOf("assets/admin.css") === -1) return false;
+  if (
+    html.indexOf("assets/admin.js") === -1 &&
+    html.indexOf("assets/admin.css") === -1 &&
+    html.indexOf("assets/business.js") === -1 &&
+    !/assets\/[^"' ]+\.(?:js|css)\?v=/.test(html)
+  ) {
+    return false;
+  }
   return true;
 }
 

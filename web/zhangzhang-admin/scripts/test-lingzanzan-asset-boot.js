@@ -33,6 +33,9 @@ assert(shouldTouchFile("admin.html", sample), "admin.html is in scope");
 assert(!shouldTouchFile("admin-backup.html", sample), "backup html is skipped");
 assert(!shouldTouchFile("design-options.html", sample), "design html is skipped");
 assert(!shouldTouchFile("admin.html", "<html></html>"), "html without admin assets is skipped");
+assert(shouldTouchFile("business.html", '<script src="./assets/business.js?v=1"></script>'), "business.js pages are in scope");
+assert(shouldTouchFile("admin-products.html", '<link rel="stylesheet" href="./assets/admin-products-computer.css?v=1">'), "product admin pages are in scope");
+assert(!shouldTouchFile("cart.html", '<script src="./assets/cart.js?v=1"></script>'), "storefront cart is skipped");
 
 const once = transformHtml(sample);
 assert(once.indexOf(BOOT_SRC) !== -1, "boot script is inserted");
