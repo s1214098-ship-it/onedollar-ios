@@ -498,6 +498,86 @@ function toPeer(api, houseId, existing) {
   };
 }
 
+function listingPhotoUrls(item) {
+  const urls = [];
+  const add = (value) => {
+    const src = clean(typeof value === "string" ? value : value && (value.data || value.src || value.url));
+    if (src && !urls.includes(src)) urls.push(src);
+  };
+  for (const key of ["images", "photos", "gallery"]) {
+    if (Array.isArray(item[key])) item[key].forEach(add);
+  }
+  add(item.image);
+  add(item.cover);
+  return urls;
+}
+
+function writeShopListingsCatalog(sameItems) {
+  const listings = (sameItems || []).map((item) => {
+    const photos = listingPhotoUrls(item);
+    return {
+      id: sourceId(item) || clean(item.externalId),
+      ycNo: clean(item.publicNo),
+      title: clean(item.title),
+      area: [item.city || item.county, item.district, item.road].filter(Boolean).join(""),
+      type: clean(item.kind || item.type),
+      houseAge: clean(item.houseAge),
+      floor: clean(item.floor),
+      land: clean(item.landArea),
+      mainBuild: clean(item.mainBuildArea),
+      build: clean(item.build),
+      layout: clean(item.layout),
+      price: String(item.priceNumber || "").replace(/萬/g, "") || clean(item.price).replace(/萬/g, ""),
+      url: clean(item.sourceUrl),
+      cover: photos[0] || "",
+      images: photos,
+    };
+  });
+  const payload = {
+    shopUrl: "https://shop.yungching.com.tw/039519001/",
+    listUrl: "https://shop.yungching.com.tw/039519001/list",
+    shopName: "永慶不動產羅東文化盛群加盟店",
+    syncedAt: new Date().toISOString(),
+    schedule: ["12:00", "18:00"],
+    count: listings.length,
+    listings,
+    photoNote: "每天 12:00、18:00 由永慶公開頁自動更新完整照片",
+  };
+  fs.writeFileSync(path.join(root, "shop-listings.json"), JSON.stringify(payload, null, 2) + "\n", "utf8");
+}
+
+function writeDailySyncStatus(summary) {
+  const now = new Date();
+  const taipei = new Date(now.getTime() + 8 * 3600 * 1000);
+  const status = {
+    ok: !Number(summary && summary.failed),
+    timezone: "Asia/Taipei",
+    schedule: ["12:00", "18:00"],
+    lastRunAt: now.toISOString(),
+    lastRunTaipei: taipei.toISOString().replace("T", " ").slice(0, 19),
+    fetched: summary.fetched || 0,
+    failed: summary.failed || 0,
+    sameStoreActive: (summary.sameStore && summary.sameStore.active) || 0,
+    sameStoreUpdated: (summary.sameStore && summary.sameStore.updated) || 0,
+    sameStorePhotos: (summary.sameStore && summary.sameStore.photos) || 0,
+    borrowActive: (summary.borrow && summary.borrow.active) || 0,
+    note: "火旺後台同店／異店／照片每天 12:00、18:00 自動更新，開機後會重掛排程。",
+  };
+  const json = JSON.stringify(status, null, 2);
+  for (const dest of [
+    path.join(root, "api", "yungching-daily-sync-status.json"),
+    path.join(root, "data", "yungching-daily-sync-status.json"),
+    path.join(root, "yungching-daily-sync-status.json"),
+  ]) {
+    try {
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, json, "utf8");
+    } catch (error) {
+      console.warn("write daily status failed", dest, error.message);
+    }
+  }
+}
+
 function indexById(list) {
   const byHouseId = new Map();
   const byPublicNo = new Map();
@@ -711,31 +791,17 @@ async function main() {
 
   const out = { ...db };
   stringifyCollections(out);
-  fs.writeFileSync(dbPath, JSON.stringify(out, null, 2), "utf8");
+  summary.sameStore.photos = nextSame.reduce((sum, item) => {
+    const n = Array.isArray(item.images) ? item.images.length : Array.isArray(item.photos) ? item.photos.length : 0;
+    return sum + n;
+  }, 0);
+  fs.writeFileSync(dbPath, JSON.stringify(out), "utf8");
   writePeerListCache(nextPeer);
   fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2), "utf8");
-  fs.writeFileSync(
-    latestListPath,
-    JSON.stringify(
-      nextSame
-        .filter((item) => item.sameStoreSourceListStatus === "current")
-        .map((item) => ({
-          id: item.id,
-          publicNo: item.publicNo,
-          title: item.title,
-          price: item.price,
-          unitPrice: item.unitPrice,
-          layout: item.layout,
-          floor: item.floor,
-          landArea: item.landArea,
-          build: item.build,
-          sourceUrl: item.sourceUrl,
-        })),
-      null,
-      2
-    ),
-    "utf8"
-  );
+  const currentSame = nextSame.filter((item) => item.sameStoreSourceListStatus === "current");
+  fs.writeFileSync(latestListPath, JSON.stringify(currentSame), "utf8");
+  writeShopListingsCatalog(currentSame);
+  writeDailySyncStatus(summary);
   const printSummary = {
     ...summary,
     errors: summary.errors.slice(0, 20),

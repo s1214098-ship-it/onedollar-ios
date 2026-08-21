@@ -3019,7 +3019,7 @@ input[list*="List"],input[list]{
   <!-- 自動化功能 -->
   <div id="automation" class="card" style="display:none">
     <h2>🤖 自動化功能</h2>
-    <p style="color:#475569;font-weight:900;margin-bottom:14px">集中管理房仲日常流程：提醒、同步、匯入、備份與待辦追蹤。</p>
+    <p style="color:#475569;font-weight:900;margin-bottom:14px">同店、異店、照片與 Facebook 都是每天中午 12:00、晚上 18:00 自動更新；PHT-SR 重開後會重掛排程。</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <button type="button" onclick="show('facebookAutomation',document.querySelector('[onclick*=facebookAutomation]'))" style="background:#0F766E;color:#fff;padding:11px 16px;border:0;border-radius:8px;font-weight:950;cursor:pointer">📘 開啟火旺專屬房屋自動化</button>
     </div>
@@ -3323,7 +3323,7 @@ input[list*="List"],input[list]{
   <!-- 同店物件管理 -->
   <div id="sameStore" class="card" style="display:none">
     <h2>🏢 同店物件管理</h2>
-    <div class="dm-safe-note">此區紀錄「羅東文化盛群加盟店」同店同事的可合作賣方物件。重載完整照片會讀輕量同店 API／抓取清單，不會再下載 95MB 同業開發池。前台只顯示客戶可看的物件內容，不顯示同事承辦人、抽成、賣方、合約與精準地址等內部資訊。</div>
+    <div class="dm-safe-note">此區紀錄「羅東文化盛群加盟店」同店同事的可合作賣方物件。每天中午 12:00、晚上 18:00 會自動從永慶公開頁更新物件與完整照片；PHT-SR 重開後會重掛排程。重載完整照片會讀輕量同店 API／抓取清單，不會再下載 95MB 同業開發池。前台只顯示客戶可看的物件內容，不顯示同事承辦人、抽成、賣方、合約與精準地址等內部資訊。</div>
     <div class="search-bar">
       <input id="sameStoreKeyword" placeholder="搜尋：同事/縣市鄉鎮/案名/狀態/備註" oninput="renderSameStoreList()">
       <label class="inline-filter"><input type="checkbox" id="sameStorePriceReviewOnly" onchange="renderSameStoreList()"> 只看價格須審核</label>
@@ -9342,6 +9342,13 @@ function renderAutomationCenter(){
             actions:'<button class="green" onclick="show(\'borrow\',findSidebarLinkForPage(\'borrow\'))">異店物件匯入</button>'
         },
         {
+            title:"同店／異店每日更新",
+            body:"每天中午 12:00、晚上 18:00 從永慶公開頁更新同店物件、異店物件與完整照片。PHT-SR 重開後會自動重掛排程。",
+            status:"",
+            statusText:"每日 12:00、18:00 自動執行",
+            actions:'<button class="blue" onclick="window.open(\'api/yungching-daily-sync-status.json\',\'_blank\')">看上次更新</button><button class="green" onclick="show(\'sameStore\',findSidebarLinkForPage(\'sameStore\'))">打開同店物件</button>'
+        },
+        {
             title:"網站健康檢查",
             body:"每天中午12:00檢查首頁、前台、後台、公開資料API與資料庫JSON，結果寫入PHT-SR備份資料夾。",
             status:"",
@@ -9367,11 +9374,28 @@ function renderAutomationCenter(){
             "物件提醒：" + expired.length + " 件已到期，" + soon.length + " 件30天內到期。",
             "行程提醒：" + upcomingEvents.length + " 筆近期未完成。",
             "AI匯入：" + todayAi + " 筆今日成功匯入。",
+            "同店／異店更新：每天 12:00、18:00 自動執行，開機後會重掛排程。",
             "網站健康檢查：PHT-SR排程每天中午12:00執行，開機後會重新掛回排程。",
             "資料備份：每天03:10自動執行，也可由本頁一鍵執行。",
             sampleNames.length ? "優先檢查：" + sampleNames.map(automationEscape).join("、") : "優先檢查：目前沒有高風險項目。"
         ].join("<br>");
     }
+    fetch("api/yungching-daily-sync-status.json?ts=" + Date.now(), {cache:"no-store"}).then(function(res){
+      if(res.ok) return res.json();
+      return fetch("yungching-daily-sync-status.json?ts=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.ok ? r.json() : null; });
+    }).then(function(status){
+      if(!status) return;
+      const last = status.lastRunTaipei || status.lastRunAt || "";
+      const line = "同店／異店上次更新：" + last + "｜同店 " + (status.sameStoreActive || 0) + " 件｜照片 " + (status.sameStorePhotos || 0) + " 張｜固定每天 12:00、18:00";
+      if(log) log.innerHTML = automationEscape(line) + "<br>" + log.innerHTML;
+      Array.from(document.querySelectorAll("#automationGrid .automation-card")).forEach(function(card){
+        const title = card.querySelector("strong");
+        const st = card.querySelector(".automation-status");
+        if(title && st && title.textContent.indexOf("同店／異店每日更新") >= 0 && last){
+          st.textContent = "上次 " + last + "｜每天 12:00、18:00";
+        }
+      });
+    }).catch(function(){});
 }
 function getTodayAiImportCount(){
     const today = new Date().toISOString().slice(0,10);
