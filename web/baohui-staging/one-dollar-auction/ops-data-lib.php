@@ -71,10 +71,10 @@ function read_json_object($name)
     return $cache[$key];
 }
 
-function write_data($name, $data)
+function write_data($name, $data, array $opts = [])
 {
     $rows = array_values(is_array($data) ? $data : []);
-    if ($name === 'products' || $name === 'members') {
+    if (($name === 'products' || $name === 'members') && empty($opts['allow_large_shrink'])) {
         $existing = ops_decode_json_file(data_path($name));
         $existingCount = is_array($existing) ? count($existing) : 0;
         $newCount = count($rows);
