@@ -275,7 +275,7 @@ chrome.alarms.onAlarm.addListener(function (alarm) {
 chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
   if (!msg || !msg.type) return;
   if (msg.type === "ping") {
-    saveState({ heartbeatAt: nowIso() }).then(function () { sendResponse({ ok: true, version: "0.5.34" }); });
+    saveState({ heartbeatAt: nowIso() }).then(function () { sendResponse({ ok: true, version: "0.5.35" }); });
     return true;
   }
   if (msg.type === "tick-now") {
@@ -283,7 +283,7 @@ chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
     return true;
   }
   if (msg.type === "get-state") {
-    chrome.storage.local.get(null).then(function (state) { sendResponse({ ok: true, state: state, version: "0.5.34" }); });
+    chrome.storage.local.get(null).then(function (state) { sendResponse({ ok: true, state: state, version: "0.5.35" }); });
     return true;
   }
 });
