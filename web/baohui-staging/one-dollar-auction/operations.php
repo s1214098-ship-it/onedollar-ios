@@ -3777,7 +3777,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     upsert_product_row($products, $row);
                     write_data('products', $products);
-                    header('Location: operations.php?edit_service=' . rawurlencode((string)$row['id']) . '&service_kind=' . rawurlencode($kind) . '&service_saved=1#' . $tab);
+                    $query = [
+                        'service_saved' => $editingId === '' ? 'created' : 'updated',
+                        'service_kind' => $kind,
+                    ];
+                    if ($editingId !== '') $query['edit_service'] = (string)$row['id'];
+                    header('Location: operations.php?' . http_build_query($query) . '#' . $tab);
                     exit;
                 }
             }
@@ -6807,8 +6812,10 @@ if ($editServiceId !== '') {
     }
 }
 if ($notice === '' && isset($_GET['service_saved'])) {
-    $kindLabel = (product_service_meta($editServiceKind)['label'] ?? '項目');
-    $notice = $kindLabel . '已儲存。';
+    $kindLabel = (product_service_meta(product_normalize_service_kind($_GET['service_kind'] ?? $editServiceKind))['label'] ?? '項目');
+    $notice = (string)($_GET['service_saved'] ?? '') === 'created'
+        ? ($kindLabel . '已新增，表單已清空，可繼續加下一筆。')
+        : ($kindLabel . '已儲存。');
 }
 if ($opsInitialTab === '') {
     $postedOpsTab = preg_replace('/[^a-z0-9_-]/i', '', (string)($_POST['ops_tab'] ?? ($_GET['ops_tab'] ?? '')));
@@ -10654,8 +10661,8 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
   <section class="ops-card ops-tab" id="<?=h($serviceMeta['tab'])?>">
     <div class="section-head">
       <div>
-        <h2><?=h($serviceMeta['label'])?></h2>
-        <p class="muted">只填成本和售價，不佔倉庫、不列入庫存統計，也不能排程上架。銷售單據與組裝估價可以帶入這些項目。</p>
+        <h2><?=$isEditingService ? ('修改' . h($serviceMeta['label']) . '：' . h($serviceForm['title'] ?? '')) : ('新增' . h($serviceMeta['label']))?></h2>
+        <p class="muted"><?=$isEditingService ? '上面是正在改的既有項目，儲存會覆蓋這一筆。要加新的請按右側「新增下一筆」。' : '只填名稱、成本和售價。每按一次新增就多一筆，不會覆蓋上一筆。不佔倉庫、不列入庫存統計，也不能排程上架。'?></p>
       </div>
       <?php if($isEditingService): ?><a class="button-like" href="operations.php#<?=h($serviceMeta['tab'])?>">新增下一筆</a><?php endif; ?>
     </div>
@@ -10669,7 +10676,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label class="wide">備註<input name="description" value="<?=h($serviceForm['description'] ?? '')?>" placeholder="選填"></label>
       <div class="wide form-actions">
         <button class="primary"><?=$isEditingService ? '儲存修改' : '新增'.$serviceMeta['label']?></button>
-        <span class="muted">沒有庫存數量、倉別或貨架。</span>
+        <span class="muted"><?=$isEditingService ? '這會更新目前這一筆。' : '每新增一次就多一筆品項。'?></span>
       </div>
     </form>
     <div class="table-wrap">

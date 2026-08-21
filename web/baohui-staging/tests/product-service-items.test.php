@@ -54,6 +54,8 @@ expect(str_contains($ops, "'logistics-items' => '物流報價'"), 'ops nav has �
 expect(str_contains($ops, 'save_service_item'), 'ops can save service items');
 expect(str_contains($ops, 'product_service_kind_map()'), 'ops renders wage and logistics tabs from the service map');
 expect(str_contains($ops, 'productIsInventoryItem'), 'sales/search JS knows service items');
+expect(str_contains($ops, "service_saved") && str_contains($ops, "'created'"), 'new wage/logistics items redirect to a blank form');
+expect(!preg_match("/save_service_item[\\s\\S]{0,800}header\\('Location: operations\\.php\\?edit_service=/", $ops), 'creating a service item does not reopen it as an edit');
 
 if ($failed > 0) {
     fwrite(STDERR, $failed . " assertion(s) failed\n");
