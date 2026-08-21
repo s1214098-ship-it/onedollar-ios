@@ -1151,8 +1151,16 @@ function delivery_no_needs_repair($no) {
 function assign_sales_delivery_no($posted, $deliveryNotes, $existingNo = '', $kind = 'sell') {
     $posted = trim((string)$posted);
     $existingNo = trim((string)$existingNo);
-    if (!delivery_no_is_placeholder($existingNo) && ops_doc_no_is_valid($existingNo)) return $existingNo;
-    if (!delivery_no_is_placeholder($posted) && (ops_doc_no_is_valid($posted, $kind) || ops_doc_no_is_valid($posted))) return $posted;
+    if (!delivery_no_is_placeholder($existingNo) && function_exists('ops_doc_no_is_valid') && ops_doc_no_is_valid($existingNo)) return $existingNo;
+    $postedOk = !delivery_no_is_placeholder($posted)
+        && (
+            !function_exists('ops_doc_no_is_valid')
+            || ops_doc_no_is_valid($posted, $kind)
+            || ops_doc_no_is_valid($posted)
+        );
+    if ($postedOk && ($posted === $existingNo || !inventory_doc_no_exists($deliveryNotes, $posted, ['delivery_no']))) {
+        return $posted;
+    }
     return next_delivery_no($deliveryNotes, $kind);
 }
 function find_delivery_note($deliveryNotes, $id) {
@@ -1222,16 +1230,12 @@ function next_repair_no($repairDocuments, $dateValue = '') {
     $timestamp = $dateValue !== '' ? strtotime($dateValue) : time();
     if ($timestamp === false) $timestamp = time();
     $prefix = 'PHT-REP-' . date('Ymd', $timestamp) . '-';
-    $used = [];
+    $max = 0;
     foreach ($repairDocuments as $r) {
         $no = (string)($r['repair_no'] ?? '');
-        if (strpos($no, $prefix) === 0) $used[$no] = true;
+        if (strpos($no, $prefix) === 0) $max = max($max, (int)substr($no, strlen($prefix)));
     }
-    for ($attempt = 0; $attempt < 100; $attempt++) {
-        $candidate = $prefix . (string)random_int(1000, 9999);
-        if (!isset($used[$candidate])) return $candidate;
-    }
-    return $prefix . strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
+    return $prefix . str_pad((string)($max + 1), 4, '0', STR_PAD_LEFT);
 }
 function unique_values_from_categories($categories, $field) {
     $values = [];
@@ -1302,6 +1306,46 @@ function ops_document_type_label($type) {
         '盘点单' => '盤點單',
     ];
     return $map[$type] ?? $type;
+}
+function ops_document_open_catalog(): array {
+    return [
+        ['type' => '進貨入庫單', 'tab' => 'stock-in', 'label' => '進貨入庫單', 'hint' => '掃條碼入庫，不必先建草稿'],
+        ['type' => '銷售出貨單', 'tab' => 'customer-shipping', 'label' => '銷售出庫單', 'hint' => '選客戶、加明細即可開單'],
+        ['type' => '估價單', 'tab' => 'quotations', 'label' => '估價單', 'hint' => '開表即有 VAL 單號；列印／核准會自動先存'],
+        ['type' => '維修單據', 'tab' => 'repair-documents', 'label' => '維修單據', 'hint' => '維修單號開表就先給'],
+        ['type' => '盤點單據', 'tab' => 'inventory-count', 'label' => '盤點單據', 'hint' => '選倉庫掃描即可'],
+        ['type' => '調撥單據', 'tab' => 'inventory-transfer', 'label' => '調撥單據', 'hint' => '倉庫／貨架／層位之間移動'],
+        ['type' => '進貨退回', 'tab' => 'returns', 'label' => '進貨退回', 'hint' => '退回廠商，BACK-F 單號'],
+        ['type' => '銷貨退回', 'tab' => 'returns', 'label' => '銷貨退回', 'hint' => '客戶退回，BACK-C 單號'],
+        ['type' => '收款單', 'tab' => 'finance-collection', 'label' => '收款單', 'hint' => '記錄訂金、尾款、匯款'],
+        ['type' => '請款單', 'tab' => 'finance-request', 'label' => '請款單', 'hint' => '勾選未結單據產生請款'],
+        ['type' => '盤虧單據', 'tab' => 'finance-loss', 'label' => '報損單', 'hint' => '損壞、遺失扣庫存'],
+        ['type' => '盤盈單據', 'tab' => 'finance-overage', 'label' => '報溢單', 'hint' => '盤盈增加庫存'],
+        ['type' => '呆帳案件', 'tab' => 'finance-bad-debt', 'label' => '呆帳案件', 'hint' => '未收款轉催收追蹤'],
+        ['type' => '固定開支付款', 'tab' => 'finance-fixed-expense', 'label' => '固定開支付款', 'hint' => '租金、水電等固定支出'],
+        ['type' => '固定資產卡', 'tab' => 'finance-fixed-asset', 'label' => '固定資產卡', 'hint' => '設備資產建檔'],
+        ['type' => '移動資產異動', 'tab' => 'finance-mobile-asset', 'label' => '移動資產異動', 'hint' => '資產保管人異動'],
+    ];
+}
+function ops_document_type_filter_match($docType, $filter): bool {
+    $filter = ops_document_type_label(trim((string)$filter));
+    if ($filter === '') return true;
+    $docType = ops_document_type_label(trim((string)$docType));
+    if ($docType === $filter) return true;
+    $groups = [
+        ['進貨入庫單', '進貨單據'],
+        ['銷售出庫單', '銷售出貨單'],
+        ['調撥單據', '調撥單'],
+        ['盤點單據', '盤點單'],
+        ['盤虧單據', '報損單'],
+        ['盤盈單據', '報溢單'],
+        ['進貨退回', '進貨退貨單'],
+        ['銷貨退回', '銷售退貨單'],
+    ];
+    foreach ($groups as $group) {
+        if (in_array($filter, $group, true) && in_array($docType, $group, true)) return true;
+    }
+    return false;
 }
 function ops_document_flow_type($rowOrType) {
     $type = is_array($rowOrType)
@@ -1528,6 +1572,47 @@ function next_inventory_doc_no($prefix, $rows) {
         }
     }
     return $base . str_pad((string)($max + 1), 3, '0', STR_PAD_LEFT);
+}
+function inventory_doc_no_exists($rows, $no, $keys = ['doc_no', 'document_no']): bool {
+    $no = trim((string)$no);
+    if ($no === '') return false;
+    $keys = is_array($keys) && $keys ? $keys : ['doc_no', 'document_no'];
+    foreach ((array)$rows as $row) {
+        if (!is_array($row)) continue;
+        foreach ($keys as $key) {
+            if (trim((string)($row[$key] ?? '')) === $no) return true;
+        }
+    }
+    return false;
+}
+function ops_posted_or_next_doc_no($posted, $rows, $keys, callable $nextFn): string {
+    $posted = trim((string)$posted);
+    if ($posted !== '' && !delivery_no_is_placeholder($posted) && !inventory_doc_no_exists($rows, $posted, $keys)) {
+        return $posted;
+    }
+    return (string)$nextFn();
+}
+function next_collection_receipt_no($rows) {
+    $prefix = 'CR-' . date('Ymd') . '-';
+    $max = 0;
+    foreach ((array)$rows as $row) {
+        $number = (string)($row['receipt_no'] ?? '');
+        if (strpos($number, $prefix) === 0) $max = max($max, (int)substr($number, strlen($prefix)));
+    }
+    return $prefix . str_pad((string)($max + 1), 3, '0', STR_PAD_LEFT);
+}
+function ops_preview_kind_doc_no($kind, $rowsA, $rowsB = []) {
+    $rows = array_merge((array)$rowsA, (array)$rowsB);
+    if (function_exists('ops_next_doc_no') && function_exists('ops_collect_doc_nos')) {
+        return ops_next_doc_no($kind, ops_collect_doc_nos($rows));
+    }
+    $prefix = [
+        'sell' => 'SELL',
+        'val' => 'VAL',
+        'back_f' => 'BACK-F',
+        'back_c' => 'BACK-C',
+    ][$kind] ?? strtoupper((string)$kind);
+    return next_inventory_doc_no($prefix, $rows);
 }
 function next_document_workflow_no($rows) {
     $prefix = 'DOC-' . date('Ymd') . '-';
@@ -2865,7 +2950,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             unset($workflow);
             if (!$found) {
-                $row['workflow_no'] = next_document_workflow_no($documentWorkflows);
+                $row['workflow_no'] = ops_posted_or_next_doc_no(
+                    $_POST['workflow_no'] ?? '',
+                    $documentWorkflows,
+                    ['workflow_no'],
+                    function() use ($documentWorkflows) { return next_document_workflow_no($documentWorkflows); }
+                );
                 $row['created_at'] = date('c');
                 $row['history'] = [['time'=>date('c'),'operator'=>current_operator(),'action'=>$submitNow?'建立並送審':'建立草稿','note'=>'']];
                 $documentWorkflows[] = $row;
@@ -3172,7 +3262,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $differenceCount = count(array_filter($lines, function($line) { return (int)($line['diff_qty'] ?? 0) !== 0; }));
             $doc = [
                 'id' => uid('cnt_'),
-                'doc_no' => next_inventory_doc_no('PDC', $inventoryCounts),
+                'doc_no' => ops_posted_or_next_doc_no(
+                    $_POST['count_doc_no'] ?? '',
+                    $inventoryCounts,
+                    ['doc_no', 'count_no'],
+                    function() use ($inventoryCounts) { return next_inventory_doc_no('PDC', $inventoryCounts); }
+                ),
                 'date' => $_POST['count_date'] ?: date('Y-m-d'),
                 'status' => $differenceCount > 0 ? '待管理者確認' : '已完成',
                 'approval_status' => $differenceCount > 0 ? '待管理者確認' : '無差異',
@@ -3199,7 +3294,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $doc = [
                 'id' => uid('trf_'),
-                'doc_no' => next_inventory_doc_no('TRF', $inventoryTransfers),
+                'doc_no' => ops_posted_or_next_doc_no(
+                    $_POST['transfer_doc_no'] ?? '',
+                    $inventoryTransfers,
+                    ['doc_no', 'transfer_no'],
+                    function() use ($inventoryTransfers) { return next_inventory_doc_no('TRF', $inventoryTransfers); }
+                ),
                 'date' => date('Y-m-d'),
                 'from_warehouse' => trim((string)($_POST['from_warehouse'] ?? '')),
                 'from_shelf' => normalize_shelf_code($_POST['from_shelf'] ?? ''),
@@ -3235,7 +3335,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $products[$idx]['updated_by'] = current_operator();
             $row = [
                 'id' => uid($type === 'loss' ? 'los_' : 'ovg_'),
-                'doc_no' => next_inventory_doc_no($type === 'loss' ? 'LOS' : 'OVG', $inventoryAdjustments),
+                'doc_no' => ops_posted_or_next_doc_no(
+                    $_POST['adjust_doc_no'] ?? '',
+                    $inventoryAdjustments,
+                    ['doc_no'],
+                    function() use ($type, $inventoryAdjustments) { return next_inventory_doc_no($type === 'loss' ? 'LOS' : 'OVG', $inventoryAdjustments); }
+                ),
                 'type' => $type,
                 'date' => $_POST['adjust_date'] ?: date('Y-m-d'),
                 'product_id' => $products[$idx]['id'] ?? '',
@@ -4124,7 +4229,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $supplierId = trim($_POST['stock_supplier_id'] ?? '');
         $supplierName = trim($_POST['stock_supplier_name'] ?? '');
         $stockDocNo = trim((string)($_POST['stock_doc_no'] ?? ''));
-        if ($stockDocNo === '') $stockDocNo = next_inventory_doc_no('JH', $stockMovements);
+        if ($stockDocNo === '' || delivery_no_is_placeholder($stockDocNo) || inventory_doc_no_exists($stockMovements, $stockDocNo, ['document_no', 'source_doc_no', 'doc_no'])) {
+            $stockDocNo = next_inventory_doc_no('JH', $stockMovements);
+        }
         $stockDocDate = trim((string)($_POST['stock_doc_date'] ?? date('Y-m-d')));
         $stockHandler = trim((string)($_POST['stock_handler'] ?? current_operator()));
         $stockDepartment = trim((string)($_POST['stock_department'] ?? '電腦部門'));
@@ -5516,7 +5623,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $repairCreatedAt = trim($_POST['created_at'] ?? '') ?: date('Y-m-d H:i');
         $repairDocuments[] = [
             'id' => uid('repair_'),
-            'repair_no' => next_repair_no($repairDocuments, $repairCreatedAt),
+            'repair_no' => ops_posted_or_next_doc_no(
+                $_POST['repair_no'] ?? '',
+                $repairDocuments,
+                ['repair_no'],
+                function() use ($repairDocuments, $repairCreatedAt) { return next_repair_no($repairDocuments, $repairCreatedAt); }
+            ),
             'item' => trim($_POST['item'] ?? ''),
             'contact_name' => trim($_POST['contact_name'] ?? ''),
             'phone' => trim($_POST['phone'] ?? ''),
@@ -6105,7 +6217,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $row = [
             'id' => $id,
-            'receipt_no' => trim($_POST['receipt_no'] ?? '') ?: ('CR-' . date('Ymd-His')),
+            'receipt_no' => ops_posted_or_next_doc_no(
+                $_POST['receipt_no'] ?? '',
+                array_values(array_filter($collectionReceipts, function($r) use ($id) { return ($r['id'] ?? '') !== $id; })),
+                ['receipt_no'],
+                function() use ($collectionReceipts) { return next_collection_receipt_no($collectionReceipts); }
+            ),
             'receipt_date' => trim($_POST['receipt_date'] ?? date('Y-m-d')),
             'customer_name' => trim($_POST['customer_name'] ?? ''),
             'document_no' => implode('、', $selectedDocumentNos),
@@ -6227,7 +6344,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $billingRequests[] = [
                 'id' => uid('ar_'),
-                'request_no' => next_billing_request_no($billingRequests),
+                'request_no' => ops_posted_or_next_doc_no(
+                    $_POST['billing_request_no'] ?? '',
+                    $billingRequests,
+                    ['request_no'],
+                    function() use ($billingRequests) { return next_billing_request_no($billingRequests); }
+                ),
                 'request_date' => trim((string)($_POST['billing_request_date'] ?? date('Y-m-d'))),
                 'due_date' => trim((string)($_POST['billing_due_date'] ?? '')),
                 'customer_name' => $customerName,
@@ -6325,7 +6447,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $amount = array_sum(array_column($items, 'bad_debt_amount'));
             $badDebts[] = [
                 'id' => uid('bd_'),
-                'case_no' => next_bad_debt_no($badDebts),
+                'case_no' => ops_posted_or_next_doc_no(
+                    $_POST['bad_debt_case_no'] ?? '',
+                    $badDebts,
+                    ['case_no'],
+                    function() use ($badDebts) { return next_bad_debt_no($badDebts); }
+                ),
                 'recognition_date' => trim((string)($_POST['bad_debt_recognition_date'] ?? date('Y-m-d'))),
                 'original_due_date' => trim((string)($_POST['bad_debt_due_date'] ?? '')),
                 'customer_name' => $customerName,
@@ -7568,6 +7695,9 @@ body{overflow:hidden}
 .ops-shell .erp-action-card:hover{border-color:#0f766e;background:#f0fdfa}
 .ops-shell .erp-action-card b{display:block;font-size:18px;margin-bottom:6px}
 .ops-shell .erp-action-card span{display:block;color:#64748b;line-height:1.5}
+.ops-shell .erp-action-card small{display:block;margin-top:8px;color:#0f766e;font-weight:800}
+.ops-shell .erp-action-card .doc-count{color:#64748b;font-weight:700}
+.ops-shell .doc-open-grid{margin-top:4px}
 .document-filter-form{border:1px solid #dbeafe;background:#f8fbff;border-radius:12px;padding:14px;margin:12px 0 16px}
 .document-center-table table{min-width:1180px}
 .document-center-table td:nth-child(3){min-width:240px}
@@ -9696,11 +9826,42 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         'time' => $ia['created_at'] ?? '',
         'source' => '',
         'summary' => $ia['reason'] ?? ($ia['note'] ?? ''),
-        'link' => 'inventory-adjustment',
+        'link' => ($ia['type'] ?? '') === 'loss' ? 'finance-loss' : 'finance-overage',
       ];
     }
     usort($erpDocs, function($a, $b) { return strcmp((string)($b['time'] ?? ''), (string)($a['time'] ?? '')); });
-    $opsDocTypes = array_values(array_unique(array_filter(array_map(function($d) { return trim((string)($d['type'] ?? '')); }, $erpDocs))));
+    $opsOpenCatalog = ops_document_open_catalog();
+    $opsDocTypeCounts = [];
+    foreach ($erpDocs as $d) {
+        $t = trim((string)($d['type'] ?? ''));
+        if ($t === '') continue;
+        $opsDocTypeCounts[$t] = ($opsDocTypeCounts[$t] ?? 0) + 1;
+    }
+    $opsNextDocNos = [
+        '進貨入庫單' => next_inventory_doc_no('JH', $stockMovements ?? []),
+        '進貨單據' => next_inventory_doc_no('JH', $stockMovements ?? []),
+        '銷售出貨單' => next_delivery_no($deliveryNotes ?? [], 'sell'),
+        '銷售出庫單' => next_delivery_no($deliveryNotes ?? [], 'sell'),
+        '估價單' => 'VAL-' . date('Ymd') . '-流水',
+        '維修單據' => next_repair_no($repairDocuments ?? []),
+        '盤點單據' => next_inventory_doc_no('PDC', $inventoryCounts ?? []),
+        '調撥單據' => next_inventory_doc_no('TRF', $inventoryTransfers ?? []),
+        '進貨退回' => ops_preview_kind_doc_no('back_f', $stockMovements ?? [], $returns ?? []),
+        '銷貨退回' => ops_preview_kind_doc_no('back_c', $returns ?? [], $stockMovements ?? []),
+        '收款單' => next_collection_receipt_no($collectionReceipts ?? []),
+        '請款單' => next_billing_request_no($billingRequests ?? []),
+        '盤虧單據' => next_inventory_doc_no('LOS', $inventoryAdjustments ?? []),
+        '盤盈單據' => next_inventory_doc_no('OVG', $inventoryAdjustments ?? []),
+        '呆帳案件' => next_bad_debt_no($badDebts ?? []),
+        '固定開支付款' => next_fixed_expense_payment_no($fixedExpensePayments ?? []),
+        '固定資產卡' => next_fixed_asset_no($fixedAssets ?? []),
+        '移動資產異動' => next_mobile_asset_movement_no($mobileAssetMovements ?? []),
+        '流程單據' => next_document_workflow_no($documentWorkflows ?? []),
+    ];
+    $opsDocTypes = array_values(array_unique(array_filter(array_merge(
+        array_map(function($row) { return trim((string)($row['type'] ?? '')); }, $opsOpenCatalog),
+        array_map(function($d) { return trim((string)($d['type'] ?? '')); }, $erpDocs)
+    ))));
     sort($opsDocTypes, SORT_NATURAL);
     $docTypeFilter = trim((string)($_GET['doc_type'] ?? ''));
     $docStatusFilter = trim((string)($_GET['doc_status'] ?? ''));
@@ -9709,7 +9870,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     $docDateTo = trim((string)($_GET['doc_date_to'] ?? ''));
     $erpDocsFiltered = array_values(array_filter($erpDocs, function($d) use ($docTypeFilter, $docStatusFilter, $docQ, $docDateFrom, $docDateTo) {
       $time = substr((string)($d['time'] ?? ''), 0, 10);
-      if ($docTypeFilter !== '' && (string)($d['type'] ?? '') !== $docTypeFilter) return false;
+      if ($docTypeFilter !== '' && !ops_document_type_filter_match($d['type'] ?? '', $docTypeFilter)) return false;
       if ($docStatusFilter !== '' && mb_strpos((string)($d['status'] ?? ''), $docStatusFilter) === false) return false;
       if ($docDateFrom !== '' && $time !== '' && $time < $docDateFrom) return false;
       if ($docDateTo !== '' && $time !== '' && $time > $docDateTo) return false;
@@ -9735,17 +9896,15 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
   ?>
   <section class="ops-card ops-tab" id="draft-center">
     <h2>單據流程中心 / 預審工作台</h2>
-    <p class="muted">比照管家婆常用流程：先新增草稿，送審後由管理者核准，再轉正式單據；已轉正式的流程可作廢或建立沖帳單。</p>
+    <p class="muted">草稿／送審是選用流程。進貨、銷售、估價、維修、盤點、調撥都可以直接開正式單，單號在開表時就先給。只有需要主管先看的單據才走下面這張流程單。</p>
     <div class="erp-action-grid">
-      <a class="erp-action-card" href="#stock-in"><b>進貨入庫單</b><span>掃條碼、多筆明細、入庫增加庫存</span></a>
-      <a class="erp-action-card" href="#customer-shipping"><b>銷售出庫單</b><span>客戶出貨、物流、金額與庫存扣除</span></a>
-      <a class="erp-action-card" href="#quotations"><b>估價單</b><span>接總部估價單，後續可轉正式出貨</span></a>
-      <a class="erp-action-card" href="#repair-documents"><b>維修單據</b><span>維修登記、處理狀態、客戶資料</span></a>
-      <a class="erp-action-card" href="#inventory-count"><b>盤點單據</b><span>條碼盤點、差異核對、盤點紀錄</span></a>
-      <a class="erp-action-card" href="#inventory-transfer"><b>調撥單據</b><span>倉庫 / 貨架 / 層位之間移動</span></a>
+      <?php foreach($opsOpenCatalog as $open): $openType = (string)($open['type'] ?? ''); $openCount = (int)($opsDocTypeCounts[$openType] ?? 0); foreach (($opsDocTypeCounts ?? []) as $countType => $countN) { if (ops_document_type_filter_match($countType, $openType)) $openCount = max($openCount, (int)$countN); } ?>
+      <a class="erp-action-card" href="#<?=h($open['tab'] ?? 'document-center')?>"><b><?=h($open['label'] ?? $openType)?></b><span><?=h($open['hint'] ?? '')?></span><small>下一張 <?=h($opsNextDocNos[$openType] ?? '開表即給單號')?><?php if($openCount > 0): ?> <span class="doc-count">／已有 <?=h($openCount)?> 筆</span><?php endif; ?></small></a>
+      <?php endforeach; ?>
     </div>
     <form method="post" class="product-form document-workflow-form">
       <input type="hidden" name="action" value="save_document_workflow">
+      <label>流程單號<input name="workflow_no" value="<?=h($opsNextDocNos['流程單據'] ?? next_document_workflow_no($documentWorkflows ?? []))?>" readonly></label>
       <label>單據類型
         <select name="workflow_type" required>
           <option value="進貨入庫單">進貨入庫單</option>
@@ -9801,14 +9960,19 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           </td>
         </tr>
       <?php endforeach; ?>
-      <?php if(!$documentWorkflows): ?><tr><td colspan="8" class="muted">目前尚無流程單。</td></tr><?php endif; ?>
+      <?php if(!$documentWorkflows): ?><tr><td colspan="8" class="muted">目前沒有流程單。這不是開正式單的必要步驟；上面卡片可直接進各單據功能。</td></tr><?php endif; ?>
     </tbody></table></div>
     <?php if($workflowPages > 1): ?><div class="pager"><span>第 <?=h($workflowPage)?> / <?=h($workflowPages)?> 頁，每頁 10 筆</span><?php if($workflowPage > 1): ?><a class="secondary small" href="<?=h($workflowPageUrl($workflowPage - 1))?>">上一頁</a><?php endif; ?><?php if($workflowPage < $workflowPages): ?><a class="secondary small" href="<?=h($workflowPageUrl($workflowPage + 1))?>">下一頁</a><?php endif; ?></div><?php endif; ?>
   </section>
 
   <section class="ops-card ops-tab" id="document-center">
     <h2>單據中心 / 正式紀錄總表</h2>
-    <p class="muted">正式單據總查詢：進貨、銷售、估價單轉出貨、維修、銷貨退回、盤點、調撥、收款、請款、呆帳、報損報溢、固定開支與資產異動都從這裡回查；每一張都可以列印半張 A4。</p>
+    <p class="muted">所有單據種類一進來就能篩選、開單。還沒建過的類型也會出現在下面，不必先存一筆才看得到功能。正式紀錄可回查並列印半張 A4。</p>
+    <div class="erp-action-grid doc-open-grid">
+      <?php foreach($opsOpenCatalog as $open): $openType = (string)($open['type'] ?? ''); $openCount = 0; foreach (($opsDocTypeCounts ?? []) as $countType => $countN) { if (ops_document_type_filter_match($countType, $openType)) $openCount += (int)$countN; } ?>
+      <a class="erp-action-card" href="#<?=h($open['tab'] ?? 'document-center')?>"><b><?=h($open['label'] ?? $openType)?></b><span><?=h($open['hint'] ?? '')?></span><small>下一張 <?=h($opsNextDocNos[$openType] ?? '開表即給單號')?><?php if($openCount > 0): ?> <span class="doc-count">／已有 <?=h($openCount)?> 筆</span><?php else: ?> <span class="doc-count">／尚未建檔，可直接開</span><?php endif; ?></small></a>
+      <?php endforeach; ?>
+    </div>
     <form method="get" action="operations.php#document-center" class="product-form document-filter-form">
       <label>單據類型
         <select name="doc_type">
@@ -9853,7 +10017,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           <td><a class="secondary small" href="#<?=h($doc['link'] ?? 'document-center')?>">查看來源</a><?php $docPrintNo = trim((string)($doc['no'] ?? '')); if ($docPrintNo !== ''): ?> <a class="secondary small" target="_blank" rel="noopener" href="<?=h(baohui_ops_document_print_href($docPrintNo, (string)($doc['type'] ?? '')))?>">列印</a><?php endif; ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if(!$erpDocs): ?><tr><td colspan="8" class="muted">目前尚無正式單據；請先從草稿中心或左側單據功能建立。</td></tr><?php endif; ?>
+      <?php if(!$erpDocs): ?><tr><td colspan="8" class="muted">目前還沒有正式單據。上面「直接開單」隨時可用，不必先建草稿。</td></tr><?php endif; ?>
       <?php if($erpDocs && !$opsDocRows): ?><tr><td colspan="8" class="muted">目前查詢條件沒有符合的單據。</td></tr><?php endif; ?>
     </tbody></table></div>
     <?php if($opsDocPages > 1): ?>
@@ -9878,7 +10042,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     </details>
     <form method="post" class="product-form" id="stockInForm">
       <input type="hidden" name="action" value="stock_in">
-      <label>進貨單號<input name="stock_doc_no" value="JH-<?=h(date('Ymd'))?>-儲存後自動流水" placeholder="空白由系統自動產生"></label>
+      <label>進貨單號<input name="stock_doc_no" value="<?=h($opsNextDocNos['進貨入庫單'] ?? next_inventory_doc_no('JH', $stockMovements ?? []))?>" placeholder="可改單號，空白則用系統下一號"></label>
       <label>單據日期<input type="date" name="stock_doc_date" value="<?=h(date('Y-m-d'))?>"></label>
       <label>廠商
         <select name="stock_supplier_id">
@@ -11451,12 +11615,12 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       $salesOutRowIndex = 0;
     ?>
     <h2><?= $editingDelivery ? '修正銷售出庫單' : '銷售出庫單' ?></h2>
-    <p class="muted"><?= $editingDelivery ? ('正在修改 <b>' . h($editingDelivery['delivery_no'] ?? '') . '</b>。儲存後會依明細調整庫存，單號維持原編號。') : '正式銷售出庫單：選客戶會帶入電話與地址，儲存後產生 <b>SELL-' . h(date('Ymd')) . '-001</b>。估價單轉來的出貨單是 <b>VAL-日期-流水</b>。' ?></p>
+    <p class="muted"><?= $editingDelivery ? ('正在修改 <b>' . h($editingDelivery['delivery_no'] ?? '') . '</b>。儲存後會依明細調整庫存，單號維持原編號。') : '正式銷售出庫單：選客戶會帶入電話與地址。本張單號已先給 <b>' . h($opsNextDocNos['銷售出貨單'] ?? ('SELL-' . date('Ymd') . '-001')) . '</b>，不必先存檔才看得到。估價單轉來的出貨單是 <b>VAL-日期-流水</b>。' ?></p>
     <?php if ($editingDelivery): ?><p><a class="button-like small" href="<?=h($clearShipHref)?>">取消修改，改開新單</a></p><?php endif; ?>
     <form method="post" class="product-form" id="salesOutForm">
       <input type="hidden" name="action" value="sales_out">
       <?php if ($editingDelivery): ?><input type="hidden" name="sales_delivery_id" value="<?=h($editingDelivery['id'] ?? '')?>"><?php endif; ?>
-      <label>出庫單號<input name="sales_doc_no" value="<?=h($editingSalesNo)?>" placeholder="空白由系統自動產生，例如 SELL-<?=h(date('Ymd'))?>-001" <?= $editingSalesNo !== '' ? 'readonly' : '' ?>></label>
+      <label>出庫單號<input name="sales_doc_no" value="<?=h($editingSalesNo !== '' ? $editingSalesNo : ($opsNextDocNos['銷售出貨單'] ?? ''))?>" placeholder="可改單號，空白則用系統下一號" <?= $editingSalesNo !== '' ? 'readonly' : '' ?>></label>
       <label>單據日期<input type="date" name="sales_doc_date" value="<?=h($ed['date'] ?? date('Y-m-d'))?>"></label>
       <label>客戶名稱<input id="salesCustomerName" name="sales_customer_name" list="salesCustomerOptions" autocomplete="off" required placeholder="必填，輸入或選擇客戶，會帶入電話與地址" value="<?=h($editingBuyer['name'] ?? '')?>"></label>
       <datalist id="salesCustomerOptions"><?php foreach($members as $m): $salesContact = member_contact_fields($m); if (($salesContact['name'] ?? '') === '') continue; ?><option value="<?=h($salesContact['name'])?>"><?=h(trim(($salesContact['contact'] ?: ($m['organization_name'] ?? '')).' / '.($salesContact['phone'] ?? '').' / '.($salesContact['address'] ?? ''), ' /'))?></option><?php endforeach; ?></datalist>
@@ -11597,7 +11761,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     <div class="section-head">
       <div>
         <h2>估價單</h2>
-        <p class="muted">直接在電商營運畫面建立、查詢與處理總部估價單；轉成正式出貨單後會同步到本後台的銷售單據。</p>
+        <p class="muted">直接在電商營運畫面建立、查詢與處理總部估價單。開表就先有估價單號；列印與核准會自動先存目前這張。轉成正式出貨單後會同步到本後台的銷售單據。</p>
       </div>
       <button class="button-like" type="button" onclick="loadEmbeddedQuotation(true)">重新載入估價單</button>
     </div>
@@ -11756,11 +11920,11 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
   <section class="ops-card ops-tab" id="repair-documents">
     <h2>維修單據</h2>
-    <p class="muted">維修單號依建立日期自動產生四位隨機碼，並分別記錄處理進度、維修狀況與排除狀況。</p>
+    <p class="muted">維修單號依建立日期流水，開表就先給，例如 <?=h($opsNextDocNos['維修單據'] ?? ('PHT-REP-' . date('Ymd') . '-0001'))?>。分別記錄處理進度、維修狀況與排除狀況。</p>
 
     <form method="post" class="product-form">
       <input type="hidden" name="action" value="create_repair_document">
-      <label>維修單號<input value="儲存後依建立日期自動產生" readonly></label>
+      <label>維修單號<input name="repair_no" value="<?=h($opsNextDocNos['維修單據'] ?? next_repair_no($repairDocuments ?? []))?>" readonly></label>
       <label>維修商品<input name="item" placeholder="商品名稱 / 型號 / 序號 / 故障摘要"></label>
       <label>聯絡人<input name="contact_name" placeholder="客戶或送修人"></label>
       <label>聯絡電話<input name="phone" placeholder="電話 / 手機"></label>
@@ -11846,7 +12010,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       </div>
       <form method="post" class="mini-form">
         <input type="hidden" name="action" value="purchase_return">
-        <label>退回單號<input name="purchase_return_doc_no" placeholder="留空自動產生 BACK-F-<?=h(date('Ymd'))?>-001"></label>
+        <label>退回單號<input name="purchase_return_doc_no" value="<?=h($opsNextDocNos['進貨退回'] ?? '')?>" placeholder="可改單號，空白則用系統下一號"></label>
         <label>退回日期<input name="purchase_return_doc_date" type="date" value="<?=h(date('Y-m-d'))?>"></label>
         <label>廠商名稱<input name="purchase_return_supplier_name" list="supplierNameList" placeholder="可輸入或選擇廠商"></label>
         <datalist id="supplierNameList"><?php foreach($suppliers as $sp): ?><option value="<?=h($sp['name'] ?? '')?>"></option><?php endforeach; ?></datalist>
@@ -11884,6 +12048,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     <p class="muted">掃描條碼後會立即顯示系統庫存、實盤數量與差異。差異只會送出提醒，必須由管理者確認後才會調整庫存。</p>
     <form method="post" class="product-form">
       <input type="hidden" name="action" value="save_inventory_count">
+      <label>盤點單號<input name="count_doc_no" value="<?=h($opsNextDocNos['盤點單據'] ?? next_inventory_doc_no('PDC', $inventoryCounts ?? []))?>" readonly></label>
       <label>盤點日期<input type="date" name="count_date" value="<?=h(date('Y-m-d'))?>"></label>
       <label>狀態<input value="系統依差異自動判斷" readonly></label>
       <label class="wide">盤點倉庫<select id="inventoryCountWarehouse" name="count_warehouse" required><option value="">請選擇本次要盤點的倉庫</option><?php foreach($warehouseOptions as $w): ?><option value="<?=h($w)?>"><?=h($w)?></option><?php endforeach; ?></select></label>
@@ -11974,10 +12139,10 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
   <section class="ops-card ops-tab" id="inventory-transfer">
     <h2>庫存調撥 / 調撥單據</h2>
-    <p class="muted">調撥單號依伺服器當天日期統一自動流水，例如 TRF-<?=h(date('Ymd'))?>-001；日期與單號皆不可手動修改。</p>
+    <p class="muted">調撥單號依伺服器當天日期統一自動流水，開表就先給 <b><?=h($opsNextDocNos['調撥單據'] ?? ('TRF-' . date('Ymd') . '-001'))?></b>；日期與單號皆不可手動修改。</p>
     <form method="post" class="product-form">
       <input type="hidden" name="action" value="save_inventory_transfer">
-      <label>調撥單號<input value="TRF-<?=h(date('Ymd'))?>-儲存後自動流水" readonly></label>
+      <label>調撥單號<input name="transfer_doc_no" value="<?=h($opsNextDocNos['調撥單據'] ?? next_inventory_doc_no('TRF', $inventoryTransfers ?? []))?>" readonly></label>
       <label>調撥日期<input type="date" value="<?=h(date('Y-m-d'))?>" readonly></label>
       <label>狀態<select name="transfer_status"><option>待調撥</option><option>調撥中</option><option>已完成</option><option>取消</option></select></label>
       <label>來源倉庫<select name="from_warehouse"><option value="">請選擇來源倉庫</option><?php foreach($warehouseOptions as $w): ?><option value="<?=h($w)?>"><?=h($w)?></option><?php endforeach; ?></select></label>
@@ -12387,7 +12552,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
     <form method="post" class="product-form">
       <input type="hidden" name="action" value="save_collection_receipt">
-      <label>收款單號<input name="receipt_no" placeholder="系統可自動產生"></label>
+      <label>收款單號<input name="receipt_no" value="<?=h($opsNextDocNos['收款單'] ?? next_collection_receipt_no($collectionReceipts ?? []))?>" placeholder="可改單號，空白則用系統下一號"></label>
       <label>收款日期<input name="receipt_date" type="date" value="<?=h(date('Y-m-d'))?>"></label>
       <label class="wide">客戶名稱<input id="receiptCustomerName" name="customer_name" list="receiptCustomerOptions" autocomplete="off" placeholder="輸入姓名、Facebook 名稱或電話後挑選"></label>
       <div class="customer-document-picker">
@@ -12671,6 +12836,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     <?php $billingCreateCycle = $currentSettlementCycle ?? baohui_monthly_settlement_cycle(); ?>
     <form method="post" class="product-form billing-create-form">
       <input type="hidden" name="action" value="save_billing_request">
+      <label>請款單號<input name="billing_request_no" value="<?=h($opsNextDocNos['請款單'] ?? next_billing_request_no($billingRequests ?? []))?>" readonly></label>
       <label class="wide">客戶名稱<input id="billingCustomerName" name="billing_customer_name" list="receiptCustomerOptions" autocomplete="off" required placeholder="輸入客戶名稱後挑選"></label>
       <label>請款週期<select id="billingCycleType" name="billing_cycle_type"><option value="monthly" selected>月份請款</option><option value="custom">自訂期間</option></select></label>
       <label>月份請款<input id="billingCycleMonth" name="billing_cycle_month" type="month" value="<?=h($billingCreateCycle['month'])?>"></label>
@@ -12810,6 +12976,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     </div>
     <form method="post" class="product-form">
       <input type="hidden" name="action" value="save_bad_debt">
+      <label>案件編號<input name="bad_debt_case_no" value="<?=h($opsNextDocNos['呆帳案件'] ?? next_bad_debt_no($badDebts ?? []))?>" readonly></label>
       <label class="wide">客戶名稱<input id="badDebtCustomerName" name="bad_debt_customer_name" list="badDebtCustomerOptions" autocomplete="off" required placeholder="選擇有未收款單據的客戶"></label>
       <datalist id="badDebtCustomerOptions"><?php foreach(array_keys($badDebtCandidateCustomers) as $customer): ?><option value="<?=h($customer)?>"></option><?php endforeach; ?></datalist>
       <label>轉入日期<input type="date" name="bad_debt_recognition_date" value="<?=h(date('Y-m-d'))?>" required></label>
@@ -12863,6 +13030,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     <form method="post" class="product-form">
       <input type="hidden" name="action" value="save_inventory_adjustment">
       <input type="hidden" name="adjust_type" value="loss">
+      <label>報損單號<input name="adjust_doc_no" value="<?=h($opsNextDocNos['盤虧單據'] ?? next_inventory_doc_no('LOS', $inventoryAdjustments ?? []))?>" readonly></label>
       <label>日期<input type="date" name="adjust_date" value="<?=h(date('Y-m-d'))?>"></label>
       <label>產品條碼 / 編號<input name="adjust_code" placeholder="掃描或輸入產品條碼"></label>
       <label>數量<input type="number" name="adjust_qty" min="1" value="1"></label>
@@ -12885,6 +13053,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     <form method="post" class="product-form">
       <input type="hidden" name="action" value="save_inventory_adjustment">
       <input type="hidden" name="adjust_type" value="overage">
+      <label>報溢單號<input name="adjust_doc_no" value="<?=h($opsNextDocNos['盤盈單據'] ?? next_inventory_doc_no('OVG', $inventoryAdjustments ?? []))?>" readonly></label>
       <label>日期<input type="date" name="adjust_date" value="<?=h(date('Y-m-d'))?>"></label>
       <label>產品條碼 / 編號<input name="adjust_code" placeholder="掃描或輸入產品條碼"></label>
       <label>數量<input type="number" name="adjust_qty" min="1" value="1"></label>
@@ -13181,7 +13350,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     <form method="post" class="product-form" id="fixedAssetCreateForm">
       <input type="hidden" name="action" value="save_fixed_asset">
       <label class="wide">來源單據<select name="source_document_key" id="fixedAssetSourceSelect"><option value="">手動建檔</option><?php foreach($fixedAssetSources as $source): ?><option value="<?=h($source['key'])?>" data-name="<?=h($source['name'])?>" data-date="<?=h($source['date'])?>" data-supplier="<?=h($source['supplier'])?>" data-amount="<?=h($source['amount'])?>"><?=h($source['type'] . '｜' . $source['no'] . '｜' . $source['date'] . '｜' . $source['name'] . '｜' . money($source['amount']))?></option><?php endforeach; ?></select></label>
-      <label>資產編號<input name="asset_no" placeholder="留空自動產生 FA-日期-流水號"></label>
+      <label>資產編號<input name="asset_no" value="<?=h($opsNextDocNos['固定資產卡'] ?? next_fixed_asset_no($fixedAssets ?? []))?>" placeholder="可改編號，空白則用系統下一號"></label>
       <label>資產名稱<input name="asset_name" id="fixedAssetName" required placeholder="例如 NAS 主機"></label>
       <label>資產類別<select name="asset_category"><?php foreach($fixedAssetCategories as $value): ?><option><?=h($value)?></option><?php endforeach; ?></select></label>
       <label>品牌 / 型號<input name="brand_model"></label>
@@ -13296,10 +13465,10 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     <div class="mobile-asset-workbench">
       <div class="mobile-asset-panel"><h3>建立移動資產卡</h3><form method="post" class="product-form" id="mobileAssetCreateForm"><input type="hidden" name="action" value="save_mobile_asset">
         <label class="wide">固定資產<select name="fixed_asset_id" id="mobileAssetFixedSelect" required><option value="">請選擇尚未建立移動卡的固定資產</option><?php foreach($mobileAssetFixedOptions as $asset): if(in_array(($asset['id']??''),$linkedFixedAssetIds,true)) continue; ?><option value="<?=h($asset['id']??'')?>" data-department="<?=h($asset['department']??'')?>" data-location="<?=h($asset['location']??'')?>" data-holder="<?=h($asset['custodian']??'')?>"><?=h(($asset['asset_no']??'').'｜'.($asset['asset_name']??'').'｜'.($asset['brand_model']??''))?></option><?php endforeach; ?></select></label>
-        <label>移動資產編號<input name="mobile_asset_no" placeholder="留空自動產生"></label><label>資產標籤 / 條碼<input name="asset_tag"></label><label>部門<input name="department" id="mobileAssetDepartment"></label><label>固定歸還位置<input name="home_location" id="mobileAssetHomeLocation" list="fixedAssetLocationOptions"></label><label>目前位置<input name="current_location" id="mobileAssetCurrentLocation" list="fixedAssetLocationOptions"></label><label>目前保管人<input name="current_holder" id="mobileAssetCurrentHolder"></label><label>初始狀態<select name="status"><?php foreach(['可使用','使用中','借出中','維修中'] as $value): ?><option><?=h($value)?></option><?php endforeach; ?></select></label><label>領用 / 借出日期<input name="borrowed_at" type="date"></label><label>預計歸還<input name="expected_return_date" type="date"></label><label class="wide">備註<input name="note"></label><button class="primary">建立移動資產卡</button>
+        <label>移動資產編號<input name="mobile_asset_no" value="<?=h(next_mobile_asset_no($mobileAssets ?? []))?>" placeholder="可改編號，空白則用系統下一號"></label><label>資產標籤 / 條碼<input name="asset_tag"></label><label>部門<input name="department" id="mobileAssetDepartment"></label><label>固定歸還位置<input name="home_location" id="mobileAssetHomeLocation" list="fixedAssetLocationOptions"></label><label>目前位置<input name="current_location" id="mobileAssetCurrentLocation" list="fixedAssetLocationOptions"></label><label>目前保管人<input name="current_holder" id="mobileAssetCurrentHolder"></label><label>初始狀態<select name="status"><?php foreach(['可使用','使用中','借出中','維修中'] as $value): ?><option><?=h($value)?></option><?php endforeach; ?></select></label><label>領用 / 借出日期<input name="borrowed_at" type="date"></label><label>預計歸還<input name="expected_return_date" type="date"></label><label class="wide">備註<input name="note"></label><button class="primary">建立移動資產卡</button>
       </form></div>
       <div class="mobile-asset-panel"><h3>建立流動紀錄</h3><form method="post" class="product-form"><input type="hidden" name="action" value="save_mobile_asset_movement">
-        <label class="wide">移動資產<select name="mobile_asset_id" required><option value="">請選擇</option><?php foreach($mobileAssets as $asset): ?><option value="<?=h($asset['id']??'')?>"><?=h(($asset['mobile_asset_no']??'').'｜'.($asset['asset_name']??'').'｜目前：'.($asset['current_holder']??'').' / '.($asset['current_location']??''))?></option><?php endforeach; ?></select></label><label>異動類型<select name="movement_type"><?php foreach(['領用','借出','歸還','調撥','送修','修復','遺失','報廢'] as $value): ?><option><?=h($value)?></option><?php endforeach; ?></select></label><label>異動日期<input name="movement_date" type="date" value="<?=h(date('Y-m-d'))?>"></label><label>新位置<input name="to_location" list="fixedAssetLocationOptions" placeholder="歸還可留空回固定位置"></label><label>新保管人 / 借用人<input name="to_holder"></label><label>預計歸還日期<input name="expected_return_date" type="date"></label><label class="wide">原因 / 說明<input name="note" required placeholder="領用用途、借出原因、送修廠商或調撥說明"></label><button class="primary">建立異動並同步固定資產</button>
+        <label>異動單號<input value="<?=h($opsNextDocNos['移動資產異動'] ?? next_mobile_asset_movement_no($mobileAssetMovements ?? []))?>" readonly></label><label class="wide">移動資產<select name="mobile_asset_id" required><option value="">請選擇</option><?php foreach($mobileAssets as $asset): ?><option value="<?=h($asset['id']??'')?>"><?=h(($asset['mobile_asset_no']??'').'｜'.($asset['asset_name']??'').'｜目前：'.($asset['current_holder']??'').' / '.($asset['current_location']??''))?></option><?php endforeach; ?></select></label><label>異動類型<select name="movement_type"><?php foreach(['領用','借出','歸還','調撥','送修','修復','遺失','報廢'] as $value): ?><option><?=h($value)?></option><?php endforeach; ?></select></label><label>異動日期<input name="movement_date" type="date" value="<?=h(date('Y-m-d'))?>"></label><label>新位置<input name="to_location" list="fixedAssetLocationOptions" placeholder="歸還可留空回固定位置"></label><label>新保管人 / 借用人<input name="to_holder"></label><label>預計歸還日期<input name="expected_return_date" type="date"></label><label class="wide">原因 / 說明<input name="note" required placeholder="領用用途、借出原因、送修廠商或調撥說明"></label><button class="primary">建立異動並同步固定資產</button>
       </form></div>
     </div>
 

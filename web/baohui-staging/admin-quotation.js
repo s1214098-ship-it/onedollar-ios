@@ -713,11 +713,11 @@
       '#coolpcQuoteBox{width:100%}' +
       '</style>' +
       '<h4 class="mb-4">寶輝科技正式估價單</h4>' +
-      '<div class="alert alert-info">估價單號自動產生 VAL-當天日期-流水號。清單按「轉現貨出貨單」後，出貨單也是 VAL-日期-流水；正規銷售出庫單是 SELL-日期-流水。客戶與品項會進銷售出庫單，可列印、篩選、修正。</div>' +
+        '<div class="alert alert-info">估價單號開表就先給 VAL-當天日期-流水。列印與核准會自動先存目前這張，不必再按一次儲存。清單按「轉現貨出貨單」後，出貨單也是 VAL-日期-流水；正規銷售出庫單是 SELL-日期-流水。</div>' +
       '<datalist id="quoteCustomerList"></datalist>' +
       '<div class="form-card mb-3"><h5 class="mb-3">建立 / 編輯估價單</h5>' +
         '<input type="hidden" id="quoteId"><div class="row g-3">' +
-          '<div class="col-md-3"><label>估價單號</label><input class="form-control" id="quoteNo" readonly placeholder="自動產生"></div>' +
+          '<div class="col-md-3"><label>估價單號</label><input class="form-control" id="quoteNo" readonly placeholder="開表即給下一號"></div>' +
           '<div class="col-md-3"><label>正式單號 / 公司系統出貨單號</label><input class="form-control" id="quoteOfficialNo" placeholder="例：出貨單號、正式訂單號"></div>' +
           '<div class="col-md-2"><label>開單日期</label><input type="date" class="form-control" id="quoteDate" readonly></div>' +
           '<div class="col-md-2"><label>有效天數</label><input type="number" class="form-control" id="quoteValidDays" value="7" min="1"></div>' +
@@ -785,6 +785,8 @@
       '<div class="form-card mt-3"><div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3"><div><h5 class="mb-1">現貨出貨單</h5><div class="text-muted small">由估價單轉現貨出貨單時，產生 VAL-日期-流水單號，客戶與品項會進銷售出庫單。</div></div><input class="form-control" style="max-width:360px" id="deliverySearch" oninput="renderDeliveryOrderList()" placeholder="搜尋出貨單 / 估價單 / 客戶 / 電話"></div>' +
       '<div class="table-responsive"><table class="table table-bordered align-middle"><thead class="table-success"><tr><th>出貨單號</th><th>來源估價單</th><th>客戶</th><th>電話</th><th>品項數</th><th>總金額</th><th>狀態</th><th>建立時間</th><th>操作</th></tr></thead><tbody id="deliveryOrderList"></tbody></table></div></div>';
     main.appendChild(section);
+    if ($id('quoteNo') && !$id('quoteNo').value) $id('quoteNo').value = nextQuoteNo();
+    if ($id('quoteDate') && !$id('quoteDate').value) $id('quoteDate').value = today();
   }
   function refreshCustomerList() {
     ensureStore(); var dl = $id('quoteCustomerList'); if (!dl) return;
@@ -901,7 +903,8 @@
     }
   };
   window.clearQuoteForm = function () {
-    ['quoteId','quoteNo','quoteOfficialNo','quoteCustomerName','quoteTitle','quoteContact','quotePhone','quoteFax','quoteEmail','quoteAddress','quoteDiscount','quoteShipping','quoteNote','quoteContract','quoteCompletionDate','quoteBalanceDueDate','quoteSealImage','quoteWarranty','quotePenaltyPercent','quoteDepositStatus','quoteDepositReceived'].forEach(function (id) { var el = $id(id); if (el) el.value = ''; });
+    ['quoteId','quoteOfficialNo','quoteCustomerName','quoteTitle','quoteContact','quotePhone','quoteFax','quoteEmail','quoteAddress','quoteDiscount','quoteShipping','quoteNote','quoteContract','quoteCompletionDate','quoteBalanceDueDate','quoteSealImage','quoteWarranty','quotePenaltyPercent','quoteDepositStatus','quoteDepositReceived'].forEach(function (id) { var el = $id(id); if (el) el.value = ''; });
+    if ($id('quoteNo')) $id('quoteNo').value = nextQuoteNo();
     if ($id('quoteDate')) $id('quoteDate').value = today();
     if ($id('quoteValidDays')) $id('quoteValidDays').value = 7;
     if ($id('quoteDepositStatus')) $id('quoteDepositStatus').value = 'unpaid';
@@ -917,15 +920,16 @@
     if ($id('quoteItemRows')) $id('quoteItemRows').innerHTML = '';
     addQuoteItemRow(); updateQuotePreviewTotal(); refreshCustomerList(); renderQuoteItemHistory(); renderQuoteItemHistory();
   };
-  window.saveQuotation = function () {
-    if (!canUseQuotation()) return alert('你沒有估價單管理權限');
+  window.saveQuotation = function (opts) {
+    opts = opts || {};
+    if (!canUseQuotation()) { if (!opts.silent) alert('你沒有估價單管理權限'); return null; }
     ensureStore();
     var id = $id('quoteId').value || '';
     var old = id ? data.quotations.find(function (x) { return String(x.id) === String(id); }) : null;
     var items = readItems();
     var customerName = $id('quoteCustomerName').value.trim();
-    if (!customerName) return alert('請輸入客戶名稱');
-    if (!items.length) return alert('請至少新增一個品項，系統不會用空白品項覆蓋原估價單。');
+    if (!customerName) { alert('請輸入客戶名稱'); return null; }
+    if (!items.length) { alert('請至少新增一個品項，系統不會用空白品項覆蓋原估價單。'); return null; }
 
     var noteVal = $id('quoteNote') ? $id('quoteNote').value.trim() : '';
     var contractText = $id('quoteContract') ? $id('quoteContract').value.trim() : '';
@@ -970,10 +974,11 @@
     rememberQuoteItems(q.items);
     upsertCustomer(q);
     syncQuoteCustomersToMembers();
-    if (typeof save === 'function' && !save()) return;
+    if (typeof save === 'function' && !save()) return null;
     renderQuotationList();
     editQuotation(q.id);
-    alert('估價單已儲存，可複製對外連結或列印。');
+    if (!opts.silent) alert('估價單已儲存，可複製對外連結或列印。');
+    return q;
   };
   window.editQuotation = function (id) {
     ensureStore(); var q = data.quotations.find(function (x) { return String(x.id) === String(id); }); if (!q) return alert('找不到估價單'); ensurePage();
@@ -999,16 +1004,13 @@
     alert('估價單已完成生效核准，列印版會顯示核准證明。');
   }
   window.approveCurrentQuotation = function () {
-    var id = $id('quoteId') ? $id('quoteId').value : '';
-    if (!id) return alert('請先儲存估價單，再核准生效。');
-    approveQuotation(id);
+    var q = saveQuotation({ silent: true });
+    if (!q) return;
+    approveQuotation(q.id);
   };
   window.approveQuotation = approveQuotation;  window.printCurrentQuotation = function () {
-    ensureStore();
-    var id = $id('quoteId') ? $id('quoteId').value : '';
-    if (!id) return alert('請先儲存估價單，再列印目前這張單。');
-    var q = data.quotations.find(function (x) { return String(x.id) === String(id); });
-    if (!q) return alert('找不到目前估價單，請先儲存後再列印。');
+    var q = saveQuotation({ silent: true });
+    if (!q) return;
     var w = window.open(quoteUrl(q) + '&print=1', '_blank');
     if (w) setTimeout(function () { try { w.focus(); } catch (e) {} }, 300);
   };  window.deleteQuotation = function (id) { if (!adminOk()) return; ensureStore(); var q = data.quotations.find(function (x) { return String(x.id) === String(id); }); if (!q) return; if (!confirm('確定刪除估價單 ' + (q.no || id) + '？')) return; data.quotations = data.quotations.filter(function (x) { return String(x.id) !== String(id); }); if (typeof save === 'function' && !save()) return; renderQuotationList(); };
