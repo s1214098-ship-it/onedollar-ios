@@ -29,6 +29,7 @@ foreach (is_array($members) ? $members : [] as $member) {
     }
     if ($name === '' && !$aliases) continue;
     $out[] = [
+        'id' => (string)($member['id'] ?? ''),
         'name' => $name !== '' ? $name : (array_values($aliases)[0] ?? ''),
         'aliases' => array_values($aliases),
         'facebook' => trim((string)($member['facebook'] ?? '')),

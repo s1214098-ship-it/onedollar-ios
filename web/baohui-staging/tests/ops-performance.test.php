@@ -73,7 +73,9 @@ expect(is_file($indexFile), 'product save writes search index cache');
 $index = ops_load_product_index();
 expect(count($index) === 2, 'search index has both products');
 expect(!isset($index[0]['description']), 'search index omits description');
-expect($index[0]['images'] === ['uploads/products/a.jpg', 'uploads/products/b.jpg'], 'search index keeps product images');
+expect($index[0]['images'] === ['uploads/products/a.jpg'], 'search index keeps only the first product image');
+expect(!isset($index[0]['purchase_source']), 'search index omits unused purchase fields');
+expect(!isset($index[0]['extra_images']), 'search index omits extra image list');
 
 $ops = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'one-dollar-auction' . DIRECTORY_SEPARATOR . 'operations.php');
 expect(!str_contains($ops, 'schedule-product-options'), 'operations page no longer dumps product datalist');
@@ -84,12 +86,24 @@ expect(str_contains($ops, 'let scheduleProducts = []'), 'product catalog starts 
 expect(str_contains($ops, 'ops-member-directory.php'), 'member directory is lazy-loaded');
 expect(!str_contains($ops, 'json_encode(member_contact_directory($members)'), 'member directory is not embedded in HTML');
 expect(str_contains($ops, 'function ops_should_sync_members'), 'member sync is throttled');
+expect(str_contains($ops, 'function ops_needs_member_stats_rebuild'), 'member stats rebuild is skipped on ordinary GET');
+expect(str_contains($ops, 'ops_start_html_gzip()'), 'main operations HTML is gzipped');
+expect(str_contains($ops, "ops_slice_page(\$scheduleQueue, 'schedule_page'"), 'schedule cards are paginated');
+expect(str_contains($ops, "ops_slice_page(\$shown, 'settle_page'"), 'settlement tables are paginated');
+expect(str_contains($ops, "ops_slice_page(\$settlementEditSource, 'settle_edit_page'"), 'settlement edit cards are paginated');
+expect(!str_contains($ops, 'idle(function () { loadScheduleProducts(); })'), 'product index is not idle-prefetched');
+expect(str_contains($ops, "if (['schedule', 'stock-in', 'sales-out', 'inventory-count', 'stock-search'].indexOf(currentTab) !== -1) loadScheduleProducts()"), 'product index loads when the working tab needs it');
+expect(str_contains($ops, 'function applyMemberSearchToPicker'), 'settlement member picker searches instead of dumping every member');
+expect(!str_contains($ops, 'foreach($members as $m): ?><option value="<?=h($m[\'id\'])?>"'), 'settlement cards do not embed every member option');
 expect(str_contains($ops, 'data-ops-pending-tab'), 'operations page remembers the working tab before overview paints');
 expect(str_contains($ops, "sessionStorage.setItem('baohuiOpsTab'"), 'current ops tab is stored for reloads');
 expect(str_contains($ops, 'input[name="ops_tab"]'), 'form submits keep the current ops tab');
 
 $status = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'one-dollar-auction' . DIRECTORY_SEPARATOR . 'ops-status.php');
 expect(!str_contains($status, 'operations.php'), 'status endpoint does not boot the full operations page');
+
+$lib = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'one-dollar-auction' . DIRECTORY_SEPARATOR . 'ops-data-lib.php');
+expect(str_contains($lib, 'function ops_start_html_gzip'), 'gzip helper exists for HTML pages');
 
 $jsonHelper = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-json-response.php');
 expect(str_contains($jsonHelper, 'gzencode'), 'JSON responses gzip when the browser accepts it');

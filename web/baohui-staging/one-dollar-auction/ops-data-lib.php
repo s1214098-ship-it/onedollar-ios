@@ -96,3 +96,13 @@ function write_data($name, $data)
     }
     return true;
 }
+
+function ops_start_html_gzip(): void
+{
+    if (headers_sent()) return;
+    if (ini_get('zlib.output_compression')) return;
+    $accept = (string)($_SERVER['HTTP_ACCEPT_ENCODING'] ?? '');
+    if (stripos($accept, 'gzip') === false) return;
+    if (!function_exists('ob_gzhandler')) return;
+    ob_start('ob_gzhandler');
+}

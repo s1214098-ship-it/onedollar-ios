@@ -802,9 +802,29 @@ function import_product_rows($rows, $products) {
     return [$products, $count];
 }
 
+function ops_product_lookup_reset(): void
+{
+    $state = $GLOBALS['_ops_product_lookup'] ?? ['gen' => 0, 'map' => []];
+    $state['gen'] = (int)($state['gen'] ?? 0) + 1;
+    $state['map'] = [];
+    $GLOBALS['_ops_product_lookup'] = $state;
+}
+
 function product_by_id($products, $id) {
-    foreach ($products as $p) if (($p['id'] ?? '') === $id) return $p;
-    return [];
+    $id = (string)$id;
+    if ($id === '') return [];
+    $state = $GLOBALS['_ops_product_lookup'] ?? ['gen' => 0, 'map' => []];
+    $map = is_array($state['map'] ?? null) ? $state['map'] : [];
+    if (!$map && is_array($products)) {
+        foreach ($products as $p) {
+            if (!is_array($p)) continue;
+            $pid = (string)($p['id'] ?? '');
+            if ($pid !== '') $map[$pid] = $p;
+        }
+        $state['map'] = $map;
+        $GLOBALS['_ops_product_lookup'] = $state;
+    }
+    return $map[$id] ?? [];
 }
 function find_product_index_by_serial_color($products, $serial, $colorCode) {
     $serial = normalize_barcode_prefix($serial);
@@ -1106,9 +1126,26 @@ function rebuild_member_stats($members, $schedules, $products) {
         $m['unpaid_amount'] = 0;
     }
     unset($m);
+    $byPhone = [];
+    $byFacebook = [];
+    $byName = [];
+    foreach ($members as $i => $m) {
+        if (!is_array($m)) continue;
+        $phone = mb_strtolower(trim((string)($m['phone'] ?? '')), 'UTF-8');
+        $facebook = mb_strtolower(trim((string)($m['facebook'] ?? '')), 'UTF-8');
+        $name = mb_strtolower(trim((string)($m['name'] ?? '')), 'UTF-8');
+        if ($phone !== '') $byPhone[$phone] = $i;
+        if ($facebook !== '') $byFacebook[$facebook] = $i;
+        if ($name !== '') $byName[$name] = $i;
+    }
     foreach ($schedules as $s) {
-        $buyer = ['name' => $s['winner'] ?? '', 'facebook' => $s['winner_facebook'] ?? '', 'phone' => $s['winner_phone'] ?? ''];
-        $idx = find_member_index($members, $buyer);
+        $phone = mb_strtolower(trim((string)($s['winner_phone'] ?? '')), 'UTF-8');
+        $facebook = mb_strtolower(trim((string)($s['winner_facebook'] ?? '')), 'UTF-8');
+        $name = mb_strtolower(trim((string)($s['winner'] ?? '')), 'UTF-8');
+        $idx = -1;
+        if ($phone !== '' && isset($byPhone[$phone])) $idx = $byPhone[$phone];
+        elseif ($facebook !== '' && isset($byFacebook[$facebook])) $idx = $byFacebook[$facebook];
+        elseif ($name !== '' && isset($byName[$name])) $idx = $byName[$name];
         if ($idx < 0) continue;
         $t = totals($s, product_by_id($products, $s['product_id'] ?? ''));
         $members[$idx]['last_win_date'] = max((string)($members[$idx]['last_win_date'] ?? ''), substr((string)($s['close_at'] ?? ''), 0, 10));
@@ -1424,19 +1461,73 @@ function warehouse_layer_rank($layer) {
     return $order[$layer] ?? 100;
 }
 
+function ops_active_ops_tab(): string
+{
+    return preg_replace('/[^a-z0-9_-]/i', '', (string)($_GET['tab'] ?? $_GET['ops_tab'] ?? $_POST['ops_tab'] ?? ''));
+}
+
+function ops_needs_member_stats_rebuild(): bool
+{
+    if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') return true;
+    $tab = ops_active_ops_tab();
+    if (in_array($tab, ['members', 'settlement', 'settlement-edit', 'orders'], true)) return true;
+    return trim((string)($_GET['member_q'] ?? '')) !== '';
+}
+
 function ops_should_sync_members(): bool
 {
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $action = (string)($_POST['action'] ?? '');
-        if ($action !== '' && preg_match('/member|schedule|settle|delivery|payment|order|winner/i', $action)) return true;
+        return $action !== '' && (bool)preg_match('/member|schedule|settle|delivery|payment|order|winner/i', $action);
     }
-    $tab = (string)($_GET['tab'] ?? '');
-    if (in_array($tab, ['members', 'settlement', 'orders', 'customer-shipping'], true)) return true;
+    $tab = ops_active_ops_tab();
+    if (!in_array($tab, ['members', 'settlement', 'settlement-edit', 'orders', 'customer-shipping'], true)) return false;
     $stamp = ops_data_dir() . DIRECTORY_SEPARATOR . '_member_sync_stamp.txt';
     $last = is_file($stamp) ? (int)@file_get_contents($stamp) : 0;
     if ($last > 0 && (time() - $last) < 300) return false;
     @file_put_contents($stamp, (string)time(), LOCK_EX);
     return true;
+}
+
+function ops_kept_query(array $overrides = []): array
+{
+    $keys = ['tab', 'ops_tab', 'pay', 'ship', 'order', 'close_status', 'member_q', 'member_risk', 'buyer_q', 'settle_q', 'settle_id', 'schedule_page', 'settle_page', 'settle_edit_page'];
+    $query = [];
+    foreach ($keys as $key) {
+        if (!array_key_exists($key, $_GET)) continue;
+        $val = $_GET[$key];
+        if ($val === '' || $val === null) continue;
+        $query[$key] = $val;
+    }
+    foreach ($overrides as $key => $val) {
+        if ($val === null || $val === '') unset($query[$key]);
+        else $query[$key] = $val;
+    }
+    return $query;
+}
+
+function ops_page_href(array $overrides, string $hash): string
+{
+    $query = ops_kept_query($overrides);
+    $qs = $query ? ('?' . http_build_query($query)) : '';
+    return 'operations.php' . $qs . '#' . ltrim($hash, '#');
+}
+
+function ops_slice_page(array $items, string $pageKey, int $perPage = 12): array
+{
+    $total = count($items);
+    $pages = $total > 0 ? max(1, (int)ceil($total / $perPage)) : 1;
+    $page = max(1, (int)($_GET[$pageKey] ?? 1));
+    if ($page > $pages) $page = $pages;
+    return [array_values(array_slice($items, ($page - 1) * $perPage, $perPage)), $page, $pages, $total, $perPage];
+}
+
+function ops_pager_bar(int $page, int $pages, int $total, int $perPage, string $pageKey, string $hash, string $noun = '筆'): string
+{
+    $html = '<div class="pager"><span>第 ' . h((string)$page) . ' / ' . h((string)$pages) . ' 頁，每頁 ' . h((string)$perPage) . ' ' . $noun . '；共 ' . h((string)$total) . ' ' . $noun . '</span>';
+    if ($page > 1) $html .= '<a class="secondary small" href="' . h(ops_page_href([$pageKey => $page - 1], $hash)) . '">上一頁</a>';
+    if ($page < $pages) $html .= '<a class="secondary small" href="' . h(ops_page_href([$pageKey => $page + 1], $hash)) . '">下一頁</a>';
+    return $html . '</div>';
 }
 
 function warehouse_department_for($warehouse, $fallback = '電腦部門') {
@@ -6601,6 +6692,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $products = read_data('products');
+ops_product_lookup_reset();
 $schedules = read_data('schedules');
 $cloudInventoryReport = read_json_object('cloud_inventory_reconciliation');
 $cloudInventorySummary = is_array($cloudInventoryReport['summary'] ?? null) ? $cloudInventoryReport['summary'] : [];
@@ -6661,7 +6753,10 @@ if (!$memberSourceRows) {
     $memberSourceRows = read_data('members.gjp.latest');
     $memberRecoveryUsed = !empty($memberSourceRows);
 }
-$members = rebuild_member_stats($memberSourceRows, $schedules, $products);
+$members = $memberSourceRows;
+if (ops_needs_member_stats_rebuild() || $memberRecoveryUsed) {
+    $members = rebuild_member_stats($memberSourceRows, $schedules, $products);
+}
 $normalizeChanged = false; // one-dollar-normalize-buyer-reminder-20260703
 foreach ($schedules as &$s) {
     if (trim((string)($s['order_token'] ?? '')) === '') { $s['order_token'] = bin2hex(random_bytes(16)); $normalizeChanged = true; }
@@ -6929,6 +7024,41 @@ usort($scheduleQueue, function($a, $b) {
     if ($cmp !== 0) return $cmp;
     return strcmp((string)($a['id'] ?? ''), (string)($b['id'] ?? ''));
 });
+[$scheduleQueuePage, $opsSchedulePage, $opsSchedulePages, $opsScheduleTotal, $opsSchedulePerPage] = ops_slice_page($scheduleQueue, 'schedule_page', 12);
+[$shownPage, $opsSettlePage, $opsSettlePages, $opsSettleTotal, $opsSettlePerPage] = ops_slice_page($shown, 'settle_page', 20);
+$settleQ = trim((string)($_GET['settle_q'] ?? ''));
+$settleJumpId = trim((string)($_GET['settle_id'] ?? ''));
+$settlementEditSource = $schedules;
+if ($settleQ !== '') {
+    $settlementEditSource = array_values(array_filter($schedules, function($s) use ($settleQ) {
+        $hay = implode(' ', [
+            $s['id'] ?? '',
+            $s['product_id'] ?? '',
+            $s['product_title'] ?? '',
+            $s['winner'] ?? '',
+            $s['winner_facebook'] ?? '',
+            $s['winner_phone'] ?? '',
+            $s['order_no'] ?? '',
+            $s['tracking_no'] ?? '',
+        ]);
+        return mb_stripos($hay, $settleQ, 0, 'UTF-8') !== false;
+    }));
+}
+if ($settleJumpId !== '' && !isset($_GET['settle_edit_page'])) {
+    foreach ($settlementEditSource as $settleIdx => $settleRow) {
+        if ((string)($settleRow['id'] ?? '') === $settleJumpId) {
+            $_GET['settle_edit_page'] = (string)((int)floor($settleIdx / 8) + 1);
+            break;
+        }
+    }
+}
+[$settlementEditPage, $opsSettleEditPage, $opsSettleEditPages, $opsSettleEditTotal, $opsSettleEditPerPage] = ops_slice_page($settlementEditSource, 'settle_edit_page', 8);
+$memberById = [];
+foreach ($members as $memberRow) {
+    if (!is_array($memberRow)) continue;
+    $memberId = (string)($memberRow['id'] ?? '');
+    if ($memberId !== '') $memberById[$memberId] = $memberRow;
+}
 $memberShown = array_values(array_filter($members, function($m) use ($memberQ, $memberRisk) { return member_matches($m, $memberQ) && ($memberRisk === '' || ($m['blacklist_status'] ?? '正常') === $memberRisk || ($m['risk_level'] ?? '一般') === $memberRisk); }));
 $opsMemberLimit = 10;
 $opsMemberPage = max(1, (int)($_GET['member_page'] ?? 1));
@@ -7261,6 +7391,7 @@ if (($_GET['partial'] ?? '') === 'ops_status') {
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
+ops_start_html_gzip();
 ?>
 <!doctype html>
 <html lang="zh-Hant"<?php if (($opsInitialTab ?? '') !== '' && ($opsInitialTab ?? '') !== 'overview'): ?> data-ops-pending-tab="<?=h($opsInitialTab)?>"<?php endif; ?>>
@@ -7938,6 +8069,7 @@ body{overflow:hidden}
 .ops-tab { display: none !important; }
 .ops-tab.is-active { display: block !important; }
 .metric-grid.ops-tab.is-active { display: grid !important; }
+.schedule-work-card, .settlement-card { content-visibility: auto; contain-intrinsic-size: auto 420px; }
 html[data-ops-pending-tab]:not([data-ops-pending-tab="overview"]):not(.ops-tabs-ready) #overview.ops-tab.is-active { display: none !important; }
 body:has(.ops-tab:target) .ops-tab.is-active { display: none !important; }
 body:has(.ops-tab:target) .ops-tab:target { display: block !important; }
@@ -10952,6 +11084,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
 
     <div class="section-head"><h2>排程上架工作</h2><span>上架序依「預定上架時間」由早到晚。Codex／人工發海賊團時照這個順序，系統不會自動發 Facebook。當日比對與執行稿在「臉書當日日報」。</span></div>
     <form method="get" class="inline-actions">
+      <input type="hidden" name="tab" value="schedule">
       <label>結標狀態<select name="close_status"><option value="">全部</option><option value="open" <?=($filterClose==='open'?'selected':'')?>>未結標</option><option value="closed" <?=($filterClose==='closed'?'selected':'')?>>已結標</option></select></label>
       <label>記單狀態<select name="order"><option value="">全部</option><?php foreach(['待記單','已記單','備貨中','等待出貨','已出貨','完成','退回處理','取消'] as $v): ?><option <?=($filterOrder===$v?'selected':'')?>><?=h($v)?></option><?php endforeach; ?></select></label>
       <button class="secondary">查詢排程</button>
@@ -10978,7 +11111,8 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <div class="metric"><span>今日已上架</span><strong><?=h($postedToday)?></strong></div>
     </div>
         <div class="schedule-card-list">
-      <?php foreach($scheduleQueue as $queueIndex => $s): $p=product_by_id($products,$s['product_id']??''); $img=$s['schedule_image']??($p['image']??''); $closed=(strtotime($s['close_at']??'') && strtotime($s['close_at'])<=time()); $pubStatus=$s['publish_status']??$s['status']??'未上架'; $cardClass=$closed?'is-closed':($pubStatus==='已上架'?'is-posted':($pubStatus==='未上架成功'?'is-failed':'is-pending')); $spec=trim(($p['color']??'').' / '.($p['size']??'').' / '.($p['spec']??''),' /'); $pickedPostSet=post_reply_find_set($postReplySets,(string)($s['post_set_id']??'')); $pickedPostSetId=(string)($pickedPostSet['id']??''); $listingDraft=render_post_reply_listing($s,$p,$postReplySets,$pickedPostSetId); $qaDraft=render_post_reply_qa_pack($s,$p,$postReplySets,$pickedPostSetId); $postSetPayload=[]; foreach($postReplySets as $postSetRow){ $sid=(string)($postSetRow['id']??''); $postSetPayload[$sid]=['listing'=>render_post_reply_listing($s,$p,$postReplySets,$sid),'qa'=>render_post_reply_qa_pack($s,$p,$postReplySets,$sid)]; } ?>
+      <?= ops_pager_bar($opsSchedulePage, $opsSchedulePages, $opsScheduleTotal, $opsSchedulePerPage, 'schedule_page', 'schedule', '場') ?>
+      <?php foreach($scheduleQueuePage as $queueIndex => $s): $p=product_by_id($products,$s['product_id']??''); $img=$s['schedule_image']??($p['image']??''); $closed=(strtotime($s['close_at']??'') && strtotime($s['close_at'])<=time()); $pubStatus=$s['publish_status']??$s['status']??'未上架'; $cardClass=$closed?'is-closed':($pubStatus==='已上架'?'is-posted':($pubStatus==='未上架成功'?'is-failed':'is-pending')); $spec=trim(($p['color']??'').' / '.($p['size']??'').' / '.($p['spec']??''),' /'); $pickedPostSet=post_reply_find_set($postReplySets,(string)($s['post_set_id']??'')); $pickedPostSetId=(string)($pickedPostSet['id']??''); $listingDraft=render_post_reply_listing($s,$p,$postReplySets,$pickedPostSetId); $qaDraft=render_post_reply_qa_pack($s,$p,$postReplySets,$pickedPostSetId); $postSetPayload=[]; if($pickedPostSetId!=='') $postSetPayload[$pickedPostSetId]=['listing'=>$listingDraft,'qa'=>$qaDraft]; $queueNo=(($opsSchedulePage-1)*$opsSchedulePerPage)+$queueIndex+1; ?>
       <article class="schedule-work-card <?=h($cardClass)?>">
         <div class="schedule-card-select"><input type="checkbox" name="schedule_ids[]" value="<?=h($s['id']??'')?>" form="scheduleBulkDeleteForm" aria-label="選取 <?=h($s['product_id']??'')?>"></div>
         <div class="schedule-card-media">
@@ -10986,7 +11120,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           <span class="status-pill">本場 <?=h($s['quantity']??1)?> / 可用 <?=h(stock_available($p))?></span>
         </div>
         <div class="schedule-card-main">
-          <div class="schedule-card-id"><span class="schedule-queue-no">上架序 <?=h(str_pad((string)($queueIndex + 1), 2, '0', STR_PAD_LEFT))?></span> <?=h($s['product_id']??'')?></div>
+          <div class="schedule-card-id"><span class="schedule-queue-no">上架序 <?=h(str_pad((string)$queueNo, 2, '0', STR_PAD_LEFT))?></span> <?=h($s['product_id']??'')?></div>
           <div class="schedule-card-title"><?=h($p['title']??($s['product_title']??''))?></div>
           <?php if($spec): ?><div class="schedule-card-spec"><?=h($spec)?></div><?php endif; ?>
           <div class="schedule-card-meta">
@@ -11039,7 +11173,8 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         </div>
       </article>
       <?php endforeach; ?>
-      <?php if(!$shown): ?><div class="stock-empty">目前沒有符合條件的排程。</div><?php endif; ?>
+      <?php if(!$opsScheduleTotal): ?><div class="stock-empty">目前沒有符合條件的排程。</div><?php endif; ?>
+      <?= ops_pager_bar($opsSchedulePage, $opsSchedulePages, $opsScheduleTotal, $opsSchedulePerPage, 'schedule_page', 'schedule', '場') ?>
     </div>
   </section>
 
@@ -11363,11 +11498,6 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         <label>會員帶入
           <select name="batch_member_id" class="batch-member-picker">
             <option value="">新會員或不指定</option>
-            <?php foreach($members as $m): ?>
-              <option value="<?=h($m['id'])?>" data-name="<?=h($m['name']??'')?>" data-facebook="<?=h($m['facebook']??'')?>" data-phone="<?=h($m['phone']??'')?>" data-address="<?=h($m['address']??'')?>">
-                <?=h(trim(($m['name']??'').' / '.($m['facebook']??'').' / '.($m['phone']??''), ' /'))?>
-              </option>
-            <?php endforeach; ?>
           </select>
         </label>
         <label>得標者姓名<input name="batch_winner" data-batch-member-field="name" placeholder="輸入或由會員帶入"></label>
@@ -11386,14 +11516,15 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         </label>
       </div>
       <div class="bulk-bar winner-batch-toolbar">
-        <label class="check"><input type="checkbox" data-select-all="winner_schedule_ids[]"> 全選下方品項</label>
-        <span class="muted">已填得標人的品項也可重新指定；送出後會出現在記單出貨。</span>
+        <label class="check"><input type="checkbox" data-select-all="winner_schedule_ids[]"> 全選本頁品項</label>
+        <span class="muted">已填得標人的品項也可重新指定；送出後會出現在記單出貨。全選只含目前這一頁。</span>
       </div>
+      <?= ops_pager_bar($opsSettlePage, $opsSettlePages, $opsSettleTotal, $opsSettlePerPage, 'settle_page', 'settlement') ?>
       <div class="table-wrap">
         <table class="winner-batch-table">
           <thead><tr><th>選</th><th>圖</th><th>場次/產品</th><th>目前得標者</th><th>數量</th><th>得標金額</th><th>應收</th><th>記單</th></tr></thead>
           <tbody>
-          <?php foreach($shown as $s): $p=product_by_id($products,$s['product_id']??''); $t=totals($s,$p); $img=$s['schedule_image']??($p['image']??''); ?>
+          <?php foreach($shownPage as $s): $p=product_by_id($products,$s['product_id']??''); $t=totals($s,$p); $img=$s['schedule_image']??($p['image']??''); ?>
             <tr class="<?= buyer_key(['name'=>$s['winner']??'', 'facebook'=>$s['winner_facebook']??'', 'phone'=>$s['winner_phone']??'']) === '' ? 'needs-buyer' : 'has-buyer' ?>">
               <td><input type="checkbox" name="winner_schedule_ids[]" value="<?=h($s['id'])?>"></td>
               <td><?php if($img): ?><img class="thumb" src="<?=h($img)?>"><?php endif; ?></td>
@@ -11437,14 +11568,16 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
     </div>
 
     <form method="get" class="inline-actions">
+      <input type="hidden" name="tab" value="settlement">
       <label>付款狀態<select name="pay"><option value="">全部</option><?php foreach(['未付款','已付款','部分付款','取消'] as $v): ?><option <?=($filterPay===$v?'selected':'')?>><?=h($v)?></option><?php endforeach; ?></select></label>
       <label>出貨狀態<select name="ship"><option value="">全部</option><?php foreach(['未出貨','備貨中','已出貨','完成'] as $v): ?><option <?=($filterShip===$v?'selected':'')?>><?=h($v)?></option><?php endforeach; ?></select></label>
       <label>記單狀態<select name="order"><option value="">全部</option><?php foreach(['待記單','累計中','待打單','待出貨','已出貨','完成','退回處理','取消'] as $v): ?><option <?=($filterOrder===$v?'selected':'')?>><?=h($v)?></option><?php endforeach; ?></select></label>
       <button class="secondary">篩選</button>
     </form>
-    <form method="post" class="bulk-form" data-confirm="確定刪除選取排程？會扣回預約庫存。"><input type="hidden" name="action" value="delete_schedules"><div class="bulk-bar"><label class="check"><input type="checkbox" data-select-all="schedule_ids[]"> 全選</label><button class="danger-button">刪除選取排程</button></div>
+    <form method="post" class="bulk-form" data-confirm="確定刪除選取排程？會扣回預約庫存。"><input type="hidden" name="action" value="delete_schedules"><div class="bulk-bar"><label class="check"><input type="checkbox" data-select-all="schedule_ids[]"> 全選本頁</label><button class="danger-button">刪除選取排程</button></div>
+    <?= ops_pager_bar($opsSettlePage, $opsSettlePages, $opsSettleTotal, $opsSettlePerPage, 'settle_page', 'settlement') ?>
     <div class="table-wrap"><table class="settle-table"><thead><tr><th>選</th><th>圖</th><th>場次/商品</th><th>得標者</th><th>Facebook</th><th>電話</th><th>數量</th><th>得標金額</th><th>含稅</th><th>稅金</th><th>運費</th><th>其他</th><th>應收</th><th>已收</th><th>未收</th><th>成本</th><th>毛利</th><th>付款</th><th>出貨</th><th>記單</th><th>物流/單號</th><th>備註</th><th>操作</th></tr></thead><tbody>
-    <?php foreach($shown as $s): $p=product_by_id($products,$s['product_id']??''); $t=totals($s,$p); $img=$s['schedule_image']??($p['image']??''); ?>
+    <?php foreach($shownPage as $s): $p=product_by_id($products,$s['product_id']??''); $t=totals($s,$p); $img=$s['schedule_image']??($p['image']??''); ?>
       <tr>
         <td><input type="checkbox" name="schedule_ids[]" value="<?=h($s['id'])?>"></td>
         <td><?php if($img): ?><img class="thumb" src="<?=h($img)?>"><?php endif; ?></td>
@@ -11453,7 +11586,9 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         <td><?=h($s['quantity']??1)?></td><td><?=money($s['winning_price']??0)?></td><td><?=(!empty($s['tax_included']) && (string)$s['tax_included']!=='0')?'含稅':'未稅'?></td><td><?=money($t['tax'])?></td><td><?=money($s['shipping_fee']??0)?></td><td><?=money($s['other_fee']??0)?></td><td><?=money($t['receivable'])?></td><td><?=money($t['paid'])?></td><td><?=money($t['unpaid'])?></td><td><?=money($t['cost'])?></td><td><?=money($t['profit'])?></td><td><?=h($s['payment_status']??'未付款')?></td><td><?=h($s['shipping_status']??'未出貨')?></td><td><span class="status-pill"><?=h($s['order_status']??'待記單')?></span></td><td><?=h(trim(($s['logistics_company']??'').' '.($s['tracking_no']??'').' '.($s['invoice_no']??'')))?><br><span class="muted"><?=h(($s['product_serial']??($s['warranty_serial']??'')))?></span></td><td><?=h($s['settlement_note']??'')?></td><td><button type="button" class="secondary edit-settlement" data-id="<?=h($s['id'])?>">編輯</button></td>
       </tr>
     <?php endforeach; ?>
-    </tbody></table></div></form>
+    </tbody></table></div>
+    <?= ops_pager_bar($opsSettlePage, $opsSettlePages, $opsSettleTotal, $opsSettlePerPage, 'settle_page', 'settlement') ?>
+    </form>
   </section>
 
   <section class="ops-card ops-tab" id="settlement-edit">
@@ -11462,16 +11597,22 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <strong>得標通知與買家填單入口放在這裡</strong>
       流程是：先在「排程上架」建立場次，截標後到「得標結算 / 結算編輯」填得標者、金額、付款與出貨資料；每一筆得標卡片下方會產生「買家專屬訂單填寫 / 查詢連結」與「得標通知文字」。目前先做複製文字與人工傳送，不會自動發 Facebook 或 LINE。
     </div>
-    <datalist id="member-options"><?php foreach($members as $m): ?><option value="<?=h(($m['name']??'').' / '.($m['facebook']??'').' / '.($m['phone']??''))?>"></option><?php endforeach; ?></datalist>
-    <?php foreach($schedules as $idx => $s): $p=product_by_id($products,$s['product_id']??''); $t=totals($s,$p); ?>
-    <form method="post" enctype="multipart/form-data" class="settlement-card color-set-<?=((int)($idx ?? 0)%6)+1?>" id="settle-<?=h($s['id'])?>">
+    <form method="get" class="inline-actions">
+      <input type="hidden" name="tab" value="settlement-edit">
+      <label>搜尋場次 / 得標人<input name="settle_q" value="<?=h($settleQ)?>" placeholder="商品編號、得標者、電話"></label>
+      <button class="secondary">查詢</button>
+    </form>
+    <?= ops_pager_bar($opsSettleEditPage, $opsSettleEditPages, $opsSettleEditTotal, $opsSettleEditPerPage, 'settle_edit_page', 'settlement-edit') ?>
+    <datalist id="member-options"></datalist>
+    <?php foreach($settlementEditPage as $idx => $s): $p=product_by_id($products,$s['product_id']??''); $t=totals($s,$p); $pickedMemberId=(string)($s['member_id']??''); $pickedMember=$pickedMemberId!=='' ? ($memberById[$pickedMemberId]??[]) : []; if(!$pickedMember){ $mi=find_member_index($members, ['name'=>$s['winner']??'', 'facebook'=>$s['winner_facebook']??'', 'phone'=>$s['winner_phone']??'']); if($mi>=0) $pickedMember=$members[$mi]; } $pickedMemberId=(string)($pickedMember['id']??$pickedMemberId); ?>
+    <form method="post" enctype="multipart/form-data" class="settlement-card color-set-<?=((int)((($opsSettleEditPage-1)*$opsSettleEditPerPage)+$idx)%6)+1?>" id="settle-<?=h($s['id'])?>">
       <input type="hidden" name="action" value="save_settlement"><input type="hidden" name="schedule_id" value="<?=h($s['id'])?>">
       <div class="settlement-title"><b><?=h(($s['product_id']??'').' - '.($p['title']??''))?></b><button class="secondary">儲存結算</button></div>
       <div class="settlement-grid">
         <label>產品序號 / 保固序號<input name="product_serial" value="<?=h($s['product_serial']??($s['warranty_serial']??''))?>" placeholder="保固或出貨序號"></label>
         <label>物流公司<select name="logistics_company" class="logistics-company-select"><option value="" data-fee="0">未選擇</option><?php foreach($logistics as $lg): $ln=$lg['name']??''; $fee=(float)($lg['default_fee']??0); ?><option value="<?=h($ln)?>" data-fee="<?=h($fee)?>" <?= (($s['logistics_company']??'')===$ln?'selected':'') ?>><?=h($ln)?><?= $fee > 0 ? '（運費 '.h(money($fee)).'）' : '' ?></option><?php endforeach; ?></select></label>
-        <label>會員搜尋參考<input list="member-options" placeholder="姓名 / Facebook / 電話"></label>
-        <label>會員帶入<select name="member_id" class="member-picker"><option value="">新會員或不指定</option><?php foreach($members as $m): ?><option value="<?=h($m['id'])?>" data-name="<?=h($m['name']??'')?>" data-facebook="<?=h($m['facebook']??'')?>" data-phone="<?=h($m['phone']??'')?>" data-address="<?=h($m['address']??'')?>"><?=h(($m['name']??'').' / '.($m['facebook']??'').' / '.($m['phone']??''))?></option><?php endforeach; ?></select></label>
+        <label>會員搜尋參考<input list="member-options" class="member-search-input" placeholder="姓名 / Facebook / 電話"></label>
+        <label>會員帶入<select name="member_id" class="member-picker"><option value="">新會員或不指定</option><?php if($pickedMember): ?><option value="<?=h($pickedMemberId)?>" selected data-name="<?=h($pickedMember['name']??'')?>" data-facebook="<?=h($pickedMember['facebook']??'')?>" data-phone="<?=h($pickedMember['phone']??'')?>" data-address="<?=h($pickedMember['address']??'')?>"><?=h(trim(($pickedMember['name']??'').' / '.($pickedMember['facebook']??'').' / '.($pickedMember['phone']??''), ' /'))?></option><?php endif; ?></select></label>
         <label>記單狀態<select name="order_status"><?php foreach(['待記單','累計中','待打單','待出貨','已出貨','完成','退回處理','取消'] as $v): ?><option <?=($s['order_status']??'待記單')===$v?'selected':''?>><?=h($v)?></option><?php endforeach; ?></select></label>
         <label>得標者<input name="winner" value="<?=h($s['winner']??'')?>"></label><label>Facebook<input name="winner_facebook" value="<?=h($s['winner_facebook']??'')?>"></label><label>電話<input name="winner_phone" value="<?=h($s['winner_phone']??'')?>"></label><label class="wide">地址<input name="winner_address" value="<?=h($s['winner_address']??'')?>"></label>
         <label>場次圖片<input name="schedule_image" value="<?=h($s['schedule_image']??'')?>"></label><label data-image-paste>補傳圖片（可貼上）<input name="schedule_image_upload" type="file" accept="image/*"></label><label>圖片備註<input name="schedule_image_note" value="<?=h($s['schedule_image_note']??'')?>"></label><label>Facebook 貼文網址<input name="post_url" value="<?=h($s['post_url']??'')?>"></label>
@@ -11493,6 +11634,8 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       </div>
     </form>
     <?php endforeach; ?>
+    <?php if(!$opsSettleEditTotal): ?><div class="stock-empty">目前沒有符合條件的結算場次。</div><?php endif; ?>
+    <?= ops_pager_bar($opsSettleEditPage, $opsSettleEditPages, $opsSettleEditTotal, $opsSettleEditPerPage, 'settle_edit_page', 'settlement-edit') ?>
   </section>
 
   <section class="ops-card ops-tab" id="orders">
@@ -11630,7 +11773,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label>出庫單號<input name="sales_doc_no" value="<?=h($editingSalesNo !== '' ? $editingSalesNo : ($opsNextDocNos['銷售出貨單'] ?? ''))?>" placeholder="可改單號，空白則用系統下一號" <?= $editingSalesNo !== '' ? 'readonly' : '' ?>></label>
       <label>單據日期<input type="date" name="sales_doc_date" value="<?=h($ed['date'] ?? date('Y-m-d'))?>"></label>
       <label>客戶名稱<input id="salesCustomerName" name="sales_customer_name" list="salesCustomerOptions" autocomplete="off" required placeholder="必填，輸入或選擇客戶，會帶入電話與地址" value="<?=h($editingBuyer['name'] ?? '')?>"></label>
-      <datalist id="salesCustomerOptions"><?php foreach($members as $m): $salesContact = member_contact_fields($m); if (($salesContact['name'] ?? '') === '') continue; ?><option value="<?=h($salesContact['name'])?>"><?=h(trim(($salesContact['contact'] ?: ($m['organization_name'] ?? '')).' / '.($salesContact['phone'] ?? '').' / '.($salesContact['address'] ?? ''), ' /'))?></option><?php endforeach; ?></datalist>
+      <datalist id="salesCustomerOptions"></datalist>
       <label>電話<input id="salesCustomerPhone" name="sales_customer_phone" value="<?=h($editingBuyer['phone'] ?? '')?>"></label>
       <label class="wide">地址<input id="salesCustomerAddress" name="sales_customer_address" value="<?=h($editingBuyer['address'] ?? '')?>"></label>
       <label>經手人<input name="sales_handler" value="<?=h($ed['handler'] ?? current_operator())?>"></label>
@@ -15131,6 +15274,7 @@ function loadSalesCustomerDirectory() {
     .then((res) => res.json())
     .then((data) => {
       salesCustomerDirectory = Array.isArray(data.items) ? data.items : [];
+      fillMemberPickers(salesCustomerDirectory);
       return salesCustomerDirectory;
     })
     .catch(() => {
@@ -15138,6 +15282,64 @@ function loadSalesCustomerDirectory() {
       return salesCustomerDirectory;
     });
   return salesCustomerDirectoryPromise;
+}
+function memberPickerOptionHtml(member, selectedId) {
+  const id = String(member && member.id || '');
+  const label = [member && member.name, member && member.facebook, member && member.phone].filter(Boolean).join(' / ');
+  const selected = id && id === String(selectedId || '') ? ' selected' : '';
+  return `<option value="${escapeHtml(id)}" data-name="${escapeHtml(member && member.name || '')}" data-facebook="${escapeHtml(member && member.facebook || '')}" data-phone="${escapeHtml(member && member.phone || '')}" data-address="${escapeHtml(member && member.address || '')}"${selected}>${escapeHtml(label)}</option>`;
+}
+function fillMemberPickers(items) {
+  if (!Array.isArray(items) || !items.length) return;
+  document.querySelectorAll('.batch-member-picker').forEach((select) => {
+    const current = select.value;
+    const blank = select.querySelector('option[value=""]');
+    const firstHtml = blank ? blank.outerHTML : '<option value="">新會員或不指定</option>';
+    select.innerHTML = firstHtml + items.map((member) => memberPickerOptionHtml(member, current)).join('');
+    if (current) select.value = current;
+  });
+  const datalist = document.getElementById('member-options');
+  if (datalist) {
+    datalist.innerHTML = items.map((member) => {
+      const label = [member && member.name, member && member.facebook, member && member.phone].filter(Boolean).join(' / ');
+      return label ? `<option value="${escapeHtml(label)}"></option>` : '';
+    }).join('');
+  }
+  const salesList = document.getElementById('salesCustomerOptions');
+  if (salesList) {
+    salesList.innerHTML = items.map((member) => {
+      const name = String(member && member.name || '').trim();
+      if (!name) return '';
+      const detail = [member && member.facebook, member && member.phone, member && member.address].filter(Boolean).join(' / ');
+      return `<option value="${escapeHtml(name)}">${escapeHtml(detail)}</option>`;
+    }).join('');
+  }
+}
+function memberSearchHaystack(member) {
+  return String([member && member.name, member && member.facebook, member && member.phone, member && member.address, member && member.id].filter(Boolean).join(' ')).toLowerCase();
+}
+function applyMemberSearchToPicker(input) {
+  const form = input.closest('form');
+  const select = form && form.querySelector('.member-picker');
+  if (!select) return;
+  const q = String(input.value || '').trim().toLowerCase();
+  const current = select.value;
+  const blank = select.querySelector('option[value=""]');
+  const keepSelected = current ? select.querySelector(`option[value="${CSS.escape(current)}"]`) : null;
+  const matches = q
+    ? (salesCustomerDirectory || []).filter((member) => memberSearchHaystack(member).includes(q)).slice(0, 20)
+    : [];
+  const firstHtml = blank ? blank.outerHTML : '<option value="">新會員或不指定</option>';
+  const selectedHtml = keepSelected && keepSelected.value ? keepSelected.outerHTML : '';
+  const matchHtml = matches
+    .filter((member) => String(member.id || '') !== String(current || ''))
+    .map((member) => memberPickerOptionHtml(member, ''))
+    .join('');
+  select.innerHTML = firstHtml + selectedHtml + matchHtml;
+  if (current) select.value = current;
+}
+function loadOpsMemberDirectory() {
+  return loadSalesCustomerDirectory();
 }
 function withScheduleProducts(fn) {
   return loadScheduleProducts().then((rows) => fn(rows));
@@ -15961,12 +16163,15 @@ document.addEventListener('click', (event) => {
     window.openOpsTab = function (id) {
       const target = orig(id);
       if (['schedule', 'stock-in', 'sales-out', 'inventory-count', 'stock-search'].indexOf(target) !== -1) loadScheduleProducts();
-      if (target === 'sales-out' || target === 'customer-shipping') loadSalesCustomerDirectory();
+      if (['sales-out', 'customer-shipping', 'settlement', 'settlement-edit', 'orders'].indexOf(target) !== -1) loadOpsMemberDirectory();
       return target;
     };
   }
-  const idle = window.requestIdleCallback || function (fn) { setTimeout(fn, 800); };
-  idle(function () { loadScheduleProducts(); });
+  const currentTab = document.documentElement.getAttribute('data-ops-pending-tab')
+    || document.body.getAttribute('data-ops-open-tab')
+    || String(location.hash || '').replace('#', '');
+  if (['schedule', 'stock-in', 'sales-out', 'inventory-count', 'stock-search'].indexOf(currentTab) !== -1) loadScheduleProducts();
+  if (['sales-out', 'customer-shipping', 'settlement', 'settlement-edit', 'orders'].indexOf(currentTab) !== -1) loadOpsMemberDirectory();
 })();
 document.addEventListener('click', (event) => {
   const remove = event.target.closest?.('.remove-stock-line');
@@ -16390,8 +16595,14 @@ document.addEventListener('change', (event) => {
 });
 
 document.querySelectorAll('.edit-settlement').forEach((btn) => btn.addEventListener('click', () => {
-  showOpsTab('settlement-edit');
-  setTimeout(() => document.querySelector('#settle-' + btn.dataset.id)?.scrollIntoView({behavior:'smooth', block:'start'}), 50);
+  const id = btn.dataset.id || '';
+  const el = document.querySelector('#settle-' + id);
+  if (el) {
+    showOpsTab('settlement-edit');
+    setTimeout(() => el.scrollIntoView({behavior:'smooth', block:'start'}), 50);
+    return;
+  }
+  window.location.href = 'operations.php?tab=settlement-edit&settle_id=' + encodeURIComponent(id) + '#settlement-edit';
 }));
 
 document.querySelectorAll('.batch-member-picker').forEach((select) => {
@@ -16405,6 +16616,28 @@ document.querySelectorAll('.batch-member-picker').forEach((select) => {
       if (input && value) input.value = value;
     });
   });
+});
+document.addEventListener('change', (event) => {
+  const select = event.target.closest?.('.member-picker');
+  if (!select) return;
+  const opt = select.options[select.selectedIndex];
+  const form = select.closest('form');
+  if (!form || !opt || !opt.value) return;
+  const map = { winner: 'name', winner_facebook: 'facebook', winner_phone: 'phone', winner_address: 'address' };
+  Object.keys(map).forEach((name) => {
+    const input = form.querySelector(`[name="${name}"]`);
+    const value = opt.dataset[map[name]] || '';
+    if (input && value) input.value = value;
+  });
+});
+document.addEventListener('focusin', (event) => {
+  if (!event.target.closest?.('.member-picker, .member-search-input, .batch-member-picker')) return;
+  loadOpsMemberDirectory();
+});
+document.addEventListener('input', (event) => {
+  const input = event.target.closest?.('.member-search-input');
+  if (!input) return;
+  loadOpsMemberDirectory().then(() => applyMemberSearchToPicker(input));
 });
 
 
@@ -16441,7 +16674,8 @@ document.querySelectorAll('.schedule-post-set-pick').forEach((select) => {
   select.addEventListener('change', () => {
     let payload = {};
     try { payload = JSON.parse(select.getAttribute('data-payload') || '{}') || {}; } catch (e) { payload = {}; }
-    const picked = payload[select.value] || {};
+    const picked = payload[select.value];
+    if (!picked) return;
     const form = select.closest('form');
     if (form && form.querySelector('.schedule-listing-draft')) form.querySelector('.schedule-listing-draft').value = picked.listing || '';
     if (form && form.querySelector('.schedule-qa-draft')) form.querySelector('.schedule-qa-draft').value = picked.qa || '';
