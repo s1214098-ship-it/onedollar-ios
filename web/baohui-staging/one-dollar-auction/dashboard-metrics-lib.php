@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-const BHM_DASHBOARD_METRICS_VERSION = '20260821-available-1';
+const BHM_DASHBOARD_METRICS_VERSION = '20260821-available-2';
+
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-service-items-lib.php';
 
 function bhm_dashboard_int_value($row, array $keys): int
 {
@@ -51,8 +53,11 @@ function bhm_dashboard_metrics_from_rows(array $products, array $schedules, arra
     $availableSku = 0;
     $recentProducts = [];
 
+    $inventoryCount = 0;
     foreach ($products as $row) {
         if (!is_array($row)) continue;
+        if (!product_is_inventory_item($row)) continue;
+        $inventoryCount++;
         $book = bhm_dashboard_book_qty($row);
         $reserved = bhm_dashboard_reserved_qty($row);
         $sold = bhm_dashboard_sold_qty($row);
@@ -113,7 +118,7 @@ function bhm_dashboard_metrics_from_rows(array $products, array $schedules, arra
     });
     $recentSchedules = array_slice($recentSchedules, 0, 10);
 
-    $productCount = count($products);
+    $productCount = $inventoryCount;
     return [
         'product_count' => $productCount,
         'in_stock_count' => $availableSku,

@@ -14,6 +14,9 @@ if (!function_exists('mb_stripos')) {
     }
 }
 
+$serviceLib = __DIR__ . DIRECTORY_SEPARATOR . 'one-dollar-auction' . DIRECTORY_SEPARATOR . 'product-service-items-lib.php';
+if (is_file($serviceLib)) require_once $serviceLib;
+
 function quote_builder_products_path(): string
 {
     $configured = trim((string)getenv('BAOHUI_PRODUCTS_JSON'));
@@ -50,6 +53,8 @@ function quote_builder_slots(): array
         ['id' => 'os', 'label' => '作業系統｜軟體', 'types' => ['軟體專區']],
         ['id' => 'clearance', 'label' => '福利品｜回收', 'types' => ['福利標', '回收(大陸)']],
         ['id' => 'accessory', 'label' => '電腦周邊｜消耗品', 'types' => ['電腦周邊', '消耗品', '電子清潔用品', '遊戲片']],
+        ['id' => 'wage', 'label' => '工資類別', 'types' => ['工資', '組裝工資', '安裝工資'], 'groups' => ['工資類別'], 'kinds' => ['wage']],
+        ['id' => 'logistics_fee', 'label' => '物流報價', 'types' => ['物流', '運費'], 'groups' => ['物流報價'], 'kinds' => ['logistics']],
     ];
 }
 
@@ -78,8 +83,19 @@ function quote_builder_has(string $hay, array $needles): bool
 function quote_builder_match_slot(array $row, array $slot): bool
 {
     $type = trim((string)($row['category_type'] ?? $row['main_category'] ?? ''));
+    $group = trim((string)($row['category_group'] ?? ''));
+    $kind = function_exists('product_service_kind') ? product_service_kind($row) : (string)($row['item_kind'] ?? '');
     $types = $slot['types'] ?? [];
-    if ($types && !in_array($type, $types, true)) return false;
+    $groups = $slot['groups'] ?? [];
+    $kinds = $slot['kinds'] ?? [];
+    if ($groups || $kinds) {
+        $groupHit = $groups && in_array($group, $groups, true);
+        $kindHit = $kinds && in_array($kind, $kinds, true);
+        $typeHit = $types && in_array($type, $types, true);
+        if (!$groupHit && !$kindHit && !$typeHit) return false;
+    } elseif ($types && !in_array($type, $types, true)) {
+        return false;
+    }
     $hay = quote_builder_hay($row);
     if (!empty($slot['exclude']) && quote_builder_has($hay, $slot['exclude'])) return false;
     if (!empty($slot['include']) && !quote_builder_has($hay, $slot['include'])) return false;

@@ -7,6 +7,7 @@ require_once __DIR__ . DIRECTORY_SEPARATOR . 'monthly-settlement-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-color-variants-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-archive-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-description-match-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-service-items-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-data-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-product-index-lib.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -1193,6 +1194,7 @@ function restore_delivery_note_stock(&$products, $items) {
         if ($key === '' || $qty <= 0) continue;
         $idx = find_product_key($products, $key);
         if ($idx < 0) continue;
+        if (!product_is_inventory_item($products[$idx])) continue;
         $products[$idx]['stock_sold'] = max(0, (int)($products[$idx]['stock_sold'] ?? 0) - $qty);
         $products[$idx]['updated_at'] = date('c');
     }
@@ -1366,7 +1368,10 @@ function ops_erp_finance_empty_row($label, $start, $end) {
 }
 function warehouse_count($products, $warehouse) {
     $sum = 0;
-    foreach ($products as $p) if (($p['warehouse_name'] ?? '') === $warehouse) $sum += stock_available($p);
+    foreach ($products as $p) {
+        if (!product_is_inventory_item($p)) continue;
+        if (($p['warehouse_name'] ?? '') === $warehouse) $sum += stock_available($p);
+    }
     return $sum;
 }
 
@@ -2152,6 +2157,8 @@ $opsFunctionGroups = [
         'shopee-workspace' => '多通路上架工作台',
         'color-modules' => '顏色尺碼模組',
         'products' => '產品建檔',
+        'wage-items' => '工資類別',
+        'logistics-items' => '物流報價',
         'stock-search' => '庫存管理',
         'cloud-inventory-sync' => '雲端庫存比對',
     ],
@@ -3413,6 +3420,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $selectedBarcodePrefix = normalize_barcode_prefix($selectedCategoryRule['barcode_prefix'] ?? '');
         if ($editingId === '' && $postedCategoryType === '') {
             $notice = '產品建檔失敗：請選擇或手打分類大綱。';
+        } elseif ($editingId === '' && product_service_kind(['category_group' => $postedCategoryGroup, 'category_type' => $postedCategoryType]) !== '') {
+            $notice = '工資與物流請到「工資類別」或「物流報價」建檔，不要走產品建檔，也不列入庫存。';
         } elseif ($editingId === '' && $selectedTypeCode === '') {
             $notice = '產品建檔失敗：這個分類大綱還沒有英文碼。請到產品分類填「分類英文碼」，例如主機 COM。';
         } else {
@@ -3629,6 +3638,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($primaryId === '') $primaryId = $id;
         header('Location: operations.php?edit_product=' . rawurlencode((string)$primaryId) . '&product_saved=1&color_skus=' . (int)$skuCount . '&inbound=' . (int)$inboundTotal . '#products');
         exit;
+        }
+    }
+
+    if ($action === 'save_service_item') {
+        $kind = product_normalize_service_kind($_POST['service_kind'] ?? '');
+        $meta = product_service_meta($kind);
+        $title = trim((string)($_POST['title'] ?? ''));
+        $cost = max(0, (float)($_POST['cost'] ?? 0));
+        $salePrice = max(0, (float)($_POST['sale_price'] ?? 0));
+        $note = trim((string)($_POST['description'] ?? ''));
+        $editingId = trim((string)($_POST['service_item_id'] ?? ''));
+        $tab = $meta['tab'] ?? 'wage-items';
+        $opsInitialTab = $tab;
+        if (!$meta) {
+            $notice = '儲存失敗：請從工資類別或物流報價進入。';
+        } elseif ($title === '') {
+            $notice = '請填項目名稱。';
+        } elseif ($cost <= 0 && $salePrice <= 0) {
+            $notice = '請至少填成本或售價其中一項。';
+        } else {
+            $existing = $editingId !== '' ? product_by_id($products, $editingId) : [];
+            if ($editingId !== '' && (empty($existing) || product_service_kind($existing) !== $kind)) {
+                $notice = '找不到要修改的' . $meta['label'] . '。';
+            } else {
+                if ($editingId === '') {
+                    $serial = next_type_serial($products, $meta['type_code']);
+                    $existing = ['original_product_code' => $serial, 'created_at' => date('c')];
+                }
+                $row = product_build_service_item($existing, $kind, $title, $cost, $salePrice, $note, $editingId);
+                if (!$row) {
+                    $notice = '儲存失敗。';
+                } else {
+                    upsert_product_row($products, $row);
+                    write_data('products', $products);
+                    header('Location: operations.php?edit_service=' . rawurlencode((string)$row['id']) . '&service_kind=' . rawurlencode($kind) . '&service_saved=1#' . $tab);
+                    exit;
+                }
+            }
+        }
+    }
+
+    if ($action === 'delete_service_item') {
+        $kind = product_normalize_service_kind($_POST['service_kind'] ?? '');
+        $meta = product_service_meta($kind);
+        $id = trim((string)($_POST['service_item_id'] ?? ''));
+        $tab = $meta['tab'] ?? 'wage-items';
+        $opsInitialTab = $tab;
+        $existing = $id !== '' ? product_by_id($products, $id) : [];
+        if (!$meta || $id === '' || empty($existing) || product_service_kind($existing) !== $kind) {
+            $notice = '刪除失敗：找不到這筆' . ($meta['label'] ?? '項目') . '。';
+        } elseif (product_in_schedules($schedules, $id)) {
+            $notice = '刪除失敗：這筆已有排程紀錄。';
+        } else {
+            $products = array_values(array_filter($products, function($p) use ($id) { return ($p['id'] ?? '') !== $id; }));
+            write_data('products', $products);
+            $notice = ($meta['label'] ?? '項目') . '已刪除：' . $id;
         }
     }
 
@@ -4113,6 +4178,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $skipped++;
                 continue;
             }
+            if (!product_is_inventory_item($products[$idx])) {
+                $skipped++;
+                continue;
+            }
 
             $warehouse = trim($item['warehouse_name'] ?? '');
             $shelf = normalize_shelf_code($item['shelf_code'] ?? '');
@@ -4577,6 +4646,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $opsInitialTab = 'schedule';
         if (!$jobs || empty($product['id'])) {
             $notice = '排程建立失敗，請選擇產品並至少新增一筆工作排程。';
+        } elseif (!product_is_inventory_item($product)) {
+            $notice = '工資與物流不列入庫存，不能排程上架。請到銷售單據或估價單使用。';
         } elseif (!empty($product['cloud_auction_locked'])) {
             $notice = '排程建立失敗：此產品正在外部競標中，雲端庫存已鎖倉，請等待得標結果同步後再上架。';
         } elseif ($reserveNeed > $availableNow) {
@@ -5031,9 +5102,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $unitPrice = max(0, (float)number_value($item['unit_price'] ?? 0));
             $idx = find_product_key($products, $key);
             if ($idx < 0 || $qty <= 0) { $skipped++; continue; }
+            $isServiceItem = !product_is_inventory_item($products[$idx]);
             $productId = strtoupper(trim((string)($products[$idx]['id'] ?? $key)));
             $available = stock_available($products[$idx]) + (int)($qtyBonus[$productId] ?? 0);
-            if ($available < $qty) { $skipped++; continue; }
+            if (!$isServiceItem && $available < $qty) { $skipped++; continue; }
             $lineSubtotal = $qty * $unitPrice;
             $lineTotal += $lineSubtotal;
             $items[] = [
@@ -5074,10 +5146,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $qty = (int)($line['quantity'] ?? 0);
                 $unitPrice = (float)($line['unit_price'] ?? 0);
                 $lineSubtotal = (float)($line['line_subtotal'] ?? 0);
-                $products[$idx]['stock_sold'] = (int)($products[$idx]['stock_sold'] ?? 0) + $qty;
-                $products[$idx]['last_stock_out_qty'] = $qty;
-                $products[$idx]['last_stock_out_at'] = date('c');
-                $products[$idx]['updated_at'] = date('c');
+                if (product_is_inventory_item($products[$idx])) {
+                    $products[$idx]['stock_sold'] = (int)($products[$idx]['stock_sold'] ?? 0) + $qty;
+                    $products[$idx]['last_stock_out_qty'] = $qty;
+                    $products[$idx]['last_stock_out_at'] = date('c');
+                    $products[$idx]['updated_at'] = date('c');
+                }
                 $stockMovements[] = [
                     'id' => uid('sale_'),
                     'type' => '銷售出庫單',
@@ -6540,7 +6614,7 @@ $shelfOptions = location_values([], $warehouses, 'shelf_code', 'shelf');
 $layerOptions = ['上層', '下層'];
 $categoryGroups = unique_values_from_categories($productCategories, 'group');
 $categoryGroupOptions = array_values(array_unique(array_filter(array_merge(product_category_root_groups(), $categoryGroups), function($v) {
-    return trim((string)$v) !== '' && !in_array(trim((string)$v), ['電腦倉', '台灣倉', '中國倉', '印尼倉', '服裝倉', '電腦部門', '服裝部門', '電腦', '服裝'], true);
+    return trim((string)$v) !== '' && !in_array(trim((string)$v), array_merge(['電腦倉', '台灣倉', '中國倉', '印尼倉', '服裝倉', '電腦部門', '服裝部門', '電腦', '服裝'], product_service_group_names()), true);
 })));
 $categoryGroupOptions = array_values(array_unique(array_merge(product_category_root_groups(), $categoryGroupOptions)));
 $categoryTypes = unique_values_from_categories($productCategories, 'type');
@@ -6575,6 +6649,7 @@ foreach ($stockCategoryRulesForJs as $rule) {
     $stockCategoryRuleKeys[implode('|', [$rule['group'] ?? '', $rule['type'] ?? '', $rule['brand'] ?? '', $rule['spec'] ?? ''])] = true;
 }
 foreach ($products as $productRow) {
+    if (!is_array($productRow) || !product_is_inventory_item($productRow)) continue;
     $rule = [
         'group' => trim((string)($productRow['category_group'] ?? '')),
         'type' => trim((string)($productRow['category_type'] ?? '')),
@@ -6591,6 +6666,23 @@ $editProductId = trim((string)($_GET['edit_product'] ?? ''));
 $editProduct = $editProductId !== '' ? (product_by_id($products, $editProductId) ?: product_by_key($products, $editProductId)) : [];
 $isEditingProduct = !empty($editProduct);
 if ($isEditingProduct) $opsInitialTab = 'products';
+$editServiceId = trim((string)($_GET['edit_service'] ?? ''));
+$editServiceKind = product_normalize_service_kind($_GET['service_kind'] ?? '');
+$editServiceItem = [];
+if ($editServiceId !== '') {
+    $foundService = product_by_id($products, $editServiceId);
+    if (!empty($foundService)) {
+        $editServiceKind = product_normalize_service_kind($editServiceKind !== '' ? $editServiceKind : product_service_kind($foundService));
+        if ($editServiceKind !== '' && product_service_kind($foundService) === $editServiceKind) {
+            $editServiceItem = $foundService;
+            $opsInitialTab = product_service_meta($editServiceKind)['tab'] ?? $opsInitialTab;
+        }
+    }
+}
+if ($notice === '' && isset($_GET['service_saved'])) {
+    $kindLabel = (product_service_meta($editServiceKind)['label'] ?? '項目');
+    $notice = $kindLabel . '已儲存。';
+}
 if ($opsInitialTab === '') {
     $postedOpsTab = preg_replace('/[^a-z0-9_-]/i', '', (string)($_POST['ops_tab'] ?? ($_GET['ops_tab'] ?? '')));
     if ($postedOpsTab !== '') $opsInitialTab = $postedOpsTab;
@@ -6621,6 +6713,7 @@ $productListLimit = 10;
 $productListPage = max(1, (int)($_GET['product_page'] ?? 1));
 $productListRows = array_values(array_filter($products, function($p) use ($productListQ, $productListCondition, $isEditingProduct, $editProduct) {
     if ($isEditingProduct) return ($p['id'] ?? '') === ($editProduct['id'] ?? '');
+    if (!product_is_inventory_item($p)) return false;
     if ($productListCondition !== '' && ($p['product_condition'] ?? '') !== $productListCondition) return false;
     if ($productListQ === '') return true;
     $hay = implode(' ', [$p['id'] ?? '', $p['barcode'] ?? '', $p['title'] ?? '', $p['product_name'] ?? '', $p['department'] ?? '', $p['product_condition'] ?? '', $p['category_group'] ?? '', $p['category_type'] ?? '', $p['category_brand'] ?? '', $p['category_spec'] ?? '', $p['color'] ?? '', $p['color_code'] ?? '', $p['size'] ?? '', $p['size_code'] ?? '', $p['spec'] ?? '']);
@@ -6641,6 +6734,7 @@ if (!$isEditingProduct) {
     $productListPages = 1;
 }
 $stockFiltered = array_values(array_filter($products, function($p) use ($stockQ, $stockWarehouse, $stockShelf, $stockLayer, $stockCondition, $stockDepartment, $stockCategoryGroup, $stockCategoryType, $stockCategoryBrand, $stockCategorySpec, $stockMinAvailable, $stockImageFilter, $stockDateFrom, $stockDateTo) {
+    if (!product_is_inventory_item($p)) return false;
     $hay = implode(' ', [$p['id'] ?? '', $p['barcode'] ?? '', $p['title'] ?? '', $p['product_name'] ?? '', $p['department'] ?? '', $p['product_condition'] ?? '', $p['category_group'] ?? '', $p['category_type'] ?? '', $p['category_brand'] ?? '', $p['category_spec'] ?? '', $p['color'] ?? '', $p['color_code'] ?? '', $p['size'] ?? '', $p['size_code'] ?? '', $p['spec'] ?? '', $p['warehouse_name'] ?? '', $p['shelf_code'] ?? '', $p['warehouse_location'] ?? '']);
     if ($stockQ !== '' && mb_stripos($hay, $stockQ, 0, 'UTF-8') === false) return false;
     if ($stockDepartment !== '' && ($p['department'] ?? '') !== $stockDepartment) return false;
@@ -8092,10 +8186,13 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       $opsSoldTotal = 0;
       $opsAvailableTotal = 0;
       $opsStockCostValue = 0;
+      $opsInventorySkuCount = 0;
       $opsProductMap = [];
       foreach ($products as $p) {
           $pid = (string)($p['id'] ?? $p['product_id'] ?? '');
           if ($pid !== '') $opsProductMap[$pid] = $p;
+          if (!product_is_inventory_item($p)) continue;
+          $opsInventorySkuCount++;
           $stockTotal = (int)($p['stock_total'] ?? $p['stock'] ?? 0);
           $reserved = stock_reserved_total($p);
           $sold = (int)($p['stock_sold'] ?? $p['sold'] ?? 0);
@@ -8293,7 +8390,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         <a class="button-like small" href="#finance-analytics" data-jump-tab="finance-analytics">看完整圖表</a>
       </div>
       <div class="overview-metrics">
-        <div class="metric"><span>產品建檔</span><strong><?=h(count($products))?> 筆</strong></div>
+        <div class="metric"><span>產品建檔</span><strong><?=h($opsInventorySkuCount)?> 筆</strong></div>
         <div class="metric"><span>可用庫存</span><strong><?=h($opsAvailableTotal)?> 件</strong></div>
         <div class="metric"><span>庫存成本</span><strong><?=money($opsStockCostValue)?></strong></div>
         <div class="metric"><span>預約庫存</span><strong><?=h($opsReservedTotal)?> 件</strong></div>
@@ -10381,6 +10478,64 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <?php if($stockPage < $stockPages): ?><a class="button-like" href="<?=h($stockPageUrl($stockPage + 1))?>">下一頁</a><?php endif; ?>
     </div>
   </section>
+
+  <?php foreach (product_service_kind_map() as $serviceKind => $serviceMeta):
+      $serviceRows = array_values(array_filter($products, function($p) use ($serviceKind) {
+          return product_service_kind($p) === $serviceKind;
+      }));
+      usort($serviceRows, function($a, $b) { return strnatcasecmp((string)($a['title'] ?? ''), (string)($b['title'] ?? '')); });
+      $isEditingService = ($editServiceKind === $serviceKind) && !empty($editServiceItem);
+      $serviceForm = $isEditingService ? $editServiceItem : [];
+  ?>
+  <section class="ops-card ops-tab" id="<?=h($serviceMeta['tab'])?>">
+    <div class="section-head">
+      <div>
+        <h2><?=h($serviceMeta['label'])?></h2>
+        <p class="muted">只填成本和售價，不佔倉庫、不列入庫存統計，也不能排程上架。銷售單據與組裝估價可以帶入這些項目。</p>
+      </div>
+      <?php if($isEditingService): ?><a class="button-like" href="operations.php#<?=h($serviceMeta['tab'])?>">新增下一筆</a><?php endif; ?>
+    </div>
+    <form method="post" class="product-form" action="operations.php#<?=h($serviceMeta['tab'])?>">
+      <input type="hidden" name="action" value="save_service_item">
+      <input type="hidden" name="service_kind" value="<?=h($serviceKind)?>">
+      <input type="hidden" name="service_item_id" value="<?=h($serviceForm['id'] ?? '')?>">
+      <label class="wide">項目名稱<input name="title" required value="<?=h($serviceForm['title'] ?? '')?>" placeholder="<?=h($serviceMeta['title_placeholder'])?>"></label>
+      <label>成本<input name="cost" type="number" min="0" step="1" value="<?=h($serviceForm['cost'] ?? 0)?>" placeholder="台幣成本"></label>
+      <label>售價<input name="sale_price" type="number" min="0" step="1" value="<?=h($serviceForm['sale_price'] ?? 0)?>" placeholder="賣出價格"></label>
+      <label class="wide">備註<input name="description" value="<?=h($serviceForm['description'] ?? '')?>" placeholder="選填"></label>
+      <div class="wide form-actions">
+        <button class="primary"><?=$isEditingService ? '儲存修改' : '新增'.$serviceMeta['label']?></button>
+        <span class="muted">沒有庫存數量、倉別或貨架。</span>
+      </div>
+    </form>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>編號</th><th>項目</th><th>成本</th><th>售價</th><th>備註</th><th>操作</th></tr></thead>
+        <tbody>
+          <?php foreach($serviceRows as $row): ?>
+            <tr>
+              <td><code><?=h($row['id'] ?? '')?></code></td>
+              <td><?=h($row['title'] ?? '')?></td>
+              <td><?=money($row['cost'] ?? 0)?></td>
+              <td><?=money($row['sale_price'] ?? 0)?></td>
+              <td><?=h($row['description'] ?? '')?></td>
+              <td>
+                <a class="button-like small" href="operations.php?edit_service=<?=h(rawurlencode((string)($row['id'] ?? '')))?>&amp;service_kind=<?=h($serviceKind)?>#<?=h($serviceMeta['tab'])?>">編輯</a>
+                <form method="post" class="inline-form" onsubmit="return confirm('確定刪除這筆<?=h($serviceMeta['label'])?>？');">
+                  <input type="hidden" name="action" value="delete_service_item">
+                  <input type="hidden" name="service_kind" value="<?=h($serviceKind)?>">
+                  <input type="hidden" name="service_item_id" value="<?=h($row['id'] ?? '')?>">
+                  <button class="danger small">刪除</button>
+                </form>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+          <?php if(!$serviceRows): ?><tr><td colspan="6" class="muted">還沒有<?=h($serviceMeta['label'])?>。上面填名稱，再填成本或售價即可。</td></tr><?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <?php endforeach; ?>
 
   <section class="ops-card ops-tab" id="cloud-inventory-sync">
     <div class="section-head">
@@ -14768,6 +14923,13 @@ let scheduleProducts = [];
 let scheduleProductsPromise = null;
 let scheduleProductsLoaded = false;
 let salesCustomerDirectoryPromise = null;
+function productIsInventoryItem(p) {
+  const kind = String(p && p.item_kind || '').toLowerCase();
+  if (kind === 'wage' || kind === 'logistics') return false;
+  if (p && p.is_inventory === false) return false;
+  const group = String(p && p.category_group || '');
+  return group !== '工資類別' && group !== '物流報價';
+}
 function loadScheduleProducts(force) {
   if (!force && scheduleProductsPromise) return scheduleProductsPromise;
   const hint = document.getElementById('scheduleProductSearchHint');
@@ -15029,11 +15191,12 @@ document.getElementById('productQuickStockForm')?.addEventListener('submit', eve
   }
   if (!window.confirm('確認依直接成本入庫？舊系統現貨不加運費、關稅或倉別加價。')) event.preventDefault();
 });
-function productSearchMatches(value, limit = 12) {
+function productSearchMatches(value, limit = 12, inventoryOnly = false) {
   const q = normalizeProductSearch(value);
-  if (!q) return scheduleProducts.slice(0, limit);
+  const pool = inventoryOnly ? scheduleProducts.filter(productIsInventoryItem) : scheduleProducts;
+  if (!q) return pool.slice(0, limit);
   const terms = q.split(' ').filter(Boolean);
-  return scheduleProducts.filter(p => {
+  return pool.filter(p => {
     const haystack = scheduleProductHaystack(p);
     return terms.every(term => haystack.includes(term));
   }).slice(0, limit);
@@ -15221,6 +15384,7 @@ function scheduleTimeFinishEarly() {
   applyScheduleTimeJobs(scheduleTimeWizard.jobs.slice(0, scheduleTimeWizard.index + 1));
 }
 function setScheduleProduct(p) {
+  if (!p || !productIsInventoryItem(p)) return;
   pendingScheduleProductId = String(p.id || '');
   const confirm = document.getElementById('confirmScheduleProduct');
   const text = document.getElementById('schedulePendingProductText');
@@ -15252,7 +15416,7 @@ function renderScheduleProductResults(){
     return;
   }
   const value = input.value || '';
-  const matches = productSearchMatches(value, 8);
+  const matches = productSearchMatches(value, 8, true);
   box.innerHTML = matches.length ? matches.map(p => productCardHtml(p, 'schedule')).join('') : '<div class="muted">找不到符合的產品，請改用產品編號、條碼或名稱搜尋。</div>';
   if (hint) hint.textContent = value.trim() ? `找到 ${matches.length} 筆候選商品；零庫存商品仍會顯示。` : `共 ${scheduleProducts.length} 個商品，目前先顯示前 ${matches.length} 筆。`;
 }
@@ -15405,6 +15569,7 @@ function refreshStockDocumentTotals() {
 function addStockInRow(p) {
   const tbody = document.getElementById('stockInRows');
   if (!tbody || !p) return;
+  if (!productIsInventoryItem(p)) return;
   const isFirstLine = !tbody.querySelector('.stock-in-line');
   tbody.querySelector('.empty-stock-row')?.remove();
   tbody.insertAdjacentHTML('beforeend', stockInRowHtml(p));
@@ -15451,23 +15616,25 @@ function renderStockProductResults() {
     loadScheduleProducts().then(() => renderStockProductResults());
     return;
   }
-  const matches = productSearchMatches(input.value, 10);
+  const matches = productSearchMatches(input.value, 10, true);
   box.innerHTML = matches.length ? matches.map(p => productCardHtml(p, 'stock')).join('') : '';
 }
 let salesOutRowSeq = <?= (int)($salesOutRowIndex ?? 0) ?>;
 function salesOutRowHtml(p) {
   const idx = salesOutRowSeq++;
-  const available = scheduleProductAvailable(p);
+  const available = productIsInventoryItem(p) ? scheduleProductAvailable(p) : 9999;
+  const availableLabel = productIsInventoryItem(p) ? String(scheduleProductAvailable(p)) : '不計庫存';
   const productText = `${p.id || ''}${p.title ? ' - ' + p.title : ''}`;
   const specText = [p.color, p.size, p.spec].filter(Boolean).join(' / ') || '-';
-  const stockName = p.warehouse_name || '-';
-  const positionText = stockPositionLabel(p.shelf_code, p.warehouse_location) || '-';
+  const stockName = productIsInventoryItem(p) ? (p.warehouse_name || '-') : '不佔倉';
+  const positionText = productIsInventoryItem(p) ? (stockPositionLabel(p.shelf_code, p.warehouse_location) || '-') : '-';
   const unitPrice = Number(p.sale_price || p.reference_price || p.cost || 0);
+  const maxAttr = productIsInventoryItem(p) ? ` max="${available}"` : '';
   return `<tr class="sales-out-line" data-product-id="${escapeHtml(p.id || '')}">
     <td><b>${escapeHtml(productText)}</b><input type="hidden" name="sales_items[${idx}][product_key]" value="${escapeHtml(p.id || p.barcode || '')}"></td>
     <td>${escapeHtml(p.barcode || '')}<br><small>${escapeHtml(specText)}</small></td>
-    <td>${available}</td>
-    <td><input class="sales-line-qty" name="sales_items[${idx}][qty]" type="number" min="1" max="${available}" value="1" required></td>
+    <td>${escapeHtml(availableLabel)}</td>
+    <td><input class="sales-line-qty" name="sales_items[${idx}][qty]" type="number" min="1"${maxAttr} value="1" required></td>
     <td><input class="sales-line-price" name="sales_items[${idx}][unit_price]" type="number" min="0" step="0.01" value="${unitPrice}"></td>
     <td class="sales-line-subtotal">${escapeHtml(formatMoney(unitPrice))}</td>
     <td>${escapeHtml(stockName)}</td>
@@ -15499,7 +15666,7 @@ function refreshSalesDocumentTotals() {
 function addSalesOutRow(p) {
   const tbody = document.getElementById('salesOutRows');
   if (!tbody || !p) return;
-  if (scheduleProductAvailable(p) <= 0) return;
+  if (productIsInventoryItem(p) && scheduleProductAvailable(p) <= 0) return;
   tbody.querySelector('.empty-sales-row')?.remove();
   tbody.insertAdjacentHTML('beforeend', salesOutRowHtml(p));
   refreshSalesDocumentTotals();
@@ -15539,7 +15706,7 @@ document.getElementById('scheduleProductSearch')?.addEventListener('keydown', (e
   if (event.key !== 'Enter') return;
   event.preventDefault();
   withScheduleProducts(() => {
-    const product = productSearchMatches(event.currentTarget.value, 1)[0];
+    const product = productSearchMatches(event.currentTarget.value, 1, true)[0];
     if (product) setScheduleProduct(product);
   });
 });
@@ -15591,7 +15758,7 @@ document.getElementById('stockProductSearch')?.addEventListener('keydown', (even
   event.preventDefault();
   const input = event.currentTarget;
   withScheduleProducts(() => {
-    const product = findScheduleProduct(input.value) || productSearchMatches(input.value, 1)[0];
+    const product = findScheduleProduct(input.value) || productSearchMatches(input.value, 1, true)[0];
     if (product) setStockProduct(product);
   });
 });
@@ -16244,8 +16411,8 @@ function setOpsStaffPermissionSelection(selectAll) {
 }
 function setOpsStaffPermissionRole(role) {
   const presets = {
-    shelf: ['overview','products','product-categories','shopee-workspace','color-modules','stock-search','schedule','facebook-daily','post-scripts','settlement'],
-    ship: ['overview','members','member-create','customer-shipping','orders','settlement','settlement-edit','logistics','document-center'],
+    shelf: ['overview','products','product-categories','shopee-workspace','color-modules','stock-search','wage-items','logistics-items','schedule','facebook-daily','post-scripts','settlement'],
+    ship: ['overview','members','member-create','customer-shipping','orders','settlement','settlement-edit','logistics','logistics-items','document-center'],
     warehouse: ['overview','stock-search','stock-in','inventory-count','inventory-transfer','finance-loss','finance-overage','warehouses','document-center'],
     finance: ['overview','document-center','finance-reconcile','finance-collection','finance-request','finance-bad-debt','finance-analytics','finance-report','finance-expense-categories','finance-fixed-expense','finance-fixed-asset','finance-mobile-asset']
   };

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-service-items-lib.php';
+
 const PRODUCT_CATEGORY_TREE_VERSION = 1;
 
 function product_category_root_groups(): array
@@ -237,6 +239,17 @@ function product_category_classify(array $row): array
         $productSpec = trim((string)$row['spec']);
     }
     $hay = product_category_haystack($row);
+
+    if (!product_is_inventory_item($row)) {
+        $kind = product_service_kind($row);
+        $meta = product_service_meta($kind);
+        return [
+            'group' => $meta['group'] ?? $oldGroup,
+            'type' => $meta['type'] ?? ($oldType !== '' ? $oldType : '工資'),
+            'brand' => $oldBrand === '不指定品牌' ? '' : $oldBrand,
+            'spec' => $oldSpec,
+        ];
+    }
 
     $fashionType = product_category_fashion_type($hay);
     $isFashion = $oldType === '服飾專區' || $oldGroup === '服裝' || $oldGroup === '服裝部門'

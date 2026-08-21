@@ -524,7 +524,7 @@ function product_apply_rule_descriptions(array $products, array $catalogItems, a
         if (!is_array($product)) continue;
         $id = (string)($product['id'] ?? '');
         if ($idFilter && ($id === '' || !isset($idFilter[$id]))) continue;
-        if ($onlyInStock && product_row_available_qty($product) <= 0) {
+        if ($onlyInStock && (product_row_available_qty($product) <= 0 || (function_exists('product_is_inventory_item') && !product_is_inventory_item($product)))) {
             $skippedNoStock++;
             continue;
         }

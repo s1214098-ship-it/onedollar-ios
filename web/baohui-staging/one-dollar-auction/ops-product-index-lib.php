@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-data-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-service-items-lib.php';
 
 function ops_product_images($product): array
 {
@@ -49,6 +50,8 @@ function ops_product_index_row($product): array
         'purchase_weight_kg' => (float)($p['purchase_weight_kg'] ?? 0),
         'sale_price' => (float)($p['sale_price'] ?? 0),
         'reference_price' => (float)($p['reference_price'] ?? 0),
+        'item_kind' => (string)($p['item_kind'] ?? ''),
+        'is_inventory' => function_exists('product_is_inventory_item') ? product_is_inventory_item($p) : true,
         'images' => ops_product_images($p),
     ];
 }
