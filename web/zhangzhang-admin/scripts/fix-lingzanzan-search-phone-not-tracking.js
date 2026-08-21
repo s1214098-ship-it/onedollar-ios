@@ -2,10 +2,10 @@
 "use strict";
 
 /**
- * 出貨核對貼完整電話時，不准拿訂單編號、物流單後 4 碼、或別人的電話去撞。
- * 例：0909364042 的 4042 對到 E16759034042，跳出 Alongkong。
+ * 完整電話不准拿訂單編號、物流單後 4 碼、或別人的電話去撞。
+ * 出貨核對與訂單追蹤頁都要這樣。訂單追蹤頁若沒刷新 cache，會繼續誤打 14 筆。
  *
- * Cache-bust: admin.js ?v=20260821-search-phone-1
+ * Cache-bust: admin.js / admin.css ?v=20260821-search-phone-2
  */
 
 const fs = require("fs");
@@ -13,9 +13,12 @@ const path = require("path");
 
 const ROOT = process.env.LINGZANZAN_ROOT || "F:/Web/lingzanzan-staging";
 const ADMIN_JS = path.join(ROOT, "assets", "admin.js");
+const ADMIN_CSS = path.join(ROOT, "assets", "admin.css");
 const LOOKUP = path.join(ROOT, "customer-shipping-lookup-api.php");
-const STAMP = "20260821-search-phone-1";
+const STAMP = "20260821-search-phone-2";
 const JS_MARKER = "function freightQueryLooksLikePhone(";
+const TRACKING_MARKER = "freightQueryLooksLikePhone(query)";
+const CSS_MARKER = "/* 20260821 tracking summary split */";
 
 function backup(file, tag) {
   const dir = path.join(ROOT, "data", "audit");
@@ -287,22 +290,80 @@ const PHP_MATCH_NEW = `        $matches = query_hits_phone($phone, $queryDigits)
             $matches = str_contains(compact_key($orderId), $queryKey);
         }`;
 
+const TRACKING_FILTER_OLD = `      if (query && !orderTextMatches(orderTrackingEntryText(entry), query)) return false;`;
+
+const TRACKING_FILTER_NEW = `      if (query && freightQueryLooksLikePhone(query)) {
+        var rec = entry.record || {};
+        var ord = entry.order || {};
+        if (!freightRowPhonesExact(rec, query) && !freightRowPhonesExact(ord, query)) return false;
+      } else if (query && !orderTextMatches(orderTrackingEntryText(entry), query)) return false;`;
+
+const TRACKING_ROWS_OLD = `      var sectionRows = orderTrackingFilterEntries(entries[category], category, now);
+      var dataReady = orderTrackingSectionDataReady(category);
+      globalRows = globalRows.concat(sectionRows);`;
+
+const TRACKING_ROWS_NEW = `      var sectionRows = orderTrackingFilterEntries(entries[category], category, now);
+      var dataReady = orderTrackingSectionDataReady(category);
+      if (dataReady) {
+        globalRows = globalRows.concat(sectionRows);
+        trackingCategoryCounts[category] = sectionRows.length;
+      }`;
+
+const TRACKING_GLOBAL_OLD = `    var globalRows = [];
+    // 搜尋時只展開有命中的分類。這保留平常的延遲載入，避免四區同時
+    // 建立大量 DOM；也讓姓名／電話搜尋不必再手動猜要展開哪一區。`;
+
+const TRACKING_GLOBAL_NEW = `    var globalRows = [];
+    var trackingCategoryCounts = { ready: 0, preorder: 0, live: 0, inquiry: 0 };
+    // 搜尋時只展開有命中的分類。這保留平常的延遲載入，避免四區同時
+    // 建立大量 DOM；也讓姓名／電話搜尋不必再手動猜要展開哪一區。`;
+
+const TRACKING_SUMMARY_OLD = `      if (orderTrackingAwaitingOrders) {
+        summary.innerHTML = '<article><span>目前符合</span><strong>讀取中</strong></article><article><span>準備出貨</span><strong>讀取中</strong></article><article class="is-danger"><span>超過 12 天</span><strong>讀取中</strong></article><article><span>配送中</span><strong>讀取中</strong></article><article><span>到達門市</span><strong>讀取中</strong></article><article><span>取件完成</span><strong>讀取中</strong></article>';
+      } else {
+        var unshipped = globalRows.filter(orderTrackingIsUnshipped).length;
+        var overdue = globalRows.filter(function (entry) { return orderTrackingIsOverdue(entry, now); }).length;
+        var shipped = globalRows.filter(function (entry) { return entry.stage === 'shipped'; }).length;
+        var arrivedStore = globalRows.filter(function (entry) { return entry.stage === 'arrived_store'; }).length;
+        var delivered = globalRows.filter(function (entry) { return entry.stage === 'delivered'; }).length;
+        summary.innerHTML = '<article><span>目前符合</span><strong>' + globalRows.length + '</strong></article><article><span>準備出貨</span><strong>' + unshipped + '</strong></article><article class="is-danger"><span>超過 12 天</span><strong>' + overdue + '</strong></article><article><span>配送中</span><strong>' + shipped + '</strong></article><article><span>到達門市</span><strong>' + arrivedStore + '</strong></article><article><span>取件完成</span><strong>' + delivered + '</strong></article>';
+      }`;
+
+const TRACKING_SUMMARY_NEW = `      if (orderTrackingAwaitingOrders || orderTrackingAwaitingInquiries) {
+        summary.innerHTML = '<article><span>目前符合</span><strong>讀取中</strong></article><article><span>準備出貨</span><strong>讀取中</strong></article><article class="is-danger"><span>超過 12 天</span><strong>讀取中</strong></article><article><span>配送中</span><strong>讀取中</strong></article><article><span>到達門市</span><strong>讀取中</strong></article><article><span>取件完成</span><strong>讀取中</strong></article>';
+      } else {
+        var unshipped = globalRows.filter(orderTrackingIsUnshipped).length;
+        var overdue = globalRows.filter(function (entry) { return orderTrackingIsOverdue(entry, now); }).length;
+        var shipped = globalRows.filter(function (entry) { return entry.stage === 'shipped'; }).length;
+        var arrivedStore = globalRows.filter(function (entry) { return entry.stage === 'arrived_store'; }).length;
+        var delivered = globalRows.filter(function (entry) { return entry.stage === 'delivered'; }).length;
+        var split = '現貨 ' + trackingCategoryCounts.ready + '／預購 ' + trackingCategoryCounts.preorder + '／直播 ' + trackingCategoryCounts.live + '／詢問 ' + trackingCategoryCounts.inquiry;
+        summary.innerHTML = '<article><span>目前符合</span><strong>' + globalRows.length + '</strong><small class="order-tracking-summary-split">' + split + '</small></article><article><span>準備出貨</span><strong>' + unshipped + '</strong></article><article class="is-danger"><span>超過 12 天</span><strong>' + overdue + '</strong></article><article><span>配送中</span><strong>' + shipped + '</strong></article><article><span>到達門市</span><strong>' + arrivedStore + '</strong></article><article><span>取件完成</span><strong>' + delivered + '</strong></article>';
+      }`;
+
+const CSS_PATCH = `
+${CSS_MARKER}
+.order-tracking-summary article small.order-tracking-summary-split {
+  display: block;
+  margin-top: 4px;
+  color: #c9c1ca;
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+`;
+
 function stampHtml(dir) {
-  const names = [
-    "admin-freight.html",
-    "admin-orders.html",
-    "admin-preorders.html",
-    "admin-live.html",
-    "admin-reserved-shipping.html",
-    "admin.html",
-  ];
+  const names = fs.readdirSync(dir).filter((name) => /\.html$/i.test(name));
   let n = 0;
   names.forEach((name) => {
     const file = path.join(dir, name);
-    if (!fs.existsSync(file)) return;
+    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return;
     const html = fs.readFileSync(file, "latin1");
-    if (html.indexOf("admin.js") === -1) return;
-    const next = html.replace(/admin\.js(?:\?v=[^"']+)?/g, "admin.js?v=" + STAMP);
+    if (html.indexOf("admin.js") === -1 && html.indexOf("admin.css") === -1) return;
+    const next = html
+      .replace(/admin\.js(?:\?v=[^"']+)?/g, "admin.js?v=" + STAMP)
+      .replace(/admin\.css(?:\?v=[^"']+)?/g, "admin.css?v=" + STAMP);
     if (next === html) return;
     fs.writeFileSync(file, Buffer.from(next, "latin1"));
     n += 1;
@@ -325,9 +386,29 @@ if (js.indexOf(JS_MARKER) === -1) {
   js = replaceOnce(js, ORDER_PHONE_OLD, ORDER_PHONE_NEW, "order search phone exact, no order id");
   js = replaceOnce(js, RESERVED_OLD, RESERVED_NEW, "reserved phone exact");
 } else {
-  console.log("js already patched");
+  console.log("js helpers already");
+}
+if (js.indexOf("freightRowPhonesExact(rec, query)") === -1) {
+  js = replaceOnce(js, TRACKING_FILTER_OLD, TRACKING_FILTER_NEW, "tracking phone exact, no order id");
+  js = replaceOnce(js, TRACKING_GLOBAL_OLD, TRACKING_GLOBAL_NEW, "tracking category counts");
+  js = replaceOnce(js, TRACKING_ROWS_OLD, TRACKING_ROWS_NEW, "summary counts ready sections only");
+  js = replaceOnce(js, TRACKING_SUMMARY_OLD, TRACKING_SUMMARY_NEW, "tracking summary split + wait inquiries");
+} else {
+  console.log("tracking page already patched");
 }
 fs.writeFileSync(ADMIN_JS, js);
+
+if (fs.existsSync(ADMIN_CSS)) {
+  console.log("backup css", backup(ADMIN_CSS, "search-phone"));
+  let css = fs.readFileSync(ADMIN_CSS, "utf8");
+  if (css.indexOf(CSS_MARKER) === -1) {
+    css = css.replace(/\s*$/, "") + "\n" + CSS_PATCH;
+    console.log("css summary split");
+  } else {
+    console.log("css already");
+  }
+  fs.writeFileSync(ADMIN_CSS, css);
+}
 stampHtml(ROOT);
 
 if (fs.existsSync(LOOKUP)) {
@@ -349,8 +430,6 @@ if (fs.existsSync(LOOKUP)) {
 if (js.indexOf(JS_MARKER) === -1) throw new Error("phone helper missing");
 if (js.indexOf("freightRowPhonesExact(row, phoneDigits)") === -1) throw new Error("fifo exact phone missing");
 if (js.indexOf("freightRowPhonesExact(order, queryDigits)") === -1) throw new Error("order exact phone missing");
-if (js.indexOf("if (freightQueryLooksLikePhone(phoneDigits)) return false;") === -1
-    && js.indexOf("if (freightQueryLooksLikePhone(phoneDigits)) return false;\r") === -1) {
-  throw new Error("fifo still falls through complete phones");
-}
+if (js.indexOf("freightRowPhonesExact(rec, query)") === -1) throw new Error("tracking phone exact missing");
+if (js.indexOf("order-tracking-summary-split") === -1) throw new Error("tracking summary split missing");
 console.log("done", STAMP);

@@ -125,4 +125,21 @@ assert(
   "sanity: phone is not a substring of this order id"
 );
 
+function trackingPhoneMatch(entry, query) {
+  if (!freightQueryLooksLikePhone(query)) return "not-phone";
+  return freightRowPhonesExact(entry.record || {}, query) || freightRowPhonesExact(entry.order || {}, query);
+}
+
+const alongkongEntry = {
+  record: alongkong,
+  order: alongkong,
+};
+const shofiEntry = {
+  record: shofi,
+  order: shofi,
+};
+assert(trackingPhoneMatch(alongkongEntry, "0909364042") === false, "tracking page must not hit Alongkong for Shofi phone");
+assert(trackingPhoneMatch(shofiEntry, "0909364042") === true, "tracking page hits exact phone");
+assert(trackingPhoneMatch(alongkongEntry, "0987147505") === true, "tracking page hits Alongkong own phone");
+
 console.log("search-phone rules ok");
