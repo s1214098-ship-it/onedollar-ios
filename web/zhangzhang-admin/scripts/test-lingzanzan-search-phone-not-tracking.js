@@ -7,7 +7,7 @@
 
 function freightQueryLooksLikePhone(raw) {
   var digits = String(raw || "").replace(/\D/g, "");
-  return /^(0?9\d{8}|0?8\d{8,12}|62\d{8,13})$/.test(digits);
+  return /^(0?9\d{8}|0[2-8]\d{7,9}|0?8\d{8,12}|62\d{8,13})$/.test(digits);
 }
 
 function freightPhoneKey(raw) {
@@ -66,8 +66,29 @@ function freightDigitsHayMatch(hay, raw) {
   });
 }
 
+function freightExtractCompletePhones(raw) {
+  var s = String(raw || "");
+  var found = [];
+  function add(value) {
+    var digits = String(value || "").replace(/\D/g, "");
+    if (freightQueryLooksLikePhone(digits) && found.indexOf(digits) === -1) found.push(digits);
+  }
+  add(s);
+  (s.match(/\d+/g) || []).forEach(add);
+  var joined = s.replace(/[\s\-()+]/g, "");
+  if (/^\d+$/.test(joined)) add(joined);
+  return found;
+}
+
 function fifoDigitMatch(row, raw) {
-  var phoneDigits = String(raw || "").replace(/\D/g, "");
+  raw = String(raw || "").trim();
+  var extracted = freightExtractCompletePhones(raw);
+  if (extracted.length) {
+    return extracted.some(function (phone) {
+      return freightRowPhonesExact(row, phone);
+    });
+  }
+  var phoneDigits = raw.replace(/\D/g, "");
   if (!(phoneDigits.length >= 4 && phoneDigits === String(raw || "").replace(/[\s\-()+]/g, ""))) {
     return "keyword";
   }
@@ -141,5 +162,22 @@ const shofiEntry = {
 assert(trackingPhoneMatch(alongkongEntry, "0909364042") === false, "tracking page must not hit Alongkong for Shofi phone");
 assert(trackingPhoneMatch(shofiEntry, "0909364042") === true, "tracking page hits exact phone");
 assert(trackingPhoneMatch(alongkongEntry, "0987147505") === true, "tracking page hits Alongkong own phone");
+
+assert(
+  freightExtractCompletePhones("Shofi(Shofi Azzahra) 7-11秀湖(255000) 0909364042---").indexOf("0909364042") !== -1,
+  "LINE paste still extracts the complete mobile"
+);
+assert(
+  freightExtractCompletePhones("0909-364-042").indexOf("0909364042") !== -1,
+  "hyphenated mobile is a complete phone"
+);
+assert(
+  freightExtractCompletePhones("E16759034042").length === 0,
+  "7-11 tracking is not a complete phone"
+);
+assert(
+  fifoDigitMatch(alongkong, "Shofi 7-11秀湖(255000) 0909364042---") === false,
+  "LINE paste with Shofi phone must not hit Alongkong"
+);
 
 console.log("search-phone rules ok");
