@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Blocking, no-cache boot script: stamp JS/CSS with file mtime and
- * offer a one-click reload when the running page is behind.
+ * auto-reload when the running page is behind.
  */
 
 header('Content-Type: application/javascript; charset=utf-8');
@@ -93,35 +93,25 @@ if ($json === false) {
     next();
   }
 
-  function showBanner() {
-    if (document.getElementById("lz-asset-refresh-banner")) return;
-    var bar = document.createElement("div");
-    bar.id = "lz-asset-refresh-banner";
-    bar.setAttribute("role", "status");
-    bar.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;background:#241b27;color:#fff;font:600 14px/1.4 sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.25);";
-    var msg = document.createElement("span");
-    msg.textContent = "後台已更新，點這裡套用新功能（目前畫面不會自動重整）";
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.textContent = "套用";
-    btn.style.cssText = "border:0;border-radius:8px;padding:6px 14px;background:#fff;color:#241b27;font:700 14px/1 sans-serif;cursor:pointer;";
-    btn.onclick = function () { location.reload(); };
-    var later = document.createElement("button");
-    later.type = "button";
-    later.textContent = "稍後";
-    later.style.cssText = "border:0;background:transparent;color:#f3eef5;font:600 13px/1 sans-serif;cursor:pointer;";
-    later.onclick = function () { if (bar.parentNode) bar.parentNode.removeChild(bar); };
-    bar.appendChild(msg);
-    bar.appendChild(btn);
-    bar.appendChild(later);
-    (document.body || document.documentElement).appendChild(bar);
+  function applyUpdate() {
+    if (window.__LZ_ASSET_RELOADING) return;
+    window.__LZ_ASSET_RELOADING = true;
+    if (!document.getElementById("lz-asset-refresh-banner")) {
+      var bar = document.createElement("div");
+      bar.id = "lz-asset-refresh-banner";
+      bar.setAttribute("role", "status");
+      bar.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:2147483000;padding:10px 16px;background:#241b27;color:#fff;font:600 14px/1.4 sans-serif;text-align:center;";
+      bar.textContent = "後台已更新，正在自動套用…";
+      (document.body || document.documentElement).appendChild(bar);
+    }
+    location.reload();
   }
 
   function checkForUpdate() {
     fetch("./asset-version.php", { cache: "no-store" })
       .then(function (res) { return res.json(); })
       .then(function (next) {
-        if (next && next.v && String(next.v) !== currentV) showBanner();
+        if (next && next.v && String(next.v) !== currentV) applyUpdate();
       })
       .catch(function () {});
   }
@@ -133,7 +123,8 @@ if ($json === false) {
     loadScripts();
   }
 
-  setInterval(checkForUpdate, 45000);
+  setTimeout(checkForUpdate, 1200);
+  setInterval(checkForUpdate, 8000);
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible") checkForUpdate();
   });

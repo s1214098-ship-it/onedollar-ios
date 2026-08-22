@@ -2,8 +2,8 @@
 "use strict";
 
 /**
- * 後台 JS/CSS 改由 asset-boot.php 依檔案時間載入，已開著的分頁
- * 若版本變了只出現「套用」列，不自動整頁閃掉。
+ * 後台 JS/CSS 改由 asset-boot.php 依檔案時間載入。
+ * 偵測到新版本後自動重整套用，不必再按「套用」。
  *
  * 不改 admin.js 業務邏輯。HTML 只做 latin1 ASCII 取代。
  */

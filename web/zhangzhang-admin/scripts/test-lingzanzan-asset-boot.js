@@ -59,4 +59,12 @@ const crlf = sample.replace(/\n/g, "\r\n");
 const crlfOut = transformHtml(crlf);
 assert(crlfOut.indexOf("\r\n  <script src=\"./asset-boot.php\"></script>") !== -1, "crlf pages keep crlf after head");
 
+const fs = require("fs");
+const path = require("path");
+const bootPhp = fs.readFileSync(path.join(__dirname, "..", "lingzanzan-pages", "asset-boot.php"), "utf8");
+assert(bootPhp.indexOf("location.reload()") !== -1, "boot reloads when assets change");
+assert(bootPhp.indexOf("applyUpdate") !== -1, "boot uses applyUpdate");
+assert(bootPhp.indexOf("點這裡套用") === -1, "boot no longer asks to click 套用");
+assert(bootPhp.indexOf("稍後") === -1, "boot no longer has 稍後");
+
 console.log("all asset boot html tests passed");

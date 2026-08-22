@@ -7,6 +7,9 @@ const {
   fifoHoldSaveLabel,
   fifoHoldNeedReasonMessage,
   fifoHoldJumpNote,
+  fifoHoldPanelTitle,
+  fifoHoldIsUnderShipping,
+  fifoHoldIsAfterShare,
 } = require("./lz-fifo-hold-button");
 
 function assert(cond, label) {
@@ -30,6 +33,14 @@ assert(fifoHoldSaveLabel(false) === "加入寄庫名單", "new hold button");
 assert(fifoHoldSaveLabel(true) === "更新寄庫原因", "existing hold button");
 assert(fifoHoldNeedReasonMessage().indexOf("預約指定出貨日") !== -1, "error distinguishes 預約");
 assert(fifoHoldJumpNote().indexOf("加入寄庫名單") !== -1, "section ⑤ points to the button");
-assert(fifoHoldJumpNote().indexOf("②") !== -1, "section ⑤ points up to customer block");
+assert(fifoHoldJumpNote().indexOf("超商出貨") !== -1, "section ⑤ points to the shipping field");
+assert(fifoHoldPanelTitle() === "寄庫（先不出貨）", "title matches 超商／住家 wording");
+
+const afterShare = `data-freight-fifo-share>LINE 傳送／出貨小卡</button></div></div><div class="freight-fifo-reservation"`;
+const underShip = `}, { textarea: true, hiddenAttrs: 'data-freight-fifo-address' }) + '<div class="freight-fifo-reservation"`;
+assert(fifoHoldIsAfterShare(afterShare) === true, "detects hold after LINE share");
+assert(fifoHoldIsUnderShipping(underShip) === true, "detects hold under 超商／住家");
+assert(fifoHoldIsUnderShipping(afterShare) === false, "share placement is not shipping placement");
+assert(fifoHoldIsAfterShare(underShip) === false, "shipping placement is not share placement");
 
 console.log("LINGZANZAN fifo hold button tests ok");
