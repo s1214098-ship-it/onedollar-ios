@@ -1,0 +1,14 @@
+{
+  "name": "zhangzhang-admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "張張管理後台伺服器：電腦現貨入庫、產品條碼、貨倉、一元競標排程與得標結算。",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/api.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

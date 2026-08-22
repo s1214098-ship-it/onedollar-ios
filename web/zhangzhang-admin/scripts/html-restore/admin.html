@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LINGZANZAN 管理者後台</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="stylesheet" href="./assets/admin.css?v=20260819-card-price-1">
+  <link rel="stylesheet" href="./assets/admin-navigation.css?v=20260818-admin-staff-watch-1" data-admin-navigation-style>
+  <link rel="stylesheet" href="./assets/admin-overview-dashboard.css?v=20260805-local438-overview-ten-per-page">
+</head>
+<body class="labels-ready">
+  <script>
+    var loginParams = new URLSearchParams(location.search);
+    var loginKey = 'lingzanzan-v1-admin-login';
+    if (loginParams.get('resetLogin') === '1') localStorage.removeItem(loginKey);
+    if (loginParams.get('login') === 'sales') {
+      localStorage.removeItem(loginKey);
+      document.documentElement.setAttribute('data-sales-entry', 'true');
+    } else {
+      try {
+        var cachedLogin = JSON.parse(localStorage.getItem(loginKey) || '{}');
+        if (cachedLogin.version === 'password-login-v2' && cachedLogin.serverSession === true && ['admin', 'staff'].indexOf(cachedLogin.role) !== -1 && cachedLogin.until && Date.now() < cachedLogin.until) {
+          document.body.classList.add('is-admin-unlocked');
+        }
+      } catch (error) {}
+    }
+  </script>
+
+  <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="LINGZANZAN">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>請輸入帳號與密碼登入；同一台瀏覽器 24 小時內不用重複登入。</span>
+      <input data-login-account type="text" placeholder="輸入帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button>
+      <a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint>管理者與行政人員使用後台；業務請使用業務登入入口。</small>
+    </form>
+  </div>
+
+  <div class="admin-top-actions" hidden>
+    <span class="login-identity" data-current-user hidden></span>
+    <a href="./">回首頁</a>
+    <button type="button" data-logout-admin>登出</button>
+  </div>
+
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+      <nav class="overview-complete-nav">
+        <a class="is-active" href="./admin.html">總覽</a>
+        <a href="./admin-security.html">管理者</a>
+        <a href="./admin-staff.html">員工管理</a>
+        <a href="./admin-members.html">會員管理</a>
+        <a href="./admin-sales.html">業務管理</a>
+        <a href="./admin-products.html">產品管理</a>
+        <a href="./admin-style-columns.html">首頁區塊</a>
+        <a href="./admin-orders.html">現貨打單</a>
+        <a href="./admin-preorders.html">預購打單</a>
+        <a href="./admin-purchase.html">採購區</a>
+        <a href="./admin-live.html">直播打單</a>
+        <a href="./admin-inquiries.html">客戶詢問</a>
+        <a href="./admin-inventory.html">貨倉管理</a>
+        <a href="./admin-logistics.html">物流回報</a>
+        <a href="./admin-freight.html">物流集運</a>
+        <a href="./admin-profit.html">營銷毛利</a>
+        <a href="./admin-finance.html">財務系統</a>
+        <a href="./admin-backup.html">備份還原</a>
+        <a href="./scanner.html">盤點機 APP</a>
+      </nav>
+    </aside>
+
+    <main class="admin-main">
+      <header class="admin-hero">
+        <div>
+          <p>ADMIN MODE</p>
+          <h1>管理者總覽</h1>
+          <span>管理者、行政人員、會員、產品、訂單、貨倉與物流都集中管理。</span>
+        </div>
+        <a href="./">查看前台</a>
+      </header>
+
+      <section class="stats" data-admin-stats>
+        <article class="overview-stat-card"><a class="overview-stat-link" href="./admin-products.html" aria-label="查看商品與產品管理"><span>商品</span><strong data-stat-products>0</strong><small>查看產品管理 →</small></a></article>
+        <article class="overview-stat-card"><a class="overview-stat-link" href="./admin-products.html" aria-label="查看 SKU 與條碼資料"><span>SKU</span><strong data-stat-skus>0</strong><small>查看 SKU／條碼 →</small></a></article>
+        <article class="overview-stat-card"><a class="overview-stat-link" href="./admin-inventory.html#inventory" aria-label="查看台灣倉庫存"><span>台灣倉庫存</span><strong data-stat-tw>0</strong><small>查看台灣倉 →</small></a></article>
+        <article class="overview-stat-card"><a class="overview-stat-link" href="./admin-inventory.html#inventory" aria-label="查看中國倉庫存"><span>中國倉庫存</span><strong data-stat-cn>0</strong><small>查看中國倉 →</small></a></article>
+        <article class="overview-stat-card"><a class="overview-stat-link" href="./admin-inventory.html#inventory" aria-label="查看印尼倉庫存"><span>印尼倉庫存</span><strong data-stat-id>0</strong><small>查看印尼倉 →</small></a></article>
+        <article class="overview-stat-card"><a class="overview-stat-link" href="./admin-orders.html" aria-label="查看全部訂單"><span>訂單總數</span><strong data-stat-orders>0</strong><small>查看全部訂單 →</small></a></article>
+        <article class="overview-stat-card"><a class="overview-stat-link" href="./admin-orders.html" aria-label="查看今日業務訂單"><span>今日業務訂單</span><strong data-stat-today-orders>0</strong><small>查看今日訂單 →</small></a></article>
+        <article class="overview-stat-card"><a class="overview-stat-link" href="./admin-orders.html" aria-label="查看未處理訂單"><span>未處理訂單</span><strong data-stat-pending-orders>0</strong><small>查看待處理訂單 →</small></a></article>
+      </section>
+
+      <section class="overview-workboard" data-overview-dashboard>
+        <header class="overview-workboard-head">
+          <div>
+            <small>DAILY OPERATIONS</small>
+            <h2>出貨與物流工作追蹤</h2>
+            <p>先顯示行政每天需要處理的訂單與集運進度；不在總覽載入完整流量報表。</p>
+          </div>
+          <button type="button" data-overview-refresh>重新整理</button>
+        </header>
+
+        <section class="overview-finance-board" aria-labelledby="overview-finance-title">
+          <header>
+            <div>
+              <small>FINANCE &amp; DOCUMENTS</small>
+              <h3 id="overview-finance-title">帳務與未完成單據</h3>
+              <p>預購尚未出貨的尾款不列欠款；實際出貨後仍未收回才列應收。</p>
+            </div>
+            <a href="./admin-finance.html">前往財務系統</a>
+          </header>
+          <div class="overview-finance-grid" aria-live="polite">
+            <a class="overview-finance-card is-debt" href="./admin-finance.html" aria-label="查看已出貨欠款與應收帳款">
+              <span>已出貨欠款／應收</span>
+              <strong data-overview-finance-receivable>讀取中…</strong>
+              <small data-overview-finance-debt-detail>正在核對已出貨單據</small>
+            </a>
+            <a class="overview-finance-card is-paid" href="./admin-finance.html" aria-label="查看訂單累計已收款">
+              <span>累計已收款</span>
+              <strong data-overview-finance-received>讀取中…</strong>
+              <small data-overview-finance-received-detail>已出貨收款加未出貨預收</small>
+            </a>
+            <a class="overview-finance-card is-deposit" href="./admin-preorders.html" aria-label="查看未出貨預購的已收訂金與預收款">
+              <span>未出貨已收訂金／預收款</span>
+              <strong data-overview-finance-preorder-paid>讀取中…</strong>
+              <small data-overview-finance-preorder-detail>預購尾款尚未出貨前不算欠款</small>
+            </a>
+            <a class="overview-finance-card is-pending" href="./admin-orders.html" aria-label="查看尚未完成處理的單據">
+              <span>尚未完成處理單據</span>
+              <strong data-overview-finance-unfinished>讀取中…</strong>
+              <small data-overview-finance-unfinished-detail>正在核對現貨與預購單據</small>
+            </a>
+          </div>
+        </section>
+
+        <section class="overview-payment-review" aria-labelledby="overview-payment-review-title">
+          <header>
+            <div>
+              <small>PAYMENT REVIEW · 7 DAYS</small>
+              <h3 id="overview-payment-review-title">七日付款審核</h3>
+              <p>有收款或付款證明的客戶資料保留七天；管理者或具財務權限的行政小姐確認收到前，出貨進度不能推到下一步。</p>
+            </div>
+            <div class="overview-payment-review-counts" data-payment-review-summary>正在讀取付款審核…</div>
+          </header>
+          <div class="overview-payment-review-list" data-payment-review-list aria-live="polite"></div>
+        </section>
+
+        <section class="overview-duplicate-board" data-admin-duplicate-product-list aria-live="polite"></section>
+
+        <div class="overview-workboard-grid">
+          <section class="overview-track-panel">
+            <header>
+              <div><small>SHIPMENT ORDERS</small><h3>出貨訂單詳細</h3></div>
+              <a href="./admin-orders.html">前往現貨打單</a>
+            </header>
+            <div class="overview-track-summary" data-overview-order-summary>正在讀取訂單…</div>
+            <div class="overview-track-list" data-overview-order-list aria-live="polite"></div>
+          </section>
+
+          <section class="overview-track-panel">
+            <header>
+              <div><small>FREIGHT PROGRESS</small><h3>物流集運進度</h3></div>
+              <a href="./admin-freight.html">前往物流集運</a>
+            </header>
+            <div class="overview-track-summary" data-overview-freight-summary>正在讀取集運資料…</div>
+            <div class="overview-track-list" data-overview-freight-list aria-live="polite"></div>
+          </section>
+        </div>
+
+        <section class="overview-missing-barcode" aria-labelledby="overview-missing-barcode-title">
+          <header>
+            <div>
+              <small>BARCODE REQUIRED</small>
+              <h3 id="overview-missing-barcode-title">缺少條碼產品</h3>
+              <p>集中列出物流集運中尚未建立樣品條碼、台灣條碼或公司條碼的品項。</p>
+            </div>
+            <a href="./admin-freight.html">前往物流集運處理</a>
+          </header>
+          <div class="overview-track-summary" data-overview-missing-barcode-summary>正在檢查缺少條碼產品…</div>
+          <div class="overview-missing-barcode-list" data-overview-missing-barcode-list aria-live="polite"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" data-admin-toast hidden></div>
+  <script src="./assets/admin-labels.js?v=20260820-login-restore-1"></script>
+  <script src="./assets/admin.js?v=20260820-preorder-catalog-all-1" defer></script>
+  <script src="./assets/submission-feedback.js?v=20260727-local146-numeric-barcode-phone-1" data-submission-feedback-script defer></script>
+  <script src="./assets/admin-navigation.js?v=20260819-blacklist-phone-2" defer></script>
+  <script src="./assets/admin-overview-dashboard.js?v=20260819-auto-collect-1" defer></script>
+  <script src="./assets/image-upload-paste.js?v=20260819-image-paste-1" defer></script>
+</body>
+</html>

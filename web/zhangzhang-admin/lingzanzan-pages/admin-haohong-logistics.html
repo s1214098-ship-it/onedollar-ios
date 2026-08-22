@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>LINGZANZAN - 豪鴻集運對照</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="stylesheet" href="./assets/admin.css?v=20260819-purchase-dup-1">
+  <link rel="stylesheet" href="./assets/admin-navigation.css?v=20260817-staff-no-finance-1" data-admin-navigation-style>
+  <link rel="stylesheet" href="./assets/admin-haohong-logistics.css?v=20260820-signed-label-1">
+</head>
+<body class="labels-ready">
+  <script>
+    var loginParams = new URLSearchParams(location.search);
+    var loginKey = 'lingzanzan-v1-admin-login';
+    if (loginParams.get('resetLogin') === '1') localStorage.removeItem(loginKey);
+    try {
+      var cachedLogin = JSON.parse(localStorage.getItem(loginKey) || '{}');
+      if (cachedLogin.version === 'password-login-v2' && cachedLogin.serverSession === true && ['admin', 'staff'].indexOf(cachedLogin.role) !== -1 && cachedLogin.until && Date.now() < cachedLogin.until) {
+        document.body.classList.add('is-admin-unlocked');
+      }
+    } catch (error) {}
+  </script>
+  <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>請輸入管理者或員工帳號密碼，登入後可查看豪鴻集運對照表。</span>
+      <input data-login-account type="text" placeholder="輸入帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button>
+      <a class="login-home-link" href="./">回首頁</a>
+    </form>
+  </div>
+  <div class="admin-top-actions" hidden style="display:none">
+    <span class="login-identity" data-current-user hidden></span>
+    <a href="./">回首頁</a>
+    <button type="button" data-logout-admin>登出</button>
+  </div>
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+      <nav>
+        <a href="./admin.html">總覽</a>
+        <a href="./admin-freight.html">物流集運</a>
+        <a class="is-active" href="./admin-haohong-logistics.html">豪鴻集運對照</a>
+      </nav>
+    </aside>
+    <main>
+      <section class="panel haohong-logistics-page">
+        <div class="panel-head">
+          <div>
+            <p>HAOHONG COMPARE</p>
+            <h2>豪鴻集運對照</h2>
+            <span>豪鴻成功簽收的批次／包裹，狀態列會標 <b>已簽收</b>；還沒簽的標待簽收。預設只看未簽收。在豪鴻網站做好批次集運後，按「從豪鴻重新抓」讀清單。</span>
+          </div>
+          <div class="haohong-logistics-actions">
+            <a class="ghost-button" href="https://member.haohong56.com/#/myOrder" target="_blank" rel="noopener">開啟豪鴻我的訂單</a>
+            <a class="ghost-button" href="./admin-freight.html?line=haohong">回物流集運帶入</a>
+            <button type="button" class="primary-button" data-haohong-refresh>從豪鴻重新抓</button>
+          </div>
+        </div>
+        <p class="haohong-logistics-status" data-haohong-status>正在讀取後台豪鴻批號…</p>
+        <form class="haohong-logistics-tools" onsubmit="return false">
+          <label>搜尋
+            <input type="search" data-haohong-search autocomplete="off" placeholder="批號 / 轉運單 / 物流單號 / 品名">
+          </label>
+          <label>狀態
+            <select data-haohong-status-filter>
+              <option value="unsigned" selected>未簽收（要看）</option>
+              <option value="signed">已簽收完成</option>
+              <option value="all">全部</option>
+            </select>
+          </label>
+          <label>比對
+            <select data-haohong-filter>
+              <option value="all">全部</option>
+              <option value="matched">已對上</option>
+              <option value="remote-only">豪鴻有、後台未帶入</option>
+              <option value="local-only">後台有、豪鴻清單沒有</option>
+              <option value="diff">件數不同</option>
+            </select>
+          </label>
+          <div class="haohong-logistics-modes">
+            <button type="button" class="is-active" data-haohong-mode="batches">批次表</button>
+            <button type="button" data-haohong-mode="packages">包裹表</button>
+          </div>
+        </form>
+        <div class="haohong-logistics-summary" data-haohong-summary></div>
+        <div class="haohong-logistics-table-wrap" data-haohong-table></div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" data-admin-toast hidden></div>
+  <script src="./assets/admin.js?v=20260819-purchase-dup-1" defer></script>
+  <script src="./assets/admin-labels.js?v=20260718-preorder-waiting-flow-2" defer></script>
+  <script src="./assets/admin-ui-rescue.js?v=20260817-help-1" defer></script>
+  <script src="./assets/admin-navigation.js?v=20260819-haohong-table-1" defer></script>
+  <script src="./assets/admin-haohong-logistics.js?v=20260820-signed-label-1" defer></script>
+</body>
+</html>
