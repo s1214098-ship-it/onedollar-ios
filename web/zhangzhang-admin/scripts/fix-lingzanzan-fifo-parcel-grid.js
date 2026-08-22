@@ -2,10 +2,10 @@
 "use strict";
 
 /**
- * 出貨單超商／物流包裹改成分隔線＋格子：單號、代收、貨態分開。
- * 不改 .is-active 金鈕，不 stamp 全站 HTML。
+ * 出貨單包裹改成表格清單：表頭＋一包一列，單號／代收／貨態對齊。
+ * 不再做成卡片蛇形堆疊。不改 .is-active 金鈕。
  *
- * Cache-bust: admin.js/css ?v=20260822-parcel-grid-1
+ * Cache-bust: admin.js/css ?v=20260822-parcel-list-1
  */
 
 const fs = require("fs");
@@ -21,7 +21,7 @@ const {
 const ROOT = process.env.LINGZANZAN_ROOT || "F:/Web/lingzanzan-staging";
 const ADMIN_JS = path.join(ROOT, "assets", "admin.js");
 const ADMIN_CSS = path.join(ROOT, "assets", "admin.css");
-const STAMP = "20260822-parcel-grid-1";
+const STAMP = "20260822-parcel-list-1";
 
 function backup(file, tag) {
   const dir = path.join(ROOT, "data", "audit");
@@ -73,14 +73,6 @@ function stampHtml(dir) {
 }
 
 const ROW_OLD = `    return '<div class="freight-fifo-parcel-row" data-freight-fifo-parcel-row>'
-      + '<b>包裹 ' + (index + 1) + '</b>'
-      + '<input data-freight-fifo-parcel-tracking' + firstTrackingAttr + ' value="' + escapeHtml(trackingNo) + '"' + disabled + ' placeholder="' + escapeHtml(placeholder) + '">'
-      + '<input type="number" min="0" step="1" data-freight-fifo-parcel-amount' + autoAmountAttr + ' value="' + (amount > 0 ? amount : '') + '"' + disabled + ' placeholder="' + escapeHtml(amountPlaceholder) + '">'
-      + '<em data-freight-fifo-parcel-status>' + escapeHtml(status) + '</em>'
-      + (index === 0 ? '' : '<button type="button" class="ghost-button" data-freight-fifo-parcel-remove>刪這包</button>')
-      + '</div>';`;
-
-const ROW_NEW = `    return '<div class="freight-fifo-parcel-row" data-freight-fifo-parcel-row>'
       + '<div class="freight-fifo-parcel-head">'
       + '<b>包裹 ' + (index + 1) + '</b>'
       + (index === 0 ? '' : '<button type="button" class="ghost-button" data-freight-fifo-parcel-remove>刪這包</button>')
@@ -96,85 +88,50 @@ const ROW_NEW = `    return '<div class="freight-fifo-parcel-row" data-freight-f
       + '<div class="freight-fifo-parcel-status"><span>貨態</span><em data-freight-fifo-parcel-status>' + escapeHtml(status || '尚未查到貨態') + '</em></div>'
       + '</div>';`;
 
-const RENUM_OLD = `      if (index === 0) {
-        if (remove) remove.remove();
-      } else if (!remove) {
-        row.insertAdjacentHTML('beforeend', '<button type="button" class="ghost-button" data-freight-fifo-parcel-remove>刪這包</button>');
-      }`;
+const ROW_NEW = `    return '<div class="freight-fifo-parcel-row" data-freight-fifo-parcel-row>'
+      + '<b>' + (index + 1) + '</b>'
+      + '<input data-freight-fifo-parcel-tracking' + firstTrackingAttr + ' value="' + escapeHtml(trackingNo) + '"' + disabled + ' placeholder="' + escapeHtml(placeholder) + '">'
+      + '<input type="number" min="0" step="1" data-freight-fifo-parcel-amount' + autoAmountAttr + ' value="' + (amount > 0 ? amount : '') + '"' + disabled + ' placeholder="' + escapeHtml(amountPlaceholder) + '">'
+      + '<em data-freight-fifo-parcel-status>' + escapeHtml(status || '尚未查到貨態') + '</em>'
+      + (index === 0 ? '<span class="freight-fifo-parcel-action"></span>' : '<button type="button" class="ghost-button" data-freight-fifo-parcel-remove>刪這包</button>')
+      + '</div>';`;
 
-const RENUM_NEW = `      if (index === 0) {
+const WRAP_OLD = `      + '<div data-freight-fifo-parcel-rows>' + parcels.map(function (parcel, index) {
+        return freightFifoParcelRowHtml(parcel, index, options);
+      }).join('') + '</div>'`;
+
+const WRAP_NEW = `      + '<div data-freight-fifo-parcel-rows>'
+      + '<div class="freight-fifo-parcel-thead"><span>包裹</span><span>物流單號</span><span>代收金額</span><span>貨態</span><span></span></div>'
+      + parcels.map(function (parcel, index) {
+        return freightFifoParcelRowHtml(parcel, index, options);
+      }).join('') + '</div>'`;
+
+const TITLE_OLD = `      if (title) title.textContent = '包裹 ' + (index + 1);`;
+const TITLE_NEW = `      if (title) title.textContent = String(index + 1);`;
+
+const RENUM_OLD = `      if (index === 0) {
         if (remove) remove.remove();
       } else if (!remove) {
         var head = row.querySelector('.freight-fifo-parcel-head') || row;
         head.insertAdjacentHTML('beforeend', '<button type="button" class="ghost-button" data-freight-fifo-parcel-remove>刪這包</button>');
       }`;
 
-const CSS_OLD = `.freight-fifo-outbound-parcels {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  max-width: 100%;
-  padding: 12px;
-  border: 1px solid rgba(80, 229, 208, 0.4);
-  border-radius: 14px;
-  background: rgba(80, 229, 208, 0.07);
-}
-.freight-fifo-outbound-parcels > label {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  color: #64f0cf;
-  font-weight: 900;
-}
-.freight-fifo-outbound-parcels > label small {
-  color: #c8becb;
-  font-weight: 650;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-.freight-fifo-outbound-parcels [data-freight-fifo-parcel-rows] {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  max-width: 100%;
-}
-.freight-fifo-parcel-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(72px, 110px) auto;
-  gap: 8px;
-  align-items: center;
-  min-width: 0;
-  max-width: 100%;
-  padding: 8px 9px;
-  border: 1px solid rgba(255, 248, 237, 0.14);
-  border-radius: 11px;
-  background: rgba(12, 10, 14, 0.35);
-}
-.freight-fifo-parcel-row > b {
-  color: #ffe09a;
-  white-space: nowrap;
-}
-.freight-fifo-parcel-row input {
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-}
-.freight-fifo-parcel-row em {
-  grid-column: 1 / -1;
-  min-width: 0;
-  color: #b9f6ca;
-  font-style: normal;
-  font-weight: 800;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-.freight-fifo-parcel-row [data-freight-fifo-parcel-remove] {
-  justify-self: end;
-  white-space: nowrap;
-}`;
+const RENUM_NEW = `      if (index === 0) {
+        if (remove) remove.remove();
+        if (!row.querySelector('.freight-fifo-parcel-action')) {
+          row.insertAdjacentHTML('beforeend', '<span class="freight-fifo-parcel-action"></span>');
+        }
+      } else if (!remove) {
+        var placeholder = row.querySelector('.freight-fifo-parcel-action');
+        if (placeholder) placeholder.remove();
+        row.insertAdjacentHTML('beforeend', '<button type="button" class="ghost-button" data-freight-fifo-parcel-remove>刪這包</button>');
+      }`;
 
-const CSS_NEW = `/* 20260822 parcel grid: 超商／物流包裹分隔線與格子 */
+const ADD_OLD = `    wrap.insertAdjacentHTML('beforeend', freightFifoParcelRowHtml({}, wrap.children.length, { disabled: disabled }));`;
+const ADD_NEW = `    var count = wrap.querySelectorAll('[data-freight-fifo-parcel-row]').length;
+    wrap.insertAdjacentHTML('beforeend', freightFifoParcelRowHtml({}, count, { disabled: disabled }));`;
+
+const CSS_OLD = `/* 20260822 parcel grid: 超商／物流包裹分隔線與格子 */
 .freight-fifo-outbound-parcels {
   display: grid;
   gap: 12px;
@@ -300,6 +257,116 @@ const CSS_NEW = `/* 20260822 parcel grid: 超商／物流包裹分隔線與格�
   }
 }`;
 
+const CSS_NEW = `/* 20260822 parcel list: 表頭＋一包一列，給業務截圖用 */
+.freight-fifo-outbound-parcels {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 14px;
+  border: 1px solid rgba(80, 229, 208, 0.45);
+  border-radius: 14px;
+  background: rgba(80, 229, 208, 0.07);
+}
+.freight-fifo-outbound-parcels > label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: #64f0cf;
+  font-weight: 900;
+}
+.freight-fifo-outbound-parcels > label small {
+  color: #c8becb;
+  font-weight: 650;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.freight-fifo-outbound-parcels [data-freight-fifo-parcel-rows] {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 248, 237, 0.22);
+  border-radius: 10px;
+  background: rgba(12, 10, 14, 0.35);
+}
+.freight-fifo-parcel-thead,
+.freight-fifo-parcel-row {
+  display: grid;
+  grid-template-columns: 52px minmax(168px, 1.35fr) 108px minmax(160px, 1.45fr) 76px;
+  align-items: stretch;
+  min-width: 640px;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.freight-fifo-parcel-thead {
+  background: rgba(244, 189, 77, 0.16);
+  border-bottom: 1px solid rgba(255, 248, 237, 0.22);
+  color: #ffe09a;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.freight-fifo-parcel-thead > span,
+.freight-fifo-parcel-row > * {
+  min-width: 0;
+  padding: 10px 10px;
+  border-right: 1px solid rgba(255, 248, 237, 0.16);
+}
+.freight-fifo-parcel-thead > span:last-child,
+.freight-fifo-parcel-row > *:last-child {
+  border-right: 0;
+}
+.freight-fifo-parcel-row + .freight-fifo-parcel-row {
+  border-top: 1px solid rgba(255, 248, 237, 0.16);
+}
+.freight-fifo-parcel-row > b {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffe09a;
+  font-weight: 900;
+}
+.freight-fifo-parcel-row input {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  align-self: center;
+}
+.freight-fifo-parcel-row em {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  color: #b9f6ca;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.freight-fifo-parcel-row [data-freight-fifo-parcel-remove],
+.freight-fifo-parcel-row .freight-fifo-parcel-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}`;
+
+const SNAKE_OLD = `@media (max-width: 720px) {
+  .freight-fifo-parcel-row {
+    grid-template-columns: 1fr;
+  }
+  .freight-fifo-parcel-row [data-freight-fifo-parcel-remove] {
+    justify-self: stretch;
+  }
+}`;
+
+const SNAKE_NEW = `/* keep parcel list columns aligned for screenshots; do not stack into a snake */`;
+
 if (!fifoParcelGridDoesNotRestyleActive(CSS_NEW) || !fifoParcelGridDoesNotRestyleActive(ROW_NEW)) {
   throw new Error("refusing to restyle .is-active");
 }
@@ -309,21 +376,25 @@ if (!fs.existsSync(ADMIN_JS) || !fs.existsSync(ADMIN_CSS)) {
   process.exit(0);
 }
 
-backup(ADMIN_JS, "parcel-grid");
-backup(ADMIN_CSS, "parcel-grid");
+backup(ADMIN_JS, "parcel-list");
+backup(ADMIN_CSS, "parcel-list");
 let js = fs.readFileSync(ADMIN_JS, "utf8");
-js = replaceOnce(js, ROW_OLD, ROW_NEW, "parcel row labeled grid");
-js = replaceOnce(js, RENUM_OLD, RENUM_NEW, "renumber insert remove into head");
+js = replaceOnce(js, ROW_OLD, ROW_NEW, "parcel row table cells");
+js = replaceOnce(js, WRAP_OLD, WRAP_NEW, "parcel table header");
+js = replaceOnce(js, TITLE_OLD, TITLE_NEW, "renumber as list index");
+js = replaceOnce(js, RENUM_OLD, RENUM_NEW, "renumber keep action column");
+js = replaceOnce(js, ADD_OLD, ADD_NEW, "add row counts parcels not header");
 fs.writeFileSync(ADMIN_JS, js);
 
 let css = fs.readFileSync(ADMIN_CSS, "utf8");
-css = replaceOnce(css, CSS_OLD, CSS_NEW, "parcel separators and grid css");
+css = replaceOnce(css, CSS_OLD, CSS_NEW, "parcel table list css");
+css = replaceOnce(css, SNAKE_OLD, SNAKE_NEW, "remove snake stack media query");
 fs.writeFileSync(ADMIN_CSS, css);
 
-if (!fifoParcelGridJsHasCells(js)) throw new Error("parcel cells missing after js patch");
+if (!fifoParcelGridJsHasCells(js)) throw new Error("parcel table header missing after js patch");
 if (!fifoParcelGridJsKeepsStatusHook(js)) throw new Error("parcel data hooks missing after js patch");
-if (!fifoParcelGridJsRenumbersInHead(js)) throw new Error("renumber head missing after js patch");
-if (!fifoParcelGridCssHasRules(css)) throw new Error("parcel grid css missing after css patch");
+if (!fifoParcelGridJsRenumbersInHead(js)) throw new Error("parcel row counting missing after js patch");
+if (!fifoParcelGridCssHasRules(css)) throw new Error("parcel table css missing after css patch");
 
 stampHtml(ROOT);
-console.log("LINGZANZAN fifo parcel grid ok", STAMP);
+console.log("LINGZANZAN fifo parcel list ok", STAMP);
