@@ -16,10 +16,12 @@ const ROOT = process.env.LINGZANZAN_ROOT || "F:/Web/lingzanzan-staging";
 const {
   fifoHoldIsUnderShipping,
   fifoHoldIsAfterShare,
+  fifoHoldOverlapCss,
+  fifoHoldHasOverlapFix,
 } = require("./lz-fifo-hold-button");
 const ADMIN_JS = path.join(ROOT, "assets", "admin.js");
 const ADMIN_CSS = path.join(ROOT, "assets", "admin.css");
-const STAMP = "20260822-fifo-hold-2";
+const STAMP = "20260822-fifo-hold-3";
 const JS_MARKER = "data-freight-fifo-hold-save";
 const CSS_MARKER = "/* 20260822 fifo hold button: 寄庫 visible under customer */";
 const CSS_INLINE_MARKER = "/* 20260822 fifo hold inline under 超商住家 */";
@@ -333,6 +335,13 @@ if (css.indexOf(CSS_INLINE_MARKER) !== -1) {
   css = css.replace(/\s*$/, "\n") + CSS_INLINE_APPEND;
   console.log("patched: hold inline under shipping css");
 }
+if (fifoHoldHasOverlapFix(css)) {
+  console.log("admin css hold overlap already patched");
+} else {
+  css = css.replace(/\s*$/, "\n") + fifoHoldOverlapCss();
+  console.log("patched: hold overlap css");
+}
+if (!fifoHoldHasOverlapFix(css)) throw new Error("hold overlap css missing");
 fs.writeFileSync(ADMIN_CSS, css, "utf8");
 
 stampHtml(ROOT);

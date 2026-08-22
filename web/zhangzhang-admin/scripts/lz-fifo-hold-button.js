@@ -35,6 +35,52 @@ function fifoHoldIsAfterShare(adminJs) {
   return /data-freight-fifo-share>LINE[\s\S]{0,80}<div class="freight-fifo-reservation"/.test(String(adminJs || ""));
 }
 
+function fifoHoldOverlapCssMarker() {
+  return "/* 20260822 fifo hold overlap: keep 寄庫 inside ②, do not cover ④ */";
+}
+
+function fifoHoldOverlapCss() {
+  return `
+${fifoHoldOverlapCssMarker()}
+.freight-fifo-modal-grid {
+  align-items: start;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+}
+[data-freight-fifo-hold-panel],
+.freight-fifo-detail > .freight-fifo-reservation {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100%;
+  box-sizing: border-box;
+  grid-column: 1 / -1;
+}
+[data-freight-fifo-hold-panel] > div,
+.freight-fifo-detail > .freight-fifo-reservation > div {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+[data-freight-fifo-hold-panel] .reservation-date-picker,
+.freight-fifo-detail > .freight-fifo-reservation .reservation-date-picker {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+[data-freight-fifo-hold-panel] .reservation-date-picker input,
+.freight-fifo-detail > .freight-fifo-reservation .reservation-date-picker input {
+  min-width: 0 !important;
+  width: 100%;
+}
+`;
+}
+
+function fifoHoldHasOverlapFix(css) {
+  css = String(css || "");
+  return css.indexOf(fifoHoldOverlapCssMarker()) !== -1
+    && css.indexOf("[data-freight-fifo-hold-panel] > div") !== -1
+    && /grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(css)
+    && /grid-template-columns:\s*minmax\(0,\s*0\.7fr\)/.test(css);
+}
+
 module.exports = {
   fifoHoldReasonIsHold,
   fifoHoldStatusText,
@@ -44,4 +90,7 @@ module.exports = {
   fifoHoldPanelTitle,
   fifoHoldIsUnderShipping,
   fifoHoldIsAfterShare,
+  fifoHoldOverlapCssMarker,
+  fifoHoldOverlapCss,
+  fifoHoldHasOverlapFix,
 };

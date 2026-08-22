@@ -10,6 +10,8 @@ const {
   fifoHoldPanelTitle,
   fifoHoldIsUnderShipping,
   fifoHoldIsAfterShare,
+  fifoHoldOverlapCss,
+  fifoHoldHasOverlapFix,
 } = require("./lz-fifo-hold-button");
 
 function assert(cond, label) {
@@ -42,5 +44,12 @@ assert(fifoHoldIsAfterShare(afterShare) === true, "detects hold after LINE share
 assert(fifoHoldIsUnderShipping(underShip) === true, "detects hold under 超商／住家");
 assert(fifoHoldIsUnderShipping(afterShare) === false, "share placement is not shipping placement");
 assert(fifoHoldIsAfterShare(underShip) === false, "shipping placement is not share placement");
+
+const overlapCss = fifoHoldOverlapCss();
+assert(fifoHoldHasOverlapFix(overlapCss) === true, "overlap css is self-detecting");
+assert(fifoHoldHasOverlapFix(".freight-fifo-reservation > div { grid-template-columns: minmax(320px, .9fr) minmax(260px, 1.1fr); }") === false, "old two-col reservation is not the overlap fix");
+assert(overlapCss.indexOf("minmax(0, 1fr)") !== -1, "hold fields stay one column");
+assert(overlapCss.indexOf("minmax(0, 0.7fr)") !== -1, "modal left column can shrink");
+assert(overlapCss.indexOf("minmax(320px") === -1, "hold panel does not keep 320px min column");
 
 console.log("LINGZANZAN fifo hold button tests ok");
