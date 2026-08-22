@@ -11,11 +11,15 @@ function mapStatus(carrier, msg) {
   if (/無資料|查無資料|查無|查不到|找不到資料|找不到/.test(t)) return { suggested: '', type: 'official_no_data' };
   // 中華郵政「入帳成功」= 收寄局已收件，不是投遞成功。
   if (/入帳成功/.test(t)) return { suggested: 'in_transit', type: 'official_tracking_only' };
-  if (/已完成包裹取件|已完成取件|投遞成功|已妥投|完成投遞|收件人已領|已取件|配送成功/.test(t) && !/退貨/.test(t)) {
+  // ShopMore uses 已完成包裹配件 (配件) and 送抵取件門市, not only 取件/配達.
+  if (/將退回/.test(t) && /今日|23\s*[:：]?\s*59/.test(t)) {
+    return { suggested: 'arrived_store', type: 'official_tracking_only' };
+  }
+  if (/已完成包裹取件|已完成包裹配件|已完成取件|投遞成功|已妥投|完成投遞|收件人已領|已取件|配送成功/.test(t) && !/退貨/.test(t)) {
     return { suggested: 'delivered', type: 'official_tracking_only' };
   }
   if (/指定退貨門市|退回物流|退貨回|退回原/.test(t)) return { suggested: 'returned', type: 'official_tracking_only' };
-  if (/配達取件門市|到達門市|配達取件店舖|貨件配達|招領/.test(t)) return { suggested: 'arrived_store', type: 'official_tracking_only' };
+  if (/配達取件門市|送抵取件門市|到達門市|配達取件店舖|貨件配達|招領/.test(t)) return { suggested: 'arrived_store', type: 'official_tracking_only' };
   if (/尚未至門市寄件|訂單已成立|訂單成立未寄件/.test(t)) return { suggested: 'pending', type: 'official_tracking_only' };
   if (/寄件門市已收件|已完成寄件|交寄郵件|送往物流|物流中心|配送中|等待配送|收寄|處理中|郵件轉運|郵件投遞中/.test(t)) {
     return { suggested: 'in_transit', type: 'official_tracking_only' };
@@ -50,6 +54,10 @@ for (const r of official) {
   const when = text(r.DATETIME || r.recDate || r.checkedAt || '');
   const mapped = mapStatus('', msg);
   const sourceStatusText = msg + (office ? '（' + office + '）' : '') + (when ? ' ' + when : '');
+  const deadlineMatch = String(r.pickupDeadline || r.recDate || '').match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  const deadline = deadlineMatch
+    ? deadlineMatch[1] + '-' + deadlineMatch[2].padStart(2, '0') + '-' + deadlineMatch[3].padStart(2, '0')
+    : '';
   for (const row of rows) {
     results.push({
       key: row.key,
@@ -63,7 +71,7 @@ for (const r of official) {
       manualRequired: true,
       verificationSource: source,
       sourceStatusText,
-      officialPickupDeadline: '',
+      officialPickupDeadline: deadline,
       message: sourceStatusText,
     });
   }
