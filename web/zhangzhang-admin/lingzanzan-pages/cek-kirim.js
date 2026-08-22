@@ -52,7 +52,11 @@
       lock: 'Kunci daftar hitam',
       locked: 'Sudah dikunci',
       lockTag: 'Blacklist',
-      lockConfirm: 'Kunci pelanggan ini? Order baru akan ditahan. Admin yang bisa buka.',
+      lockConfirm: 'Yakin kunci daftar hitam pelanggan ini?',
+      lockConfirmTitle: 'Yakin kunci daftar hitam?',
+      lockConfirmBody: 'Tekan "Yakin kunci" baru masuk daftar hitam. Order baru akan ditahan. Hanya admin yang bisa buka. Tekan "Batal" jika belum yakin.',
+      lockConfirmYes: 'Yakin kunci',
+      lockConfirmNo: 'Batal',
       lockNeedPhone: 'Tidak ada telepon, tidak bisa kunci.',
       lockOk: 'Sudah dikunci.',
       lockFail: 'Gagal kunci. Coba lagi.',
@@ -140,7 +144,11 @@
       lock: '鎖定黑名單',
       locked: '已鎖定',
       lockTag: '黑名單',
-      lockConfirm: '確定把這個客人鎖進黑名單？之後打單會擋，要管理後台才能解除。',
+      lockConfirm: '確定要封鎖這個客人嗎？',
+      lockConfirmTitle: '確定要封鎖這個客人嗎？',
+      lockConfirmBody: '按「確定封鎖」才會鎖進黑名單。之後打單會擋，要管理後台才能解除。按「取消」不會封鎖。',
+      lockConfirmYes: '確定封鎖',
+      lockConfirmNo: '取消',
       lockNeedPhone: '沒有電話，不能鎖定。',
       lockOk: '已鎖定黑名單。',
       lockFail: '鎖定失敗，再試一次。',
@@ -709,8 +717,107 @@
       scheduleLiveSearch(queryInput.value);
     });
   }
+  function closeCekLockDialog() {
+    var node = document.querySelector('[data-cek-lock-dialog]');
+    if (node && node.parentNode) node.parentNode.removeChild(node);
+  }
+
+  function askCekLockConfirm(opts, onYes) {
+    closeCekLockDialog();
+    var copy = t();
+    var wrap = document.createElement('div');
+    wrap.setAttribute('data-cek-lock-dialog', '');
+    wrap.className = 'cek-lock-dialog';
+    wrap.innerHTML = '<div class="cek-lock-dialog-card" role="dialog" aria-modal="true" aria-labelledby="cek-lock-dialog-title">' +
+      '<p class="cek-lock-dialog-kicker">' + esc(copy.lockTag) + '</p>' +
+      '<h3 id="cek-lock-dialog-title">' + esc(copy.lockConfirmTitle || copy.lockConfirm) + '</h3>' +
+      '<p class="cek-lock-dialog-who"><b>' + esc(opts.name || '-') + '</b><span>' + esc(opts.phone || '') + '</span></p>' +
+      '<p class="cek-lock-dialog-warn">' + esc(copy.lockConfirmBody || copy.lockConfirm) + '</p>' +
+      '<div class="cek-lock-dialog-actions">' +
+        '<button type="button" class="cek-lock-no" data-cek-lock-cancel>' + esc(copy.lockConfirmNo || '取消') + '</button>' +
+        '<button type="button" class="cek-lock-yes" data-cek-lock-yes>' + esc(copy.lockConfirmYes || copy.lock) + '</button>' +
+      '</div>' +
+    '</div>';
+    wrap.addEventListener('click', function (event) {
+      event.stopPropagation();
+      if (event.target === wrap || event.target.closest('[data-cek-lock-cancel]')) {
+        closeCekLockDialog();
+        return;
+      }
+      if (event.target.closest('[data-cek-lock-yes]')) {
+        closeCekLockDialog();
+        if (typeof onYes === 'function') onYes();
+      }
+    });
+    document.body.appendChild(wrap);
+    var cancel = wrap.querySelector('[data-cek-lock-cancel]');
+    if (cancel && cancel.focus) cancel.focus();
+  }
+
+  function submitCekLock(lockBtn, phone, name, reason) {
+    lockBtn.disabled = true;
+    fetch('./member-risk-api-v3.php', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save',
+        phone: phone,
+        name: name,
+        reason: reason,
+        createdBy: '業務查貨'
+      })
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        if (!response.ok || !data.ok) throw new Error(data.error || 'fail');
+        return data;
+      });
+    }).then(function () {
+      function stamp(list) {
+        (list || []).forEach(function (row) {
+          if (digits(row.phone) === phone) row.blacklisted = true;
+        });
+      }
+      if (boardCache) {
+        stamp(boardCache.returning);
+        stamp(boardCache.waiting);
+        stamp(boardCache.inTransit);
+        stamp(boardCache.pendingShip);
+        stamp(boardCache.noData);
+        stamp(boardCache.blacklist);
+        stamp(boardCache.returnedCustomers);
+        var already = false;
+        (boardCache.blacklist || []).forEach(function (row) {
+          if (digits(row.phone) === phone) already = true;
+        });
+        if (!already) {
+          boardCache.blacklist = [{
+            kind: 'blacklist',
+            state: 'blacklist',
+            customerName: name,
+            phone: phone,
+            blacklisted: true,
+            blacklistReason: reason,
+            returnCount: 0
+          }].concat(boardCache.blacklist || []);
+        }
+        renderBoard(boardCache);
+      }
+      stamp(lastSearchRows);
+      var list = $('[data-cek-list]');
+      if (list && lastSearchRows.length) list.innerHTML = lastSearchRows.map(resultCardHtml).join('');
+      setStatus(t().lockOk, 'ok');
+    }).catch(function () {
+      lockBtn.disabled = false;
+      setStatus(t().lockFail, 'err');
+    });
+  }
+
   try { localize(); } catch (error) {}
   try { loadBoard(); } catch (error) {}
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') closeCekLockDialog();
+  });
   document.addEventListener('click', function (event) {
     var tabBtn = event.target.closest('[data-cek-tab]');
     if (tabBtn) {
@@ -755,62 +862,8 @@
         setStatus(t().lockNeedPhone, 'err');
         return;
       }
-      if (!window.confirm(t().lockConfirm + '\n' + (name || '-') + ' / ' + phone)) return;
-      lockBtn.disabled = true;
-      fetch('./member-risk-api-v3.php', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'save',
-          phone: phone,
-          name: name,
-          reason: reason,
-          createdBy: '業務查貨'
-        })
-      }).then(function (response) {
-        return response.json().then(function (data) {
-          if (!response.ok || !data.ok) throw new Error(data.error || 'fail');
-          return data;
-        });
-      }).then(function () {
-        function stamp(list) {
-          (list || []).forEach(function (row) {
-            if (digits(row.phone) === phone) row.blacklisted = true;
-          });
-        }
-        if (boardCache) {
-          stamp(boardCache.returning);
-          stamp(boardCache.waiting);
-          stamp(boardCache.inTransit);
-          stamp(boardCache.pendingShip);
-          stamp(boardCache.noData);
-          stamp(boardCache.blacklist);
-          stamp(boardCache.returnedCustomers);
-          var already = false;
-          (boardCache.blacklist || []).forEach(function (row) {
-            if (digits(row.phone) === phone) already = true;
-          });
-          if (!already) {
-            boardCache.blacklist = [{
-              kind: 'blacklist',
-              state: 'blacklist',
-              customerName: name,
-              phone: phone,
-              blacklisted: true,
-              blacklistReason: reason,
-              returnCount: 0
-            }].concat(boardCache.blacklist || []);
-          }
-          renderBoard(boardCache);
-        }
-        stamp(lastSearchRows);
-        var list = $('[data-cek-list]');
-        if (list && lastSearchRows.length) list.innerHTML = lastSearchRows.map(resultCardHtml).join('');
-        setStatus(t().lockOk, 'ok');
-      }).catch(function () {
-        lockBtn.disabled = false;
-        setStatus(t().lockFail, 'err');
+      askCekLockConfirm({ name: name, phone: phone }, function () {
+        submitCekLock(lockBtn, phone, name, reason);
       });
     }
   });

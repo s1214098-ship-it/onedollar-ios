@@ -416,3 +416,76 @@ body {
   width: 72px;
   height: 92px;
 }
+
+.cek-lock-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(8, 6, 8, .72);
+}
+.cek-lock-dialog-card {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 10px;
+  padding: 18px 16px 16px;
+  border: 1px solid #ff8aa5;
+  border-radius: 18px;
+  background: #2a171c;
+  color: #fff8ed;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .45);
+}
+.cek-lock-dialog-kicker {
+  margin: 0;
+  color: #ff8aa5;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .06em;
+}
+.cek-lock-dialog-card h3 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+}
+.cek-lock-dialog-who {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+.cek-lock-dialog-who b {
+  font-size: 18px;
+}
+.cek-lock-dialog-who span,
+.cek-lock-dialog-warn {
+  color: #eadde8;
+  line-height: 1.45;
+}
+.cek-lock-dialog-warn {
+  margin: 0;
+  font-weight: 700;
+}
+.cek-lock-dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+.cek-lock-no,
+.cek-lock-yes {
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 900;
+}
+.cek-lock-no {
+  border: 1px solid #c9b3c2;
+  color: #fff8ed;
+  background: #3a2e3d;
+}
+.cek-lock-yes {
+  border: 1px solid #ff8aa5;
+  color: #1a1214;
+  background: #ff8aa5;
+}
