@@ -86,6 +86,12 @@ function fifoPreorderKeepsSingleAddress(adminJs) {
     || src.indexOf("hadStore && shipping.addressPrimary !== 'store'") !== -1;
 }
 
+function fifoPhpConvertUsesExactSku(php) {
+  var src = String(php || "");
+  return src.indexOf("$useExactLineSku = is_array($baseSku)") !== -1
+    && src.indexOf("$useExactLineSku && ($directStockAllocation") !== -1;
+}
+
 module.exports = {
   fifoExactSkuId,
   fifoWarehouseIsTaiwan,
@@ -97,4 +103,5 @@ module.exports = {
   fifoConfirmRechecksTaiwanPriority,
   fifoPreorderKeepSingleAddress,
   fifoPreorderKeepsSingleAddress,
+  fifoPhpConvertUsesExactSku,
 };

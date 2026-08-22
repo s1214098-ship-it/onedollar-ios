@@ -46,6 +46,46 @@ function nameOf(row) {
   return String(c.name || row.customerName || row.name || '');
 }
 
+function assignList(wrap, next, key) {
+  if (Array.isArray(wrap)) return next;
+  if (wrap && Array.isArray(wrap[key])) {
+    wrap[key] = next;
+    return wrap;
+  }
+  if (wrap && Array.isArray(wrap.orders)) {
+    wrap.orders = next;
+    return wrap;
+  }
+  if (wrap && Array.isArray(wrap.skus)) {
+    wrap.skus = next;
+    return wrap;
+  }
+  return next;
+}
+
+function atomicWrite(file, data) {
+  const json = JSON.stringify(data, null, 2) + '\n';
+  const tmp = file + '.tmp-amey-' + process.pid + '-' + Date.now();
+  fs.writeFileSync(tmp, json);
+  try {
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    try {
+      fs.copyFileSync(tmp, file);
+    } finally {
+      try { fs.unlinkSync(tmp); } catch (_) {}
+    }
+  }
+}
+
+function markSku(sku, operationId, marker) {
+  if (!sku.inventoryTransactionMarkers || typeof sku.inventoryTransactionMarkers !== 'object') {
+    sku.inventoryTransactionMarkers = {};
+  }
+  sku.inventoryTransactionMarkers[operationId] = Object.assign({ operationId: operationId }, marker);
+  sku.updatedAt = marker.appliedAt;
+}
+
 function backup(file, tag) {
   const dir = path.join(dataDir, 'audit');
   fs.mkdirSync(dir, { recursive: true });
@@ -167,17 +207,16 @@ SKUS.forEach((sku) => {
   if (itemSkus.indexOf(sku) === -1) throw new Error('missing sku ' + sku);
 });
 
-const skusBefore = listOf(readJson(skusFile));
+const skusWrap = readJson(skusFile);
+const skusBefore = listOf(skusWrap);
 const stockBefore = {};
 SKUS.forEach((id) => {
   stockBefore[id] = skuStock(skusBefore, id);
-  if (intOr(stockBefore[id]) < 1) throw new Error('TW stock missing for ' + id + '=' + stockBefore[id]);
 });
 
-const ordersBefore = listOf(readJson(ordersFile));
-if (ordersBefore.find((row) => String(row.id || '') === TARGET_ID)) {
-  throw new Error('formal order already exists');
-}
+const ordersWrap = readJson(ordersFile);
+const ordersBefore = listOf(ordersWrap);
+const existingOrder = ordersBefore.find((row) => String(row.id || '') === TARGET_ID);
 
 const log = {
   backups: {
@@ -190,45 +229,112 @@ const log = {
   steps: []
 };
 
-const session = injectSession();
-try {
-  const converted = curlJson('/stock-inquiry-api.php', {
-    action: 'convert',
-    inquiryId: TARGET_ID,
-    fulfillWarehouse: 'TW',
-    directStockAllocation: true,
-    manualPhysicalAllocation: false,
-    transferredBy: '管理者',
-    shippingNote: NOTE
-  }, session.token);
-  log.steps.push({
-    step: 'convert',
-    orderId: converted.order && converted.order.id,
-    inquiryStatus: converted.inquiry && converted.inquiry.status,
-    shippingCarrier: converted.order && converted.order.shippingCarrier,
-    error: converted.error || null
+if (!existingOrder) {
+  SKUS.forEach((id) => {
+    if (intOr(stockBefore[id]) < 1) throw new Error('TW stock missing for ' + id + '=' + stockBefore[id]);
   });
-} finally {
-  try { removeSession(session.tokenHash); } catch (e) { log.sessionCleanupError = String(e.message || e); }
+  const session = injectSession();
+  try {
+    const converted = curlJson('/stock-inquiry-api.php', {
+      action: 'convert',
+      inquiryId: TARGET_ID,
+      fulfillWarehouse: 'TW',
+      directStockAllocation: true,
+      manualPhysicalAllocation: false,
+      transferredBy: '管理者',
+      shippingNote: NOTE
+    }, session.token);
+    log.steps.push({
+      step: 'convert',
+      orderId: converted.order && converted.order.id,
+      inquiryStatus: converted.inquiry && converted.inquiry.status,
+      shippingCarrier: converted.order && converted.order.shippingCarrier,
+      error: converted.error || null
+    });
+  } finally {
+    try { removeSession(session.tokenHash); } catch (e) { log.sessionCleanupError = String(e.message || e); }
+  }
+} else {
+  log.steps.push({ step: 'convert', skipped: true, reason: 'formal order already exists' });
+}
+
+const ordersWrapAfter = readJson(ordersFile);
+const ordersAfter = listOf(ordersWrapAfter);
+const skusWrapAfter = readJson(skusFile);
+const skusAfter = listOf(skusWrapAfter);
+const order = ordersAfter.find((row) => String(row.id || '') === TARGET_ID);
+if (!order) throw new Error('formal order missing after convert');
+
+const appliedAt = new Date().toISOString();
+const operationId = 'amey-exact-sku-' + TARGET_ID;
+let repaired = [];
+(order.items || []).forEach((item) => {
+  const id = String(item.skuId || item.sku || '');
+  if (SKUS.indexOf(id) === -1) return;
+  const received = intOr(item.freightReceivedQty);
+  const wanted = Math.max(1, intOr(item.qty || item.quantity || 1));
+  if (received >= wanted) return;
+  const sku = skusAfter.find((row) => row && String(row.id || row.sku || '') === id);
+  if (!sku) throw new Error('sku missing for repair ' + id);
+  if (intOr(sku.stock) < wanted) throw new Error('cannot repair ' + id + ' stock=' + sku.stock);
+  sku.stock = intOr(sku.stock) - wanted;
+  markSku(sku, operationId + ':' + id, {
+    kind: 'exact_tw_sku_convert_repair',
+    inquiryId: TARGET_ID,
+    skuId: id,
+    qtyDelta: -wanted,
+    note: NOTE,
+    appliedAt
+  });
+  item.freightReceivedQty = wanted;
+  item.freightReceivedWarehouse = 'TW';
+  item.allocationSourceWarehouse = 'TW';
+  item.sourceWarehouse = '台灣倉';
+  item.sourceWarehouseCode = 'TW';
+  repaired.push(id);
+});
+if (repaired.length) {
+  const stateFile = path.join(dataDir, 'admin-state.json');
+  if (fs.existsSync(stateFile)) {
+    const state = readJson(stateFile);
+    if (state && Array.isArray(state.skus)) {
+      state.skus.forEach((row) => {
+        const id = String((row && (row.id || row.skuId || row.sku)) || '');
+        const live = skusAfter.find((sku) => sku && String(sku.id || sku.sku || '') === id);
+        if (live) row.stock = live.stock;
+      });
+      state.updatedAt = appliedAt;
+      atomicWrite(stateFile, state);
+    }
+  }
+  atomicWrite(ordersFile, assignList(ordersWrapAfter, ordersAfter, 'orders'));
+  atomicWrite(skusFile, assignList(skusWrapAfter, skusAfter, 'skus'));
+  log.steps.push({ step: 'repair-exact-sku', repaired });
+} else {
+  log.steps.push({ step: 'repair-exact-sku', skipped: true });
 }
 
 const inq = listOf(readJson(inquiriesFile)).find((row) => String(row.id || '') === TARGET_ID);
-const order = listOf(readJson(ordersFile)).find((row) => String(row.id || '') === TARGET_ID);
-const skusAfter = listOf(readJson(skusFile));
+const orderFinal = listOf(readJson(ordersFile)).find((row) => String(row.id || '') === TARGET_ID);
+const skusFinal = listOf(readJson(skusFile));
 const stockAfter = {};
-SKUS.forEach((id) => { stockAfter[id] = skuStock(skusAfter, id); });
+SKUS.forEach((id) => { stockAfter[id] = skuStock(skusFinal, id); });
 
 log.afterInquiry = snapInquiry(inq);
-log.afterOrder = order ? {
-  id: order.id,
-  name: nameOf(order),
-  phone: phoneOf(order),
-  status: order.status,
-  statusLabel: order.statusLabel,
-  shippingCarrier: order.shippingCarrier,
-  storeAddress: order.storeAddress || '',
-  paidAmount: (order.paymentSummary || {}).paidAmount,
-  total: order.total
+log.afterOrder = orderFinal ? {
+  id: orderFinal.id,
+  name: nameOf(orderFinal),
+  phone: phoneOf(orderFinal),
+  status: orderFinal.status,
+  statusLabel: orderFinal.statusLabel,
+  shippingCarrier: orderFinal.shippingCarrier,
+  storeAddress: orderFinal.storeAddress || '',
+  paidAmount: (orderFinal.paymentSummary || {}).paidAmount,
+  total: orderFinal.total,
+  received: (orderFinal.items || []).map((it) => ({
+    sku: it.skuId || it.sku,
+    freightReceivedQty: it.freightReceivedQty || 0
+  }))
 } : null;
 log.stockAfter = stockAfter;
 
@@ -236,16 +342,16 @@ fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, JSON.stringify(log, null, 2) + '\n');
 console.log(JSON.stringify(log, null, 2));
 
-if (!order) throw new Error('formal order missing after convert');
-if (phoneOf(order) !== PHONE) throw new Error('converted order phone mismatch');
-if (nameOf(order) !== NAME) throw new Error('converted order name mismatch');
+if (!orderFinal) throw new Error('formal order missing after convert');
+if (phoneOf(orderFinal) !== PHONE) throw new Error('converted order phone mismatch');
+if (nameOf(orderFinal) !== NAME) throw new Error('converted order name mismatch');
 if (String(inq && inq.status || '') !== 'converted') throw new Error('inquiry not converted: ' + (inq && inq.status));
-if (String(order.storeAddress || inq.storeAddress || '').trim()) throw new Error('second store address was created');
-if (Number((order.paymentSummary || {}).paidAmount || 0) !== Number((inquiry.paymentSummary || {}).paidAmount || 0)) {
+if (String(orderFinal.storeAddress || inq.storeAddress || '').trim()) throw new Error('second store address was created');
+if (Number((orderFinal.paymentSummary || {}).paidAmount || 0) !== Number((inquiry.paymentSummary || {}).paidAmount || 0)) {
   throw new Error('payment changed unexpectedly');
 }
 SKUS.forEach((id) => {
-  if (intOr(stockAfter[id]) !== intOr(stockBefore[id]) - 1) {
-    throw new Error('stock not deducted for ' + id + ' ' + stockBefore[id] + ' -> ' + stockAfter[id]);
-  }
+  if (intOr(stockAfter[id]) !== 0) throw new Error('stock leftover for ' + id + '=' + stockAfter[id]);
+  const line = (orderFinal.items || []).find((it) => String(it.skuId || it.sku || '') === id);
+  if (!line || intOr(line.freightReceivedQty) < 1) throw new Error('line not marked received ' + id);
 });

@@ -13,10 +13,12 @@ const {
   fifoReadyQtyCountsExactSku,
   fifoConfirmRechecksTaiwanPriority,
   fifoPreorderKeepsSingleAddress,
+  fifoPhpConvertUsesExactSku,
 } = require("./lz-fifo-tw-sku-ready");
 
 const ROOT = process.env.LINGZANZAN_ROOT || "F:/Web/lingzanzan-staging";
 const ADMIN_JS = path.join(ROOT, "assets", "admin.js");
+const PHP = path.join(ROOT, "stock-inquiry-api.php");
 
 function backup(file, tag) {
   const dir = path.join(ROOT, "data", "audit");
@@ -93,6 +95,15 @@ const ADDRESS_NEW = `  function persistFreightFifoCustomerDetails(modal) {
     }
     var address = shipping.address;`;
 
+const PHP_OLD = `            if ($manualPhysicalAllocation && ($legacyManualPriorityItem || $itemHasManualPhysicalFlag) && is_array($baseSku) && receipt_sku_is_warehouse($baseSku, $itemProfile)) {
+                $baseAvailableQty = max(0, (int)($remainingBySku[$originalSkuId] ?? 0));
+                if ($originalSkuId !== '' && ($itemUsesCustomerReservation || $baseAvailableQty >= $wantedQty)) {`;
+
+const PHP_NEW = `            $useExactLineSku = is_array($baseSku) && receipt_sku_is_warehouse($baseSku, $itemProfile) && $originalSkuId !== '';
+            if ($useExactLineSku && ($directStockAllocation || ($manualPhysicalAllocation && ($legacyManualPriorityItem || $itemHasManualPhysicalFlag)))) {
+                $baseAvailableQty = max(0, (int)($remainingBySku[$originalSkuId] ?? 0));
+                if ($originalSkuId !== '' && ($itemUsesCustomerReservation || $baseAvailableQty >= $wantedQty)) {`;
+
 if (!fs.existsSync(ADMIN_JS)) {
   console.log("Not on PHT-SR");
   process.exit(0);
@@ -112,5 +123,19 @@ if (!fifoConfirmRechecksTaiwanPriority(js)) throw new Error("confirm taiwan prio
 if (!fifoPreorderKeepsSingleAddress(js)) throw new Error("preorder single address missing");
 fs.writeFileSync(ADMIN_JS, js, "utf8");
 console.log("js written", ADMIN_JS, "len", js.length);
+
+if (fs.existsSync(PHP)) {
+  console.log("backup php", backup(PHP, "fifo-tw-sku-ready"));
+  let php = fs.readFileSync(PHP, "utf8");
+  if (fifoPhpConvertUsesExactSku(php)) {
+    console.log("php already patched");
+  } else {
+    php = replaceOnce(php, PHP_OLD, PHP_NEW, "convert deducts exact TW sku");
+  }
+  if (!fifoPhpConvertUsesExactSku(php)) throw new Error("php exact sku convert missing");
+  fs.writeFileSync(PHP, php, "utf8");
+  console.log("php written", PHP, "len", php.length);
+}
+
 console.log("LINGZANZAN fifo tw sku ready ok");
 console.log("no html stamp");

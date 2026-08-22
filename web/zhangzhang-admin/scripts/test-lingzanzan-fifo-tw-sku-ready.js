@@ -12,6 +12,7 @@ const {
   fifoConfirmRechecksTaiwanPriority,
   fifoPreorderKeepSingleAddress,
   fifoPreorderKeepsSingleAddress,
+  fifoPhpConvertUsesExactSku,
 } = require("./lz-fifo-tw-sku-ready");
 
 function assert(cond, label) {
@@ -73,6 +74,8 @@ assert(fifoReadyQtyCountsExactSku(patchedJs) === true, "detects exact-sku readyQ
 assert(fifoReadyQtyCountsExactSku("if (matches && preorderSupplyVariantMatches") === false, "old color-only match is not the patch");
 assert(fifoConfirmRechecksTaiwanPriority(patchedJs) === true, "confirm rechecks taiwan priority");
 assert(fifoPreorderKeepsSingleAddress(patchedJs) === true, "detects preorder single-address keep");
+assert(fifoPhpConvertUsesExactSku("$useExactLineSku = is_array($baseSku);\nif ($useExactLineSku && ($directStockAllocation || $manualPhysicalAllocation)) {") === true, "detects PHP exact-sku convert");
+assert(fifoPhpConvertUsesExactSku("if ($manualPhysicalAllocation && ($legacyManualPriorityItem") === false, "old manual-only convert is not the patch");
 
 const kept = fifoPreorderKeepSingleAddress(
   { homeAddress: "屏東縣竹田鄉鳳明村鳳平路2巷9號(HCT)", storeAddress: "" },
