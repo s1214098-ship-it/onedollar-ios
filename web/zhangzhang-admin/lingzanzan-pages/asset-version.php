@@ -12,5 +12,7 @@ header('Pragma: no-cache');
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'asset-version-lib.php';
 
 $manifest = lz_asset_manifest(__DIR__);
-lz_asset_stale_reload_headers((string)($manifest['v'] ?? '0'));
+// Keep poll quiet so already-open tabs do not flash-reload when JS/CSS mtime changes.
+unset($manifest['v']);
+$manifest['auto'] = false;
 echo json_encode($manifest, JSON_UNESCAPED_SLASHES);

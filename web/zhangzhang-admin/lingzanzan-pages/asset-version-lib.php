@@ -22,7 +22,7 @@ function lz_asset_manifest(string $root): array {
         'ok' => true,
         'v' => (string)$max,
         'files' => $files,
-        'auto' => true,
+        'auto' => false,
     ];
 }
 
@@ -47,8 +47,6 @@ function lz_asset_client_is_current(string $version): bool {
 }
 
 function lz_asset_stale_reload_headers(string $version): void {
-    if (lz_asset_client_is_current($version)) return;
-    if (!empty($_COOKIE['lz_asset_tried'])) return;
-    header('Set-Cookie: lz_asset_tried=1; Path=/; Max-Age=120; SameSite=Lax', false);
-    header('Refresh: 0');
+    // Open admin tabs must not flash-reload. Navigation picks up new file times.
+    unset($version);
 }

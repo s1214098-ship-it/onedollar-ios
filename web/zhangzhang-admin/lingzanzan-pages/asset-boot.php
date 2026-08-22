@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 /**
- * Blocking, no-cache boot script: stamp JS/CSS with file mtime and
- * auto-reload when the running page is behind.
+ * Blocking, no-cache boot script: stamp JS/CSS with file mtime.
+ * Do not auto-reload open tabs.
  */
 
 header('Content-Type: application/javascript; charset=utf-8');
@@ -20,12 +20,6 @@ if ($json === false) {
 }
 ?>
 (function (manifest) {
-  try {
-    if (document.getElementById("lz-asset-refresh-banner")) {
-      location.reload();
-      return;
-    }
-  } catch (e) {}
   if (!manifest || window.__LZ_ASSET_BOOT) return;
   window.__LZ_ASSET_BOOT = true;
   window.__LZ_ASSET = manifest;
@@ -101,27 +95,24 @@ if ($json === false) {
   }
 
   function applyUpdate() {
-    if (window.__LZ_ASSET_RELOADING) return;
-    window.__LZ_ASSET_RELOADING = true;
-    if (!document.getElementById("lz-asset-refresh-banner")) {
-      var bar = document.createElement("div");
-      bar.id = "lz-asset-refresh-banner";
-      bar.setAttribute("role", "status");
-      bar.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:2147483000;padding:10px 16px;background:#241b27;color:#fff;font:600 14px/1.4 sans-serif;text-align:center;";
-      bar.textContent = "後台已更新，正在自動套用…";
-      (document.body || document.documentElement).appendChild(bar);
-    }
-    location.reload();
+    if (document.getElementById("lz-asset-refresh-banner")) return;
+    var bar = document.createElement("div");
+    bar.id = "lz-asset-refresh-banner";
+    bar.setAttribute("role", "status");
+    bar.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:2147483000;padding:10px 16px;background:#241b27;color:#fff;font:600 14px/1.4 sans-serif;text-align:center;";
+    bar.innerHTML = '後台有新檔。<button type="button" style="margin-left:8px;min-height:36px;padding:0 12px;border:0;border-radius:8px;background:#f0bd54;color:#1a1214;font-weight:800;cursor:pointer">我忙完再重整</button>';
+    var btn = bar.querySelector("button");
+    if (btn) btn.addEventListener("click", function () { bar.remove(); });
+    (document.body || document.documentElement).appendChild(bar);
   }
 
   function checkForUpdate() {
+    if (manifest && manifest.auto === false) return;
     fetch("./asset-version.php", { cache: "no-store" })
       .then(function (res) { return res.json(); })
       .then(function (next) {
-        if (!next || !next.v) return;
-        if (String(next.v) !== currentV || document.getElementById("lz-asset-refresh-banner")) {
-          applyUpdate();
-        }
+        if (!next || !next.v || next.auto === false) return;
+        if (String(next.v) !== currentV) applyUpdate();
       })
       .catch(function () {});
   }

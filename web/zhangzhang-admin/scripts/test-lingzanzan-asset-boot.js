@@ -62,18 +62,19 @@ assert(crlfOut.indexOf("\r\n  <script src=\"./asset-boot.php\"></script>") !== -
 const fs = require("fs");
 const path = require("path");
 const bootPhp = fs.readFileSync(path.join(__dirname, "..", "lingzanzan-pages", "asset-boot.php"), "utf8");
-assert(bootPhp.indexOf("location.reload()") !== -1, "boot reloads when assets change");
-assert(bootPhp.indexOf("applyUpdate") !== -1, "boot uses applyUpdate");
-assert(bootPhp.indexOf("點這裡套用") === -1, "boot no longer asks to click 套用");
-assert(bootPhp.indexOf("稍後") === -1, "boot no longer has 稍後");
-assert(bootPhp.indexOf("lz-asset-refresh-banner") !== -1, "boot reloads leftover 套用 banner");
+assert(bootPhp.indexOf("location.reload()") === -1, "boot does not auto-reload open tabs");
+assert(bootPhp.indexOf("applyUpdate") !== -1, "boot can still show a notice");
+assert(bootPhp.indexOf("我忙完再重整") !== -1, "notice is dismissible, not a forced reload");
+assert(bootPhp.indexOf("lz-asset-refresh-banner") !== -1, "notice banner id kept");
 assert(bootPhp.indexOf("lz_asset_set_cookie") !== -1, "boot stamps current asset cookie");
+assert(bootPhp.indexOf("next.auto === false") !== -1, "boot ignores poll when auto is off");
 
 const versionPhp = fs.readFileSync(path.join(__dirname, "..", "lingzanzan-pages", "asset-version.php"), "utf8");
-assert(versionPhp.indexOf("lz_asset_stale_reload_headers") !== -1, "version endpoint marks stale tabs");
+assert(versionPhp.indexOf("unset($manifest['v'])") !== -1, "poll omits v so old tabs do not flash");
+assert(versionPhp.indexOf("lz_asset_stale_reload_headers") === -1, "poll does not send Refresh");
 
 const libPhp = fs.readFileSync(path.join(__dirname, "..", "lingzanzan-pages", "asset-version-lib.php"), "utf8");
-assert(libPhp.indexOf("Refresh: 0") !== -1, "stale poll asks the browser to reload");
-assert(libPhp.indexOf("'auto' => true") !== -1, "manifest says updates are automatic");
+assert(libPhp.indexOf("Refresh: 0") === -1, "stale poll never asks the browser to reload");
+assert(libPhp.indexOf("'auto' => false") !== -1, "manifest says updates are not automatic");
 
 console.log("all asset boot html tests passed");
