@@ -20,15 +20,31 @@ function fifoHoldNeedReasonMessage() {
 }
 
 function fifoHoldJumpNote() {
-  return "寄庫在上面②「超商出貨／住家出貨」欄下面，選原因後按「加入寄庫名單」。這裡只填物流公司與單號。";
+  return "寄庫在下面⑤「正式出貨資料」，選原因後按「加入寄庫名單」。";
 }
 
 function fifoHoldPanelTitle() {
   return "寄庫（先不出貨）";
 }
 
+function fifoHoldShortcutLabel() {
+  return "寄庫（先不出貨）";
+}
+
 function fifoHoldIsUnderShipping(adminJs) {
   return /data-freight-fifo-address' \}\) \+ '<div class="freight-fifo-reservation"/.test(String(adminJs || ""));
+}
+
+function fifoHoldIsInSection5(adminJs) {
+  return /⑤ 正式出貨資料<\/h4><div class="freight-fifo-reservation"/.test(String(adminJs || ""));
+}
+
+function fifoHoldHasShortcut(adminJs) {
+  return String(adminJs || "").indexOf("data-freight-fifo-hold-jump-btn") !== -1;
+}
+
+function fifoHoldHasFooterSave(adminJs) {
+  return String(adminJs || "").indexOf("data-freight-fifo-hold-footer") !== -1;
 }
 
 function fifoHoldIsAfterShare(adminJs) {
@@ -88,7 +104,11 @@ module.exports = {
   fifoHoldNeedReasonMessage,
   fifoHoldJumpNote,
   fifoHoldPanelTitle,
+  fifoHoldShortcutLabel,
   fifoHoldIsUnderShipping,
+  fifoHoldIsInSection5,
+  fifoHoldHasShortcut,
+  fifoHoldHasFooterSave,
   fifoHoldIsAfterShare,
   fifoHoldOverlapCssMarker,
   fifoHoldOverlapCss,

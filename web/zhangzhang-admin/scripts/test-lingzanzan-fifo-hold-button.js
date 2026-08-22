@@ -8,7 +8,11 @@ const {
   fifoHoldNeedReasonMessage,
   fifoHoldJumpNote,
   fifoHoldPanelTitle,
+  fifoHoldShortcutLabel,
   fifoHoldIsUnderShipping,
+  fifoHoldIsInSection5,
+  fifoHoldHasShortcut,
+  fifoHoldHasFooterSave,
   fifoHoldIsAfterShare,
   fifoHoldOverlapCss,
   fifoHoldHasOverlapFix,
@@ -34,9 +38,10 @@ assert(fifoHoldStatusText("wait_other", "", "") === "此單已在寄庫名單", 
 assert(fifoHoldSaveLabel(false) === "加入寄庫名單", "new hold button");
 assert(fifoHoldSaveLabel(true) === "更新寄庫原因", "existing hold button");
 assert(fifoHoldNeedReasonMessage().indexOf("預約指定出貨日") !== -1, "error distinguishes 預約");
-assert(fifoHoldJumpNote().indexOf("加入寄庫名單") !== -1, "section ⑤ points to the button");
-assert(fifoHoldJumpNote().indexOf("超商出貨") !== -1, "section ⑤ points to the shipping field");
-assert(fifoHoldPanelTitle() === "寄庫（先不出貨）", "title matches 超商／住家 wording");
+assert(fifoHoldJumpNote().indexOf("加入寄庫名單") !== -1, "copy mentions 加入寄庫名單");
+assert(fifoHoldJumpNote().indexOf("⑤") !== -1, "copy points at section ⑤");
+assert(fifoHoldPanelTitle() === "寄庫（先不出貨）", "title matches 寄庫 wording");
+assert(fifoHoldShortcutLabel() === "寄庫（先不出貨）", "shortcut uses the same 寄庫 title");
 
 const afterShare = `data-freight-fifo-share>LINE 傳送／出貨小卡</button></div></div><div class="freight-fifo-reservation"`;
 const underShip = `}, { textarea: true, hiddenAttrs: 'data-freight-fifo-address' }) + '<div class="freight-fifo-reservation"`;
@@ -44,6 +49,12 @@ assert(fifoHoldIsAfterShare(afterShare) === true, "detects hold after LINE share
 assert(fifoHoldIsUnderShipping(underShip) === true, "detects hold under 超商／住家");
 assert(fifoHoldIsUnderShipping(afterShare) === false, "share placement is not shipping placement");
 assert(fifoHoldIsAfterShare(underShip) === false, "shipping placement is not share placement");
+
+const section5 = `<h4 class="freight-fifo-shipping-title">⑤ 正式出貨資料</h4><div class="freight-fifo-reservation" data-freight-fifo-hold-panel>`;
+assert(fifoHoldIsInSection5(section5) === true, "detects hold in section ⑤");
+assert(fifoHoldIsInSection5(underShip) === false, "under-shipping html is not section ⑤");
+assert(fifoHoldHasShortcut('data-freight-fifo-hold-jump-btn') === true, "detects ② shortcut");
+assert(fifoHoldHasFooterSave('data-freight-fifo-hold-footer') === true, "detects footer 加入寄庫名單");
 
 const overlapCss = fifoHoldOverlapCss();
 assert(fifoHoldHasOverlapFix(overlapCss) === true, "overlap css is self-detecting");

@@ -15,6 +15,8 @@ const path = require("path");
 const ROOT = process.env.LINGZANZAN_ROOT || "F:/Web/lingzanzan-staging";
 const {
   fifoHoldIsUnderShipping,
+  fifoHoldIsInSection5,
+  fifoHoldHasShortcut,
   fifoHoldIsAfterShare,
   fifoHoldOverlapCss,
   fifoHoldHasOverlapFix,
@@ -298,11 +300,11 @@ if (fifoHoldIsAfterShare(admin)) {
   admin = replaceOnce(admin, INSERT_BEFORE_NEW, INSERT_BEFORE_OLD, "remove hold from after LINE share");
 }
 
-if (admin.indexOf("⑤ 正式出貨資料") !== -1 && /⑤ 正式出貨資料<\/h4><div class="freight-fifo-reservation"/.test(admin)) {
-  admin = replaceOnce(admin, MOVE_FROM_OLD, MOVE_FROM_NEW, "remove reservation from section 5");
+if (admin.indexOf("⑤ 正式出貨資料</h4><div class=\"freight-fifo-reservation\"><header><div><b>預約出貨日期／寄庫原因</b>") !== -1) {
+  admin = replaceOnce(admin, MOVE_FROM_OLD, MOVE_FROM_NEW, "remove old reservation from section 5");
 }
 
-if (!fifoHoldIsUnderShipping(admin)) {
+if (!fifoHoldIsUnderShipping(admin) && !fifoHoldIsInSection5(admin) && !fifoHoldHasShortcut(admin)) {
   admin = replaceOnce(admin, AFTER_SHIP_OLD, AFTER_SHIP_NEW, "put hold under 超商/住家");
 }
 
@@ -315,10 +317,10 @@ if (admin.indexOf(JS_MARKER) === -1) throw new Error("hold save button missing")
 if (admin.indexOf("function saveFreightFifoHold") === -1) throw new Error("saveFreightFifoHold missing");
 if (admin.indexOf("此單已在寄庫名單") === -1) throw new Error("hold status copy missing");
 if (admin.indexOf("寄庫（先不出貨）") === -1) throw new Error("hold title missing");
-if (!fifoHoldIsUnderShipping(admin)) throw new Error("hold is not under 超商/住家");
+if (!fifoHoldIsUnderShipping(admin) && !fifoHoldIsInSection5(admin)) throw new Error("hold panel missing");
 if (fifoHoldIsAfterShare(admin)) throw new Error("hold still after LINE share");
-if (admin.indexOf("⑤ 正式出貨資料") !== -1 && /⑤ 正式出貨資料<\/h4><div class="freight-fifo-reservation"/.test(admin)) {
-  throw new Error("reservation still under section 5");
+if (admin.indexOf("⑤ 正式出貨資料</h4><div class=\"freight-fifo-reservation\"><header><div><b>預約出貨日期／寄庫原因</b>") !== -1) {
+  throw new Error("old reservation still under section 5");
 }
 
 console.log("backup admin css", backup(ADMIN_CSS, "fifo-hold"));
