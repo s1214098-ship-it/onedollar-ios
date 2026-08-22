@@ -13,9 +13,10 @@ function fifoCustomerOrderStatusKey(row) {
   if (status === "cancelled" || status === "canceled") return "cancelled";
   if (status === "returned" || delivery === "returned") return "returned";
   if (status === "delivered" || status === "completed" || delivery === "delivered") return "delivered";
-  if (status === "confirming" || status === "draft" || status === "pending") return "draft";
   if (delivery === "in_transit" || status === "shipped" || status === "in_transit") return "transit";
   if (delivery === "arrived_store") return "arrived";
+  if (fifoCustomerOrderIsHold(row)) return "hold";
+  if (status === "confirming" || status === "draft" || status === "pending") return "draft";
   return "open";
 }
 
@@ -24,6 +25,7 @@ function fifoCustomerOrderStatusLabel(row) {
   if (key === "cancelled") return "已取消";
   if (key === "returned") return "已退回";
   if (key === "delivered") return "已完成配送";
+  if (key === "hold") return "已寄庫";
   if (key === "draft") return "已打單／接單確認中";
   if (key === "transit") return "配送中";
   if (key === "arrived") return "已到店";
@@ -89,6 +91,95 @@ function fifoShouldAutoOpenCustomerOrders(query, rows, lastQuery) {
   return q !== String(lastQuery || "");
 }
 
+function fifoCustomerOrderIsHold(row) {
+  row = row || {};
+  const reason = String(row.reservedShippingHoldReason || "").trim();
+  if (reason && reason !== "scheduled_ship") return true;
+  const note = [row.shippingNote, row.reservedShippingNote, row.reservedShippingHoldReasonText].join(" ");
+  return /寄庫|等待直播|等直播|先不出貨/.test(note);
+}
+
+function fifoCustomerOrderCanMerge(row) {
+  if (!row || row.cancelled === true) return false;
+  const id = String(row.id || "").trim();
+  if (!id) return false;
+  const delivery = String(row.deliveryState || "").toLowerCase();
+  if (["arrived_store", "in_transit", "delivered", "returned", "shipped"].indexOf(delivery) !== -1) return false;
+  const key = fifoCustomerOrderStatusKey(row);
+  if (["cancelled", "returned", "delivered", "transit", "arrived"].indexOf(key) !== -1) return false;
+  const status = String(row.status || "").toLowerCase();
+  if (
+    ["shipped", "in_transit", "delivered", "completed", "returned", "cancelled", "canceled", "refunded", "closed"].indexOf(
+      status
+    ) !== -1
+  ) {
+    return false;
+  }
+  if (fifoCustomerOrderIsHold(row)) return false;
+  return true;
+}
+
+function fifoCustomerOrderMergeIds(rows) {
+  const ids = [];
+  const seen = Object.create(null);
+  (rows || []).forEach(function (row) {
+    if (!fifoCustomerOrderCanMerge(row)) return;
+    const id = String(row.id || "").trim();
+    if (!id || seen[id]) return;
+    seen[id] = true;
+    ids.push(id);
+  });
+  return ids;
+}
+
+function fifoCustomerOrderMergeButtonLabel(count) {
+  const n = Math.max(0, Number(count || 0));
+  if (n < 2) return "";
+  return "合併未出貨 " + n + " 張一起出";
+}
+
+function fifoCustomerOrderResolveMergeIds(rows, orders) {
+  const orderIds = Object.create(null);
+  (orders || []).forEach(function (order) {
+    const id = String(order && order.id || "").trim();
+    if (id) orderIds[id] = true;
+  });
+  const resolved = [];
+  const skipped = [];
+  const seen = Object.create(null);
+  fifoCustomerOrderMergeIds(rows).forEach(function (id) {
+    const row = (rows || []).find(function (item) {
+      return item && String(item.id || "") === id;
+    }) || {};
+    const converted = String(row.convertedOrderId || row.convertedToOrderId || row.orderId || "").trim();
+    if (orderIds[id]) {
+      if (!seen[id]) {
+        seen[id] = true;
+        resolved.push(id);
+      }
+      return;
+    }
+    if (converted && orderIds[converted]) {
+      if (!seen[converted]) {
+        seen[converted] = true;
+        resolved.push(converted);
+      }
+      return;
+    }
+    skipped.push(id);
+  });
+  return { resolved: resolved, skipped: skipped };
+}
+
+function fifoCustomerOrderMergeForbidden(rows) {
+  return (rows || []).some(function (row) {
+    const id = String((row && row.id) || "");
+    const converted = String((row && (row.convertedOrderId || row.convertedToOrderId)) || "");
+    const phone = fifoCustomerPhoneDigits(row);
+    return id === "BYORDER-20260720-078596" || converted === "BYORDER-20260720-078596" || phone === "16346546308";
+  });
+}
+
 module.exports = {
   fifoCustomerPhoneDigits,
   fifoCustomerOrderStatusKey,
@@ -98,4 +189,10 @@ module.exports = {
   fifoWorkbenchWhyHidden,
   fifoCollectCustomerOrders,
   fifoShouldAutoOpenCustomerOrders,
+  fifoCustomerOrderIsHold,
+  fifoCustomerOrderCanMerge,
+  fifoCustomerOrderMergeIds,
+  fifoCustomerOrderMergeButtonLabel,
+  fifoCustomerOrderResolveMergeIds,
+  fifoCustomerOrderMergeForbidden,
 };
