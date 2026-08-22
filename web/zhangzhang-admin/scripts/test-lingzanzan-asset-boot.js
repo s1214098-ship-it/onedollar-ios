@@ -66,5 +66,14 @@ assert(bootPhp.indexOf("location.reload()") !== -1, "boot reloads when assets ch
 assert(bootPhp.indexOf("applyUpdate") !== -1, "boot uses applyUpdate");
 assert(bootPhp.indexOf("點這裡套用") === -1, "boot no longer asks to click 套用");
 assert(bootPhp.indexOf("稍後") === -1, "boot no longer has 稍後");
+assert(bootPhp.indexOf("lz-asset-refresh-banner") !== -1, "boot reloads leftover 套用 banner");
+assert(bootPhp.indexOf("lz_asset_set_cookie") !== -1, "boot stamps current asset cookie");
+
+const versionPhp = fs.readFileSync(path.join(__dirname, "..", "lingzanzan-pages", "asset-version.php"), "utf8");
+assert(versionPhp.indexOf("lz_asset_stale_reload_headers") !== -1, "version endpoint marks stale tabs");
+
+const libPhp = fs.readFileSync(path.join(__dirname, "..", "lingzanzan-pages", "asset-version-lib.php"), "utf8");
+assert(libPhp.indexOf("Refresh: 0") !== -1, "stale poll asks the browser to reload");
+assert(libPhp.indexOf("'auto' => true") !== -1, "manifest says updates are automatic");
 
 console.log("all asset boot html tests passed");

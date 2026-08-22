@@ -11,4 +11,6 @@ header('Pragma: no-cache');
 
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'asset-version-lib.php';
 
-echo json_encode(lz_asset_manifest(__DIR__), JSON_UNESCAPED_SLASHES);
+$manifest = lz_asset_manifest(__DIR__);
+lz_asset_stale_reload_headers((string)($manifest['v'] ?? '0'));
+echo json_encode($manifest, JSON_UNESCAPED_SLASHES);

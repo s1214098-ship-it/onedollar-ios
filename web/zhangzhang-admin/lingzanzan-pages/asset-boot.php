@@ -13,12 +13,19 @@ header('Pragma: no-cache');
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'asset-version-lib.php';
 
 $manifest = lz_asset_manifest(__DIR__);
+lz_asset_set_cookie((string)($manifest['v'] ?? '0'));
 $json = json_encode($manifest, JSON_UNESCAPED_SLASHES);
 if ($json === false) {
     $json = '{"ok":false,"v":"0","files":{}}';
 }
 ?>
 (function (manifest) {
+  try {
+    if (document.getElementById("lz-asset-refresh-banner")) {
+      location.reload();
+      return;
+    }
+  } catch (e) {}
   if (!manifest || window.__LZ_ASSET_BOOT) return;
   window.__LZ_ASSET_BOOT = true;
   window.__LZ_ASSET = manifest;
@@ -111,7 +118,10 @@ if ($json === false) {
     fetch("./asset-version.php", { cache: "no-store" })
       .then(function (res) { return res.json(); })
       .then(function (next) {
-        if (next && next.v && String(next.v) !== currentV) applyUpdate();
+        if (!next || !next.v) return;
+        if (String(next.v) !== currentV || document.getElementById("lz-asset-refresh-banner")) {
+          applyUpdate();
+        }
       })
       .catch(function () {});
   }
@@ -123,10 +133,11 @@ if ($json === false) {
     loadScripts();
   }
 
-  setTimeout(checkForUpdate, 1200);
-  setInterval(checkForUpdate, 8000);
+  setTimeout(checkForUpdate, 400);
+  setInterval(checkForUpdate, 5000);
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible") checkForUpdate();
   });
   window.addEventListener("focus", checkForUpdate);
+  window.addEventListener("pageshow", checkForUpdate);
 })(<?php echo $json; ?>);
