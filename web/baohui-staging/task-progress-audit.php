@@ -50,6 +50,58 @@ try {
         ]);
     }
 
+    if ($action === 'split') {
+        $names = $input['names'] ?? [];
+        if (!is_array($names)) $names = [];
+        $names = array_values(array_filter(array_map(static fn($v) => trim((string)$v), $names), static fn($v) => $v !== ''));
+        $boardId = trim((string)($input['boardId'] ?? ''));
+        $evidence = bh_task_collect_evidence();
+        $board = is_array($evidence['board'] ?? null) ? $evidence['board'] : bh_task_progress_board();
+        $row = null;
+        foreach (($board['rows'] ?? []) as $candidate) {
+            if (!is_array($candidate)) continue;
+            if ($boardId !== '' && (string)($candidate['id'] ?? '') === $boardId) {
+                $row = $candidate;
+                break;
+            }
+        }
+        if ($row === null && !empty($board['rows'][0]) && is_array($board['rows'][0])) {
+            $row = $board['rows'][0];
+        }
+        if ($row === null || !$names) {
+            bh_task_audit_respond([
+                'ok' => false,
+                'error' => '請選擇進度表項目，並勾選要等分的人員',
+                'board' => $board,
+            ], 422);
+        }
+        $shares = bh_task_equal_split((int)($row['remaining'] ?? 0), count($names));
+        $out = [];
+        foreach ($names as $i => $name) {
+            $qty = (int)($shares[$i] ?? 0);
+            $out[] = [
+                'assign' => $name,
+                'shareQty' => $qty,
+                'name' => ((string)($row['title'] ?? '工作')) . '（等分 ' . ($i + 1) . '/' . count($names) . '）',
+                'desc' => bh_task_share_note($row, $qty, count($names), $i),
+                'boardId' => (string)($row['id'] ?? ''),
+                'leftoverKind' => (string)($row['leftoverKind'] ?? ''),
+                'leftover' => $row['leftover'] ?? [],
+                'boardDone' => (int)($row['done'] ?? 0),
+                'boardTotal' => (int)($row['total'] ?? 0),
+                'boardRate' => (int)($row['rate'] ?? 0),
+                'unit' => (string)($row['unit'] ?? '筆'),
+            ];
+        }
+        bh_task_audit_respond([
+            'ok' => true,
+            'board' => $board,
+            'row' => $row,
+            'shares' => $out,
+            'user' => $user,
+        ]);
+    }
+
     if ($action === 'batch') {
         $tasks = $input['tasks'] ?? [];
         if (!is_array($tasks)) $tasks = [];
@@ -70,6 +122,7 @@ try {
             'evidence' => [
                 'invoices' => $evidence['invoices'] ?? [],
                 'products' => $evidence['products'] ?? [],
+                'board' => $evidence['board'] ?? [],
             ],
             'user' => $user,
         ]);

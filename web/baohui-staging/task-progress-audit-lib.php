@@ -124,7 +124,7 @@ function bh_task_movements_path(): string
 
 function bh_task_collect_invoice_evidence(): array
 {
-    $empty = ['total' => 0, 'printed' => 0, 'unprinted' => 0, 'available' => false];
+    $empty = ['total' => 0, 'printed' => 0, 'unprinted' => 0, 'available' => false, 'leftover' => []];
     try {
         if (!function_exists('acc_db')) {
             $lib = __DIR__ . DIRECTORY_SEPARATOR . 'accounting-lib.php';
@@ -135,11 +135,29 @@ function bh_task_collect_invoice_evidence(): array
         $total = (int)$pdo->query('SELECT COUNT(*) FROM electronic_invoices')->fetchColumn();
         $printed = (int)$pdo->query("SELECT COUNT(*) FROM electronic_invoices WHERE print_status = 'printed_confirmed'")->fetchColumn();
         $unprinted = (int)$pdo->query("SELECT COUNT(*) FROM electronic_invoices WHERE print_status = 'not_printed'")->fetchColumn();
+        $leftover = [];
+        try {
+            $stmt = $pdo->query("SELECT invoice_number, seller_name, invoice_date FROM electronic_invoices WHERE print_status = 'not_printed' AND IFNULL(workflow_status,'') <> 'duplicate' ORDER BY invoice_date DESC, id DESC LIMIT 12");
+            foreach ($stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [] as $row) {
+                $no = trim((string)($row['invoice_number'] ?? ''));
+                $seller = trim((string)($row['seller_name'] ?? ''));
+                $date = trim((string)($row['invoice_date'] ?? ''));
+                $label = trim($no . ($seller !== '' ? '／' . $seller : '') . ($date !== '' ? '（' . $date . '）' : ''), '／');
+                if ($label === '') continue;
+                $leftover[] = [
+                    'kind' => '未印電子發票',
+                    'label' => $label,
+                ];
+            }
+        } catch (Throwable $e) {
+            $leftover = [];
+        }
         return [
             'total' => $total,
             'printed' => $printed,
             'unprinted' => $unprinted,
             'available' => $total > 0,
+            'leftover' => $leftover,
         ];
     } catch (Throwable $e) {
         return $empty;
@@ -158,6 +176,10 @@ function bh_task_collect_product_evidence(): array
         'mainland_recycle_stocked' => 0,
         'mainland_inbound_docs' => 0,
         'available' => false,
+        'with_available_qty' => 0,
+        'zero_available' => 0,
+        'leftover' => [],
+        'mainland_leftover' => [],
     ];
     $path = bh_task_products_path();
     if (!is_file($path)) return $out;
@@ -178,7 +200,33 @@ function bh_task_collect_product_evidence(): array
             $out['mainland_recycle']++;
             if ($stock > 0) $out['mainland_recycle_stocked']++;
         }
+        $availableQty = function_exists('ops_product_available_qty')
+            ? ops_product_available_qty($row)
+            : max(0, $stock - (int)($row['stock_sold'] ?? 0) - max(0, (int)($row['stock_reserved'] ?? 0)) - max(0, (int)($row['cloud_auction_reserved'] ?? 0)));
+        if ($availableQty > 0) {
+            $out['with_available_qty']++;
+        } else {
+            $out['zero_available']++;
+        }
+        if ($availableQty <= 0) {
+            $title = trim((string)($row['title'] ?? $row['product_name'] ?? $row['id'] ?? ''));
+            $kindLabel = $kind['source'] ? '大陸來源未入庫' : ($kind['recycle'] ? '回收(大陸)未入庫' : '商品無可用庫存');
+            if ($title !== '') {
+                $item = [
+                    'kind' => $kindLabel,
+                    'label' => $title,
+                ];
+                if (count($out['leftover']) < 12) {
+                    $out['leftover'][] = $item;
+                }
+                if ($kind['source'] && count($out['mainland_leftover']) < 12) {
+                    $out['mainland_leftover'][] = $item;
+                }
+            }
+        }
     }
+    $out['leftover'] = array_slice($out['leftover'], 0, 12);
+    $out['mainland_leftover'] = array_slice($out['mainland_leftover'], 0, 12);
     $out['available'] = $out['total'] > 0;
 
     $movPath = bh_task_movements_path();
@@ -201,9 +249,12 @@ function bh_task_collect_product_evidence(): array
 
 function bh_task_collect_evidence(?int $now = null): array
 {
+    $invoices = bh_task_collect_invoice_evidence();
+    $products = bh_task_collect_product_evidence();
     return [
-        'invoices' => bh_task_collect_invoice_evidence(),
-        'products' => bh_task_collect_product_evidence(),
+        'invoices' => $invoices,
+        'products' => $products,
+        'board' => bh_task_progress_board($invoices, $products),
         'now' => bh_task_audit_now($now),
     ];
 }
@@ -211,6 +262,122 @@ function bh_task_collect_evidence(?int $now = null): array
 function bh_task_check(string $id, string $label, string $status, string $detail): array
 {
     return compact('id', 'label', 'status', 'detail');
+}
+
+function bh_task_green_rate(int $done, int $total): int
+{
+    if ($total <= 0) {
+        return $done > 0 ? 100 : 0;
+    }
+    return (int)round(100 * max(0, $done) / $total);
+}
+
+function bh_task_leftover_labels(array $items): array
+{
+    $out = [];
+    foreach ($items as $item) {
+        $label = trim((string)($item['label'] ?? $item['number'] ?? $item['title'] ?? ''));
+        if ($label !== '') {
+            $out[] = $label;
+        }
+    }
+    return $out;
+}
+
+function bh_task_progress_board(?array $invoices = null, ?array $products = null): array
+{
+    $invoices = $invoices ?? bh_task_collect_invoice_evidence();
+    $products = $products ?? bh_task_collect_product_evidence();
+    $invDone = (int)($invoices['printed'] ?? 0);
+    $invTotal = (int)($invoices['total'] ?? 0);
+    $invLeft = (int)($invoices['unprinted'] ?? max(0, $invTotal - $invDone));
+    $prodDone = (int)($products['with_available_qty'] ?? $products['stocked'] ?? 0);
+    $prodTotal = (int)($products['total'] ?? 0);
+    $prodLeft = (int)($products['zero_available'] ?? $products['zero_stock'] ?? max(0, $prodTotal - $prodDone));
+    $mainlandLeft = max(0, (int)($products['mainland_source'] ?? 0) - (int)($products['mainland_source_stocked'] ?? 0));
+    $rows = [
+        [
+            'id' => 'invoice-print',
+            'title' => '電子發票列印',
+            'kind' => 'invoice',
+            'done' => $invDone,
+            'total' => $invTotal,
+            'remaining' => $invLeft,
+            'rate' => bh_task_green_rate($invDone, $invTotal),
+            'unit' => '張',
+            'leftoverKind' => $invLeft > 0 ? '未確認列印的電子發票' : '無',
+            'leftover' => bh_task_leftover_labels($invoices['leftover'] ?? []),
+            'available' => !empty($invoices['available']),
+        ],
+        [
+            'id' => 'sku-available',
+            'title' => '庫存商品建檔／有可用數量',
+            'kind' => 'product',
+            'done' => $prodDone,
+            'total' => $prodTotal,
+            'remaining' => $prodLeft,
+            'rate' => bh_task_green_rate($prodDone, $prodTotal),
+            'unit' => '筆',
+            'leftoverKind' => $prodLeft > 0 ? '尚無可用數量的商品' : '無',
+            'leftover' => bh_task_leftover_labels($products['leftover'] ?? []),
+            'available' => !empty($products['available']),
+        ],
+        [
+            'id' => 'mainland-source',
+            'title' => '大陸來源商品建檔',
+            'kind' => 'product',
+            'done' => (int)($products['mainland_source_stocked'] ?? 0),
+            'total' => (int)($products['mainland_source'] ?? 0),
+            'remaining' => $mainlandLeft,
+            'rate' => bh_task_green_rate((int)($products['mainland_source_stocked'] ?? 0), (int)($products['mainland_source'] ?? 0)),
+            'unit' => '筆',
+            'leftoverKind' => $mainlandLeft > 0 ? '拼多多／淘寶／豪鴻尚未有庫存數量' : '無',
+            'leftover' => bh_task_leftover_labels($products['mainland_leftover'] ?? []),
+            'available' => !empty($products['available']),
+        ],
+    ];
+    $remainingTotal = 0;
+    foreach ($rows as $row) {
+        $remainingTotal += (int)$row['remaining'];
+    }
+    return [
+        'updatedAt' => date('c'),
+        'remainingTotal' => $remainingTotal,
+        'rows' => $rows,
+    ];
+}
+
+function bh_task_equal_split(int $remaining, int $people): array
+{
+    $people = max(1, $people);
+    $remaining = max(0, $remaining);
+    $base = intdiv($remaining, $people);
+    $extra = $remaining % $people;
+    $shares = [];
+    for ($i = 0; $i < $people; $i++) {
+        $shares[] = $base + ($i < $extra ? 1 : 0);
+    }
+    return $shares;
+}
+
+function bh_task_share_note(array $row, int $shareQty, int $people, int $index): string
+{
+    $title = (string)($row['title'] ?? '工作');
+    $remaining = (int)($row['remaining'] ?? 0);
+    $done = (int)($row['done'] ?? 0);
+    $total = (int)($row['total'] ?? 0);
+    $rate = (int)($row['rate'] ?? 0);
+    $unit = (string)($row['unit'] ?? '筆');
+    $kind = (string)($row['leftoverKind'] ?? '剩餘內容');
+    $samples = array_slice((array)($row['leftover'] ?? []), 0, 8);
+    $sampleText = $samples ? implode('、', $samples) : '見進度表剩餘清單';
+    $n = $index + 1;
+    return "【進度表等分】{$title}\n"
+        . "目前進度：已完成 {$done}／共 {$total}{$unit}（綠比例 {$rate}%）\n"
+        . "還沒好：{$kind}，剩餘 {$remaining}{$unit}\n"
+        . "等分：{$people} 人，你是第 {$n} 位，分到 {$shareQty}{$unit}\n"
+        . "剩餘內容例：{$sampleText}\n"
+        . "來不及完成時請在回報勾選「來不及完成」，填綠比例與何時可以完成。";
 }
 
 function bh_task_verdict_from_checks(array $checks): string
