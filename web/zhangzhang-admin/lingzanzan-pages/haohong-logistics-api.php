@@ -50,6 +50,26 @@ function hh_table_compare_label(bool $signed, string $unsigned): string {
     return $signed ? '已簽收' : $unsigned;
 }
 
+function hh_table_batch_track_keys(array $batch): array {
+    $keys = [];
+    foreach ((array)($batch['trackingKeys'] ?? []) as $key) {
+        $k = hh_table_track_key((string)$key);
+        if ($k !== '') $keys[$k] = true;
+    }
+    foreach (['logisticsTrackingNo', 'firstTrackingNo'] as $field) {
+        $k = hh_table_track_key((string)($batch[$field] ?? ''));
+        if ($k !== '') $keys[$k] = true;
+    }
+    return array_keys($keys);
+}
+
+function hh_table_tracks_already_signed(array $batch, array $signedTracks): bool {
+    foreach (hh_table_batch_track_keys($batch) as $key) {
+        if (isset($signedTracks[$key])) return true;
+    }
+    return false;
+}
+
 function hh_table_request_token(): string {
     $custom = trim((string)($_SERVER['HTTP_X_LINGZANZAN_ADMIN_SESSION'] ?? ''));
     if (preg_match('/^[A-Za-z0-9_-]{32,160}$/', $custom)) return $custom;
@@ -121,6 +141,7 @@ foreach (($freight['batches'] ?? []) as $batch) {
         'destinationWarehouse' => hh_table_text($batch['destinationWarehouse'] ?? '', 40),
         'haohongSyncedAt' => hh_table_text($batch['haohongSyncedAt'] ?? '', 40),
         'note' => hh_table_text($batch['note'] ?? '', 300),
+        'firstTrackingNo' => $first,
         'trackingNumbers' => array_values($tracks),
         'trackingKeys' => array_keys($tracks),
     ];
@@ -169,6 +190,17 @@ foreach ($remoteOrders as $order) {
         if (!is_array($pkg)) continue;
         $key = hh_table_track_key((string)($pkg['trackingNo'] ?? ''));
         if ($key !== '') $signedTracks[$key] = true;
+    }
+}
+
+foreach ($localBatches as $batch) {
+    if (!hh_table_order_signed($batch['status'] ?? '')) continue;
+    foreach ([$batch['id'] ?? '', $batch['batchNo'] ?? '', $batch['haohongOrderId'] ?? '', $batch['haohongOrderCode'] ?? ''] as $no) {
+        $no = hh_table_text($no, 80);
+        if ($no !== '') $signedBatchNos[$no] = true;
+    }
+    foreach (hh_table_batch_track_keys($batch) as $key) {
+        $signedTracks[$key] = true;
     }
 }
 
@@ -226,11 +258,13 @@ foreach ($remoteOrders as $order) {
 foreach ($localBatches as $batch) {
     $key = $batch['haohongOrderId'] ?: ($batch['haohongOrderCode'] ?: $batch['batchNo']);
     if (isset($seenRemote[$key]) || isset($seenRemote[$batch['batchNo']])) continue;
+    $absorbed = hh_table_tracks_already_signed($batch, $signedTracks);
+    $signed = $absorbed || hh_table_order_signed($batch['status']);
     if ($remoteOrders) {
         $batchesOut[] = [
             'batchNo' => $batch['batchNo'],
             'haohongOrderId' => $batch['haohongOrderId'],
-            'haohongStatus' => '',
+            'haohongStatus' => $signed ? '已簽收' : '',
             'orderDate' => $batch['date'],
             'transferOrderNo' => $batch['logisticsTrackingNo'],
             'remotePackageCount' => 0,
@@ -239,22 +273,22 @@ foreach ($localBatches as $batch) {
             'remoteFeeTwd' => 0,
             'inBackend' => true,
             'localId' => $batch['id'],
-            'localStatus' => hh_table_order_signed($batch['status']) ? '已簽收' : $batch['status'],
+            'localStatus' => $signed ? '已簽收' : $batch['status'],
             'localPackageCount' => $batch['packageCount'],
             'localItemCount' => $batch['itemCount'],
             'localFeeTwd' => $batch['shippingFeeTwd'],
             'localBilledKg' => $batch['totalBilledWeightKg'],
             'matchedTrackingCount' => 0,
-            'packageDiff' => 0 - (int)$batch['packageCount'],
-            'signed' => hh_table_order_signed($batch['status']),
-            'compare' => hh_table_compare_label(hh_table_order_signed($batch['status']), '後台有、這次豪鴻清單沒有'),
+            'packageDiff' => $signed ? 0 : (0 - (int)$batch['packageCount']),
+            'signed' => $signed,
+            'compare' => hh_table_compare_label($signed, '後台有、這次豪鴻清單沒有'),
             'source' => 'backend',
         ];
     } else {
         $batchesOut[] = [
             'batchNo' => $batch['batchNo'],
             'haohongOrderId' => $batch['haohongOrderId'],
-            'haohongStatus' => '',
+            'haohongStatus' => $signed ? '已簽收' : '',
             'orderDate' => $batch['date'],
             'transferOrderNo' => $batch['logisticsTrackingNo'],
             'remotePackageCount' => (int)$batch['packageCount'],
@@ -263,15 +297,15 @@ foreach ($localBatches as $batch) {
             'remoteFeeTwd' => (float)$batch['shippingFeeTwd'],
             'inBackend' => true,
             'localId' => $batch['id'],
-            'localStatus' => hh_table_order_signed($batch['status']) ? '已簽收' : $batch['status'],
+            'localStatus' => $signed ? '已簽收' : $batch['status'],
             'localPackageCount' => $batch['packageCount'],
             'localItemCount' => $batch['itemCount'],
             'localFeeTwd' => $batch['shippingFeeTwd'],
             'localBilledKg' => $batch['totalBilledWeightKg'],
             'matchedTrackingCount' => count($batch['trackingKeys']),
             'packageDiff' => 0,
-            'signed' => hh_table_order_signed($batch['status']),
-            'compare' => hh_table_compare_label(hh_table_order_signed($batch['status']), '後台已帶入（尚未重抓豪鴻清單）'),
+            'signed' => $signed,
+            'compare' => hh_table_compare_label($signed, '後台已帶入（尚未重抓豪鴻清單）'),
             'source' => 'backend',
         ];
     }

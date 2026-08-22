@@ -845,6 +845,97 @@ function applyHaohongOrder(freight, order) {
   return { batchId, batchNo, packageCount, matchedItemCount, imported };
 }
 
+function orderIsSigned(status) {
+  const text = String(status || '');
+  if (/待[簽签]收|未[簽签]收/.test(text)) return false;
+  return /已[簽签]收/.test(text) || text.indexOf('已簽收完成') !== -1;
+}
+
+function isFormalHaohongBatch(batch) {
+  return /^HAOHONG-/i.test(String(batch && batch.id || '')) && String(batch && batch.haohongOrderId || '').trim() !== '';
+}
+
+function isHaohongLeftoverSheet(batch) {
+  if (!batch || isFormalHaohongBatch(batch)) return false;
+  const blob = [
+    batch.provider,
+    batch.forwarder,
+    batch.costMode,
+    batch.id,
+    batch.haohongOrderId,
+    batch.haohongOrderCode,
+  ].join(' ').toLowerCase();
+  return /hao|豪鴻|haohong-/.test(blob);
+}
+
+function leftoverBatchTrackKeys(batch, items) {
+  const keys = new Set();
+  const add = (value) => {
+    const key = trackingKey(value);
+    if (key) keys.add(key);
+  };
+  (batch && batch.trackingNumbers || []).forEach(add);
+  add(batch && batch.logisticsTrackingNo);
+  add(batch && batch.firstTrackingNo);
+  add(batch && batch.taiwanTrackingNo);
+  (batch && batch.packageRows || []).forEach((row) => {
+    add(row && row.trackingNo);
+    add(row && row.haohongTrackingNo);
+  });
+  (items || []).forEach((item) => {
+    if (String(item.batchId || '') !== String(batch && batch.id || '')) return;
+    itemTrackingKeys(item).forEach((key) => keys.add(key));
+  });
+  return keys;
+}
+
+function absorbLeftoverHaohongSheets(freight) {
+  if (!freight || !Array.isArray(freight.batches)) return { absorbedCount: 0, absorbed: [] };
+  const batches = freight.batches;
+  const items = freight.items || [];
+  const signedTracks = new Map();
+  batches.forEach((batch) => {
+    if (!isFormalHaohongBatch(batch) || !orderIsSigned(batch.status)) return;
+    leftoverBatchTrackKeys(batch, items).forEach((key) => {
+      if (!signedTracks.has(key)) signedTracks.set(key, batch);
+    });
+  });
+  const absorbed = [];
+  const now = new Date().toISOString();
+  freight.batches = batches.map((batch) => {
+    if (!isHaohongLeftoverSheet(batch) || orderIsSigned(batch.status)) return batch;
+    const hit = Array.from(leftoverBatchTrackKeys(batch, items)).find((key) => signedTracks.has(key));
+    if (!hit) return batch;
+    const host = signedTracks.get(hit);
+    absorbed.push({ leftoverId: batch.id, trackingNo: hit, into: host && host.id || '' });
+    return Object.assign({}, batch, {
+      status: '已簽收完成',
+      absorbedInto: host && host.id || '',
+      absorbedTrackingNo: hit,
+      haohongAbsorbedAt: now,
+      updatedAt: now,
+      note: [
+        batch.note,
+        '已併入 ' + (host && (host.batchNo || host.id) || '') + ' 已簽收完成；本列是空殼舊表，不是漏抓。',
+      ].filter(Boolean).join(' '),
+    });
+  });
+  return { absorbedCount: absorbed.length, absorbed };
+}
+
+function writeLogisticsSnapshot(packages, orders, extra) {
+  const SNAPSHOT = path.join(DATA, 'haohong-logistics-snapshot.json');
+  writeJson(SNAPSHOT, Object.assign({
+    ok: true,
+    savedAt: new Date().toISOString(),
+    syncedAt: new Date().toISOString(),
+    packages: packages || [],
+    orders: orders || [],
+    warnings: [],
+    credentialsStored: true,
+  }, extra || {}));
+}
+
 function applyHaohongOrders(freight, orders) {
   if (!Array.isArray(freight.batches)) freight.batches = [];
   if (!Array.isArray(freight.items)) freight.items = [];
@@ -854,16 +945,18 @@ function applyHaohongOrders(freight, orders) {
     const result = applyHaohongOrder(freight, order);
     if (!result.skipped) applied.push(result);
   });
+  const absorbed = absorbLeftoverHaohongSheets(freight);
   const now = new Date().toISOString();
   freight.importMeta = Object.assign({}, freight.importMeta || {}, {
     haohongLastSyncedAt: now,
     haohongLastOrderCode: applied.length ? applied[applied.length - 1].batchNo : (freight.importMeta && freight.importMeta.haohongLastOrderCode || ''),
     haohongOrderBatchCount: applied.length,
     haohongHourlyOrderSync: true,
+    haohongAbsorbedLeftoverCount: absorbed.absorbedCount,
   });
   freight.revision = Number(freight.revision || 0) + 1;
   freight.updatedAt = now;
-  return { orderCount: applied.length, batches: applied };
+  return { orderCount: applied.length, batches: applied, absorbedCount: absorbed.absorbedCount, absorbed: absorbed.absorbed };
 }
 
 async function ensureDeclaredGoodsValues(site, login, memberId, packages) {
@@ -994,17 +1087,8 @@ async function main() {
   const missingLookup = await lookupMissingPackages(site, login, memberId, packagesByTracking, freightPreview);
   const packages = Array.from(packagesByTracking.values());
   if (process.argv.indexOf('--catalog-only') !== -1) {
-    const SNAPSHOT = path.join(DATA, 'haohong-logistics-snapshot.json');
     const orders = await fetchHaohongOrders(site, login, memberId);
-    writeJson(SNAPSHOT, {
-      ok: true,
-      savedAt: new Date().toISOString(),
-      syncedAt: new Date().toISOString(),
-      packages: packages,
-      orders: orders,
-      warnings: [],
-      credentialsStored: true
-    });
+    writeLogisticsSnapshot(packages, orders);
     const freightOnly = readJson(FREIGHT, { items: [], batches: [] });
     freightOnly.items = Array.isArray(freightOnly.items) ? freightOnly.items : [];
     freightOnly.batches = Array.isArray(freightOnly.batches) ? freightOnly.batches : [];
@@ -1075,9 +1159,19 @@ async function main() {
         batch.updatedAt = now;
       }
     });
-    if (imported || named) writeJson(FREIGHT, freightOnly);
-    console.log(JSON.stringify({ ok: true, catalogOnly: true, orderCount: orders.length, packageCount: packages.length, imported: imported, named: named }));
-    return { ok: true, catalogOnly: true, imported: imported, named: named };
+    const absorbed = absorbLeftoverHaohongSheets(freightOnly);
+    if (imported || named || absorbed.absorbedCount) writeJson(FREIGHT, freightOnly);
+    console.log(JSON.stringify({
+      ok: true,
+      catalogOnly: true,
+      orderCount: orders.length,
+      packageCount: packages.length,
+      imported: imported,
+      named: named,
+      absorbedCount: absorbed.absorbedCount,
+      snapshotWritten: true,
+    }));
+    return { ok: true, catalogOnly: true, imported: imported, named: named, absorbedCount: absorbed.absorbedCount };
   }
   const freight = readJson(FREIGHT, { items: [], haohongPackageWeights: [] });
   const forecast = await registerMissingPackages(site, login, memberId, packagesByTracking, freight);
@@ -1105,6 +1199,8 @@ async function main() {
   try {
     const orders = await fetchHaohongOrders(site, login, memberId);
     orderApply = applyHaohongOrders(freight, orders);
+    writeLogisticsSnapshot(refreshed, orders);
+    orderApply.snapshotWritten = true;
   } catch (error) {
     orderError = String(error && error.message || error).slice(0, 180);
   }
@@ -1121,6 +1217,8 @@ async function main() {
     valuesFilled: values.filledCount,
     valuesSkipped: values.skippedCount,
     orderCount: orderApply.orderCount,
+    absorbedCount: orderApply.absorbedCount || 0,
+    snapshotWritten: !!orderApply.snapshotWritten,
     orderBatches: orderApply.batches.map((row) => ({
       batchNo: row.batchNo,
       packageCount: row.packageCount,
@@ -1155,4 +1253,10 @@ if (require.main === module) {
 module.exports = {
   trackingKey,
   trackingsMissingHaohongWeight,
+  orderIsSigned,
+  isFormalHaohongBatch,
+  isHaohongLeftoverSheet,
+  leftoverBatchTrackKeys,
+  absorbLeftoverHaohongSheets,
+  writeLogisticsSnapshot,
 };
