@@ -1,0 +1,14 @@
+{
+  "name": "baohui-admin-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "寶輝科技管理後台伺服器：工單、回收、請假、薪資、任務與公開申請 API",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test --test-reporter=spec tests/*.test.js"
+  }
+}
