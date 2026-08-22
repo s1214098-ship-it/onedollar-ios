@@ -47,6 +47,18 @@ function fifoHoldHasFooterSave(adminJs) {
   return String(adminJs || "").indexOf("data-freight-fifo-hold-footer") !== -1;
 }
 
+function fifoShipConfirmIgnoresHold(clickSource) {
+  return clickSource === "confirm" || clickSource === "handoff";
+}
+
+function fifoHoldOnlyFromHoldSave(clickSource) {
+  return clickSource === "hold-save";
+}
+
+function fifoFormalSubmitKeepsShipLabel(isHold, shipLabel) {
+  return String(shipLabel || "送出正式訂單");
+}
+
 function fifoHoldIsAfterShare(adminJs) {
   return /data-freight-fifo-share>LINE[\s\S]{0,80}<div class="freight-fifo-reservation"/.test(String(adminJs || ""));
 }
@@ -110,6 +122,9 @@ module.exports = {
   fifoHoldHasShortcut,
   fifoHoldHasFooterSave,
   fifoHoldIsAfterShare,
+  fifoShipConfirmIgnoresHold,
+  fifoHoldOnlyFromHoldSave,
+  fifoFormalSubmitKeepsShipLabel,
   fifoHoldOverlapCssMarker,
   fifoHoldOverlapCss,
   fifoHoldHasOverlapFix,

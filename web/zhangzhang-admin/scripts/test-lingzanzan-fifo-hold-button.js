@@ -14,6 +14,9 @@ const {
   fifoHoldHasShortcut,
   fifoHoldHasFooterSave,
   fifoHoldIsAfterShare,
+  fifoShipConfirmIgnoresHold,
+  fifoHoldOnlyFromHoldSave,
+  fifoFormalSubmitKeepsShipLabel,
   fifoHoldOverlapCss,
   fifoHoldHasOverlapFix,
 } = require("./lz-fifo-hold-button");
@@ -62,5 +65,13 @@ assert(fifoHoldHasOverlapFix(".freight-fifo-reservation > div { grid-template-co
 assert(overlapCss.indexOf("minmax(0, 1fr)") !== -1, "hold fields stay one column");
 assert(overlapCss.indexOf("minmax(0, 0.7fr)") !== -1, "modal left column can shrink");
 assert(overlapCss.indexOf("minmax(320px") === -1, "hold panel does not keep 320px min column");
+
+assert(fifoShipConfirmIgnoresHold("confirm") === true, "出貨鈕 ignores 寄庫 dropdown");
+assert(fifoShipConfirmIgnoresHold("handoff") === true, "已交寄 checkbox still ships");
+assert(fifoShipConfirmIgnoresHold("hold-save") === false, "加入寄庫名單 is the hold action");
+assert(fifoHoldOnlyFromHoldSave("hold-save") === true, "only hold-save writes 寄庫");
+assert(fifoHoldOnlyFromHoldSave("confirm") === false, "confirm is not 寄庫");
+assert(fifoFormalSubmitKeepsShipLabel(true, "儲存正式訂單") === "儲存正式訂單", "hold selected still shows 出貨 copy");
+assert(fifoFormalSubmitKeepsShipLabel(true, "扣台灣現貨並建立正式出貨單") === "扣台灣現貨並建立正式出貨單", "ready-to-ship copy stays");
 
 console.log("LINGZANZAN fifo hold button tests ok");
