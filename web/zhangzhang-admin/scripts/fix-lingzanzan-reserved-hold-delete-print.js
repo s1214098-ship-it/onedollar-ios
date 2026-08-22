@@ -52,9 +52,11 @@ function replaceOnce(src, oldStr, newStr, label) {
   return src.slice(0, i) + to + src.slice(i + from.length);
 }
 
-const CARD_OLD = `'<button type="button" class="ghost-button" data-reserved-cancel="' + escapeHtml(order.id || '') + '">' + (isHold ? '取消寄庫' : '取消預約') + '</button></div></footer></article>';`;
+// Live card concatenates 開啟出貨單 + 取消寄庫 in one string, so do not
+// look for a standalone `'<button ... data-reserved-cancel="'` opener.
+const CARD_OLD = `'</button></div></footer></article>';`;
 
-const CARD_NEW = `'<button type="button" class="ghost-button" data-reserved-cancel="' + escapeHtml(order.id || '') + '">' + (isHold ? '取消寄庫' : '取消預約') + '</button>' +
+const CARD_NEW = `'</button>' +
       (isHold ? '<button type="button" class="ghost-button" data-reserved-hold-delete="' + escapeHtml(order.id || '') + '">刪除寄庫並撥回倉庫</button>' : '') +
       '</div></footer></article>';`;
 
