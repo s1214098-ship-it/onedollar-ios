@@ -119,7 +119,7 @@ function fifoCustomerOrderCanMerge(row) {
   return true;
 }
 
-function fifoCustomerOrderMergeIds(rows) {
+function fifoCustomerOrderMergeIds(rows, selectedIds) {
   const ids = [];
   const seen = Object.create(null);
   (rows || []).forEach(function (row) {
@@ -129,16 +129,26 @@ function fifoCustomerOrderMergeIds(rows) {
     seen[id] = true;
     ids.push(id);
   });
-  return ids;
+  if (!Array.isArray(selectedIds)) return ids;
+  const wanted = Object.create(null);
+  selectedIds.forEach(function (id) {
+    const key = String(id || "").trim();
+    if (key) wanted[key] = true;
+  });
+  return ids.filter(function (id) {
+    return wanted[id];
+  });
 }
 
-function fifoCustomerOrderMergeButtonLabel(count) {
+function fifoCustomerOrderMergeButtonLabel(count, mode) {
   const n = Math.max(0, Number(count || 0));
-  if (n < 2) return "";
+  if (mode === "idle") return n >= 2 ? "請勾選要合併的單" : "";
+  if (n < 2) return n === 1 && mode === "picked" ? "再勾選至少 1 張才能合併" : "";
+  if (mode === "picked") return "合併已勾選 " + n + " 張一起出";
   return "合併未出貨 " + n + " 張一起出";
 }
 
-function fifoCustomerOrderResolveMergeIds(rows, orders) {
+function fifoCustomerOrderResolveMergeIds(rows, orders, selectedIds) {
   const orderIds = Object.create(null);
   (orders || []).forEach(function (order) {
     const id = String(order && order.id || "").trim();
@@ -147,7 +157,7 @@ function fifoCustomerOrderResolveMergeIds(rows, orders) {
   const resolved = [];
   const skipped = [];
   const seen = Object.create(null);
-  fifoCustomerOrderMergeIds(rows).forEach(function (id) {
+  fifoCustomerOrderMergeIds(rows, selectedIds).forEach(function (id) {
     const row = (rows || []).find(function (item) {
       return item && String(item.id || "") === id;
     }) || {};

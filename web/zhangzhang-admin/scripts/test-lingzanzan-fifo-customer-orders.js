@@ -144,6 +144,19 @@ assert(fifoCustomerOrderMergeButtonLabel(2) === "合併未出貨 2 張一起出"
 assert(fifoCustomerOrderMergeButtonLabel(3) === "合併未出貨 3 張一起出", "button names 3 sheets");
 assert(fifoCustomerOrderMergeButtonLabel(1) === "", "no button for a single sheet");
 assert(fifoCustomerOrderMergeButtonLabel(0) === "", "no button without mergeable rows");
+assert(fifoCustomerOrderMergeButtonLabel(2, "idle") === "請勾選要合併的單", "idle asks to pick");
+assert(fifoCustomerOrderMergeButtonLabel(0, "idle") === "", "idle hidden without enough sheets");
+assert(fifoCustomerOrderMergeButtonLabel(1, "picked") === "再勾選至少 1 張才能合併", "one picked still waits");
+assert(fifoCustomerOrderMergeButtonLabel(2, "picked") === "合併已勾選 2 張一起出", "picked names 2 sheets");
+
+const pickedOnlyBowl = fifoCustomerOrderMergeIds(risaRows, ["BYORDER-20260819-86BB07"]);
+assert(pickedOnlyBowl.join(",") === "BYORDER-20260819-86BB07", "selected filter keeps one mergeable");
+const pickedDeliveredIgnored = fifoCustomerOrderMergeIds(risaRows, ["BYORDER-20260817-27F843", "BYORDER-20260822-C021E5"]);
+assert(pickedDeliveredIgnored.join(",") === "BYORDER-20260822-C021E5", "selected delivered stays out");
+const pickedNone = fifoCustomerOrderMergeIds(risaRows, []);
+assert(pickedNone.length === 0, "empty selection merges nothing");
+const pickedHoldIgnored = fifoCustomerOrderMergeIds(risaRows, ["LIVE-20260726-B99A87", "BYORDER-20260822-C021E5"]);
+assert(pickedHoldIgnored.join(",") === "BYORDER-20260822-C021E5", "selected 寄庫 stays out");
 
 const resolved = fifoCustomerOrderResolveMergeIds(risaRows, [risaPlaced, risaConfirming, risaDelivered, risaLive]);
 assert(resolved.resolved.join(",") === "BYORDER-20260822-C021E5,BYORDER-20260819-86BB07", "resolves only 出貨單 ids");
