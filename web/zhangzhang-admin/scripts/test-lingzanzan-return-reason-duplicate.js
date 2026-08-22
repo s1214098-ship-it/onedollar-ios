@@ -6,6 +6,9 @@ const {
   DUPLICATE_OPTION_LABEL,
   OTHER_OPTION_LABEL,
   returnReasonNeedsOtherDetail,
+  returnReasonPlainLabel,
+  returnReasonFilledNote,
+  returnReasonNoteIsRequired,
   returnReasonIsDuplicateOrder,
   returnReasonCountsTowardScore,
   hasDuplicateOrderReason,
@@ -25,6 +28,12 @@ assert(returnReasonIsDuplicateOrder("duplicate_order") === true, "duplicate code
 assert(returnReasonIsDuplicateOrder("other") === false, "other is not duplicate");
 assert(returnReasonNeedsOtherDetail("other") === true, "other still needs fill-in");
 assert(returnReasonNeedsOtherDetail(DUPLICATE_CODE) === false, "duplicate does not need other text");
+assert(returnReasonNoteIsRequired("") === true, "no reason still needs a note");
+assert(returnReasonNoteIsRequired("duplicate_order") === false, "selected reason does not need typed note");
+assert(returnReasonFilledNote("duplicate_order", "8. 重複打單", "", "") === "重複打單", "dropdown fills note");
+assert(returnReasonFilledNote("other", "9. 其他（請填入內容）", "客人改地址", "") === "其他：客人改地址", "other detail fills note");
+assert(returnReasonFilledNote("duplicate_order", "8. 重複打單", "", "門市退回") === "門市退回", "typed note wins");
+assert(returnReasonPlainLabel("8. 重複打單") === "重複打單", "strips option number");
 assert(returnReasonCountsTowardScore(DUPLICATE_CODE) === false, "duplicate is not scored immediately");
 assert(returnReasonCountsTowardScore("staff_goods_error") === true, "staff goods still scored");
 assert(returnReasonCountsTowardScore("duplicate_unacked") === true, "unacked duplicate ship still scored");

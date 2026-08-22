@@ -9,6 +9,28 @@ function returnReasonNeedsOtherDetail(code) {
   return String(code || "") === "other";
 }
 
+function returnReasonPlainLabel(label) {
+  return String(label || "")
+    .replace(/^\d+\.\s*/, "")
+    .replace(/（[^）]*）/g, "")
+    .replace(/\([^)]*\)/g, "")
+    .trim();
+}
+
+function returnReasonFilledNote(code, selectedLabel, otherDetail, typedNote) {
+  const typed = String(typedNote || "").trim();
+  if (typed) return typed;
+  if (String(code || "") === "other") {
+    const detail = String(otherDetail || "").trim();
+    return detail ? ("其他：" + detail) : "";
+  }
+  return returnReasonPlainLabel(selectedLabel);
+}
+
+function returnReasonNoteIsRequired(code) {
+  return !String(code || "").trim();
+}
+
 function returnReasonIsDuplicateOrder(code) {
   return String(code || "") === DUPLICATE_CODE;
 }
@@ -105,6 +127,9 @@ module.exports = {
   DUPLICATE_OPTION_LABEL,
   OTHER_OPTION_LABEL,
   returnReasonNeedsOtherDetail,
+  returnReasonPlainLabel,
+  returnReasonFilledNote,
+  returnReasonNoteIsRequired,
   returnReasonIsDuplicateOrder,
   returnReasonCountsTowardScore,
   hasDuplicateOrderReason,
