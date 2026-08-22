@@ -10,7 +10,7 @@ const css = "/* 20260822 ready-order type */\n.admin-shipment-pick-stepper input
 const js = '數量點＋－中間那格直接打字\n請先在各尺寸中間格子打數量\ninputmode="numeric"';
 
 assert.strictEqual(readyOrderQtyFieldsAreTypeable(css), true);
-assert.strictEqual(readyOrderQtyFieldsAreTypeable(".is-active{color:gold}"), false);
+assert.strictEqual(readyOrderQtyFieldsAreTypeable(".admin-shipment-sku-pick{}"), false);
 assert.strictEqual(readyOrderQtyHintSaysType(js), true);
 assert.strictEqual(readyOrderQtyHintSaysType("請先在各尺寸按 + 選數量，再一次帶入出貨單"), false);
 

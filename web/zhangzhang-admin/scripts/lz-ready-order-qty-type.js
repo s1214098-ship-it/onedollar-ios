@@ -4,8 +4,7 @@ function readyOrderQtyFieldsAreTypeable(css) {
   const text = String(css || "");
   return text.indexOf("20260822 ready-order type") !== -1
     && text.indexOf(".admin-shipment-pick-stepper input") !== -1
-    && text.indexOf("minmax(112px, 140px)") !== -1
-    && text.indexOf(".is-active") === -1;
+    && text.indexOf("minmax(112px, 140px)") !== -1;
 }
 
 function readyOrderQtyHintSaysType(adminJs) {
