@@ -157,7 +157,8 @@ const BODY_OLD = `      '</style></head><body><button class="no-print" onclick="
       '<h1>第' + escapeHtml(String(meta.no)) + '區　' + escapeHtml(meta.title) + '</h1>',
       '<p class="sub">給業務核對用：客戶名單＋購買商品　' + escapeHtml(meta.hint) + '<br>' + escapeHtml(filterBits.join('｜') || '目前這一區全部客戶') + '<br>列印時間 ' + escapeHtml(printedAt) + '</p>',
       '<section class="metrics"><article><span>客戶</span><strong>' + Object.keys(customerKeys).length + ' 位</strong></article><article><span>訂單／卡片</span><strong>' + rows.length + ' 張</strong></article><article><span>商品總數</span><strong>' + totalQty + ' 件</strong></article></section>',
-      cards,`;
+      cards,
+      '<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},350);};<\\/script></body></html>'`;
 
 const BODY_NEW = `      '</style></head><body><button class="no-print" type="button" onclick="copyUnshippedNames()">複製還沒出名字</button><button class="no-print" onclick="window.print()">列印給業務</button>',
       '<h1>第' + escapeHtml(String(meta.no)) + '區　' + escapeHtml(meta.title) + '</h1>',
@@ -165,19 +166,18 @@ const BODY_NEW = `      '</style></head><body><button class="no-print" type="but
       '<section class="metrics"><article><span>客戶</span><strong>' + Object.keys(customerKeys).length + ' 位</strong></article><article><span>訂單／卡片</span><strong>' + rows.length + ' 張</strong></article><article><span>商品總數</span><strong>' + totalQty + ' 件</strong></article></section>',
       '<section class="line-names no-print"><header><div><b>還沒出貨會員（貼 LINE）</b><small>名字、逗號分隔。含待配貨／已選／等通知／未交寄，不含配送中。</small></div><button type="button" onclick="copyUnshippedNames()">複製名字</button></header><textarea id="unshipped-names" data-unshipped-names readonly>' + escapeHtml(unshippedLine) + '</textarea></section>',
       '<p class="line-names-print"><b>還沒出貨：</b>' + escapeHtml(unshippedLine || '目前沒有') + '</p>',
-      cards,`;
+      cards,
+      '<script>function copyUnshippedNames(){var el=document.getElementById("unshipped-names");if(!el)return;el.focus();el.select();try{document.execCommand("copy");}catch(e){}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(el.value);} }window.onload=function(){setTimeout(function(){window.focus();window.print();},350);};<\\/script></body></html>'`;
 
-const VARS_OLD = `    var printedAt = new Date().toLocaleString('zh-TW', { hour12: false });
+const VARS_OLD = `    if (freightFifoStatusFilter && freightFifoStatusFilter !== 'all') filterBits.push('配送狀態篩選中');
+    var printedAt = new Date().toLocaleString('zh-TW', { hour12: false });
     var printBaseHref = new URL('.', window.location.href).href;`;
 
-const VARS_NEW = `    var printedAt = new Date().toLocaleString('zh-TW', { hour12: false });
+const VARS_NEW = `    if (freightFifoStatusFilter && freightFifoStatusFilter !== 'all') filterBits.push('配送狀態篩選中');
+    var printedAt = new Date().toLocaleString('zh-TW', { hour12: false });
     var unshippedNames = freightFifoUnshippedMemberNames(freightFifoStagePrintRows);
     var unshippedLine = unshippedNames.join('，');
     var printBaseHref = new URL('.', window.location.href).href;`;
-
-const SCRIPT_OLD = `      '<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},350);};<\\/script></body></html>'`;
-
-const SCRIPT_NEW = `      '<script>function copyUnshippedNames(){var el=document.getElementById("unshipped-names");if(!el)return;el.focus();el.select();try{document.execCommand("copy");}catch(e){}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(el.value);} }window.onload=function(){setTimeout(function(){window.focus();window.print();},350);};<\\/script></body></html>'`;
 
 if (!fs.existsSync(ADMIN_JS)) {
   console.log("Not on PHT-SR");
@@ -192,7 +192,6 @@ src = replaceOnce(src, CLICK_OLD, CLICK_NEW, "copy-unshipped click");
 src = replaceOnce(src, VARS_OLD, VARS_NEW, "print unshipped name vars");
 src = replaceOnce(src, STYLE_OLD, STYLE_NEW, "print line-names css");
 src = replaceOnce(src, BODY_OLD, BODY_NEW, "print unshipped names box");
-src = replaceOnce(src, SCRIPT_OLD, SCRIPT_NEW, "print copy script");
 fs.writeFileSync(ADMIN_JS, src);
 
 if (!fifoBoardHasCopyUnshippedNames(src)) throw new Error("board copy button missing");
