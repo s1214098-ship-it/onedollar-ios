@@ -206,10 +206,10 @@ const SUCCESS_NEW = `    }).then(function () {
 
 const CHANGE_OLD = `          result.textContent = '已選寄庫。按下方按鈕會跟出貨一樣建單／存檔，之後到寄庫名單拉出來填單號出貨。現在不必選物流公司。';`;
 
-const CHANGE_NEW = `          result.textContent = '已選寄庫。按「加入寄庫名單」會寫進寄庫名單，之後到預約出貨頁的寄庫名單拉出來出貨。現在不必選物流公司。';
+const CHANGE_NEW = `          result.textContent = '已選寄庫。按「加入寄庫名單」會寫進寄庫名單，之後到預約出貨頁的寄庫名單拉出來出貨。現在不必選物流公司。';`;
 
 const JUMP_OLD = `寄庫與預約出貨在上面「② 客戶資料」下面，選原因後按「加入寄庫名單」。這裡只填物流公司與單號。`;
-const JUMP_NEW = `寄庫在上面②「超商出貨／住家出貨」欄下面，選原因後按「加入寄庫名單」。這裡只填物流公司與單號。`;`;
+const JUMP_NEW = `寄庫在上面②「超商出貨／住家出貨」欄下面，選原因後按「加入寄庫名單」。這裡只填物流公司與單號。`;
 
 const CSS_APPEND = `
 
