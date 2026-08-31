@@ -1,0 +1,306 @@
+(function () {
+  const API_URL = "api/shared-db.php";
+  const PUBLIC_READ = !/admin\.html\.html/i.test(location.pathname);
+  const SYNC_KEYS = [
+    "properties",
+    "borrowItems",
+    "sameStoreItems",
+    "peerDevelopmentItems",
+    "archivedObjects",
+    "importLogs",
+    "customers",
+    "targets",
+    "ycutFollowIds",
+    "employees",
+    "passwordRecords",
+    "layouts",
+    "types",
+    "expireStart",
+    "expireLimit"
+  ];
+  const ADMIN_FETCH_KEYS = [
+    "properties",
+    "borrowItems",
+    "sameStoreItems",
+    "archivedObjects",
+    "importLogs",
+    "customers",
+    "targets",
+    "ycutFollowIds",
+    "employees",
+    "passwordRecords",
+    "layouts",
+    "types",
+    "expireStart",
+    "expireLimit",
+    "agentInfo"
+  ].join(",");
+  const PUBLIC_FETCH_KEYS = "properties,layouts,types,agentInfo,sameStoreItems,borrowItems";
+
+  let isHydrating = false;
+  let saveTimer = null;
+  let pendingItems = {};
+
+  const nativeSetItem = Storage.prototype.setItem;
+  const nativeGetItem = Storage.prototype.getItem;
+  const nativeRemoveItem = Storage.prototype.removeItem;
+  const nativeClear = Storage.prototype.clear;
+
+  function setLocalOnly(key, value) {
+    nativeSetItem.call(localStorage, key, value);
+  }
+
+  function safeSetLocalOnly(key, value) {
+    const oldValue = nativeGetItem.call(localStorage, key);
+    try {
+      setLocalOnly(key, value);
+      return true;
+    } catch (error) {
+      window.HUOMANGE_SHARED_SKIPPED_KEYS = window.HUOMANGE_SHARED_SKIPPED_KEYS || [];
+      if (!window.HUOMANGE_SHARED_SKIPPED_KEYS.includes(key)) {
+        window.HUOMANGE_SHARED_SKIPPED_KEYS.push(key);
+      }
+      if (oldValue != null) {
+        try {
+          setLocalOnly(key, oldValue);
+        } catch (restoreError) {}
+      }
+      console.warn("PHT-SR shared data is too large for browser localStorage; kept previous local copy:", key, error);
+      return false;
+    }
+  }
+
+  function normalizeSharedValue(value) {
+    if (typeof value === "string") return value;
+    if (value === null || value === undefined) return "";
+    return JSON.stringify(value);
+  }
+
+  function post(payload) {
+    return fetch(API_URL, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true
+    }).catch(function (error) {
+      console.warn("PHT-SR shared sync failed:", error);
+    });
+  }
+
+  function flushPending(useBeacon) {
+    if (!Object.keys(pendingItems).length) return;
+    window.clearTimeout(saveTimer);
+    const items = pendingItems;
+    pendingItems = {};
+    const payload = JSON.stringify({ action: "bulk", items: items });
+    if (useBeacon && navigator.sendBeacon) {
+      try {
+        const blob = new Blob([payload], { type: "application/json" });
+        if (navigator.sendBeacon(API_URL, blob)) return;
+      } catch (error) {}
+    }
+    post({ action: "bulk", items: items });
+  }
+
+  function parseListValue(value) {
+    try {
+      const parsed = JSON.parse(value || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function isBlockedListing(item) {
+    const keys = ["YCUT-1012453", "d70563f5-e6cb-4563-a3b9-b99ceb78bd5f", "羅東旁阿嬤ㄟ厝靜巷超值透天"];
+    const blob = [
+      item && item.id,
+      item && item.publicNo,
+      item && item.externalId,
+      item && item.contractNo,
+      item && item.sourceUrl,
+      item && item.title
+    ].join(" ");
+    return keys.some(function (key) { return key && blob.indexOf(key) >= 0; });
+  }
+
+  const BLOCKED_LIST_KEYS = ["properties", "borrowItems", "sameStoreItems", "peerDevelopmentItems", "targets", "storeDevelopmentItems"];
+
+  function stripBlockedListings(key, value) {
+    if (BLOCKED_LIST_KEYS.indexOf(key) < 0) return value;
+    const rows = parseListValue(value);
+    if (!rows.length) return value;
+    const kept = rows.filter(function (item) { return !isBlockedListing(item); });
+    if (kept.length === rows.length) return value;
+    return JSON.stringify(kept);
+  }
+
+  function imageCount(rows) {
+    return (rows || []).reduce(function (sum, item) {
+      if (!item || typeof item !== "object") return sum;
+      let count = 0;
+      ["images", "photos", "photoList", "gallery"].forEach(function (key) {
+        if (Array.isArray(item[key])) count += item[key].length;
+      });
+      ["image", "imageUrl", "img", "photo", "cover", "thumb", "thumbnail"].forEach(function (key) {
+        if (item[key]) count += 1;
+      });
+      return sum + count;
+    }, 0);
+  }
+
+  function shouldBlockSameStoreSync(value, oldValue) {
+    const rows = parseListValue(value);
+    const oldRows = parseListValue(oldValue);
+    const photos = imageCount(rows);
+    const oldPhotos = imageCount(oldRows);
+    if (rows.length < 20) return true;
+    if (rows.length >= 20 && photos === 0) return true;
+    if (oldRows.length >= 100 && rows.length < oldRows.length * 0.8) return true;
+    if (oldPhotos >= 100 && photos < oldPhotos * 0.35) return true;
+    return false;
+  }
+
+  function shouldKeepExistingSameStore(incoming, existing) {
+    const oldRows = parseListValue(existing);
+    if (!existing || oldRows.length < 20) return false;
+    return shouldBlockSameStoreSync(incoming, existing);
+  }
+
+  function isEmptyListValue(value) {
+    return parseListValue(normalizeSharedValue(value)).length === 0;
+  }
+
+  function scheduleSet(key, value, oldValue) {
+    if (isHydrating || !SYNC_KEYS.includes(key)) return;
+    value = stripBlockedListings(key, value);
+    if (key === "sameStoreItems" && shouldBlockSameStoreSync(value, oldValue || "")) {
+      console.warn("Blocked unsafe sameStoreItems sync to PHT-SR shared storage.");
+      return;
+    }
+    pendingItems[key] = value;
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(function () {
+      flushPending(false);
+    }, 120);
+  }
+
+  Storage.prototype.setItem = function (key, value) {
+    const oldValue = this === localStorage ? nativeGetItem.call(this, key) : null;
+    nativeSetItem.call(this, key, value);
+    if (this === localStorage) scheduleSet(String(key), String(value), oldValue);
+  };
+
+  Storage.prototype.removeItem = function (key) {
+    nativeRemoveItem.call(this, key);
+    if (this === localStorage && SYNC_KEYS.includes(String(key))) {
+      flushPending(false);
+      post({ action: "remove", key: String(key) });
+    }
+  };
+
+  Storage.prototype.clear = function () {
+    nativeClear.call(this);
+    if (this === localStorage) post({ action: "clear" });
+  };
+
+  async function fetchSharedData() {
+    const publicUrl = API_URL + "?public=1&keys=" + PUBLIC_FETCH_KEYS;
+    const adminUrl = API_URL + "?keys=" + ADMIN_FETCH_KEYS;
+    const candidates = PUBLIC_READ ? [publicUrl] : [adminUrl, publicUrl];
+    let lastError = null;
+    for (let i = 0; i < candidates.length; i += 1) {
+      const url = candidates[i];
+      try {
+        const response = await fetch(url, { cache: "no-store", credentials: "same-origin" });
+        if (!response.ok) throw new Error(url + " returned " + response.status);
+        const payload = await response.json();
+        window.HUOMANGE_SHARED_PUBLIC_FALLBACK = !PUBLIC_READ && /public=1/.test(url);
+        const data = payload && payload.data ? payload.data : (payload || {});
+        const props = parseListValue(normalizeSharedValue(data.properties));
+        const same = parseListValue(normalizeSharedValue(data.sameStoreItems));
+        const targets = parseListValue(normalizeSharedValue(data.targets));
+        const looksEmpty = !payload || payload.ok === false || (props.length === 0 && same.length === 0 && targets.length === 0);
+        if (looksEmpty && !/public=1/.test(url)) throw new Error("admin payload empty");
+        return data;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error("No shared data source available");
+  }
+
+  async function hydrate() {
+    try {
+      const data = await fetchSharedData();
+      window.HUOMANGE_SHARED_DATA = data || {};
+      window.HUOMANGE_SHARED_SKIPPED_KEYS = [];
+
+      isHydrating = true;
+      Object.keys(data).forEach(function (key) {
+        if (SYNC_KEYS.includes(key) && data[key] !== undefined) {
+          const normalized = stripBlockedListings(key, normalizeSharedValue(data[key]));
+          const existing = nativeGetItem.call(localStorage, key);
+          const isPeerPool = key === "peerDevelopmentItems" || key === "storeDevelopmentItems";
+          const isLargeSharedList = isPeerPool || key === "sameStoreItems" || normalized.length > 750000;
+
+          if (isPeerPool) {
+            window.HUOMANGE_SHARED_SKIPPED_KEYS.push(key);
+            return;
+          }
+
+          if (isEmptyListValue(normalized) && !isEmptyListValue(existing) && (key === "sameStoreItems" || key === "properties" || key === "targets" || key === "borrowItems")) {
+            window.HUOMANGE_SHARED_SKIPPED_KEYS.push(key);
+            return;
+          }
+
+          if (key === "sameStoreItems" && shouldKeepExistingSameStore(normalized, existing)) {
+            window.HUOMANGE_SHARED_SKIPPED_KEYS.push(key);
+            return;
+          }
+
+          if (isLargeSharedList) {
+            const saved = safeSetLocalOnly(key, normalized);
+            if (!saved) window.HUOMANGE_SHARED_SKIPPED_KEYS.push(key);
+            return;
+          }
+          safeSetLocalOnly(key, normalized);
+        }
+      });
+      isHydrating = false;
+
+      window.HUOMANGE_SHARED_READY = true;
+    } catch (error) {
+      isHydrating = false;
+      window.HUOMANGE_SHARED_READY = false;
+      console.warn("PHT-SR shared data could not be loaded. Local browser data will be used.", error);
+    }
+  }
+
+  function refreshDashboardIfPresent() {
+    try {
+      if (typeof window.loadDashboard === "function") window.loadDashboard();
+    } catch (error) {}
+  }
+
+  window.HUOMANGE_SHARED_STORAGE = {
+    ready: hydrate().then(function () {
+      refreshDashboardIfPresent();
+    }),
+    reload: function () {
+      return hydrate().then(function () {
+        refreshDashboardIfPresent();
+      });
+    },
+    flush: function () { flushPending(false); }
+  };
+
+  window.addEventListener("beforeunload", function () {
+    flushPending(true);
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") flushPending(true);
+  });
+})();

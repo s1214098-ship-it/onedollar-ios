@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>火旺發文</title>
+  <style>
+    body{font:14px/1.5 -apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif;margin:0;padding:14px;width:340px;background:#f6f1e8;color:#29231e}
+    h1{font-size:16px;margin:0 0 8px}
+    .row{display:flex;gap:8px;margin:10px 0;align-items:center}
+    button{border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;background:#0f766e;color:#fff}
+    button.gray{background:#6b6259}
+    .status{background:#fff;border:1px solid #ded4c5;border-radius:8px;padding:10px;white-space:pre-wrap;min-height:88px}
+    .ok{color:#0f766e;font-weight:800}
+    .bad{color:#b45309;font-weight:800}
+    a{color:#1d4ed8}
+  </style>
+</head>
+<body>
+  <h1>火旺專屬房屋自動化 0.5.35</h1>
+  <div class="row">
+    <label><input id="enabled" type="checkbox"> 啟用自動領件發文</label>
+  </div>
+  <div class="row">
+    <button id="run">立即發下一則</button>
+    <button class="gray" id="options">選項</button>
+  </div>
+  <div id="box" class="status">讀取中...</div>
+  <p><a href="https://huowang.paohui.org/facebook-schedule.html" target="_blank">打開後台排程</a></p>
+  <script src="popup.js"></script>
+</body>
+</html>

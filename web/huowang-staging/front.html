@@ -1,0 +1,843 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>火旺房仲管理軟體｜精選物件</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:"Microsoft JhengHei",Arial,sans-serif;background:#F4E7C5;color:#0F172A;font-size:19px;font-weight:700;line-height:1.65}.page{max-width:1240px;margin:0 auto;padding:18px}.agent-header{background:#fff;border:2px solid #111827;border-bottom:8px solid #B72B3E;border-radius:8px;overflow:hidden;margin:0 auto 18px;max-width:760px}.agent-header img{display:block;width:100%;height:auto;object-fit:contain;background:#fff}.section-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:18px 0 12px}.section-title h1{font-size:30px;margin:0;color:#0B1220;font-weight:900}.section-title span{color:#8F1528;font-weight:900}.front-tabs{display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#FFFDF4;border-bottom:1px solid #D6B66A;padding:12px 16px;margin-bottom:12px;font-weight:900}.front-tabs span,.front-tabs button{color:#1F2937}.front-tabs button{border:0;background:transparent;font:inherit;font-weight:900;cursor:pointer;padding:0}.front-tabs .active{color:#9F1239;border-bottom:4px solid #F6B300;padding-bottom:6px}.filter{display:flex;flex-wrap:wrap;gap:10px;background:#FFFDF4;border:1px solid #D6B66A;border-left:6px solid #B72B3E;border-radius:8px;padding:14px;margin-bottom:12px}.filter select,.filter input{min-width:145px;flex:1;padding:14px 15px;border:2px solid #6B7280;border-radius:8px;font-size:19px;font-weight:800;background:#FFFDF8;color:#0F172A}.filter .wide{flex-basis:280px}.filter button{border:0;border-radius:8px;padding:14px 19px;background:#A71E35;color:#fff;font-size:19px;font-weight:900;cursor:pointer}.filter .gray{background:#374151}.check-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid #D6B66A;border-radius:8px;padding:10px 12px;margin-bottom:14px}.check-row label{font-weight:900;color:#111827}.check-row input{width:20px;height:20px}.result-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;color:#1F2937;font-weight:900}.case-list{display:grid;grid-template-columns:1fr;gap:22px}.case-card{background:#fff;border:1px solid #D6B66A;border-radius:8px;overflow:hidden;box-shadow:0 5px 18px rgba(80,52,0,.12)}.case-toolbar{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;background:#FFF8DF;border-bottom:1px solid #D6B66A;padding:8px 10px}.case-toolbar button,.case-toolbar a{border:0;border-radius:6px;padding:10px 13px;color:#0F172A;background:#F6B300;font-size:18px;font-weight:900;text-decoration:none;cursor:pointer}.line-btn{background:#06C755!important;color:#fff!important}.fav-btn{background:#fff!important;color:#A71E35!important;border:2px solid #A71E35!important}.fav-btn.active{background:#A71E35!important;color:#fff!important}.case-hero{display:grid;grid-template-columns:minmax(280px,390px) minmax(0,1fr) 170px;gap:18px;padding:16px}.main-img{width:100%;height:260px;object-fit:cover;border-radius:8px;background:#E5E7EB;cursor:pointer}.thumbs{display:flex;gap:6px;overflow-x:auto;padding:8px 0}.thumbs img{width:72px;height:64px;object-fit:cover;border-radius:6px;border:2px solid transparent;cursor:pointer}.thumbs img.active{border-color:#B72B3E}.case-info h2{font-size:28px;margin:0 0 10px;line-height:1.35;color:#0B1220;font-weight:900}.location{font-size:19px;color:#1F2937;font-weight:900;margin-bottom:14px}.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 22px}.fact{display:grid;grid-template-columns:88px 1fr;gap:8px}.fact span{color:#1F2937;font-weight:900}.fact b{color:#0F172A;font-weight:900}.price{display:flex;flex-direction:column;justify-content:center;align-items:flex-end;color:#A71E35;font-size:38px;font-weight:900}.price span{font-size:18px;color:#111827}.case-section{background:#F3F4F6;padding:18px;border-top:1px solid #E5E7EB}.case-section h3{margin:0 0 12px;padding-left:10px;border-left:5px solid #F6B300;font-size:23px;color:#0B1220;font-weight:900}.feature-box{background:#fff;border-radius:8px;padding:18px 24px;font-size:19px;font-weight:800;line-height:1.85;color:#0F172A}.info-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #D1D5DB;background:#fff}.info-grid div{min-height:46px;padding:10px;border-right:1px solid #D1D5DB;border-bottom:1px solid #D1D5DB;color:#0F172A;font-weight:800}.info-grid div:nth-child(odd){background:#FFF8DF;font-weight:900;color:#1F2937}.info-grid div:nth-child(4n){border-right:0}.contact{display:grid;grid-template-columns:220px 1fr auto;gap:18px;align-items:center;background:#fff;border:2px solid #F6B300;border-radius:8px;padding:14px}.contact img{width:220px;height:92px;object-fit:contain;background:#F6B300;border-radius:6px}.empty{padding:30px;background:#FFFDF4;border:1px solid #D6B66A;border-radius:8px;text-align:center;color:#1F2937;font-weight:900}.img-modal{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;touch-action:pan-y}.img-modal img{max-width:94vw;max-height:86vh;border-radius:8px}.img-modal .gallery-btn{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:48px;border:0;border-radius:999px;background:rgba(246,179,0,.92);color:#111827;font-size:30px;font-weight:900}.img-modal .gallery-prev{left:14px}.img-modal .gallery-next{right:14px}.img-modal .gallery-close-btn{position:absolute;right:14px;top:14px;border:0;border-radius:8px;background:#B72B3E;color:#fff;padding:9px 13px;font-weight:900}.img-modal .gallery-count{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(15,23,42,.78);color:#fff;border-radius:999px;padding:6px 12px;font-weight:900}
+@media(max-width:768px){.page{padding:10px}.section-title{display:block}.section-title h1{font-size:22px}.front-tabs{gap:10px;font-size:15px}.filter{display:grid;grid-template-columns:1fr}.case-toolbar{justify-content:stretch}.case-toolbar button,.case-toolbar a{flex:1 1 42%;text-align:center}.case-hero{grid-template-columns:1fr;padding:12px;gap:12px}.main-img{height:240px}.facts{grid-template-columns:1fr}.price{align-items:flex-start;font-size:32px}.info-grid{grid-template-columns:1fr 1fr}.info-grid div:nth-child(4n){border-right:1px solid #D1D5DB}.contact{grid-template-columns:1fr}.contact img{width:100%;height:auto}}
+.agent-modal{position:fixed;inset:0;background:rgba(17,24,39,.58);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px}.agent-box{width:min(560px,94vw);background:#FFFDF4;border:2px solid #F6B300;border-radius:10px;box-shadow:0 18px 45px rgba(0,0,0,.25);overflow:hidden}.agent-head{display:flex;justify-content:space-between;align-items:center;background:#3F3A39;color:#fff;padding:12px 16px;font-weight:900}.agent-head button{background:#B72B3E;color:#fff;border:0;border-radius:6px;padding:7px 10px;font-weight:900}.agent-body{padding:16px}.agent-body img{width:100%;max-height:260px;object-fit:contain;background:#fff;border-radius:8px;margin-bottom:12px;display:block}.agent-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.agent-actions a{flex:1;text-align:center;border-radius:8px;padding:12px;text-decoration:none;font-weight:900;background:#F6B300;color:#111827}.agent-actions .line{background:#06C755;color:#fff}
+.loan-modal{position:fixed;inset:0;background:rgba(15,23,42,.62);display:flex;align-items:center;justify-content:center;z-index:99999;padding:18px}.loan-box{width:min(720px,96vw);background:#FFFDF4;border:2px solid #F6B300;border-radius:10px;box-shadow:0 18px 45px rgba(0,0,0,.28);overflow:hidden}.loan-head{display:flex;justify-content:space-between;align-items:center;background:#3F3A39;color:#fff;padding:12px 16px;font-weight:900}.loan-head button{background:#B72B3E;color:#fff;border:0;border-radius:6px;padding:7px 10px;font-weight:900}.loan-body{padding:16px}.loan-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.loan-field label{display:block;color:#111827;font-weight:900;margin-bottom:4px}.loan-field input,.loan-field select{width:100%;border:2px solid #6B7280;border-radius:8px;padding:12px;font-size:18px;font-weight:900;background:#fff;color:#0F172A}.loan-result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.loan-card{background:#fff;border:1px solid #D6B66A;border-radius:8px;padding:12px}.loan-card span{display:block;color:#374151;font-size:15px;font-weight:900}.loan-card b{display:block;color:#A71E35;font-size:25px;font-weight:900}.loan-note{margin-top:12px;color:#374151;font-size:15px;font-weight:800}@media(max-width:768px){.loan-grid,.loan-result{grid-template-columns:1fr}}
+.price{display:flex;flex-direction:column;justify-content:center;align-items:flex-end;min-width:150px;padding:8px 0;color:#C1121F;font-weight:900}.price .amount{font-size:44px;line-height:1;letter-spacing:0}.price .unit{font-size:18px;margin-left:4px;color:#111827}.price .unit-price{font-size:17px;color:#374151;margin-top:8px;font-weight:800}.price .loan-mini{margin-top:10px;border-radius:999px;background:#FFF1B8;color:#7C2D12;padding:6px 10px;font-size:13px;font-weight:900;white-space:nowrap}
+
+/* responsive-polish-20260605 */
+html,body{max-width:100%;overflow-x:hidden}
+@media(min-width:1024px){
+  body{font-size:18px;line-height:1.55}
+  .page{max-width:1360px;padding:18px 28px}
+  .agent-header{max-width:680px;margin-bottom:16px}
+  .section-title{margin:14px 0 10px}
+  .section-title h1{font-size:28px}
+  .front-tabs{padding:10px 18px;gap:24px}
+  .filter{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;padding:12px 14px}
+  .filter select,.filter input{min-width:0;width:100%;font-size:17px;padding:11px 12px}
+  .filter .wide{grid-column:span 2;flex-basis:auto}
+  .filter button{font-size:17px;padding:11px 14px}
+  .check-row{padding:8px 12px;margin-bottom:12px}
+  .case-list{gap:16px}
+  .case-card{border-radius:6px}
+  .case-toolbar{padding:10px 14px 0;justify-content:flex-end;background:#fff;border-bottom:0}
+  .case-toolbar button,.case-toolbar a{font-size:15px;padding:7px 11px;border-radius:5px}
+  .case-hero{grid-template-columns:300px minmax(0,1fr) 190px;gap:18px;padding:14px 16px;align-items:center}
+  .main-img{height:210px}
+  .thumbs{padding:6px 0}
+  .thumbs img{width:58px;height:50px}
+  .case-info h2{font-size:25px;margin-bottom:8px}
+  .location{font-size:17px;margin-bottom:10px}
+  .facts{grid-template-columns:repeat(4,minmax(0,1fr));gap:7px 16px}
+  .fact{grid-template-columns:58px 1fr;font-size:16px}
+  .price{min-width:180px;align-items:flex-end}
+  .price .amount{font-size:44px}
+  .price .unit-price{font-size:16px}
+  .case-section{padding:14px 16px}
+  .case-section h3{font-size:19px;margin-bottom:8px}
+  .feature-box{font-size:17px;line-height:1.65;padding:14px 18px}
+  .info-grid div{font-size:16px;min-height:38px;padding:8px 10px}
+}
+@media(max-width:640px){
+  body{font-size:16px;font-weight:700;line-height:1.5;background:#F4E7C5}
+  .page{width:100%;padding:8px}
+  .agent-header{max-width:100%;border-width:1px;border-bottom-width:5px;margin-bottom:10px}
+  .agent-header img{max-height:165px;object-fit:contain}
+  .section-title{display:flex;align-items:flex-start;margin:8px 0;gap:6px}
+  .section-title h1{font-size:20px;line-height:1.25}
+  .section-title span{font-size:13px;white-space:nowrap}
+  .front-tabs{flex-wrap:nowrap;overflow-x:auto;gap:16px;padding:9px 10px;font-size:15px;scrollbar-width:none}
+  .front-tabs button{white-space:nowrap;flex:0 0 auto}
+  .filter{display:grid;grid-template-columns:1fr;gap:8px;padding:10px;border-left-width:4px}
+  .filter select,.filter input{min-width:0;width:100%;font-size:16px;padding:10px 11px}
+  .filter button{width:100%;font-size:16px;padding:11px}
+  .check-row{gap:10px;padding:8px 10px;font-size:15px}
+  .check-row input{width:18px;height:18px}
+  .result-bar{font-size:15px;margin-bottom:8px}
+  .case-list{gap:12px}
+  .case-card{border-radius:6px;box-shadow:0 3px 10px rgba(80,52,0,.10)}
+  .case-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;background:#FFF8DF}
+  .case-toolbar button,.case-toolbar a{font-size:15px;padding:9px 8px;text-align:center;width:100%}
+  .case-hero{grid-template-columns:1fr;padding:10px;gap:9px}
+  .main-img{height:205px;border-radius:6px}
+  .thumbs{gap:5px;padding:6px 0}
+  .thumbs img{width:56px;height:48px}
+  .case-info h2{font-size:21px;line-height:1.3;margin-bottom:5px}
+  .location{font-size:15px;margin-bottom:8px}
+  .facts{grid-template-columns:1fr 1fr;gap:6px 10px}
+  .fact{grid-template-columns:48px 1fr;gap:5px;font-size:15px}
+  .price{align-items:flex-start;min-width:0;padding:2px 0 4px}
+  .price .amount{font-size:34px}
+  .price .unit{font-size:16px}
+  .price .unit-price{font-size:15px;margin-top:4px}
+  .price .loan-mini{font-size:13px;margin-top:6px;white-space:normal}
+  .case-section{padding:11px 10px}
+  .case-section h3{font-size:18px;margin-bottom:7px}
+  .feature-box{font-size:16px;line-height:1.65;padding:12px}
+  .info-grid{grid-template-columns:88px minmax(0,1fr)}
+  .info-grid div{font-size:15px;min-height:36px;padding:8px;word-break:break-word}
+  .info-grid div:nth-child(4n){border-right:1px solid #D1D5DB}
+  .loan-box,.agent-box{width:96vw}
+  .loan-head,.agent-head{font-size:16px;padding:10px 12px}
+  .loan-body,.agent-body{padding:12px}
+  .loan-field input,.loan-field select{font-size:16px;padding:10px}
+  .loan-card b{font-size:21px}
+}
+
+/* button-contrast-fix-20260605 */
+button.green,button.blue,button.red,button.gray,button.orange,button.purple,
+.green,.blue,.red,.gray,.orange,.purple,
+.mobile-menu-toggle,.login-btn,
+.case-toolbar .line-btn,.line-btn,
+.loan-head button,.agent-head button,.gallery-close,
+.filter button,.filter .gray{
+  color:#fff !important;
+}
+button.fav-btn:not(.active),.target-area-options button,.front-tabs button{
+  color:inherit !important;
+}
+button.fav-btn.active{
+  color:#fff !important;
+}
+
+/* 全站浮動返回選單 */
+.float-back-menu{position:fixed;right:16px;bottom:16px;z-index:99998;display:none;flex-direction:column;gap:8px}
+.float-back-menu button,.float-back-menu a{border:0;border-radius:999px;background:#3F3A39;color:#fff!important;-webkit-text-fill-color:#fff!important;padding:10px 14px;font-size:15px;font-weight:900;box-shadow:0 8px 22px rgba(0,0,0,.22);text-decoration:none;text-align:center;cursor:pointer}
+.float-back-menu .home{background:#B72B3E}.float-back-menu .share{background:#2563EB}
+@media(max-width:768px){.float-back-menu{display:flex;right:10px;bottom:10px}.float-back-menu button,.float-back-menu a{font-size:14px;padding:9px 12px}}
+.area-map{height:260px;border:2px solid #D6B66A;border-radius:8px;overflow:hidden;background:#E5E7EB;margin-bottom:12px}
+.nearby-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.nearby-card{border:1px solid #D6B66A;border-radius:8px;background:#fff;padding:10px;font-weight:900;color:#0F172A;text-decoration:none}
+.nearby-card b{display:block;color:#A71E35}
+.nearby-note{color:#374151;font-size:15px;font-weight:900;margin-bottom:10px}
+/* final-price-layout-fix-20260605 */
+.case-hero{grid-template-columns:300px minmax(0,1fr) 150px!important;align-items:start!important}
+.price{
+  align-self:start!important;
+  justify-self:end!important;
+  width:150px!important;
+  min-width:150px!important;
+  max-width:150px!important;
+  padding:10px 8px!important;
+  border:1px solid #F6B300!important;
+  border-radius:8px!important;
+  background:#FFF8DF!important;
+  text-align:right!important;
+  line-height:1.15!important;
+}
+.price>div:first-child{display:flex!important;align-items:baseline!important;justify-content:flex-end!important;gap:3px!important;white-space:nowrap!important}
+.price .amount{font-size:32px!important;line-height:1!important;max-width:104px!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.price .unit{font-size:15px!important;line-height:1!important;margin:0!important}
+.price .unit-price{font-size:13px!important;line-height:1.3!important;margin-top:6px!important;color:#374151!important;white-space:normal!important}
+@media(max-width:900px){
+  .case-hero{grid-template-columns:1fr!important}
+  .price{justify-self:start!important;width:auto!important;min-width:0!important;max-width:100%!important;text-align:left!important}
+  .price>div:first-child{justify-content:flex-start!important}
+  .price .amount{font-size:34px!important;max-width:none!important}
+}
+@media(max-width:768px){.nearby-list{grid-template-columns:1fr}.area-map{height:220px}}
+.agent-mini-btn{background:#3F3A39!important;color:#fff!important;border:2px solid #F6B300!important;font-weight:900!important;padding:8px 12px!important;border-radius:999px!important}.agent-mini-btn:hover{background:#B72B3E!important;color:#fff!important}
+@media(max-width:768px){.agent-mini-btn{flex:1 1 42%;font-size:15px!important;padding:9px 10px!important}}
+.floating-agent-btn{position:fixed;right:16px;bottom:132px;z-index:99998;border:0;border-radius:999px;background:#B72B3E;color:#fff!important;-webkit-text-fill-color:#fff!important;padding:13px 18px;font-size:18px;font-weight:950;box-shadow:0 10px 26px rgba(183,43,62,.34);cursor:pointer}
+.floating-agent-btn:hover{background:#8F1528}
+.detail-agent-cta{margin-top:14px;background:#FFF8DF;border:2px solid #F6B300;border-radius:10px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.detail-agent-cta strong{font-size:20px;color:#111827;font-weight:950}
+.detail-agent-cta button{border:0;border-radius:999px;background:#B72B3E;color:#fff!important;-webkit-text-fill-color:#fff!important;padding:12px 18px;font-size:18px;font-weight:950;cursor:pointer}
+@media(max-width:768px){.floating-agent-btn{right:10px;bottom:150px;font-size:16px;padding:11px 14px}.detail-agent-cta{display:grid}.detail-agent-cta button{width:100%}}
+</style>
+<style>
+/* agent-modal-final-20260605 */
+.agent-card-simple{display:block!important}
+.agent-card-simple .agent-info-panel{padding:22px!important;background:linear-gradient(180deg,#fff 0%,#FFF8DF 100%)!important}
+.agent-card-simple .agent-photo-panel{display:none!important}
+.agent-card-detail .agent-photo-panel img{width:154px!important;height:190px!important;max-height:190px!important;object-fit:cover!important;object-position:top center!important;border:5px solid #fff!important;border-bottom:0!important;border-radius:18px 18px 0 0!important;margin:28px 0 0!important;background:#fff!important}
+.agent-card-detail .agent-info-panel{padding:22px 22px 18px!important}
+@media(max-width:640px){.agent-card-detail .agent-photo-panel img{width:128px!important;height:150px!important;max-height:150px!important}.agent-card-simple .agent-info-panel{padding:16px!important}}
+</style>
+
+<style>
+/* front-button-contrast-final-20260605 */
+.case-toolbar button:not(.fav-btn),
+.case-toolbar a,
+.filter button,
+.loan-head button,
+.agent-head button,
+.printBar button,
+.line-btn{
+  color:#fff !important;
+}
+.case-toolbar .fav-btn.active{color:#fff !important}
+.case-toolbar .fav-btn:not(.active){color:#A71E35 !important}
+.front-tabs button{color:#1F2937 !important}
+.front-tabs button.active{color:#9F1239 !important}
+.lang-switch{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin:-8px 0 10px}
+.lang-switch button{border:1px solid #D6B66A;border-radius:999px;background:#fff;color:#1F2937;padding:7px 12px;font-weight:900;cursor:pointer}
+.lang-switch button.active{background:#B72B3E;color:#fff;border-color:#B72B3E}
+.agent-contact-text{font-size:18px;line-height:1.75;color:#111827;font-weight:900;background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:10px 12px}
+.agent-box{width:min(720px,94vw)!important;border:0!important;border-radius:14px!important;background:#fff!important;box-shadow:0 24px 70px rgba(0,0,0,.34)!important}
+.agent-head{background:linear-gradient(90deg,#3F3A39 0%,#3F3A39 58%,#B72B3E 58%,#B72B3E 100%)!important;color:#fff!important;padding:14px 18px!important;font-size:20px!important}
+.agent-body{padding:0!important;background:#FFFDF4!important}
+.agent-card-pro{display:grid;grid-template-columns:190px 1fr;gap:0;background:#fff}
+.agent-photo-panel{background:#F6B300;display:flex;align-items:flex-end;justify-content:center;padding:18px 14px 0;position:relative;overflow:hidden}
+.agent-photo-panel:before{content:"永慶不動產";position:absolute;top:18px;left:16px;color:#3F3A39;font-size:18px;font-weight:950}
+.agent-photo-panel img{width:154px!important;height:190px!important;object-fit:cover!important;object-position:top center!important;border:5px solid #fff!important;border-bottom:0!important;border-radius:18px 18px 0 0!important;margin:28px 0 0!important;background:#fff!important}
+.agent-info-panel{padding:22px 22px 18px;background:linear-gradient(180deg,#fff 0%,#FFF8DF 100%)}
+.agent-info-panel .agent-name{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.agent-info-panel .agent-name b{font-size:34px;color:#111827;font-weight:950;letter-spacing:0}
+.agent-info-panel .agent-name span{font-size:17px;color:#A71E35;font-weight:950}
+.agent-phone-main{font-size:31px;color:#B72B3E;font-weight:950;line-height:1.1;margin:5px 0 12px}
+.agent-store-card{border-left:6px solid #F6B300;background:#fff;border-radius:8px;padding:12px 14px;color:#111827;font-weight:900;line-height:1.75;box-shadow:0 3px 10px rgba(63,58,57,.08)}
+.agent-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px!important;margin-top:14px!important}
+.agent-actions a,.agent-actions button{border:0;border-radius:8px;padding:12px 10px;text-align:center;text-decoration:none;font-size:17px;font-weight:950;cursor:pointer;background:#F6B300;color:#111827!important}
+.agent-actions .line{background:#06C755!important;color:#fff!important}
+.agent-actions .call{background:#B72B3E!important;color:#fff!important}
+.agent-actions .copy{background:#3F3A39!important;color:#fff!important}
+@media(max-width:640px){.agent-card-pro{grid-template-columns:1fr}.agent-photo-panel{min-height:170px;align-items:flex-end}.agent-photo-panel img{width:128px!important;height:150px!important}.agent-info-panel{padding:16px}.agent-info-panel .agent-name b{font-size:29px}.agent-phone-main{font-size:27px}.agent-actions{grid-template-columns:1fr!important}.agent-head{font-size:18px!important}}
+.agent-header{background:#fff!important}
+.agent-header img,.agent-body img{background:#fff!important;object-fit:contain!important}
+.contact{grid-template-columns:118px 1fr auto!important}
+.contact img{width:118px!important;height:118px!important;object-fit:cover!important;background:#fff!important;border:4px solid #F6B300!important;border-radius:999px!important}
+.agent-body img{width:150px!important;height:150px!important;object-fit:cover!important;border:4px solid #F6B300!important;border-radius:999px!important;margin:0 auto 12px!important}
+@media(max-width:768px){.contact{grid-template-columns:96px 1fr!important}.contact img{width:96px!important;height:96px!important}}
+.case-card{cursor:pointer!important}
+.case-toolbar,.case-toolbar *,.thumbs,.thumbs *,.main-img{cursor:auto!important}
+.detail-modal{position:fixed;inset:0;background:rgba(15,23,42,.72);z-index:99999;overflow:auto;padding:24px}
+.detail-box{max-width:1120px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.32)}
+.detail-head{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#3F3A39;color:#fff;padding:14px 18px;font-weight:900}
+.detail-head button{border:0;border-radius:8px;background:#B72B3E;color:#fff;padding:9px 13px;font-weight:900}
+.detail-body{padding:18px;display:grid;grid-template-columns:minmax(320px,520px) minmax(0,1fr);gap:20px}
+.detail-main-img{width:100%;height:360px;object-fit:cover;border-radius:8px;background:#E5E7EB}
+.detail-thumbs{display:flex;gap:8px;overflow-x:auto;margin-top:10px}
+.detail-thumbs img{width:86px;height:68px;object-fit:cover;border-radius:6px;border:2px solid #D6B66A;cursor:pointer}
+.detail-info h2{margin:0 0 8px;font-size:30px;line-height:1.25;color:#0B1220}
+.detail-price{font-size:38px;color:#A71E35;font-weight:950;margin:8px 0}
+.detail-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.detail-actions a,.detail-actions button{border:0;border-radius:8px;padding:12px 14px;font-weight:950;text-decoration:none;background:#F6B300;color:#111827}
+.detail-actions .line{background:#06C755;color:#fff}
+.detail-agent{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:center;background:#FFF8DF;border:2px solid #F6B300;border-radius:8px;padding:12px;margin-top:14px}
+.detail-agent img{width:96px;height:96px;object-fit:cover;border-radius:999px;border:3px solid #F6B300;background:#fff}
+.similar-section{margin-top:16px;background:#FFFDF4;border:2px solid #D6B66A;border-radius:10px;padding:14px}
+.similar-section h3{margin:0 0 12px;padding-left:10px;border-left:5px solid #B72B3E;font-size:22px;color:#111827;font-weight:950}
+.similar-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.similar-card{display:grid;grid-template-columns:108px 1fr;gap:10px;align-items:center;border:1px solid #E5D09A;border-radius:8px;background:#fff;padding:9px;cursor:pointer;transition:.15s box-shadow,.15s transform}
+.similar-card:hover{box-shadow:0 8px 22px rgba(80,52,0,.16);transform:translateY(-1px)}
+.similar-card img{width:108px;height:82px;object-fit:cover;border-radius:6px;background:#E5E7EB}
+.similar-card b{display:block;color:#111827;font-size:16px;line-height:1.35;font-weight:950}
+.similar-card span{display:block;color:#A71E35;font-weight:950;margin-top:4px}
+.similar-card small{display:block;color:#475569;font-weight:800;line-height:1.45;margin-top:3px}
+@media(max-width:640px){.similar-grid{grid-template-columns:1fr}.similar-card{grid-template-columns:96px 1fr}.similar-card img{width:96px;height:76px}.similar-section h3{font-size:19px}}
+@media(max-width:768px){.detail-modal{padding:10px}.detail-body{grid-template-columns:1fr;padding:12px}.detail-main-img{height:250px}.detail-info h2{font-size:24px}.detail-price{font-size:32px}}
+@media(max-width:768px){.case-card{border-radius:8px!important}.case-hero{grid-template-columns:1fr!important}.case-toolbar{position:sticky;top:0;z-index:2}.case-toolbar button,.case-toolbar a{font-size:15px!important;padding:9px 8px!important}.case-info h2{font-size:23px!important}.price{font-size:30px!important;align-items:flex-start!important}.main-img{height:230px!important}.detail-thumbs img{width:74px!important;height:58px!important}}
+/* agent-duplicate-fix-20260605 */
+
+/* final-blue-button-white-text-20260605 */
+button.blue,
+button.blue:hover,
+button.blue:focus,
+button.blue:active,
+button.blue.active,
+a.blue,
+a.blue:hover,
+a.blue:focus,
+a.blue:active,
+.blue:not(input):not(select):not(textarea),
+.float-back-menu .share,
+.float-back-menu .share:hover,
+.float-back-menu .share:focus,
+.float-back-menu .share:active{
+  background:#2563EB!important;
+  border-color:#2563EB!important;
+  color:#FFFFFF!important;
+  -webkit-text-fill-color:#FFFFFF!important;
+  font-weight:950!important;
+  text-shadow:none!important;
+}
+button.blue *,
+a.blue *,
+.float-back-menu .share *{
+  color:#FFFFFF!important;
+  -webkit-text-fill-color:#FFFFFF!important;
+  font-weight:950!important;
+}
+
+/* front-card-layout-cleanup-20260605 */
+.case-list{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:18px!important;
+}
+.case-card{
+  display:flex!important;
+  flex-direction:column!important;
+}
+.case-hero{
+  grid-template-columns:minmax(210px,40%) minmax(0,1fr)!important;
+  align-items:start!important;
+  gap:16px!important;
+}
+.main-img{height:210px!important}
+.thumbs img{width:52px!important;height:44px!important}
+.case-info{
+  min-width:0!important;
+}
+.case-info h2{
+  max-width:760px!important;
+  font-size:24px!important;
+  line-height:1.35!important;
+  margin:0 0 8px!important;
+  word-break:keep-all!important;
+  overflow-wrap:break-word!important;
+}
+.location{
+  margin-bottom:12px!important;
+  color:#334155!important;
+}
+.facts{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:8px!important;
+}
+.fact{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  width:auto!important;
+  max-width:100%!important;
+  padding:7px 9px!important;
+  border:1px solid #E2E8F0!important;
+  border-radius:8px!important;
+  background:#FFFDF8!important;
+  font-size:15px!important;
+  line-height:1.35!important;
+}
+.fact span{
+  flex:0 0 auto!important;
+  color:#64748B!important;
+  white-space:nowrap!important;
+}
+.fact b{
+  min-width:0!important;
+  color:#111827!important;
+  white-space:normal!important;
+  word-break:keep-all!important;
+  overflow-wrap:break-word!important;
+}
+.price{
+  grid-column:2!important;
+  align-items:flex-start!important;
+  justify-content:flex-start!important;
+  min-width:0!important;
+  margin-top:4px!important;
+  padding:10px 12px!important;
+  border-radius:10px!important;
+  background:#FFF7E6!important;
+  border:1px solid #F4C36A!important;
+}
+.price .amount{
+  font-size:36px!important;
+  line-height:1!important;
+}
+.price .unit,
+.price .unit-price{
+  white-space:nowrap!important;
+}
+@media(max-width:768px){
+  .case-list{grid-template-columns:1fr!important}
+  .case-hero{grid-template-columns:1fr!important;gap:12px!important}
+  .case-info h2{font-size:24px!important;line-height:1.35!important}
+  .facts{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}
+  .fact{display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;padding:8px!important;font-size:15px!important}
+  .price{grid-column:auto!important;margin-top:0!important}
+  .price .amount{font-size:34px!important}
+}
+@media print{
+  @page{size:A4 portrait;margin:8mm}
+  body{background:#fff!important;font-size:12px!important;line-height:1.35!important}
+  .page{max-width:none!important;width:100%!important;padding:0!important}
+  .agent-header,.lang-switch,.section-title,.front-tabs,.filter,.check-row,.result-bar,.case-toolbar,.float-back-menu{display:none!important}
+  .case-list{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6mm!important}
+  .case-card{break-inside:avoid!important;page-break-inside:avoid!important;border:1.5px solid #222!important;box-shadow:none!important;border-radius:4px!important;overflow:hidden!important;min-height:132mm!important}
+  .case-hero{display:grid!important;grid-template-columns:1fr!important;gap:3mm!important;padding:4mm!important}
+  .main-img{height:42mm!important;border-radius:3px!important}
+  .thumbs{display:none!important}
+  .case-info h2{font-size:15px!important;line-height:1.28!important;margin:0 0 2mm!important}
+  .location{font-size:11px!important;margin-bottom:2mm!important}
+  .facts{display:grid!important;grid-template-columns:1fr 1fr!important;gap:1.5mm!important}
+  .fact{padding:1.5mm!important;border-radius:2px!important;font-size:10.5px!important;line-height:1.25!important}
+  .price{grid-column:auto!important;margin-top:1mm!important;padding:2mm!important;border-radius:3px!important}
+  .price .amount{font-size:22px!important}
+  .price .unit,.price .unit-price{font-size:10px!important}
+  .case-section{padding:3mm 4mm!important}
+  .case-section h3{font-size:12px!important;margin-bottom:1.5mm!important}
+  .feature-box{font-size:10.5px!important;line-height:1.45!important;padding:2mm!important}
+  .info-grid{display:none!important}
+}
+
+/* mobile-fixed-viewport-20260626：前台手機版固定比例，避免物件卡/價格框縮放跳動 */
+html{
+  -webkit-text-size-adjust:100%!important;
+  text-size-adjust:100%!important;
+  touch-action:manipulation;
+}
+html,body{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  overflow-x:hidden!important;
+}
+body{overscroll-behavior-x:none!important}
+@media(max-width:768px){
+  .page,.agent-header,.front-tabs,.filter,.case-list,.case-card,.case-hero,
+  .case-info,.case-section,.feature-box,.info-grid,.contact,.price,
+  .detail-modal,.detail-box,.detail-body,.loan-box,.agent-box{
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+    overflow-wrap:anywhere;
+  }
+  input,select,textarea,button,a{
+    font-size:16px!important;
+    max-width:100%!important;
+    min-width:0!important;
+    touch-action:manipulation;
+  }
+  .price{
+    width:100%!important;
+    align-items:flex-start!important;
+    overflow:hidden!important;
+  }
+  .price .amount,.detail-price{
+    white-space:nowrap!important;
+    line-height:1.05!important;
+  }
+  .case-card{overflow:hidden!important}
+}</style>
+</head>
+<body>
+<main class="page">
+  <div class="agent-header"><img src="marketing-agent-banner.png" alt="永慶不動產郭火旺 先誠實再成交"></div>
+  <div class="lang-switch"><button type="button" data-lang="zh" class="active">&#20013;&#25991;</button><button type="button" data-lang="en">English</button><button type="button" data-lang="vi">Ti&#7871;ng Vi&#7879;t</button></div>
+  <div class="section-title"><h1 data-i18n="siteTitle">&#31934;&#36984;&#29289;&#20214;&#23637;&#31034;</h1><span data-i18n="siteSub">&#23458;&#25142;&#28687;&#35261;&#23560;&#26989;&#29256;</span></div>
+  <nav class="front-tabs"><button type="button" class="active" data-tab="all" data-i18n="tabAll">物件總覽</button><button type="button" data-tab="quick" data-i18n="tabQuick">分類快搜</button><button type="button" data-tab="new7" data-i18n="tabNew">七日內新進</button><button type="button" data-tab="fav" data-i18n="tabFav">關注物件</button><button type="button" data-tab="recent" data-i18n="tabRecent">近期瀏覽物件</button></nav>
+  <section class="filter">
+    <select id="f_county"><option value="">縣市區域</option></select>
+    <select id="f_area"><option value="">全部鄉鎮市區</option></select>
+    <select id="f_use"><option value="">用途不限</option><option value="住宅">住宅</option><option value="土地">土地</option><option value="店面">店面</option><option value="辦公">辦公</option><option value="其他">其他</option></select>
+    <select id="f_type"><option value="">型態不限</option></select>
+    <select id="f_price"><option value="">總價不限</option><option value="0-300">300萬以下</option><option value="300-600">300-600萬</option><option value="600-1000">600-1000萬</option><option value="1000-2000">1000-2000萬</option><option value="2000-999999">2000萬以上</option></select>
+    <select id="f_rooms"><option value="">房數不限</option><option value="1">1房</option><option value="2">2房</option><option value="3">3房</option><option value="4">4房以上</option></select>
+    <select id="f_layout"><option value="">格局不限</option></select>
+    <select id="f_status"><option value="">銷售狀態不限</option><option value="unsold">未賣出</option><option value="sold">已售出</option></select>
+    <select id="f_scope"><option value="">範圍：全部</option><option value="sale">買賣</option><option value="rent">租賃</option><option value="store">本店</option><option value="union">聯賣</option></select>
+    <select id="f_sort"><option value="default">排序</option><option value="priceAsc">總價低到高</option><option value="priceDesc">總價高到低</option><option value="buildDesc">坪數大到小</option><option value="newest">新進優先</option></select>
+    <input id="f_search" class="wide" type="search" placeholder="編號、案名、社區、部分地址">
+    <button id="searchBtn" type="button" data-i18n="search">搜尋</button>
+    <button id="resetBtn" type="button" class="gray" data-i18n="clear">清除</button>
+  </section>
+  <section class="check-row"><label><input id="f_hot" type="checkbox"> <span data-i18n="hot">熱銷</span></label><label><input id="f_strong" type="checkbox"> <span data-i18n="strong">強打</span></label><label><input id="f_new7" type="checkbox"> <span data-i18n="new7">七日內新進</span></label></section>
+  <div class="result-bar"><span id="resultCount">共 0 筆</span><span data-i18n="singleCase">以單一案件顯示</span></div>
+  <section class="case-list" id="frontGrid"><div class="empty">資料載入中...</div></section>
+</main>
+<script src="shared-storage.js?v=202608200800"></script>
+<script>
+const areas={"宜蘭縣":["宜蘭市","羅東鎮","蘇澳鎮","頭城鎮","礁溪鄉","壯圍鄉","員山鄉","冬山鄉","五結鄉","三星鄉","大同鄉","南澳鄉"]};
+const fallbackTypes=["透天","華廈","公寓","店面","土地","農地","建地","農舍","其他"],fallbackLayouts=["1房1廳1衛","2房2廳1衛","3房2廳2衛","4房2廳2衛","開放格局"];
+let currentLang=(new URLSearchParams(location.search).get("lang")||"zh");
+const I18N={
+ zh:{siteTitle:"精選物件展示",siteSub:"客戶瀏覽專業版",tabAll:"物件總覽",tabQuick:"分類快搜",tabNew:"七日內新進",tabFav:"關注物件",tabRecent:"近期瀏覽物件",search:"搜尋",clear:"清除",hot:"熱銷",strong:"強打",new7:"七日內新進",singleCase:"以單一案件顯示",count:"共 {n} 筆",empty:"目前沒有符合條件的物件",favAdd:"♡ 加入最愛",favOn:"♥ 已加入最愛",agent:"承辦人資訊",loan:"貸款試算",print:"列印",share:"分享物件",line:"LINE聯繫",purpose:"用途",layout:"格局",type:"型態",age:"屋齡",building:"建物",land:"土地",no:"編號",status:"狀態",sold:"已售出",unsold:"未賣出",ask:"洽詢",wan:"萬",ping:"坪",unitPrice:"萬/坪",features:"物件特色",info:"物件資訊",life:"生活機能",notes:"注意事項",location:"公開位置",bus:"公車 / 交通",train:"火車 / 轉運",market:"市場購物",park:"公園綠地",district:"商圈名稱",medical:"醫療機構",school:"學區",residential:"住宅/物件",close:"關閉",agentInfo:"承辦人資訊",call:"撥打電話",countyAny:"縣市區域",areaAny:"全部鄉鎮市區",useAny:"用途不限",typeAny:"型態不限",priceAny:"總價不限",roomsAny:"房數不限",layoutAny:"格局不限",statusAny:"銷售狀態不限",scopeAny:"範圍：全部",sort:"排序",keyword:"編號、案名、社區、部分地址",under300:"300萬以下",p300_600:"300-600萬",p600_1000:"600-1000萬",p1000_2000:"1000-2000萬",over2000:"2000萬以上",room1:"1房",room2:"2房",room3:"3房",room4:"4房以上",sale:"買賣",rent:"租賃",store:"本店",union:"聯賣",priceAsc:"總價低到高",priceDesc:"總價高到低",buildDesc:"坪數大到小",newest:"新進優先"},
+ en:{siteTitle:"Featured Properties",siteSub:"Professional Client View",tabAll:"All Listings",tabQuick:"Quick Search",tabNew:"New This Week",tabFav:"Favorites",tabRecent:"Recently Viewed",search:"Search",clear:"Clear",hot:"Hot",strong:"Featured",new7:"New This Week",singleCase:"Displayed by individual listing",count:"{n} listings",empty:"No properties match your filters.",favAdd:"♡ Add Favorite",favOn:"♥ Favorited",agent:"Agent Info",loan:"Loan Calculator",print:"Print",share:"Share",line:"LINE",purpose:"Use",layout:"Layout",type:"Type",age:"Age",building:"Building",land:"Land",no:"No.",status:"Status",sold:"Sold",unsold:"Available",ask:"Ask",wan:"10k TWD",ping:"ping",unitPrice:"10k/ping",features:"Features",info:"Property Info",life:"Amenities",notes:"Notes",location:"Public Location",bus:"Bus / Traffic",train:"Rail / Transfer",market:"Market / Shopping",park:"Parks",district:"Business Area",medical:"Medical",school:"School",residential:"Residential / Property",close:"Close",agentInfo:"Agent Information",call:"Call",countyAny:"County / City",areaAny:"All Townships",useAny:"Any Use",typeAny:"Any Type",priceAny:"Any Price",roomsAny:"Any Rooms",layoutAny:"Any Layout",statusAny:"Any Status",scopeAny:"Scope: All",sort:"Sort",keyword:"No., title, community, partial address",under300:"Under 3M",p300_600:"3M-6M",p600_1000:"6M-10M",p1000_2000:"10M-20M",over2000:"Over 20M",room1:"1 room",room2:"2 rooms",room3:"3 rooms",room4:"4+ rooms",sale:"Sale",rent:"Rent",store:"Our Store",union:"Co-broker",priceAsc:"Price low to high",priceDesc:"Price high to low",buildDesc:"Area large to small",newest:"Newest first"},
+ vi:{siteTitle:"Bất động sản nổi bật",siteSub:"Giao diện xem dành cho khách hàng",tabAll:"Tất cả",tabQuick:"Tìm nhanh",tabNew:"Mới trong 7 ngày",tabFav:"Yêu thích",tabRecent:"Đã xem gần đây",search:"Tìm kiếm",clear:"Xóa lọc",hot:"Bán chạy",strong:"Nổi bật",new7:"Mới trong 7 ngày",singleCase:"Hiển thị từng bất động sản",count:"Tổng {n} mục",empty:"Hiện không có bất động sản phù hợp.",favAdd:"♡ Thêm yêu thích",favOn:"♥ Đã yêu thích",agent:"Thông tin môi giới",loan:"Tính vay",print:"In",share:"Chia sẻ",line:"Liên hệ LINE",purpose:"Mục đích",layout:"Bố cục",type:"Loại",age:"Tuổi nhà",building:"Diện tích nhà",land:"Đất",no:"Mã",status:"Trạng thái",sold:"Đã bán",unsold:"Đang bán",ask:"Liên hệ",wan:"vạn Đài tệ",ping:"ping",unitPrice:"vạn/ping",features:"Điểm nổi bật",info:"Thông tin",life:"Tiện ích",notes:"Ghi chú",location:"Khu vực công khai",bus:"Xe buýt / giao thông",train:"Tàu / trung chuyển",market:"Chợ / mua sắm",park:"Công viên",district:"Khu thương mại",medical:"Y tế",school:"Trường học",residential:"Nhà ở / BĐS",close:"Đóng",agentInfo:"Thông tin môi giới",call:"Gọi điện",countyAny:"Tỉnh / Thành phố",areaAny:"Tất cả khu vực",useAny:"Mọi mục đích",typeAny:"Mọi loại",priceAny:"Mọi giá",roomsAny:"Mọi số phòng",layoutAny:"Mọi bố cục",statusAny:"Mọi trạng thái",scopeAny:"Phạm vi: Tất cả",sort:"Sắp xếp",keyword:"Mã, tên, khu vực, địa chỉ",under300:"Dưới 300 vạn",p300_600:"300-600 vạn",p600_1000:"600-1000 vạn",p1000_2000:"1000-2000 vạn",over2000:"Trên 2000 vạn",room1:"1 phòng",room2:"2 phòng",room3:"3 phòng",room4:"4+ phòng",sale:"Mua bán",rent:"Cho thuê",store:"Cửa hàng",union:"Liên kết",priceAsc:"Giá thấp đến cao",priceDesc:"Giá cao đến thấp",buildDesc:"Diện tích lớn đến nhỏ",newest:"Mới nhất"}
+};
+if(!I18N[currentLang]) currentLang="zh";
+try{localStorage.setItem("frontLang",currentLang)}catch(e){}
+function tr(k,vars){let s=(I18N[currentLang]&&I18N[currentLang][k])||I18N.zh[k]||k;Object.keys(vars||{}).forEach(key=>s=s.replace("{"+key+"}",vars[key]));return s}
+function publicText(v){
+  let s=String(v||"");
+  if(currentLang==="zh"||!s) return s;
+  const vi=[
+    ["宜蘭縣","huyện Nghi Lan"],["宜蘭市","thành phố Nghi Lan"],["羅東鎮","thị trấn La Đông"],["蘇澳鎮","thị trấn Tô Áo"],["頭城鎮","thị trấn Đầu Thành"],["礁溪鄉","xã Tiêu Khê"],["壯圍鄉","xã Tráng Vi"],["員山鄉","xã Viên Sơn"],["冬山鄉","xã Đông Sơn"],["五結鄉","xã Ngũ Kết"],["三星鄉","xã Tam Tinh"],["大同鄉","xã Đại Đồng"],["南澳鄉","xã Nam Áo"],
+    ["孝威一段","đoạn Hiếu Uy 1"],["孝威","Hiếu Uy"],["心打馬煙段","đoạn Tâm Đả Mã Yên"],["地號","số đất"],["建號","số nhà"],["門牌","số nhà"],["路","đường"],["街","phố"],["巷","hẻm"],["弄","ngõ"],["號","số"],["房屋","nhà"],["土地","đất"],["農地","đất nông nghiệp"],["透天","nhà nguyên căn"],["店面","mặt bằng"],["公寓","căn hộ"],["大樓","tòa nhà"],["面議","liên hệ giá"],["洽詢","vui lòng liên hệ"],["未賣出","đang bán"],["已售出","đã bán"]
+  ];
+  const en=[
+    ["宜蘭縣","Yilan County"],["宜蘭市","Yilan City"],["羅東鎮","Luodong Township"],["蘇澳鎮","Su'ao Township"],["頭城鎮","Toucheng Township"],["礁溪鄉","Jiaoxi Township"],["壯圍鄉","Zhuangwei Township"],["員山鄉","Yuanshan Township"],["冬山鄉","Dongshan Township"],["五結鄉","Wujie Township"],["三星鄉","Sanxing Township"],["大同鄉","Datong Township"],["南澳鄉","Nan'ao Township"],
+    ["孝威一段","Xiaowei Sec. 1"],["孝威","Xiaowei"],["心打馬煙段","Xindamayen Section"],["地號","land no."],["建號","building no."],["門牌","house no."],["路","Rd."],["街","St."],["巷","Ln."],["弄","Aly."],["號","No."],["房屋","house"],["土地","land"],["農地","farmland"],["透天","townhouse"],["店面","storefront"],["公寓","apartment"],["大樓","building"],["面議","contact for price"],["洽詢","contact us"],["未賣出","available"],["已售出","sold"]
+  ];
+  (currentLang==="vi"?vi:en).forEach(([a,b])=>{s=s.split(a).join(b)});
+  if(currentLang==="vi") s=s.replace(/(Hiếu Uy 1)(\d+)/g,"$1 số $2").replace(/(\d)(số đất|số nhà)/g,"$1 $2").replace(/Hiếu Uy 1 số (\d+) số đất/g,"Hiếu Uy 1 số đất $1").replace(/xã Ngũ Kết(?=đoạn)/g,"xã Ngũ Kết ").replace(/(huyện Nghi Lan|thành phố Nghi Lan|thị trấn La Đông|thị trấn Tô Áo|thị trấn Đầu Thành|xã Tiêu Khê|xã Tráng Vi|xã Viên Sơn|xã Đông Sơn|xã Ngũ Kết|xã Tam Tinh|xã Đại Đồng|xã Nam Áo)(?=huyện|thành phố|thị trấn|xã)/g,"$1 ");
+  if(currentLang==="en") s=s.replace(/(Xiaowei Sec\. 1)(\d+)/g,"$1 land no. $2").replace(/(\d)(land no\.|building no\.|house no\.)/g,"$1 $2").replace(/Xiaowei Sec\. 1 land no\. (\d+) land no\./g,"Xiaowei Sec. 1 land no. $1").replace(/Township(?=Xiaowei)/g,"Township ").replace(/(County|City|Township)(?=[A-Z])/g,"$1 ");
+  return s;
+}
+function setOptions(id, rows){
+ const el=document.getElementById(id); if(!el) return;
+ const old=el.value;
+ el.innerHTML=rows.map(r=>'<option value="'+esc(r[0])+'">'+esc(r[1])+'</option>').join("");
+ el.value=rows.some(r=>String(r[0])===old)?old:"";
+}
+function translateFilterOptions(){
+ const search=document.getElementById("f_search"); if(search) search.placeholder=tr("keyword");
+ setOptions("f_use",[["",tr("useAny")],["住宅","住宅"],["土地","土地"],["店面","店面"],["辦公","辦公"],["其他","其他"]]);
+ setOptions("f_price",[["",tr("priceAny")],["0-300",tr("under300")],["300-600",tr("p300_600")],["600-1000",tr("p600_1000")],["1000-2000",tr("p1000_2000")],["2000-999999",tr("over2000")]]);
+ setOptions("f_rooms",[["",tr("roomsAny")],["1",tr("room1")],["2",tr("room2")],["3",tr("room3")],["4",tr("room4")]]);
+ setOptions("f_status",[["",tr("statusAny")],["unsold",tr("unsold")],["sold",tr("sold")]]);
+ setOptions("f_scope",[["",tr("scopeAny")],["sale",tr("sale")],["rent",tr("rent")],["store",tr("store")],["union",tr("union")]]);
+ setOptions("f_sort",[["default",tr("sort")],["priceAsc",tr("priceAsc")],["priceDesc",tr("priceDesc")],["buildDesc",tr("buildDesc")],["newest",tr("newest")]]);
+ const c=document.getElementById("f_county"); if(c&&c.options[0]) c.options[0].textContent=tr("countyAny");
+ const a=document.getElementById("f_area"); if(a&&a.options[0]) a.options[0].textContent=tr("areaAny");
+ const ty=document.getElementById("f_type"); if(ty&&ty.options[0]) ty.options[0].textContent=tr("typeAny");
+ const la=document.getElementById("f_layout"); if(la&&la.options[0]) la.options[0].textContent=tr("layoutAny");
+}
+function applyLang(){document.documentElement.lang=currentLang==="zh"?"zh-TW":currentLang;document.querySelectorAll("[data-i18n]").forEach(el=>el.textContent=tr(el.dataset.i18n));document.querySelectorAll(".lang-switch button").forEach(b=>b.classList.toggle("active",b.dataset.lang===currentLang));translateFilterOptions();render()}
+function esc(v){return String(v||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function parse(key,fallback){try{const v=JSON.parse(localStorage.getItem(key)||"null");return Array.isArray(v)&&v.length?v:fallback}catch(e){return fallback}}
+function imgSrc(v){return typeof v==="string"?v:(v&&(v.data||v.src||v.url))||""}
+function isValidFrontImage(v){
+  const src=imgSrc(v).trim();
+  if(!src) return false;
+  if(/^(undefined|null|false|\[object Object\])$/i.test(src)) return false;
+  if(/^blob:/i.test(src)) return false;
+  if(/^data:image\/svg\+xml/i.test(src)) return false;
+  if(/agent-ad|agent-headshot|business-card|namecard|card|qrcode|qr-code|placeholder|no-image|blank|logo|favicon|line-ai|googletagmanager|504834415|26565733|电脑图片生成|電腦圖片生成/i.test(src)) return false;
+  return src.startsWith("data:image/") || /^https?:\/\//i.test(src) || src.startsWith("//");
+}
+function numText(v){const m=String(v||"").replace(/,/g,"").match(/[\d.]+/);return m?m[0]:""}
+function inferLayoutText(i){const text=[i&&i.layout,i&&i.spec,i&&i.publicNote,i&&i.title,i&&i.kind,i&&i.type].filter(Boolean).join(" ");if(/土地|農地|建地|山坡地|用地/.test(text)&&!/\d+\s*房/.test(text))return "土地";let m=text.match(/\d+\s*房\s*\d*\s*廳?\s*\d*\s*衛?/);if(m)return m[0].replace(/\s+/g,"").replace(/(\d房)(\d衛)/,"$1$2");m=text.match(/\d+\s*房/);if(m)return m[0].replace(/\s+/g,"");return ""}
+function pingFrom(value, spec, labels){const direct=numText(value);if(direct&&direct!=="0")return direct;const specText=String(spec||"");for(const label of labels){const m=specText.match(new RegExp(label+"\\s*([\\d.]+)坪"));if(m)return m[1]}return direct}
+function publicAgeText(i){const kind=String(i.kind||i.type||i.purpose||"");if(/土地|農地|建地/.test(kind))return "";const age=numText(i.houseAge||i.age||i.buildAge);return age===""?"":age+"年"}
+function publicBorrowItem(i){
+  const spec=String(i.spec||"");
+  const pub=String(i.publicNote||i.publicNotes||i.caseFeature||"").replace(/(借件|流通|來源公司|窗口|承辦人|同業|電話|LINE|邱詩懿|0966011918|門市待確認|公開頁未揭露|待補電話|待補LINE|待補異店承辦|待補同店承辦)/g,"").trim();
+  const layout=inferLayoutText(i);
+  const kind=i.kind||i.type||i.purpose||"物件";
+  const build=pingFrom(i.build||i.buildingArea||i.regArea, spec, ["建坪","建物"]);
+  const mainBuild=pingFrom(i.mainBuildArea||i.mainArea, spec, ["主建","主建物"]);
+  const land=pingFrom(i.landArea, spec, ["地坪","土地"]);
+  const loc=[i.city||i.county||"宜蘭縣", i.district||i.area||"", i.road||""].filter(Boolean).join(" ");
+  return{
+    publicNo:i.publicNo||i.showCaseNo||i.id||"",
+    contractNo:"",
+    title:i.title||"精選物件",
+    price:numText(i.price),
+    unitPrice:i.unitPrice||"",
+    build,
+    mainBuildArea:mainBuild||build,
+    landArea:land,
+    layout:layout==="--"||layout==="土地"&&/土地|農地/.test(kind)?"土地":layout,
+    type:kind,
+    caseType:kind,
+    useStatus:/土地|農地/.test(kind)?"土地":(/店面|廠房|辦公/.test(kind)?kind:"住宅"),
+    houseAge:publicAgeText(i),
+    age:publicAgeText(i),
+    floor:i.floor||"",
+    county:i.city||i.county||"宜蘭縣",
+    area:i.district||i.area||"",
+    road:i.road||"",
+    addressDetail:"",
+    dmNearby:i.nearby||loc,
+    dmPublicText:pub,
+    keyFeatures:pub,
+    adText:pub,
+    publicNotes:pub,
+    busStation:i.busStation||"",
+    trainStation:i.trainStation||"",
+    market:i.market||"",
+    park:i.park||"",
+    businessDistrict:i.businessDistrict||i.nearby||"",
+    medical:i.medical||"",
+    school:i.school||"",
+    images:Array.isArray(i.images)?i.images.filter(isValidFrontImage).map(imgSrc):(Array.isArray(i.photos)?i.photos.filter(isValidFrontImage).map(imgSrc):[]),
+    saleStatus:i.status==="已成交"||i.sameStoreSourceListStatus==="missing-from-current-shop-list"?"sold":"available",
+    publishingDate:i.agentFetchedAt||i.updatedAt||i.createdAt||"",
+    updatedAt:i.agentFetchedAt||i.updatedAt||i.createdAt||""
+  };
+}
+function hasFrontImage(i){return Array.isArray(i.images)&&i.images.some(isValidFrontImage)}
+function isPublishableSourceItem(i){const s=String((i&&i.status)||"");return !/(暫不上架|待校對|價格待校對|缺圖)/.test(s)}
+function parseSameStoreRows(){function list(v){if(Array.isArray(v))return v;if(typeof v==="string"){try{const p=JSON.parse(v);return Array.isArray(p)?p:[]}catch(e){return[]}}return[]}function score(rows){return (rows||[]).length*10000+(rows||[]).reduce((n,i)=>n+((i&&Array.isArray(i.images)?i.images.length:0)),0)}const fromLocal=list((()=>{try{return JSON.parse(localStorage.getItem("sameStoreItems")||"[]")}catch(e){return[]}})());const fromShared=list(window.HUOMANGE_SHARED_DATA&&window.HUOMANGE_SHARED_DATA.sameStoreItems);const fromMem=list(window.__sameStoreFallbackRows);return [fromLocal,fromShared,fromMem].sort((a,b)=>score(b)-score(a))[0]||[]}
+function props(){try{const v=JSON.parse(localStorage.getItem("properties")||"[]");const p=Array.isArray(v)?v:[];const s=parseSameStoreRows();const publicSameStore=Array.isArray(s)?s.filter(isPublishableSourceItem).map(publicBorrowItem):[];return p.concat(publicSameStore).map(enrichLife).filter(hasFrontImage)}catch(e){return[]}}
+let activeTab="all";
+function propKey(i){return String(i.contractNo||i.publicNo||i.id||i.title||"")}
+function favs(){try{return JSON.parse(localStorage.getItem("frontFavorites")||"[]")}catch(e){return[]}}
+function saveFavs(v){localStorage.setItem("frontFavorites",JSON.stringify([...new Set(v.filter(Boolean))]))}
+function isFav(i){return favs().includes(propKey(i))}
+function toggleFav(key){let list=favs();list=list.includes(key)?list.filter(v=>v!==key):list.concat(key);saveFavs(list);render()}
+function uniq(list,key){return Array.from(new Set(list.map(i=>i&&i[key]?String(i[key]):"").filter(Boolean)))}
+function setSelect(id,values,first){const el=document.getElementById(id),cur=el.value;el.innerHTML='<option value="">'+first+'</option>'+values.map(v=>'<option>'+esc(v)+'</option>').join("");el.value=values.includes(cur)?cur:""}
+function money(v){const n=Number(v||0);return Number.isFinite(n)?n.toLocaleString("zh-TW"):"0"} function publicLoc(i){return [i.county,i.area,i.road||String(i.dmNearby||"").replace(i.county||"","").replace(i.area||"","").trim()].filter(Boolean).join(" ")||"宜蘭縣"}
+function roomCount(i){const m=String(i.layout||"").match(/(\d+)\s*房/);return m?Number(m[1]):0}
+function inPrice(price,range){if(!range)return true;const [min,max]=range.split("-").map(Number),p=Number(price||0);return p>=min&&p<=max}
+function isNew7(i){const d=i.publishingDate||i.createdAt||i.updatedAt||"";const t=new Date(d).getTime();return Number.isFinite(t)&&Date.now()-t<=7*86400000}
+function isHot(i){return String([i.tags,i.keyFeatures,i.adText,i.title].join(" ")).includes("熱")||Number(i.viewCount||0)>=10}
+function isStrong(i){return String([i.tags,i.keyFeatures,i.adText,i.title].join(" ")).includes("強")||String(i.isStrong||"")==="true"}
+function features(i){return String(i.dmPublicText||i.keyFeatures||i.adText||"").split(/\n+/).map(v=>v.trim()).filter(v=>v&&!/(賣主|買主|合約|電話|手機|LINE|門牌|地號|建號|座標|簽約|地址)/.test(v)).slice(0,5)}
+function cells(pairs){const filled=pairs.filter(([,v])=>String(v||"").trim()&&String(v||"").trim()!=="--");return filled.length?'<div class="info-grid">'+filled.map(([k,v])=>'<div>'+esc(k)+'</div><div>'+esc(v)+'</div>').join("")+'</div>':""}
+function areaLifeProfile(area){
+  const a=String(area||"");
+  const map={
+    "\u7f85\u6771\u93ae":["\u7f85\u6771\u8f49\u904b\u7ad9\u3001\u706b\u8eca\u7ad9\u5546\u5708\u4ea4\u901a\u4fbf\u5229","\u7f85\u6771\u591c\u5e02\u3001\u50b3\u7d71\u5e02\u5834\u8207\u751f\u6d3b\u5546\u5708\u6a5f\u80fd\u5b8c\u6574","\u7f85\u6771\u904b\u52d5\u516c\u5712\u3001\u6797\u5834\u6587\u5316\u5712\u5340\u5468\u908a\u4f11\u9592\u8c50\u5bcc","\u570b\u4e2d\u5c0f\u8207\u91ab\u7642\u8cc7\u6e90\u5bc6\u96c6\uff0c\u65e5\u5e38\u7167\u8b77\u4fbf\u5229"],
+    "\u5b9c\u862d\u5e02":["\u5b9c\u862d\u706b\u8eca\u7ad9\u3001\u8f49\u904b\u7ad9\u8207\u5e02\u5340\u5e79\u9053\u9023\u7d50\u9806\u66a2","\u6771\u9580\u5546\u5708\u3001\u65b0\u6708\u5ee3\u5834\u3001\u5b9c\u862d\u591c\u5e02\u751f\u6d3b\u6a5f\u80fd\u9f4a\u5168","\u5b9c\u862d\u904b\u52d5\u516c\u5712\u3001\u5e7e\u7c73\u516c\u5712\u7b49\u4f11\u9592\u64da\u9ede\u591a","\u5b78\u5340\u3001\u91ab\u9662\u8207\u884c\u653f\u6a5f\u95dc\u96c6\u4e2d\uff0c\u5c45\u4f4f\u4fbf\u5229\u6027\u9ad8"],
+    "\u7901\u6eaa\u9109":["\u7901\u6eaa\u706b\u8eca\u7ad9\u8207\u4e3b\u8981\u5e79\u9053\u9023\u7d50\u5916\u7e23\u5e02\u4fbf\u5229","\u7901\u6eaa\u6eab\u6cc9\u5546\u5708\u3001\u8d85\u5546\u9910\u98f2\u8207\u89c0\u5149\u6a5f\u80fd\u6210\u719f","\u6e6f\u570d\u6e9d\u516c\u5712\u3001\u4e94\u5cf0\u65d7\u8207\u5468\u908a\u89c0\u5149\u4f11\u9592\u8cc7\u6e90\u591a","\u517c\u5177\u5c45\u4f4f\u8207\u89c0\u5149\u6536\u76ca\u60f3\u50cf\uff0c\u751f\u6d3b\u6a5f\u80fd\u4e0d\u55ae\u8abf"],
+    "\u4e94\u7d50\u9109":["\u8fd1\u7f85\u6771\u751f\u6d3b\u5708\uff0c\u4e94\u7d50\u3001\u4e2d\u8208\u5468\u908a\u9053\u8def\u9023\u7d50\u9806\u66a2","\u50b3\u7d71\u5e02\u5834\u3001\u8d85\u5546\u8207\u5728\u5730\u5546\u5bb6\u53ef\u6eff\u8db3\u65e5\u5e38\u63a1\u8cb7","\u51ac\u5c71\u6cb3\u89aa\u6c34\u516c\u5712\u3001\u570b\u7acb\u50b3\u7d71\u85dd\u8853\u4e2d\u5fc3\u4f11\u9592\u8cc7\u6e90\u8c50\u5bcc","\u9069\u5408\u81ea\u4f4f\u3001\u4f11\u9592\u8207\u5ea6\u5047\u578b\u7522\u54c1\u898f\u5283"],
+    "\u51ac\u5c71\u9109":["\u53ef\u8854\u63a5\u7f85\u6771\u3001\u8607\u6fb3\u751f\u6d3b\u5708\uff0c\u4ea4\u901a\u52d5\u7dda\u5f48\u6027\u9ad8","\u51ac\u5c71\u5e02\u5340\u3001\u8d85\u5546\u8207\u5728\u5730\u5546\u5bb6\u63d0\u4f9b\u57fa\u672c\u751f\u6d3b\u6a5f\u80fd","\u51ac\u5c71\u6cb3\u3001\u6885\u82b1\u6e56\u7b49\u4f11\u9592\u666f\u9ede\u5177\u6709\u5728\u5730\u7279\u8272","\u9069\u5408\u504f\u597d\u5b89\u975c\u3001\u7da0\u610f\u8207\u5c0f\u57ce\u751f\u6d3b\u7684\u5ba2\u7fa4"],
+    "\u58ef\u570d\u9109":["\u8fd1\u5b9c\u862d\u5e02\u751f\u6d3b\u5708\uff0c\u53f0\u4e8c\u7dda\u8207\u7e23\u9053\u9023\u7d50\u4fbf\u5229","\u5728\u5730\u5e02\u96c6\u3001\u8d85\u5546\u8207\u57fa\u672c\u63a1\u8cb7\u6a5f\u80fd\u53ef\u652f\u61c9\u65e5\u5e38","\u6ff1\u6d77\u81ea\u884c\u8eca\u9053\u3001\u58ef\u570d\u6c99\u4e18\u7b49\u4f11\u9592\u74b0\u5883\u6709\u7279\u8272","\u9069\u5408\u8fb2\u820d\u3001\u900f\u5929\u8207\u559c\u6b61\u958b\u95ca\u74b0\u5883\u7684\u8cb7\u65b9"],
+    "\u982d\u57ce\u93ae":["\u982d\u57ce\u706b\u8eca\u7ad9\u8207\u6ff1\u6d77\u9053\u8def\u52d5\u7dda\u660e\u78ba\uff0c\u5f80\u5b9c\u862d\u3001\u7901\u6eaa\u65b9\u4fbf","\u982d\u57ce\u5e02\u5340\u3001\u8d85\u5546\u9910\u98f2\u8207\u5728\u5730\u63a1\u8cb7\u6a5f\u80fd\u5177\u5099","\u862d\u967d\u535a\u7269\u9928\u3001\u70cf\u77f3\u6e2f\u3001\u5916\u6fb3\u6d77\u5cb8\u7b49\u666f\u9ede\u52a0\u5206","\u9069\u5408\u6d77\u7dda\u4f11\u9592\u3001\u5ea6\u5047\u8207\u81ea\u4f4f\u517c\u5177\u7684\u7522\u54c1"],
+    "\u8607\u6fb3\u93ae":["\u8607\u6fb3\u8eca\u7ad9\u3001\u4e3b\u8981\u5e79\u9053\u8207\u6e2f\u5340\u52d5\u7dda\u53ef\u652f\u61c9\u901a\u52e4","\u8607\u6fb3\u5e02\u5340\u3001\u5357\u65b9\u6fb3\u5546\u5708\u8207\u5728\u5730\u63a1\u8cb7\u6a5f\u80fd\u6210\u719f","\u51b7\u6cc9\u3001\u6e2f\u5340\u3001\u6d77\u7dda\u666f\u89c0\u8207\u89c0\u5149\u8cc7\u6e90\u5177\u8fa8\u8b58\u5ea6","\u9069\u5408\u6d77\u7dda\u751f\u6d3b\u3001\u5de5\u4f5c\u8207\u4f11\u9592\u578b\u9700\u6c42"],
+    "\u54e1\u5c71\u9109":["\u8fd1\u5b9c\u862d\u5e02\u751f\u6d3b\u5708\uff0c\u5f80\u5e02\u5340\u63a1\u8cb7\u8207\u901a\u52e4\u4fbf\u5229","\u5728\u5730\u8d85\u5546\u3001\u5e02\u96c6\u8207\u751f\u6d3b\u5546\u5bb6\u53ef\u6eff\u8db3\u65e5\u5e38","\u671b\u9f8d\u57e4\u3001\u54e1\u5c71\u516c\u5712\u3001\u6e05\u6c34\u5730\u71b1\u5468\u908a\u4f11\u9592\u8cc7\u6e90\u591a","\u74b0\u5883\u76f8\u5c0d\u958b\u95ca\uff0c\u9069\u5408\u4f4f\u5b85\u3001\u8fb2\u5730\u8207\u4f11\u9592\u898f\u5283"],
+    "\u4e09\u661f\u9109":["\u4e09\u661f\u3001\u7f85\u6771\u751f\u6d3b\u5708\u53ef\u8854\u63a5\uff0c\u4e3b\u8981\u9053\u8def\u52d5\u7dda\u6e05\u695a","\u5728\u5730\u5e02\u96c6\u3001\u8d85\u5546\u8207\u63a1\u8cb7\u6a5f\u80fd\u5177\u5099","\u5b89\u8fb2\u6eaa\u3001\u4e09\u661f\u8525\u6587\u5316\u8207\u7530\u5712\u666f\u89c0\u6709\u8a18\u61b6\u9ede","\u9069\u5408\u559c\u6b61\u7530\u5712\u3001\u4f11\u9592\u8207\u900f\u5929\u8fb2\u820d\u985e\u578b\u5ba2\u7fa4"],
+    "\u5357\u6fb3\u9109":["\u5357\u6fb3\u8eca\u7ad9\u8207\u82cf\u82b1\u8def\u5eca\u63d0\u4f9b\u57fa\u672c\u4ea4\u901a\u9023\u7d50","\u5e02\u5340\u751f\u6d3b\u63a1\u8cb7\u4ee5\u5728\u5730\u5546\u5bb6\u8207\u8d85\u5546\u70ba\u4e3b","\u5357\u6fb3\u6d77\u5cb8\u3001\u6eaa\u6d41\u8207\u5c71\u6797\u666f\u89c0\u81ea\u7136\u689d\u4ef6\u4f73","\u9069\u5408\u504f\u597d\u81ea\u7136\u3001\u5b89\u975c\u8207\u5ea6\u5047\u578b\u7684\u8cb7\u65b9"]
+  };
+  return map[a]||["\u8fd1\u5340\u57df\u4e3b\u8981\u9053\u8def\u8207\u751f\u6d3b\u5708\uff0c\u4ea4\u901a\u52d5\u7dda\u53ef\u4f9d\u770b\u5c4b\u9700\u6c42\u8aaa\u660e","\u5468\u908a\u4ee5\u5728\u5730\u5546\u5bb6\u3001\u8d85\u5546\u8207\u65e5\u5e38\u63a1\u8cb7\u6a5f\u80fd\u70ba\u4e3b","\u9644\u8fd1\u5177\u5728\u5730\u4f11\u9592\u8207\u751f\u6d3b\u8cc7\u6e90\uff0c\u9069\u5408\u5be6\u969b\u5e36\u770b\u6642\u88dc\u5145","\u516c\u958b\u9801\u50c5\u63d0\u4f9b\u5340\u57df\u6982\u6cc1\uff0c\u4e0d\u986f\u793a\u7cbe\u6e96\u5730\u9ede\u8207\u5ea7\u6a19"];
+}
+function enrichLife(i){
+  if(!i||typeof i!=="object") return i;
+  const area=i.area||i.district||"";
+  const p=areaLifeProfile(area);
+  if(!String(i.busStation||"").trim()) i.busStation=p[0];
+  if(!String(i.market||"").trim()) i.market=p[1];
+  if(!String(i.park||"").trim()) i.park=p[2];
+  if(!String(i.school||"").trim()) i.school=p[3];
+  if(!String(i.businessDistrict||"").trim()) i.businessDistrict=String(i.nearby||i.dmNearby||area||"").replace(/\s*$/,"");
+  return i;
+}
+function section(title,content){return String(content||"").trim()?'<section class="case-section"><h3>'+esc(title)+'</h3>'+content+'</section>':""}
+function safeImg(v){return v||"https://picsum.photos/900/650"}
+function init(){const p=props();setSelect("f_county",Array.from(new Set(Object.keys(areas).concat(uniq(p,"county")))),"縣市區域");setSelect("f_type",parse("types",fallbackTypes),"型態不限");setSelect("f_layout",parse("layouts",fallbackLayouts),"格局不限");updateAreas();render()}
+function updateAreas(){const c=f_county.value,p=props();setSelect("f_area",c?(areas[c]||uniq(p.filter(i=>i.county===c),"area")):uniq(p,"area"),"全部鄉鎮市區")}
+function filtered(){const caseKey=new URLSearchParams(location.search).get("case")||"";const c=f_county.value,a=f_area.value,u=f_use.value,t=f_type.value,l=f_layout.value,s=f_status.value,k=f_search.value.trim().toLowerCase(),pr=f_price.value,rooms=f_rooms.value,scope=f_scope.value;let data=props().filter(i=>{if(caseKey&&propKey(i)!==caseKey)return false;if(activeTab==="fav"&&!isFav(i))return false;if(activeTab==="new7"&&!isNew7(i))return false;if(c&&i.county!==c)return false;if(a&&i.area!==a)return false;if(u&&!String([i.useStatus,i.caseType,i.type,i.propertyKind].join("/")).includes(u))return false;if(t&&i.type!==t&&i.caseType!==t)return false;if(l&&i.layout!==l)return false;if(s&&i.saleStatus!==s)return false;if(!inPrice(i.price,pr))return false;if(rooms){const r=roomCount(i);if(rooms==="4"?r<4:r!==Number(rooms))return false}if(scope==="rent"&&!String(i.saleMode||"").includes("租"))return false;if(scope==="sale"&&String(i.saleMode||"").includes("租")&&!String(i.saleMode||"").includes("售"))return false;if(f_hot.checked&&!isHot(i))return false;if(f_strong.checked&&!isStrong(i))return false;if(f_new7.checked&&!isNew7(i))return false;if(k&&!([i.contractNo,i.publicNo,i.title,i.community,i.county,i.area,i.addressDetail,i.type,i.layout].join(" ").toLowerCase().includes(k)))return false;return true});if(f_sort.value==="priceAsc")data.sort((a,b)=>Number(a.price||0)-Number(b.price||0));if(f_sort.value==="priceDesc")data.sort((a,b)=>Number(b.price||0)-Number(a.price||0));if(f_sort.value==="buildDesc")data.sort((a,b)=>Number(b.build||0)-Number(a.build||0));if(f_sort.value==="newest")data.sort((a,b)=>new Date(b.publishingDate||b.updatedAt||0)-new Date(a.publishingDate||a.updatedAt||0));return data}
+function render(){document.querySelectorAll(".front-tabs button").forEach(b=>b.classList.toggle("active",b.dataset.tab===activeTab));const grid=frontGrid,data=filtered();const caseKey=new URLSearchParams(location.search).get("case")||"";resultCount.textContent=tr("count",{n:data.length});const singleNotice=caseKey?'<div class="single-case-notice"><b>目前只顯示這筆物件</b><button type="button" onclick="location.href=location.pathname">查看全部物件</button></div>':'';grid.innerHTML=singleNotice+(data.length?data.map((i,idx)=>card(i,idx)).join(""):'<div class="empty">'+tr("empty")+'</div>')}
+function card(i,idx){const imgs=Array.isArray(i.images)?i.images.filter(isValidFrontImage).map(imgSrc):[],main=safeImg(imgs[0]),status=i.saleStatus==="sold"?tr("sold"):tr("unsold"),ask=tr("ask"),feat=features(i),info=cells([[tr("building"),i.build?i.build+tr("ping"):""],["主建物",(i.mainBuildArea||i.build)?(i.mainBuildArea||i.build)+tr("ping"):""],[tr("land"),i.landArea?i.landArea+tr("ping"):""],["樓層",i.floorAbove?"地上"+i.floorAbove+"樓":i.floor],["管理費",i.managementFee],["車位",i.parkingInfo],["座向",i.direction],["面臨路寬",i.roadWidth?i.roadWidth+"米":""],["面寬",i.frontage?i.frontage+"米":""],["深度",i.depth?i.depth+"米":""]]),life=cells([[tr("bus"),publicText(i.busStation)],[tr("train"),publicText(i.trainStation)],[tr("market"),publicText(i.market)],[tr("park"),publicText(i.park)],[tr("district"),publicText(i.businessDistrict)],[tr("medical"),publicText(i.medical)],[tr("school"),publicText(i.school)],[tr("location"),publicText(publicLoc(i))]]),notes=String(i.publicNotes||i.sheetNotes||"").trim()?'<div class="feature-box">'+esc(publicText(i.publicNotes||i.sheetNotes)).replace(/\n/g,"<br>")+'</div>':"";return `<article class="case-card" data-case-idx="${idx}"><div class="case-toolbar"><button class="fav-btn ${isFav(i)?'active':''}" onclick="toggleFav('${esc(propKey(i))}')">${isFav(i)?tr('favOn'):tr('favAdd')}</button><button class="agent-mini-btn" onclick="showAgentInfo()">☎ ${tr("agent")}</button><button onclick="showLoanCalc('${esc(publicText(i.title||tr("loan")))}','${esc(i.price||"")}')">${tr("loan")}</button><button onclick="window.print()">${tr("print")}</button><button type="button" data-share-idx="${idx}">${tr("share")}</button><a class="line-btn" href="https://line.me/ti/p/~0911294374" target="_blank">${tr("line")}</a></div><div class="case-hero"><div><img class="main-img" id="main-${idx}" src="${esc(main)}" onclick="bigGallery(${idx},0)" alt="物件照片"><div class="thumbs">${imgs.map((im,n)=>`<img src="${esc(im)}" class="${n===0?'active':''}" onclick="swap(${idx},'${esc(im)}',this)" ondblclick="bigGallery(${idx},${n})">`).join("")}</div></div><div class="case-info"><h2>${esc(publicText(i.title||"未命名物件"))}</h2><div class="location">${esc(publicText(publicLoc(i)))}</div><div class="facts"><div class="fact"><span>${tr("purpose")}</span><b>${esc(publicText(i.useStatus||tr("residential")))}</b></div><div class="fact"><span>${tr("layout")}</span><b>${esc(publicText(i.layout||ask))}</b></div><div class="fact"><span>${tr("type")}</span><b>${esc(publicText(i.caseType||i.type||ask))}</b></div><div class="fact"><span>${tr("age")}</span><b>${esc(publicText(i.age||i.houseAge||ask))}</b></div><div class="fact"><span>${tr("building")}</span><b>${esc(i.mainBuildArea||i.build||ask)} ${tr("ping")}</b></div><div class="fact"><span>${tr("land")}</span><b>${esc(i.landArea||ask)} ${tr("ping")}</b></div><div class="fact"><span>${tr("no")}</span><b>${esc(i.publicNo||i.contractNo||ask)}</b></div><div class="fact"><span>${tr("status")}</span><b>${status}</b></div></div></div><div class="price"><div><span class="amount">${esc(publicText(i.price||ask))}</span><span class="unit">${i.price?tr("wan"):""}</span></div>${i.unitPrice?`<div class="unit-price">${esc(i.unitPrice)} ${tr("unitPrice")}</div>`:""}</div></div>${section(tr("features"),feat.length?'<div class="feature-box">'+feat.map(v=>"◎ "+esc(publicText(v))).join("<br>")+'</div>':"")}${section(tr("info"),info)}${section(tr("life"),life)}${section(tr("notes"),notes)}</article>`}
+function openShareFallback(url){
+  const m=document.createElement("div");
+  m.className="loan-modal";
+  const lineUrl="line://msg/text/"+encodeURIComponent(url);
+  const facebookUrl="https://www.facebook.com/sharer/sharer.php?u="+encodeURIComponent(url);
+  const whatsUrl="https://wa.me/?text="+encodeURIComponent(url);
+  m.innerHTML='<div class="loan-box"><div class="loan-head"><span>分享物件網址</span><button type="button" onclick="this.closest(\'.loan-modal\').remove()">關閉</button></div><div class="loan-body"><div class="case-toolbar" style="justify-content:stretch"><a class="line-btn" target="_blank" rel="noopener" href="'+lineUrl+'">傳到 LINE</a><a target="_blank" rel="noopener" href="'+facebookUrl+'">分享到 Facebook</a><button type="button" id="copyMessengerUrlBtn">複製網址給 Messenger</button><a target="_blank" rel="noopener" href="'+whatsUrl+'">傳到 WhatsApp</a><button type="button" id="copyShareUrlBtn">複製網址</button></div><div class="loan-note" style="word-break:break-all;margin-top:12px">'+esc(url)+'</div></div></div>';
+  m.onclick=e=>{if(e.target===m)m.remove()};
+  document.body.appendChild(m);
+  const copyBtn=m.querySelector('#copyShareUrlBtn');
+  const copyMsgBtn=m.querySelector('#copyMessengerUrlBtn');
+  const copyUrl=()=>{
+    const done=()=>alert("已複製物件網址，可貼到 Messenger 或其他聊天視窗");
+    const fallback=()=>{
+      const ta=document.createElement("textarea");
+      ta.value=url;
+      ta.setAttribute("readonly","");
+      ta.style.position="fixed";
+      ta.style.left="-9999px";
+      ta.style.top="0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try{document.execCommand("copy");done();}catch(e){prompt("請複製物件網址",url);}
+      ta.remove();
+    };
+    if(typeof navigator!=="undefined"&&navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(done).catch(fallback);return;}
+    fallback();
+  };
+  if(copyBtn) copyBtn.onclick=copyUrl;
+  if(copyMsgBtn) copyMsgBtn.onclick=copyUrl;
+}
+function shareProperty(idx){
+  const item=filtered()[idx]||{};
+  const key=propKey(item);
+  const url=location.origin+location.pathname+"?case="+encodeURIComponent(key);
+  openShareFallback(url);
+}
+window.shareProperty=shareProperty;
+window.openShareFallback=openShareFallback;
+function swap(idx,src,el){document.getElementById("main-"+idx).src=src;el.parentElement.querySelectorAll("img").forEach(x=>x.classList.remove("active"));el.classList.add("active")}
+function getCardImages(idx){const item=filtered()[idx]||{};const imgs=Array.isArray(item.images)?item.images.filter(Boolean):[];return imgs.length?imgs:[safeImg("")]}
+function bigGallery(cardIdx,startIdx){const imgs=getCardImages(cardIdx);let cur=Math.max(0,Math.min(Number(startIdx)||0,imgs.length-1));let sx=0;const m=document.createElement("div");m.className="img-modal";function draw(){m.innerHTML='<button class="gallery-close-btn" onclick="this.closest(\'.img-modal\').remove()">關閉</button><button class="gallery-btn gallery-prev" type="button">‹</button><img src="'+esc(imgs[cur])+'" alt="放大照片"><button class="gallery-btn gallery-next" type="button">›</button><div class="gallery-count">'+(cur+1)+' / '+imgs.length+'</div>';m.querySelector('.gallery-prev').onclick=e=>{e.stopPropagation();cur=(cur-1+imgs.length)%imgs.length;draw()};m.querySelector('.gallery-next').onclick=e=>{e.stopPropagation();cur=(cur+1)%imgs.length;draw()};m.querySelector('img').onclick=e=>e.stopPropagation()}draw();m.onclick=e=>{if(e.target===m)m.remove()};m.addEventListener('touchstart',e=>{sx=e.changedTouches[0].clientX},{passive:true});m.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>45){cur=dx<0?(cur+1)%imgs.length:(cur-1+imgs.length)%imgs.length;draw()}},{passive:true});m.tabIndex=0;m.onkeydown=e=>{if(e.key==='ArrowRight'){cur=(cur+1)%imgs.length;draw()}if(e.key==='ArrowLeft'){cur=(cur-1+imgs.length)%imgs.length;draw()}if(e.key==='Escape')m.remove()};document.body.appendChild(m);m.focus()}
+function big(src){bigGallery(0,0)}
+window.bigGallery = bigGallery;
+window.big = big;
+window.swap = swap;
+function showCaseDetail(idx){
+  const item=(typeof filtered==="function"?filtered():[])[idx]||{};
+  const imgs=(Array.isArray(item.images)?item.images.filter(Boolean):[]);
+  const main=safeImg(imgs[0]);
+  const feat=features(item);
+  const info=cells([[tr("building"),item.build?item.build+tr("ping"):""],["主建物",(item.mainBuildArea||item.build)?(item.mainBuildArea||item.build)+tr("ping"):""],[tr("land"),item.landArea?item.landArea+tr("ping"):""],[tr("layout"),item.layout],[tr("type"),item.caseType||item.type],["樓層",item.floorAbove?"地上"+item.floorAbove+"樓":item.floor],["屋齡",item.age||item.houseAge],[tr("no"),item.publicNo||item.contractNo]]);
+  const life=cells([[tr("bus"),publicText(item.busStation)],[tr("train"),publicText(item.trainStation)],[tr("market"),publicText(item.market)],[tr("park"),publicText(item.park)],[tr("district"),publicText(item.businessDistrict)],[tr("medical"),publicText(item.medical)],[tr("school"),publicText(item.school)],[tr("location"),publicText(publicLoc(item))]]);
+  const modal=document.createElement("div");
+  modal.className="detail-modal";
+  modal.innerHTML=`<div class="detail-box">
+    <div class="detail-head"><span>物件詳細內容</span><button type="button" onclick="this.closest('.detail-modal').remove()">關閉</button></div>
+    <div class="detail-body">
+      <div><img class="detail-main-img" id="detailMainImg" src="${esc(main)}" alt="物件照片" onclick="bigGallery(${idx},0)"><div class="detail-thumbs">${imgs.map((im,n)=>`<img src="${esc(im)}" onclick="document.getElementById('detailMainImg').src='${esc(im)}'">`).join("")}</div></div>
+      <div class="detail-info">
+        <h2>${esc(publicText(item.title||"未命名物件"))}</h2>
+        <div class="location">${esc(publicText(publicLoc(item)))} ${esc(publicText(item.dmNearby||item.addressDetail||""))}</div>
+        <div class="detail-price">${esc(publicText(item.price||tr("ask")))}${item.price?tr("wan"):""}</div>
+        ${info}
+        ${feat.length?'<section class="case-section"><h3>'+tr("features")+'</h3><div class="feature-box">'+feat.map(v=>"◎ "+esc(publicText(v))).join("<br>")+'</div></section>':""}
+        ${life?'<section class="case-section"><h3>'+tr("life")+'</h3>'+life+'</section>':""}
+        <div class="detail-agent-cta"><strong>想看這間或詢問相關物件？</strong><button type="button" onclick="showAgentInfo(true)">☎ 承辦人資訊</button></div>
+        <div class="detail-actions"><a class="line" href="https://line.me/ti/p/~0911294374" target="_blank">${tr("line")}</a><a href="tel:0911294374">${tr("call")}</a><button type="button" onclick="shareProperty(${idx})">${tr("share")}</button></div>
+      </div>
+    </div>
+  </div>`;
+  modal.onclick=e=>{if(e.target===modal)modal.remove()};
+  document.body.appendChild(modal);
+}
+window.showCaseDetail=showCaseDetail;
+function copyAgentContact(){
+  const text="郭火旺｜永慶不動產羅東文化盛群加盟店\n看屋專線：0911-294-374\nLINE ID：0911294374\n門市：(03)951-9001\n地址：宜蘭縣羅東鎮純精路一段19號";
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>alert("承辦人資訊已複製"));
+  }else{
+    const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();alert("承辦人資訊已複製");
+  }
+}
+function showAgentInfo(){const m=document.createElement("div");m.className="agent-modal";m.innerHTML=
+'<div class="agent-box"><div class="agent-head"><span>'+tr("agentInfo")+'</span><button onclick="this.closest(\'.agent-modal\').remove()">'+tr("close")+'</button></div><div class="agent-body"><div class="agent-card-pro"><div class="agent-photo-panel"><img src="agent-headshot.jpg" alt="郭火旺大頭照"></div><div class="agent-info-panel"><div class="agent-name"><b>郭火旺</b><span>專任營業員</span></div><div class="agent-phone-main">0911-294-374</div><div class="agent-store-card"><b>永慶不動產羅東文化盛群加盟店</b><br>LINE ID：0911294374<br>門市：(03)951-9001　傳真：(03)951-9100<br>地址：宜蘭縣羅東鎮純精路一段19號</div><div class="agent-actions"><a class="line" href="https://line.me/ti/p/~0911294374" target="_blank">LINE 聯繫</a><a class="call" href="tel:0911294374">撥打電話</a><button class="copy" type="button" onclick="copyAgentContact()">複製資訊</button></div></div></div></div></div>';
+m.onclick=e=>{if(e.target===m)m.remove()};document.body.appendChild(m)}
+function loanMonthly(principalWan,years,annualRate){const principal=Number(principalWan||0)*10000,months=Math.max(1,Number(years||0)*12),r=Number(annualRate||0)/100/12;if(!principal)return 0;if(!r)return principal/months;return principal*r*Math.pow(1+r,months)/(Math.pow(1+r,months)-1)}
+function updateLoanCalc(){const total=Number(document.getElementById('loanTotal')?.value||0),ratio=Number(document.getElementById('loanRatio')?.value||70),years=Number(document.getElementById('loanYears')?.value||20),rate=Number(document.getElementById('loanRate')?.value||2.2);const loanWan=total*ratio/100,downWan=Math.max(0,total-loanWan),monthly=loanMonthly(loanWan,years,rate),yearly=monthly*12,totalPay=monthly*years*12;const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v};set('loanDown',money(downWan.toFixed(1))+' 萬');set('loanAmount',money(loanWan.toFixed(1))+' 萬');set('loanMonthly',money(Math.round(monthly))+' 元');set('loanYearly',money(Math.round(yearly))+' 元');set('loanTotalPay',money(Math.round(totalPay/10000*10)/10)+' 萬');set('loanYearsLabel',years+' 年')}
+function showLoanCalc(title,price){const initialPrice=String(price||"").replace(/[^\d.]/g,"");const m=document.createElement('div');m.className='loan-modal';m.innerHTML=`<div class="loan-box"><div class="loan-head"><span>貸款試算｜${esc(title)}</span><button onclick="this.closest('.loan-modal').remove()">關閉</button></div><div class="loan-body"><div class="loan-grid"><div class="loan-field"><label>物件總價(萬)</label><input id="loanTotal" type="number" value="${esc(initialPrice)}" placeholder="請自行輸入總價" oninput="updateLoanCalc()"></div><div class="loan-field"><label>貸款成數</label><select id="loanRatio" onchange="updateLoanCalc()"><option value="70" selected>7成</option><option value="80">8成</option><option value="60">6成</option><option value="50">5成</option></select></div><div class="loan-field"><label>貸款年限</label><select id="loanYears" onchange="updateLoanCalc()"><option value="10">10年</option><option value="15">15年</option><option value="20" selected>20年</option><option value="30">30年</option><option value="40">40年</option></select></div><div class="loan-field"><label>年利率(%)</label><input id="loanRate" type="number" step="0.01" value="2.2" oninput="updateLoanCalc()"></div></div><div class="loan-result"><div class="loan-card"><span>頭期款</span><b id="loanDown">0 萬</b></div><div class="loan-card"><span>貸款金額</span><b id="loanAmount">0 萬</b></div><div class="loan-card"><span>每月約繳</span><b id="loanMonthly">0 元</b></div><div class="loan-card"><span>每年約繳</span><b id="loanYearly">0 元</b></div><div class="loan-card"><span><b id="loanYearsLabel" style="display:inline;font-size:15px;color:#374151">20 年</b>總繳約</span><b id="loanTotalPay">0 萬</b></div><div class="loan-card"><span>預設算法</span><b>7成貸</b></div></div><div class="loan-note">已自動帶入本物件總價，可自行調整貸款成數、年限與利率後試算。此工具僅供概算參考，實際核貸成數、利率、寬限期與費用仍以銀行審核為準。</div></div></div>`;m.onclick=e=>{if(e.target===m)m.remove()};document.body.appendChild(m);updateLoanCalc()}
+
+document.querySelectorAll(".front-tabs button").forEach(btn=>btn.onclick=()=>{activeTab=btn.dataset.tab||"all";render()});document.querySelectorAll(".lang-switch button").forEach(btn=>btn.onclick=()=>{currentLang=btn.dataset.lang||"zh";localStorage.setItem("frontLang",currentLang);applyLang()});document.addEventListener("change",e=>{if(e.target.id==="f_county"){updateAreas();translateFilterOptions()}render()});document.addEventListener("input",e=>{if(e.target.id==="f_search")render()});searchBtn.onclick=render;resetBtn.onclick=()=>{["f_county","f_area","f_use","f_type","f_price","f_rooms","f_layout","f_status","f_scope","f_sort","f_search"].forEach(id=>document.getElementById(id).value="");["f_hot","f_strong","f_new7"].forEach(id=>document.getElementById(id).checked=false);updateAreas();translateFilterOptions();render()};
+(function(){
+  function openSwipeGallery(cardIdx,startIdx){
+    const item=(typeof filtered==="function"?filtered():[])[cardIdx]||{};
+    const imgs=(Array.isArray(item.images)?item.images.filter(Boolean):[]);
+    if(!imgs.length) return;
+    let cur=Math.max(0,Math.min(Number(startIdx)||0,imgs.length-1));
+    let sx=0;
+    const m=document.createElement("div");
+    m.className="img-modal";
+    function draw(){
+      m.innerHTML='<button class="gallery-close-btn" type="button">關閉</button><button class="gallery-btn gallery-prev" type="button">‹</button><img src="'+esc(imgs[cur])+'" alt="放大照片"><button class="gallery-btn gallery-next" type="button">›</button><div class="gallery-count">'+(cur+1)+' / '+imgs.length+'</div>';
+      m.querySelector(".gallery-close-btn").onclick=e=>{e.stopPropagation();m.remove()};
+      m.querySelector(".gallery-prev").onclick=e=>{e.stopPropagation();cur=(cur-1+imgs.length)%imgs.length;draw()};
+      m.querySelector(".gallery-next").onclick=e=>{e.stopPropagation();cur=(cur+1)%imgs.length;draw()};
+      m.querySelector("img").onclick=e=>e.stopPropagation();
+    }
+    draw();
+    m.onclick=e=>{if(e.target===m)m.remove()};
+    m.addEventListener("touchstart",e=>{sx=e.changedTouches[0].clientX},{passive:true});
+    m.addEventListener("touchend",e=>{const dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>45){cur=dx<0?(cur+1)%imgs.length:(cur-1+imgs.length)%imgs.length;draw()}},{passive:true});
+    document.body.appendChild(m);
+  }
+  window.openSwipeGallery=openSwipeGallery;
+  document.addEventListener("click",function(e){const btn=e.target.closest&&e.target.closest("[data-share-idx]");if(btn){shareProperty(Number(btn.getAttribute("data-share-idx"))||0);}});
+  document.addEventListener("click",function(e){
+    if(e.target.closest&&e.target.closest(".case-toolbar,.thumbs,.main-img,.detail-modal,.agent-modal,.loan-modal")) return;
+    const card=e.target.closest&&e.target.closest(".case-card");
+    if(!card) return;
+    showCaseDetail(Number(card.getAttribute("data-case-idx"))||0);
+  });
+  document.addEventListener("click",function(e){
+    const img=e.target.closest&&e.target.closest(".main-img");
+    if(!img) return;
+    const idx=Number(String(img.id||"").replace("main-",""))||0;
+    openSwipeGallery(idx,0);
+  });
+})();
+(async()=>{if(window.HUOMANGE_SHARED_STORAGE&&window.HUOMANGE_SHARED_STORAGE.ready)await window.HUOMANGE_SHARED_STORAGE.ready.catch(()=>{});try{const local=parseSameStoreRows();const photos=(local||[]).reduce((n,i)=>n+((i&&Array.isArray(i.images)?i.images.length:0)),0);if(!photos){const res=await fetch("api/shared-db.php?public=1&keys=sameStoreItems&ts="+Date.now(),{cache:"no-store"});const payload=await res.json();let rows=payload&&payload.data?payload.data.sameStoreItems:null;if(typeof rows==="string")rows=JSON.parse(rows);if(Array.isArray(rows)&&rows.length){window.__sameStoreFallbackRows=rows;window.HUOMANGE_SHARED_DATA=window.HUOMANGE_SHARED_DATA||{};window.HUOMANGE_SHARED_DATA.sameStoreItems=rows;}}}catch(e){}init();applyLang()})();
+</script>
+<script>
+function copyCurrentPageUrl(){
+  const url = location.href;
+  const ok = () => alert("\u5df2\u8907\u88fd\u672c\u9801\u7db2\u5740\uff0c\u53ef\u4ee5\u8cbc\u7d66\u5ba2\u6236\u6216\u670b\u53cb");
+  const fallback = () => {
+    const ta = document.createElement("textarea");
+    ta.value = url;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand("copy"); ok(); } catch(e) { prompt("\u8acb\u8907\u88fd\u672c\u9801\u7db2\u5740", url); }
+    ta.remove();
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(ok).catch(fallback); }
+  else fallback();
+}
+function goFrontPreviousPage(){
+  const modal = document.querySelector(".detail-modal,.img-modal,.agent-modal,.loan-modal");
+  if(modal){
+    modal.remove();
+    return;
+  }
+  if(history.length > 1){
+    history.back();
+  }else{
+    location.href = "index.html";
+  }
+}
+</script>
+<div class="float-back-menu" aria-label="返回選單"><button type="button" class="share" onclick="copyCurrentPageUrl()">複製網址</button><button type="button" onclick="goFrontPreviousPage()">返回上一頁</button><a class="home" href="index.html">主頁</a></div>
+<!-- contact-safe-fix-20260605 -->
+<button type="button" class="floating-agent-btn" onclick="window.showAgentInfo&&window.showAgentInfo(false)">&#9742; &#25215;&#36774;&#20154;&#36039;&#35338;</button>
+<script>
+(function(){
+  window.copyAgentContact=function(){
+    var text=[
+      '\u90ed\u706b\u65fa\uff5c\u6c38\u6176\u4e0d\u52d5\u7522\u7f85\u6771\u6587\u5316\u76db\u7fa4\u52a0\u76df\u5e97',
+      '\u770b\u5c4b\u5c08\u7dda\uff1a0911-294-374',
+      'LINE ID\uff1a0911294374',
+      '\u9580\u5e02\uff1a(03)951-9001',
+      '\u5730\u5740\uff1a\u5b9c\u862d\u7e23\u7f85\u6771\u93ae\u7d14\u7cbe\u8def\u4e00\u6bb519\u865f'
+    ].join('\n');
+    function done(){alert('\u627f\u8fa6\u4eba\u8cc7\u8a0a\u5df2\u8907\u88fd');}
+    function fallback(){var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done();}catch(e){prompt('\u8acb\u8907\u88fd\u627f\u8fa6\u4eba\u8cc7\u8a0a',text);}ta.remove();}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done).catch(fallback);}else fallback();
+  };
+  window.showAgentInfo=function(detailMode){
+    var old=document.querySelector('.agent-modal'); if(old) old.remove();
+    var m=document.createElement('div'); m.className='agent-modal';
+    var title='\u627f\u8fa6\u4eba\u8cc7\u8a0a';
+    var close='\u95dc\u9589';
+    var actions='<div class="agent-actions"><a class="line" href="https://line.me/ti/p/~0911294374" target="_blank">LINE \u806f\u7e6b</a><a class="call" href="tel:0911294374">\u64a5\u6253\u96fb\u8a71</a><button class="copy" type="button" onclick="copyAgentContact()">\u8907\u88fd\u8cc7\u8a0a</button></div>';
+    var info='<div class="agent-name"><b>\u90ed\u706b\u65fa</b><span>\u5c08\u4efb\u71df\u696d\u54e1</span></div><div class="agent-phone-main">0911-294-374</div><div class="agent-store-card"><b>\u6c38\u6176\u4e0d\u52d5\u7522\u7f85\u6771\u6587\u5316\u76db\u7fa4\u52a0\u76df\u5e97</b><br>LINE ID\uff1a0911294374<br>\u9580\u5e02\uff1a(03)951-9001\u3000\u50b3\u771f\uff1a(03)951-9100<br>\u5730\u5740\uff1a\u5b9c\u862d\u7e23\u7f85\u6771\u93ae\u7d14\u7cbe\u8def\u4e00\u6bb519\u865f</div>';
+    var body = detailMode
+      ? '<div class="agent-card-pro agent-card-detail"><div class="agent-photo-panel"><img src="agent-headshot.jpg" alt="\u90ed\u706b\u65fa\u5927\u982d\u7167"></div><div class="agent-info-panel">'+info+actions+'</div></div>'
+      : '<div class="agent-card-pro agent-card-simple"><div class="agent-info-panel">'+info+actions+'</div></div>';
+    m.innerHTML="<div class=\"agent-box\"><div class=\"agent-head\"><span>"+title+"</span><button type=\"button\" onclick=\"this.closest('.agent-modal').remove()\">"+close+"</button></div><div class=\"agent-body\">"+body+"</div></div>";
+    m.onclick=function(e){if(e.target===m)m.remove();}; document.body.appendChild(m);
+  };
+})();
+</script>
+<!-- /contact-safe-fix-20260605 -->
+<!-- image-error-guard-20260605 -->
+<script>
+(function(){
+  function candidateFrom(container, currentSrc){
+    if(!container) return '';
+    var imgs=[].slice.call(container.querySelectorAll('.thumbs img,.detail-thumbs img'));
+    for(var i=0;i<imgs.length;i++){
+      var src=imgs[i].getAttribute('src')||'';
+      if(src && src!==currentSrc && imgs[i].dataset.bad!=='1') return src;
+    }
+    return '';
+  }
+  document.addEventListener('error',function(e){
+    var img=e.target;
+    if(!img || img.tagName!=='IMG') return;
+    img.dataset.bad='1';
+    var cls=img.className||'';
+    if(String(cls).indexOf('main-img')>=0 || String(cls).indexOf('detail-main-img')>=0){
+      var card=img.closest('.case-card') || img.closest('.detail-box');
+      var next=candidateFrom(card,img.getAttribute('src')||'');
+      if(next){ img.src=next; return; }
+      img.style.display='none';
+      return;
+    }
+    if(img.closest('.thumbs') || img.closest('.detail-thumbs')){ img.style.display='none'; return; }
+    if(img.closest('.similar-card')){ var sc=img.closest('.similar-card'); if(sc) sc.style.display='none'; return; }
+  },true);
+})();
+</script>
+<!-- /image-error-guard-20260605 -->
+<script src="/lingzanzan-customer-inquiry-float.js?v=20260611customer9" defer></script><script src="/lingzanzan-free-shipping-cart-20260611.js?v=20260611free2?v=20260611free2" defer></script></body>
+</html>
+

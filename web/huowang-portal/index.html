@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>火旺後台上架總控</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="workspace">
+    <main class="wrap">
+      <section class="hero">
+        <div class="kicker">Z:\WEB\huowang-staging · 覆蓋 web/huowang-staging 到 PHT-SR</div>
+        <h1>火旺後台上架總控</h1>
+        <p>快捷 1＝已開的永慶 IS。快捷 9＝已開的總控台／火旺後台。本店官網 shop.yungching.com.tw/039519001 公開物件可加緊追蹤並同步後台。</p>
+        <div class="meta" id="heroMeta"></div>
+      </section>
+
+      <div class="toolbar">
+        <button class="btn red" id="openAll" type="button">全部開在右邊</button>
+        <button class="btn gold" id="openCore" type="button">指定網站開在右邊</button>
+        <button class="btn ghost" id="copyAll" type="button">複製全部網址</button>
+        <button class="btn green" id="openHubRight" type="button">快捷 9 總控台（已開）</button>
+        <button class="btn blue" id="openAdminRight" type="button">火旺後台（已開）</button>
+        <button class="btn red" id="copyYcutPackBar" type="button">複製永慶上架包</button>
+      </div>
+      <div class="log" id="openLog"></div>
+      <div id="ycutBridge"></div>
+      <div id="shopTracker"></div>
+      <article class="case" id="dayouCase"></article>
+
+      <div class="section">
+        <h2>上架控制看板</h2>
+        <span>記入後待更新：永慶物件、同店、開發件、專任合約</span>
+      </div>
+      <div class="board" id="boardGrid"></div>
+
+      <div id="portalGroups"></div>
+    </main>
+
+    <aside class="right-dock" aria-label="右邊網站視窗">
+      <div class="right-head">
+        <strong>Recents</strong>
+        <span id="rightTitle">點清單就在這個窗格開啟</span>
+        <button class="btn gold" id="openCurrentRightWindow" type="button">開啟可輸入視窗</button>
+      </div>
+      <div class="right-tabs" id="rightTabs"></div>
+      <div class="right-pane">
+        <iframe id="rightFrame" title="右邊網站"></iframe>
+        <div class="right-help" id="rightHelp" hidden></div>
+      </div>
+      <div class="right-fallback" id="rightFallback">1＝IS 已開　9＝後台已開。複製上架包貼到右邊我的物件。不要再新開分頁。</div>
+    </aside>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

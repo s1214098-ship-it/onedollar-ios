@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>火旺專屬房屋自動化</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif;color:#29231e;background:#f6f1e8}*{box-sizing:border-box}body{margin:0}.wrap{max-width:980px;margin:0 auto;padding:24px}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}.panel{background:#fff;border:1px solid #ded4c5;border-radius:8px;padding:18px;margin-bottom:16px;box-shadow:0 2px 10px #47331b0d}h1{margin:0 0 6px;font-size:28px}h2{margin:0 0 14px;font-size:20px}.hint{color:#756b62;font-size:14px;line-height:1.6}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}label{font-weight:700;font-size:14px}input,select,textarea{font:inherit;border:1px solid #cfc3b5;border-radius:6px;padding:9px;background:#fff;color:inherit}textarea{min-height:120px;resize:vertical}.checks{display:flex;flex-wrap:wrap;gap:8px}.check{border:1px solid #ded4c5;border-radius:6px;padding:8px 10px;background:#fcfaf6}.check input{margin-right:6px}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:6px;padding:10px 14px;cursor:pointer;background:#6b6259;color:#fff;font-weight:700}.btn.primary{background:#0f766e}.btn.warn{background:#b45309}.btn:disabled{opacity:.45;cursor:not-allowed}.status{padding:10px;border-radius:6px;background:#f5efe6;min-height:40px;white-space:pre-wrap}.table{width:100%;border-collapse:collapse;font-size:14px}.table th,.table td{border-bottom:1px solid #eee5d8;padding:9px;text-align:left;vertical-align:top}.badge{display:inline-block;padding:3px 7px;border-radius:999px;background:#e8f3ed}.badge.blocked,.badge.failed,.badge.needs_manual{background:#fde7df}.badge.pending,.badge.auto_queued,.badge.processing{background:#e8efff}.small{font-size:12px;color:#756b62}.preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}.preview-card{border:1px solid #ded4c5;border-radius:8px;overflow:hidden;background:#fff}.preview-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px;background:#eee}.preview-card .preview-gallery img{display:block;width:100%;height:190px;object-fit:cover;background:#eee}.preview-card pre{margin:0;padding:14px;white-space:pre-wrap;font:14px/1.7 -apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif;color:#29231e}.approve{display:block;border:2px solid #0f766e;border-radius:8px;padding:12px;background:#ecfdf5;margin:12px 0}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}.stat{border:1px solid #ded4c5;border-radius:8px;padding:12px;background:#fcfaf6}.stat b{display:block;font-size:22px;margin-top:4px}.channels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}.next-job{border:1px solid #ded4c5;border-radius:8px;padding:10px;margin-top:8px;background:#fcfaf6}.job-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}@media(max-width:720px){.grid,.preview-grid,.stats,.channels{grid-template-columns:1fr}.top{display:block}.wrap{padding:12px}.preview-card .preview-gallery img{height:150px}.table{font-size:12px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="top"><div><h1>火旺專屬房屋自動化</h1><div class="hint">每天中午 12:00、晚上 18:00 自動更新物件並補齊當日佇列。每日目標 50 件：粉絲團 20、真幸福 20、個人宜蘭社團 10。只發郭火旺個人或羅東透天農舍粉絲團。每篇固定帶入：經紀人：馮雋引（113）000395字號。</div></div><a href="admin.html.html">回主後台</a></div>
+  <section class="panel">
+    <h2>終端機安裝 Chrome 發文 0.5.35</h2>
+    <div class="hint">不必找 F: 磁碟。在要發 Facebook 的那台 Windows 打開 PowerShell 或「終端機」，整段貼上後按 Enter。腳本會關閉 Chrome、安裝 0.5.35，並用載入擴充功能的方式重開。</div>
+    <textarea id="installCmd" readonly style="min-height:72px;margin-top:10px">powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://huowang.paohui.org/chrome-extension/install.ps1 | iex"</textarea>
+    <div class="actions" style="margin-top:10px">
+      <button class="btn primary" id="copyInstall">複製安裝指令</button>
+    </div>
+    <p class="hint" style="margin-top:10px">PHT-SR 上也可以跑：<code>powershell -NoProfile -ExecutionPolicy Bypass -File "F:\Web\huowang-staging\chrome-extension\install.ps1"</code></p>
+    <p id="installCopyStatus" class="status" style="margin-top:10px">尚未複製。</p>
+  </section>
+  <section class="panel">
+    <h2>今日上架看板</h2>
+    <div id="boardStats" class="stats"><div class="stat">讀取中...</div></div>
+    <div id="boardChannels" class="channels"></div>
+    <div class="actions">
+      <button class="btn primary" id="generateToday">產生今日 50 件佇列</button>
+      <button class="btn warn" id="cancelStale">清理過期／海外佇列</button>
+      <button class="btn" id="copyNext">複製下一則貼文</button>
+    </div>
+    <p id="boardStatus" class="status" style="margin-top:12px">讀取今日進度中...</p>
+    <div id="nextJobs"></div>
+  </section>
+  <section class="panel">
+    <h2>新增排程</h2>
+    <div class="grid">
+      <div>
+        <div class="field"><label>排程名稱</label><input id="name" placeholder="例如：宜蘭每日精選"></div>
+        <div class="field"><label>每天件數</label><input id="count" type="number" min="1" max="200" value="50"></div>
+        <div class="field"><label>每件物件最多社團數</label><input id="groupsPerListing" type="number" min="1" max="20" value="1"><div class="hint">預設每件 1 個符合區域的社團；要大量曝光再手動提高。</div></div>
+        <div class="field"><label>開始時間</label><input id="start" type="time" value="09:00"></div>
+        <div class="field"><label>每件間隔（分鐘）</label><input id="interval" type="number" min="5" max="1440" value="15"></div>
+      </div>
+      <div>
+        <div class="field"><label>Facebook 帳號／陣地</label><div id="accounts" class="checks"></div></div>
+        <div class="field"><label>縣市</label><select id="city"><option value="">全部縣市</option></select></div>
+        <div class="field"><label>鄉鎮區</label><select id="district"><option value="">全部鄉鎮區</option></select></div>
+      </div>
+    </div>
+    <div class="field"><label>發布社團／陣地（可留空，系統會依每筆物件縣市配對社團）</label><textarea id="destinations" placeholder="只有特殊發布位置才填：名稱 | https://www.facebook.com/..."></textarea></div>
+    <div class="field"><label>主題關鍵字（用逗號分隔）</label><input id="topics" placeholder="房屋,透天,農舍"></div>
+    <div class="field"><label>快速勾選區域社團</label><div id="areaPicker" class="checks"><span class="small">先在下方社團資料庫登記區域。</span></div></div>
+    <div class="field"><label>目前操作身份（切換後只顯示該身份的社團）</label><select id="groupAccountFilter"><option>郭火旺（個人）</option><option>羅東透天農舍 郭火旺（粉絲團）</option></select></div>
+    <div class="field"><label>物件來源</label><select id="sourceMode"><option value="same_store_contract">同店＋合約／自有</option><option value="all_active">全部來源物件</option></select></div>
+    <div class="field"><label>發布類型（必選一種）</label><select id="postType"><option value="出售文">出售文</option><option value="出租文">出租文</option></select></div>
+    <div class="field">
+      <label>物件搜尋與選擇</label>
+      <div class="grid">
+        <select id="listingMode"><option value="area_plus_selected">縣市自動帶入＋另外勾選</option><option value="selected_only">只發我勾選的物件</option></select>
+        <input id="listingSearch" placeholder="搜尋案號、案名、縣市、鄉鎮或來源">
+      </div>
+      <div id="listingStatus" class="status" style="margin-top:10px">讀取物件中...</div>
+      <div id="listingList" class="hint" style="max-height:430px;overflow:auto;border:1px solid #eee5d8;border-radius:6px;margin-top:8px">讀取中...</div>
+    </div>
+    <div id="postPreview" class="status" style="display:none"></div>
+    <label class="check" style="display:block;margin:12px 0"><input id="syncPublicSite" type="checkbox" checked> 建立排程時同步到火旺伯公開網站（照片、物件資料、都市機能）</label>
+    <label class="approve"><input id="approvePreview" type="checkbox" disabled> 我已確認照片與貼文排版正確</label>
+    <div class="actions"><button class="btn" id="preview">檢查排程</button><button class="btn primary" id="create">建立排程</button><button class="btn" id="reload">重新整理</button></div>
+    <p id="status" class="status" style="margin-top:12px">尚未建立排程。</p>
+  </section>
+  <section class="panel">
+    <h2>社團資料庫</h2>
+    <div class="grid">
+      <div>
+        <div class="field"><label>社團名稱</label><input id="groupName" placeholder="宜蘭房屋買賣交流"></div>
+        <div class="field"><label>社團網址</label><input id="groupUrl" placeholder="https://www.facebook.com/groups/..."></div>
+        <div class="field"><label>適用縣市／鄉鎮（逗號分隔）</label><input id="groupAreas" placeholder="宜蘭縣,羅東鎮,冬山鄉"></div>
+      </div>
+      <div>
+        <div class="field"><label>主題關鍵字（逗號分隔）</label><input id="groupTopics" placeholder="房屋,買賣,透天,農舍"></div>
+        <div class="field"><label>指定身份</label><select id="groupAccount"><option>郭火旺（個人）</option><option>羅東透天農舍 郭火旺（粉絲團）</option></select></div>
+        <div class="field"><label>社團關係</label><select id="groupRelationship"><option value="owned">自己的社團</option><option value="joined">已加入的社團</option></select></div>
+        <div class="field"><label>每日上限</label><input id="groupLimit" type="number" min="1" max="200" value="10"></div>
+      </div>
+    </div>
+    <div class="actions"><button class="btn primary" id="saveGroup">新增社團</button></div>
+    <div class="actions" style="margin-top:10px">
+      <button class="btn" id="enableVisibleGroups">目前區域全部啟用</button>
+      <button class="btn warn" id="disableVisibleGroups">目前區域全部取消</button>
+      <button class="btn" id="selectAllUnclassified">未分類全部勾選</button>
+      <button class="btn warn" id="clearAllUnclassified">未分類全部取消</button>
+    </div>
+    <div class="hint">批次操作只影響目前選定身份與目前縣市；不會動到另一個帳號。</div>
+    <div id="groupList" class="hint" style="margin-top:12px">讀取中...</div>
+  </section>
+  <section class="panel">
+    <h2>加入新社團</h2>
+    <div class="hint">候選社團先依縣市分類；可自行前往加入，只有確認「可直接加入」的社團能交給固定 Chrome 執行器。</div>
+    <div class="grid" style="margin-top:12px">
+      <div>
+        <div class="field"><label>候選社團名稱</label><input id="joinGroupName" placeholder="宜蘭房屋土地交流"></div>
+        <div class="field"><label>Facebook 社團網址</label><input id="joinGroupUrl" placeholder="https://www.facebook.com/groups/..."></div>
+        <div class="field"><label>縣市（逗號分隔）</label><input id="joinGroupAreas" placeholder="宜蘭縣,羅東鎮"></div>
+      </div>
+      <div>
+        <div class="field"><label>加入方式</label><select id="joinGroupType"><option value="unknown">尚未確認</option><option value="direct">可直接加入</option><option value="questions">需要回答問題</option></select></div>
+        <div class="field"><label>自動加入</label><select id="joinAutoEnabled"><option value="0">關閉</option><option value="1">開啟</option></select></div>
+        <div class="field"><label>每日執行時間</label><input id="joinRunAt" type="time" value="10:30"></div>
+        <div class="field"><label>每日加入上限</label><input id="joinDailyLimit" type="number" min="1" max="3" value="1"></div>
+      </div>
+    </div>
+    <div class="actions"><button class="btn primary" id="saveJoinCandidate">新增候選社團</button><button class="btn" id="saveJoinSettings">儲存自動加入設定</button></div>
+    <p class="status" id="joinStatus">自動加入尚未啟用。</p>
+    <div id="joinCandidateList" class="hint">讀取中...</div>
+  </section>
+  <section class="panel"><h2>目前排程</h2><div id="scheduleList" class="hint">讀取中...</div></section>
+  <section class="panel"><h2>發布佇列</h2><div class="job-filters"><button class="btn" data-job-filter="today">今日</button><button class="btn" data-job-filter="queued">排隊中</button><button class="btn" data-job-filter="done">已完成</button><button class="btn" data-job-filter="blocked">失敗／阻擋</button><button class="btn" data-job-filter="all">全部</button></div><div id="jobList" class="hint">讀取中...</div></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let listings=[]; let groups=[]; let joinCandidates=[]; let joinSettings={};
+let allJobs=[]; let jobFilter='today'; let dashboard=null;
+let previewApprovedSignature='';
+const selectedUnclassifiedGroupIds=new Set();
+const selectedListingIds=new Set();
+const accountOptions=["郭火旺（個人）","羅東透天農舍 郭火旺（粉絲團）"];
+const taiwanCities=["基隆市","台北市","新北市","桃園市","新竹市","新竹縣","苗栗縣","台中市","彰化縣","南投縣","雲林縣","嘉義市","嘉義縣","台南市","高雄市","屏東縣","宜蘭縣","花蓮縣","台東縣","澎湖縣","金門縣","連江縣"];
+const defaultScheduleSettings={
+  name:"火旺每日50件自動排程",
+  count:"50",
+  groupsPerListing:"1",
+  start:"09:00",
+  interval:"15",
+  account:"郭火旺（個人）",
+  city:"宜蘭縣",
+  district:"",
+  topics:"房屋,透天,農舍,土地",
+  sourceMode:"same_store_contract",
+  listingMode:"area_plus_selected",
+  postType:"出售文"
+};
+function esc(v){return String(v||"").replace(/[&<>\"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]));}
+function setStatus(t){$("status").textContent=t;}
+function invalidatePreview(){previewApprovedSignature='';$("approvePreview").checked=false;$("approvePreview").disabled=true;$("postPreview").style.display='none';$("postPreview").innerHTML='';}
+function fillOptions(){
+  $("accounts").innerHTML=accountOptions.map((x,i)=>`<label class="check"><input type="radio" name="publishAccount" value="${esc(x)}" ${i===0?"checked":""}>${esc(x)}</label>`).join("");
+  const cities=[...new Set([...taiwanCities,...listings.map(x=>x.city).filter(Boolean)])];
+  $("city").innerHTML='<option value="">全部縣市</option>'+cities.map(x=>`<option>${esc(x)}</option>`).join("");
+  applyDefaultScheduleSettings();
+  updateDistricts();
+}
+function setIfEmpty(id,value){const el=$(id);if(el&&!String(el.value||"").trim())el.value=value;}
+function applyDefaultScheduleSettings(){
+  setIfEmpty("name",defaultScheduleSettings.name);
+  $("count").value=defaultScheduleSettings.count;
+  $("groupsPerListing").value=defaultScheduleSettings.groupsPerListing;
+  $("start").value=defaultScheduleSettings.start;
+  $("interval").value=defaultScheduleSettings.interval;
+  $("topics").value ||= defaultScheduleSettings.topics;
+  $("sourceMode").value=defaultScheduleSettings.sourceMode;
+  $("listingMode").value=defaultScheduleSettings.listingMode;
+  $("postType").value=defaultScheduleSettings.postType;
+  $("groupAccountFilter").value=defaultScheduleSettings.account;
+  $("groupAccount").value=defaultScheduleSettings.account;
+  document.querySelectorAll('#accounts input').forEach(x=>x.checked=x.value===defaultScheduleSettings.account);
+  if([...$("city").options].some(o=>o.value===defaultScheduleSettings.city))$("city").value=defaultScheduleSettings.city;
+}
+function updateDistricts(){
+  const city=$("city").value; const ds=[...new Set(listings.filter(x=>!city||x.city===city).map(x=>x.district).filter(Boolean))].sort();
+  $("district").innerHTML='<option value="">全部鄉鎮區</option>'+ds.map(x=>`<option>${esc(x)}</option>`).join("");
+  if(defaultScheduleSettings.district&&[...$("district").options].some(o=>o.value===defaultScheduleSettings.district))$("district").value=defaultScheduleSettings.district;
+  if(groups.length)renderGroups();
+  if(joinCandidates.length)renderJoinCandidates();
+  if(listings.length)renderListingPicker();
+}
+async function loadListings(){
+  const r=await fetch('api/facebook-schedule.php?action=listings&ts='+Date.now(),{cache:'no-store'}); const d=await r.json();
+  if(!r.ok||!d.ok) throw Error(d.message||'物件讀取失敗'); listings=Array.isArray(d.items)?d.items:[]; fillOptions();renderListingPicker();
+}
+function parseDestinations(){return $("destinations").value.split(/\n+/).map(s=>s.trim()).filter(Boolean).map(line=>{const p=line.split('|');return {name:(p[0]||'').trim(),url:(p.slice(1).join('|')||'').trim()};}).filter(x=>x.name&&x.url);}
+function csv(v){return String(v||'').split(/[,、]/).map(x=>x.trim()).filter(Boolean);}
+function selectedAreas(){return [...document.querySelectorAll('#areaPicker input:checked')].map(x=>x.value);}
+function listingBlockingMissing(x){return (x.missingFields||[]).filter(m=>!(['縣市','鄉鎮區'].includes(m)&&x.sourceUrl));}
+function listingComplete(x){return !listingBlockingMissing(x).length;}
+function automaticListings(){const city=$("city").value,district=$("district").value,mode=$("sourceMode").value;if($("listingMode").value==='selected_only'||!city)return[];return listings.filter(x=>listingComplete(x)&&!x.todayLocked&&x.city===city&&(!district||x.district===district)&&(mode!=='same_store_contract'||['合約／自有','同店'].includes(x.sourceCategory)));}
+function chosenListings(){const manual=listings.filter(x=>selectedListingIds.has(x.id)&&listingComplete(x)&&!x.todayLocked);const auto=automaticListings();const seen=new Set();return [...manual,...auto].filter(x=>x.id&&!seen.has(x.id)&&seen.add(x.id)).slice(0,Math.max(1,Number($("count").value||50)));}
+function toggleListingSelection(id,checked){invalidatePreview();const item=listings.find(x=>x.id===id);if(checked&&item?.todayLocked){setStatus(`${item.title||item.id} 今天已上架，${item.availableOn} 才可再上。`);return;}if(checked)selectedListingIds.add(id);else selectedListingIds.delete(id);renderListingPicker();}
+function renderListingPicker(){if(!$("listingList"))return;const q=$("listingSearch").value.trim().toLowerCase();const manual=listings.filter(x=>selectedListingIds.has(x.id)&&!x.todayLocked);const auto=automaticListings();const chosen=chosenListings();const results=listings.filter(x=>!q||[x.id,x.title,x.city,x.district,x.sourceCategory].some(v=>String(v||'').toLowerCase().includes(q))).sort((a,b)=>Number(selectedListingIds.has(b.id))-Number(selectedListingIds.has(a.id))).slice(0,100);const invalid=results.filter(x=>!listingComplete(x)).length,locked=results.filter(x=>x.todayLocked).length;const modeNote=$("listingMode").value==='area_plus_selected'&&!$("city").value?'請先選縣市；你也可以改成「只發我勾選的物件」。 ':'';const defaultNote=$("city").value==='宜蘭縣'&&$("sourceMode").value==='same_store_contract'?'已自動套用預設：宜蘭縣｜同店＋合約／自有｜每日50件｜15分鐘。 ':'';$("listingStatus").textContent=`${defaultNote}${modeNote}自動帶入 ${auto.length} 件｜另外勾選 ${manual.length} 件｜今日已上架 ${locked} 件｜本次依每日上限取 ${chosen.length} 件。手動勾選優先。`;if(!results.length){$("listingList").innerHTML='<div class="status">找不到符合搜尋條件的物件。</div>';return;}$("listingList").innerHTML='<table class="table"><tr><th>選取</th><th>物件</th><th>來源／區域</th><th>坪數</th><th>總價／單價</th><th>資料狀態</th></tr>'+results.map(x=>{const missing=x.missingFields||[],blocking=listingBlockingMissing(x),disabled=blocking.length||x.todayLocked;const lazyLocation=missing.some(m=>['縣市','鄉鎮區'].includes(m))&&x.sourceUrl;return `<tr><td><input class="listing-select" type="checkbox" ${selectedListingIds.has(x.id)&&!x.todayLocked?'checked':''} ${disabled?'disabled':''} onchange="toggleListingSelection('${esc(x.id)}',this.checked)"></td><td>${esc(x.title||'未命名')}<div class="small">${esc(x.id)}</div></td><td>${esc(x.sourceCategory)}<div class="small">${esc([x.city,x.district].filter(Boolean).join(' '))}</div></td><td>${esc(x.areaText||'—')}</td><td>${esc(x.price||'—')}<div class="small">${esc(x.unitPrice||'未提供單價')}</div></td><td>${x.todayLocked?`<span class="badge blocked">今日已上架<br>${esc(x.availableOn)} 可再上</span>`:blocking.length?`<span class="badge failed">缺 ${esc(blocking.join('、'))}</span>`:lazyLocation?'<span class="badge pending">預覽時補位置與照片</span>':'<span class="badge">預覽時確認照片</span>'}</td></tr>`}).join('')+'</table>'+(results.length===100?`<div class="status">只顯示前 100 筆，請用搜尋縮小範圍。${invalid?' 缺資料物件不可勾選。':''}${locked?' 今日已上架物件需等明天。':''}</div>`:'');}
+function groupAccount(){return $("groupAccountFilter").value;}
+function syncAccountSelection(){invalidatePreview();const account=groupAccount();document.querySelectorAll('#accounts input').forEach(x=>x.checked=x.value===account);$("groupAccount").value=account;renderGroups();renderJoinCandidates();}
+function groupAreas(g){return (g.areas||[]).map(x=>String(x).trim()).filter(Boolean);}
+function isUnclassifiedGroup(g){const areas=groupAreas(g);return !areas.length||areas.includes('未分類');}
+function groupMatchesLocation(g){const city=$("city").value,district=$("district").value,areas=groupAreas(g),hay=(g.name||'')+' '+(g.url||'');if(/越南|Vietnam|胡志明|河內|海外/.test(hay))return false;if(isUnclassifiedGroup(g))return false;if(!city)return true;return areas.includes(city)||(district&&areas.includes(district))||areas.includes('全台')||areas.includes('全國');}
+function matchingGroups(){const areas=selectedAreas(),terms=csv($("topics").value).map(x=>x.toLowerCase()),account=groupAccount();return groups.filter(g=>g.enabled!==false&&(!account||!g.account||g.account===account)&&groupMatchesLocation(g)&&(!areas.length||groupAreas(g).some(a=>areas.includes(a)))&&(!terms.length||!(g.topics||[]).length||g.topics.some(t=>terms.some(q=>String(t).toLowerCase().includes(q)||q.includes(String(t).toLowerCase())))));}
+function selectedUnclassifiedGroups(){const account=groupAccount();return groups.filter(g=>g.enabled!==false&&g.account===account&&isUnclassifiedGroup(g)&&selectedUnclassifiedGroupIds.has(g.id));}
+function scheduleGroups(){const seen=new Set();return [...matchingGroups(),...selectedUnclassifiedGroups()].filter(g=>g.id&&!seen.has(g.id)&&seen.add(g.id));}
+function setManualUnclassified(id,checked){invalidatePreview();if(checked)selectedUnclassifiedGroupIds.add(id);else selectedUnclassifiedGroupIds.delete(id);renderGroups();}
+async function createSchedule(){
+  const payload=buildSchedulePayload('create');
+  if(!payload.name||!payload.accounts.length||!payload.caseIds.length){setStatus('請填排程名稱、選擇帳號，並確認至少有一筆完整物件。');return;}
+  const signature=JSON.stringify({...payload,action:'preview',approvedPreview:false});
+  if(!$('approvePreview').checked||previewApprovedSignature!==signature){setStatus('設定已變更，請重新「檢查排程」，確認照片與排版後再勾選核准。');return;}
+  payload.approvedPreview=true;
+  $("create").disabled=true; setStatus('建立中...');
+  try{const r=await fetch('api/facebook-schedule.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok||!d.ok)throw Error(d.message||'建立失敗');selectedUnclassifiedGroupIds.clear();selectedListingIds.clear();setStatus(`已建立 ${d.schedule.name}\n物件：${d.matchedListings} 件｜發布任務：${d.createdJobs} 件`);await loadAll();renderListingPicker();}
+  catch(e){setStatus('建立失敗：'+e.message);} finally{$("create").disabled=false;}
+}
+function buildSchedulePayload(action){const accounts=[...document.querySelectorAll('#accounts input:checked')].map(x=>x.value),manual=parseDestinations(),chosen=chosenListings();return{action,name:$("name").value.trim(),itemsPerDay:Number($("count").value||10),groupsPerListing:Number($("groupsPerListing").value||5),startTime:$("start").value||'09:00',intervalMinutes:Number($("interval").value||30),accounts:groupAccount()?[groupAccount()]:accounts,destinations:manual,caseIds:chosen.map(x=>x.id),manualGroupIds:selectedUnclassifiedGroups().map(g=>g.id),topics:csv($("topics").value),sourceMode:$("sourceMode").value,postType:$("postType").value,areaGroups:selectedAreas(),cities:$("city").value?[$("city").value]:[],districts:$("district").value?[$("district").value]:[],syncPublicSite:$("syncPublicSite").checked,approvedPreview:false};}
+function renderPostPreview(rows){const box=$("postPreview");box.style.display='block';box.innerHTML='<strong>實際發布預覽（完整相簿＋名片＋直式文字）</strong><div class="preview-grid">'+rows.map(x=>`<article class="preview-card">${x.imageUrls?.length?`<div class="preview-gallery">${x.imageUrls.slice(0,10).map((url,i)=>`<img src="${esc(url)}" alt="${esc(x.title)} 詳細圖 ${i+1}">`).join('')}${x.businessCardUrl?`<img src="${esc(x.businessCardUrl)}" alt="郭火旺名片">`:''}</div><div class="status">共 ${x.imageUrls.length} 張物件照片＋1 張郭火旺名片</div>`:'<div class="status">缺少照片，禁止建立排程</div>'}<pre>${esc(x.postText||'')}</pre></article>`).join('')+'</div>';}
+async function previewSchedule(){invalidatePreview();const payload=buildSchedulePayload('preview');if(!payload.accounts.length||!payload.caseIds.length){setStatus('請先選帳號及至少一筆完整物件。');return;}$("preview").disabled=true;setStatus('正在抓取照片並檢查排版、欄位與社團分流...');try{const r=await fetch('api/facebook-schedule.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok||!d.ok)throw Error(d.message||'檢查失敗');renderPostPreview(d.listings||[]);const problems=[...(d.alreadyScheduledToday||[]).map(x=>`${x.id} 今天已上架，${x.availableOn} 可再上`),...(d.invalidListings||[]).map(x=>`${x.id} 缺 ${x.missingFields.join('、')}`),...(d.unroutedListings||[]).map(x=>`${x.id} 沒有 ${x.city}${x.district} 的社團`)];if(!problems.length){previewApprovedSignature=JSON.stringify(payload);$("approvePreview").disabled=false;}setStatus(`檢查完成：物件 ${d.matchedListings} 件｜預計任務 ${d.estimatedJobs} 件${problems.length?'\n需處理：'+problems.slice(0,8).join('；'):'\n照片、坪數、總價、單價、今日防重與逐筆縣市分流均通過。請檢查下方預覽後勾選核准。'}`);}catch(e){setStatus('檢查失敗：'+e.message);}finally{$("preview").disabled=false;}}
+function renderSchedules(data){
+  if(!data.length){$("scheduleList").textContent='目前沒有排程。';return;}
+  $("scheduleList").innerHTML='<table class="table"><tr><th>名稱</th><th>設定</th><th>狀態</th><th></th></tr>'+data.map(x=>`<tr><td>${esc(x.name)}<div class="small">${esc(x.id)}</div></td><td>每日 ${x.itemsPerDay} 件｜${esc(x.startTime)}｜每 ${x.intervalMinutes} 分鐘<br>${(x.accounts||[]).map(esc).join('、')}</td><td><span class="badge">${x.enabled?'啟用':'已停止'}</span></td><td>${x.enabled?`<button class="btn warn" onclick="cancelSchedule('${esc(x.id)}')">停止</button>`:''}</td></tr>`).join('')+'</table>';
+}
+function renderGroups(){
+  const filter=groupAccount(),city=$("city").value,district=$("district").value;
+  const byAccount=groups.filter(g=>g.account===filter);
+  const visible=byAccount.filter(groupMatchesLocation);
+  const unclassified=byAccount.filter(isUnclassifiedGroup);
+  const areas=[...new Set(visible.flatMap(g=>g.areas||[]))].sort();
+  $("areaPicker").innerHTML=areas.length?areas.map(a=>`<label class="check"><input type="checkbox" value="${esc(a)}" checked>${esc(a)}</label>`).join(''):'<span class="small">此身份目前沒有符合區域的社團。</span>';
+  const owned=visible.filter(g=>g.relationship==='owned').length,joined=visible.length-owned;
+  const manualCount=unclassified.filter(g=>selectedUnclassifiedGroupIds.has(g.id)).length;
+  const classifiedHtml=visible.length?'<table class="table"><tr><th>啟用</th><th>社團</th><th>關係</th><th>區域</th><th>主題／上限</th><th></th></tr>'+visible.map(g=>`<tr><td><input type="checkbox" ${g.enabled!==false?'checked':''} onchange="toggleGroup('${esc(g.id)}',this.checked)"></td><td>${esc(g.name)}<div class="small">${esc(g.url)}</div></td><td><span class="badge">${g.relationship==='owned'?'自己的社團':'已加入社團'}</span></td><td>${esc(groupAreas(g).join('、'))}</td><td>${esc((g.topics||[]).join('、'))}／${g.dailyLimit}</td><td><button class="btn warn" onclick="deleteGroup('${esc(g.id)}')">刪除</button></td></tr>`).join('')+'</table>':'<div class="hint">此縣市目前沒有已分類社團。</div>';
+  const unclassifiedHtml=unclassified.length?`<h3 style="margin:18px 0 6px">未分類社團（手動勾選）</h3><div class="hint">不會自動發文；只有勾選的社團會加入本次排程，建立後會自動清空。</div><table class="table"><tr><th>本次排程</th><th>社團</th><th>關係</th><th>狀態</th><th></th></tr>${unclassified.map(g=>`<tr><td><input class="manual-unclassified-group" type="checkbox" ${selectedUnclassifiedGroupIds.has(g.id)?'checked':''} ${g.enabled===false?'disabled':''} onchange="setManualUnclassified('${esc(g.id)}',this.checked)"></td><td>${esc(g.name)}<div class="small">${esc(g.url)}</div></td><td><span class="badge">${g.relationship==='owned'?'自己的社團':'已加入社團'}</span></td><td>${g.enabled===false?'停用':'可選'}</td><td><button class="btn warn" onclick="deleteGroup('${esc(g.id)}')">刪除</button></td></tr>`).join('')}</table>`:'<h3 style="margin:18px 0 6px">未分類社團（手動勾選）</h3><div class="hint">目前沒有未分類社團。</div>';
+  $("groupList").innerHTML=`<div class="status">${esc(filter)}｜${esc(city||'全部區域')}｜自己的社團 ${owned}｜已加入社團 ${joined}｜自動符合 ${visible.length} 個｜未分類手動已選 ${manualCount} 個</div>${classifiedHtml}${unclassifiedHtml}`;
+}
+async function saveGroup(){const p={action:'save_group',name:$("groupName").value.trim(),url:$("groupUrl").value.trim(),areas:csv($("groupAreas").value),topics:csv($("groupTopics").value),account:$("groupAccount").value,relationship:$("groupRelationship").value,dailyLimit:Number($("groupLimit").value||10)};if(!p.name||!p.url){setStatus('請填社團名稱與網址。');return;}const r=await fetch('api/facebook-schedule.php',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(p)});const d=await r.json();if(!r.ok||!d.ok){setStatus(d.message||'社團儲存失敗');return;}$("groupName").value=$("groupUrl").value=$("groupAreas").value=$("groupTopics").value='';await loadAll();setStatus('社團資料已新增並歸到 '+p.account+'。');}
+async function toggleGroup(id,enabled){const g=groups.find(x=>x.id===id);if(!g)return;await fetch('api/facebook-schedule.php',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...g,action:'save_group',enabled})});await loadAll();}
+async function setVisibleGroupsEnabled(enabled){const ids=groups.filter(g=>g.account===groupAccount()&&groupMatchesLocation(g)&&!isUnclassifiedGroup(g)).map(g=>g.id);if(!ids.length){setStatus('目前身份與區域沒有可批次設定的社團。');return;}const r=await fetch('api/facebook-schedule.php',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'bulk_group_enabled',ids,enabled})});const d=await r.json();if(!r.ok||!d.ok){setStatus(d.message||'批次設定失敗');return;}await loadAll();setStatus(`${groupAccount()}｜目前區域 ${d.updated} 個社團已${enabled?'全部啟用':'全部取消'}。`);}
+function setAllUnclassified(checked){invalidatePreview();const rows=groups.filter(g=>g.account===groupAccount()&&isUnclassifiedGroup(g)&&g.enabled!==false);rows.forEach(g=>checked?selectedUnclassifiedGroupIds.add(g.id):selectedUnclassifiedGroupIds.delete(g.id));renderGroups();setStatus(`${groupAccount()}｜未分類社團已${checked?'全部勾選':'全部取消'}（${rows.length} 個）。`);}
+async function deleteGroup(id){if(!confirm('刪除這個社團設定？'))return;await fetch('api/facebook-schedule.php',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'delete_group',id})});await loadAll();}
+function joinStatusLabel(v){return ({candidate:'候選',auto_queued:'等待自動加入',processing:'處理中',pending:'等待社團審核',joined:'已加入',needs_manual:'需要人工處理',ignored:'已忽略'})[v]||v||'候選';}
+function renderJoinCandidates(){
+  $("joinAutoEnabled").value=joinSettings.autoJoinEnabled?'1':'0';$("joinRunAt").value=joinSettings.runAt||'10:30';$("joinDailyLimit").value=joinSettings.dailyLimit||1;
+  const account=groupAccount(),city=$("city").value;
+  const visible=joinCandidates.filter(x=>x.account===account&&(!city||!(x.counties||[]).length||(x.counties||[]).includes(city)||(x.counties||[]).includes('未分類')));
+  $("joinStatus").textContent=`${account}｜${city||'全部區域'}｜待加入 ${visible.length}｜自動加入：${joinSettings.autoJoinEnabled?'開啟':'關閉'}｜${joinSettings.runAt||'10:30'}｜每日上限 ${joinSettings.dailyLimit||1}`;
+  if(!visible.length){$("joinCandidateList").textContent='這個身份目前沒有符合區域的待加入社團。';return;}
+  $("joinCandidateList").innerHTML='<table class="table"><tr><th>社團</th><th>縣市／方式</th><th>狀態</th><th>操作</th></tr>'+visible.map(x=>`<tr><td>${esc(x.name||x.id)}<div class="small">${esc(x.url)}</div></td><td>${esc((x.counties||[]).join('、'))}<div class="small">${x.joinability==='direct'?'可直接加入':x.joinability==='questions'?'需要回答問題':'尚未確認'}</div></td><td><span class="badge ${esc(x.status)}">${esc(joinStatusLabel(x.status))}</span><div class="small">${esc(x.note||'')}</div></td><td><div class="actions"><button class="btn" onclick="window.open('${esc(x.url)}','_blank')">前往加入</button>${x.joinability==='direct'&&x.status==='candidate'?`<button class="btn primary" onclick="setJoinStatus('${esc(x.id)}','auto_queued')">排入自動加入</button>`:''}${x.status!=='joined'?`<button class="btn" onclick="setJoinStatus('${esc(x.id)}','joined')">標記已加入</button>`:''}${x.status!=='ignored'?`<button class="btn warn" onclick="setJoinStatus('${esc(x.id)}','ignored')">忽略</button>`:''}</div></td></tr>`).join('')+'</table>';
+}
+async function joinApi(payload){const r=await fetch('api/facebook_group_candidates.php',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok||!d.ok)throw Error(d.message||'更新失敗');joinCandidates=d.items||[];joinSettings=d.settings||{};renderJoinCandidates();return d;}
+async function setJoinStatus(id,status){try{await joinApi({action:'set_status',id,status});}catch(e){$("joinStatus").textContent=e.message;}}
+async function saveJoinSettings(){try{await joinApi({action:'save_settings',autoJoinEnabled:$("joinAutoEnabled").value==='1',runAt:$("joinRunAt").value,dailyLimit:Number($("joinDailyLimit").value||1)});$("joinStatus").textContent='自動加入設定已儲存。';}catch(e){$("joinStatus").textContent=e.message;}}
+async function saveJoinCandidate(){const url=$("joinGroupUrl").value.trim();if(!url){$("joinStatus").textContent='請填 Facebook 社團網址。';return;}try{await joinApi({action:'upsert',name:$("joinGroupName").value.trim(),url,counties:csv($("joinGroupAreas").value),category:'房屋土地',account:groupAccount(),joinability:$("joinGroupType").value});$("joinGroupName").value=$("joinGroupUrl").value=$("joinGroupAreas").value='';$("joinStatus").textContent='候選社團已分類到 '+groupAccount()+'。';}catch(e){$("joinStatus").textContent=e.message;}}
+function channelLabel(key){return ({page:'粉絲團 20',truehappiness:'真幸福 20',personal:'個人宜蘭 10'})[key]||key;}
+function renderDashboard(d){
+  dashboard=d||{};
+  const today=d.todayStatus||{}, done=d.todayDone||0, target=d.todayTarget||50;
+  $("boardStats").innerHTML=`<div class="stat">今日完成<b>${done} / ${target}</b></div><div class="stat">排隊中<b>${today.queued||0}</b></div><div class="stat">待審核<b>${today.pending_review||0}</b></div><div class="stat">已發佈<b>${today.published||0}</b></div>`;
+  const channels=d.channels||{};
+  $("boardChannels").innerHTML=Object.keys(channels).map(key=>{const c=channels[key]||{};return `<div class="stat">${esc(channelLabel(key))}<b>${(c.published||0)+(c.pending_review||0)} 完成</b><div class="small">排隊 ${c.queued||0}｜阻擋 ${c.blocked||0}</div></div>`;}).join('');
+  const claim=d.workerLastClaimAt?`執行器上次領件：${d.workerLastClaimAt}`:'執行器尚未領件，請確認 Chrome 發文程式有開。';
+  $("boardStatus").textContent=`${d.today||''}｜同店可發 ${d.sameStoreCount||0} 件｜可領取佇列 ${d.queuedReady||0} 件\n${claim}`;
+  const next=d.nextJobs||[];
+  $("nextJobs").innerHTML=next.length?next.map(x=>`<div class="next-job"><strong>${esc(x.title||'')}</strong><div class="small">${esc(x.scheduledAt||'')}｜${esc(x.account||'')}｜${esc(x.destinationName||'')}｜${x.photos||0} 張圖</div></div>`).join(''):'<div class="hint">目前沒有可發的下一則。請先按「產生今日 50 件佇列」。</div>';
+}
+async function loadDashboard(){const r=await fetch('api/facebook-schedule.php?action=dashboard&ts='+Date.now(),{cache:'no-store'});const d=await r.json();if(!r.ok||!d.ok)throw Error(d.message||'看板讀取失敗');renderDashboard(d);return d;}
+async function generateToday(){if(!confirm('產生今日粉絲團20＋真幸福20＋個人宜蘭10，並清掉過期與海外佇列？'))return;$("generateToday").disabled=true;$("boardStatus").textContent='正在產生今日佇列...';try{const r=await fetch('api/facebook-schedule.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'generate_today'})});const d=await r.json();if(!r.ok||!d.ok)throw Error(d.message||'產生失敗');if(d.dashboard)renderDashboard(d.dashboard);else await loadDashboard();await loadAll();$("boardStatus").textContent=`今日佇列已就緒：粉絲團 ${d.createdJobs?.page||0}、真幸福 ${d.createdJobs?.truehappiness||0}、個人 ${d.createdJobs?.personal||0}。過期取消 ${d.cancelled?.stale||0}、海外擋下 ${d.cancelled?.overseas||0}。`;}catch(e){$("boardStatus").textContent='產生失敗：'+e.message;}finally{$("generateToday").disabled=false;}}
+async function cancelStale(){if(!confirm('取消過期未發任務，並擋下海外／未核對帳號？'))return;$("cancelStale").disabled=true;try{const r=await fetch('api/facebook-schedule.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cancel_stale'})});const d=await r.json();if(!r.ok||!d.ok)throw Error(d.message||'清理失敗');if(d.dashboard)renderDashboard(d.dashboard);await loadAll();$("boardStatus").textContent=`已清理：過期 ${d.cancelled?.stale||0}、海外 ${d.cancelled?.overseas||0}、未核對身分 ${d.cancelled?.unverified||0}。`;}catch(e){$("boardStatus").textContent='清理失敗：'+e.message;}finally{$("cancelStale").disabled=false;}}
+async function copyNext(){const job=(dashboard?.nextJobs||[])[0];if(!job?.postText){$("boardStatus").textContent='沒有可複製的下一則貼文。';return;}try{await navigator.clipboard.writeText(job.postText);$("boardStatus").textContent=`已複製：${job.title} → ${job.destinationName}`;}catch(e){$("boardStatus").textContent='複製失敗，請手動選取下一則文字。';}}
+function renderJobs(data){
+  allJobs=Array.isArray(data)?data:[];
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Taipei'});
+  const filtered=allJobs.filter(x=>{
+    const day=String(x.scheduledAt||'').slice(0,10);
+    if(jobFilter==='today')return day===today;
+    if(jobFilter==='queued')return x.status==='queued'||x.status==='running';
+    if(jobFilter==='done')return x.status==='published'||x.status==='pending_review';
+    if(jobFilter==='blocked')return x.status==='blocked'||x.status==='failed';
+    return true;
+  }).slice().reverse();
+  const rows=jobFilter==='all'?filtered.slice(0,120):filtered.slice(0,80);
+  if(!rows.length){$("jobList").textContent=jobFilter==='today'?'今天還沒有發布任務。':'這個篩選目前沒有任務。';return;}
+  $("jobList").innerHTML='<table class="table"><tr><th>時間</th><th>物件</th><th>帳號</th><th>位置</th><th>狀態／原因</th></tr>'+rows.map(x=>`<tr><td>${esc(x.scheduledAt)}</td><td>${esc(x.title)}<div class="small">${esc(x.caseId)}｜${esc(x.id)}</div></td><td>${esc(x.account)}</td><td>${esc(x.destinationName)}</td><td><span class="badge ${['failed','blocked','pending_review'].includes(x.status)?x.status:''}">${esc(x.status)}</span><div class="small">${esc(x.note||'')}</div></td></tr>`).join('')+'</table>';
+}
+async function loadAll(){const [s,j,g,c]=await Promise.all([fetch('api/facebook-schedule.php?action=schedules&ts='+Date.now()),fetch('api/facebook-schedule.php?action=jobs&ts='+Date.now()),fetch('api/facebook-schedule.php?action=groups&ts='+Date.now()),fetch('api/facebook_group_candidates.php?ts='+Date.now())]);const sd=await s.json(),jd=await j.json(),gd=await g.json(),cd=await c.json();groups=Array.isArray(gd.groups)?gd.groups:[];joinCandidates=Array.isArray(cd.items)?cd.items:[];joinSettings=cd.settings||{};renderGroups();renderListingPicker();renderJoinCandidates();renderSchedules(sd.schedules||[]);renderJobs(jd.jobs||[]);try{await loadDashboard();}catch(e){$("boardStatus").textContent=e.message;}}
+async function cancelSchedule(id){if(!confirm('停止這個排程？未執行任務會標記為取消。'))return;await fetch('api/facebook-schedule.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cancel',id})});loadAll();}
+$("city").addEventListener('change',()=>{invalidatePreview();updateDistricts();});$("district").addEventListener('change',()=>{invalidatePreview();renderGroups();renderListingPicker();renderJoinCandidates();});$("groupAccountFilter").addEventListener('change',syncAccountSelection);$("listingSearch").addEventListener('input',renderListingPicker);$("listingMode").addEventListener('change',()=>{invalidatePreview();renderListingPicker();});$("sourceMode").addEventListener('change',()=>{invalidatePreview();renderListingPicker();});$("count").addEventListener('input',()=>{invalidatePreview();renderListingPicker();});['name','groupsPerListing','start','interval','destinations','topics','postType','syncPublicSite'].forEach(id=>$(id).addEventListener('input',invalidatePreview));$("preview").addEventListener('click',previewSchedule);$("create").addEventListener('click',createSchedule);$("saveGroup").addEventListener('click',saveGroup);$("enableVisibleGroups").addEventListener('click',()=>setVisibleGroupsEnabled(true));$("disableVisibleGroups").addEventListener('click',()=>setVisibleGroupsEnabled(false));$("selectAllUnclassified").addEventListener('click',()=>setAllUnclassified(true));$("clearAllUnclassified").addEventListener('click',()=>setAllUnclassified(false));$("saveJoinCandidate").addEventListener('click',saveJoinCandidate);$("saveJoinSettings").addEventListener('click',saveJoinSettings);$("reload").addEventListener('click',()=>loadAll());$("generateToday").addEventListener('click',generateToday);$("cancelStale").addEventListener('click',cancelStale);$("copyNext").addEventListener('click',copyNext);$("copyInstall").addEventListener('click',async()=>{try{await navigator.clipboard.writeText($("installCmd").value);$("installCopyStatus").textContent='已複製安裝指令，請貼到 Windows 終端機執行。';}catch(e){$("installCmd").select();document.execCommand('copy');$("installCopyStatus").textContent='已選取指令，請 Ctrl+C 複製後貼到終端機。';}});document.querySelectorAll('[data-job-filter]').forEach(btn=>btn.addEventListener('click',()=>{jobFilter=btn.getAttribute('data-job-filter')||'today';renderJobs(allJobs);}));
+(async()=>{try{await loadListings();await loadAll();}catch(e){setStatus(e.message);}})();
+</script>
+</body>
+</html>

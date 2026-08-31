@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>火旺伯外部物件後台</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body{background:#f5f7fb}
+    .admin-shell{width:min(1180px,calc(100% - 24px));margin:0 auto;padding:22px 0 42px}
+    .admin-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+    .admin-head h1{font-size:34px}
+    .admin-links{display:flex;gap:8px;flex-wrap:wrap}
+    .admin-links a,.admin-links button{border:0;border-radius:8px;background:#141923;color:#fff;padding:12px 14px;font-weight:900;text-decoration:none}
+    .admin-links .front{background:#a70f22}
+    .admin-card{background:#fff;border:1px solid #d9dfeb;border-radius:8px;padding:18px;box-shadow:0 10px 24px rgba(20,25,35,.08);margin-bottom:16px}
+    .admin-card h2{margin:0 0 14px;font-size:24px}
+    .admin-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .field{display:grid;gap:6px}
+    .field.wide{grid-column:1/-1}
+    .field label{font-weight:900;color:#303848}
+    .field input,.field select,.field textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:12px;font:inherit;font-weight:800;background:#fff}
+    .field textarea{min-height:90px;resize:vertical}
+    .check-row{display:flex;align-items:center;gap:8px;font-weight:900}
+    .admin-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .admin-actions button{border:0;border-radius:8px;padding:13px 18px;font-weight:950;color:#fff;background:#175bd6}
+    .admin-actions .save{background:#108b5b}
+    .admin-actions .clear{background:#64748b}
+    .status{margin-top:10px;font-weight:900;color:#a70f22}
+    .list{display:grid;gap:10px}
+    .row{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;border:1px solid #d9dfeb;border-radius:8px;background:#fff;padding:10px}
+    .row img{width:96px;height:72px;object-fit:cover;border-radius:6px;background:#eef2f7}
+    .row-title{font-size:18px;font-weight:950}
+    .row-sub{color:#5d6675;font-weight:800;margin-top:4px}
+    .row button{border:0;border-radius:8px;padding:10px 12px;color:#fff;font-weight:900}
+    .row .edit{background:#175bd6}
+    .row .delete{background:#d80d1d;margin-left:6px}
+    @media(max-width:820px){.admin-grid{grid-template-columns:1fr}.row{grid-template-columns:80px 1fr}.row-actions{grid-column:1/-1}.admin-head{align-items:flex-start;flex-direction:column}.admin-head h1{font-size:28px}}
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <div class="admin-head">
+      <div>
+        <h1>火旺伯外部物件後台</h1>
+        <p style="margin:6px 0 0;color:#64748b;font-weight:900">新增後會出現在前台物件選單，中文和越南文可以分開填。</p>
+      </div>
+      <div class="admin-links">
+        <button type="button" onclick="goBack()">上一頁</button>
+        <a class="front" href="index.html">看前台</a>
+        <button type="button" onclick="loadItems()">重新整理</button>
+      </div>
+    </div>
+
+    <section class="admin-card">
+      <h2>新增 / 編輯物件</h2>
+      <input type="hidden" id="id">
+      <div class="admin-grid">
+        <div class="field"><label>中文物件名稱</label><input id="title" placeholder="例：冬山大地坪庭院透天"></div>
+        <div class="field"><label>越南文物件名稱</label><input id="titleVi" placeholder="例：Nhà phố sân vườn tại Dongshan"></div>
+        <div class="field"><label>總價</label><input id="price" placeholder="例：695萬"></div>
+        <div class="field"><label>區域</label><input id="area" placeholder="例：冬山鄉"></div>
+        <div class="field"><label>越南文區域</label><input id="areaVi" placeholder="例：Dongshan"></div>
+        <div class="field"><label>類型</label><select id="category"><option>透天</option><option>華廈</option><option>套房</option><option>農地</option><option>農舍</option><option>土地</option><option>住宅</option></select></div>
+        <div class="field"><label>越南文類型</label><input id="categoryVi" placeholder="例：Nhà phố"></div>
+        <div class="field"><label>格局</label><input id="layout" placeholder="例：3房3廳2衛"></div>
+        <div class="field"><label>土地坪數</label><input id="land" placeholder="例：36.63"></div>
+        <div class="field"><label>建物坪數</label><input id="build" placeholder="例：33.58"></div>
+        <div class="field"><label>單價</label><input id="unit" placeholder="例：20.7萬"></div>
+        <div class="field"><label>地址/公開位置</label><input id="address" placeholder="例：宜蘭縣冬山鄉香城路"></div>
+        <div class="field"><label>越南文地址</label><input id="addressVi" placeholder="例：Dongshan, Yilan"></div>
+        <div class="field"><label>照片網址</label><input id="image" placeholder="可貼圖片網址，或先上傳圖片"></div>
+        <div class="field"><label>上傳照片</label><input id="imageFile" type="file" accept="image/*"></div>
+        <label class="check-row"><input id="featured" type="checkbox"> 放入精選分類</label>
+        <div class="field wide"><label>中文介紹</label><textarea id="summaryZh" placeholder="給客人看的簡短介紹"></textarea></div>
+        <div class="field wide"><label>越南文介紹</label><textarea id="summaryVi" placeholder="Giới thiệu ngắn bằng tiếng Việt"></textarea></div>
+      </div>
+      <div class="admin-actions">
+        <button class="save" type="button" onclick="saveItem()">儲存物件</button>
+        <button type="button" onclick="uploadImage()">上傳照片</button>
+        <button class="clear" type="button" onclick="clearForm()">清空</button>
+      </div>
+      <div class="status" id="status"></div>
+    </section>
+
+    <section class="admin-card">
+      <h2>後台新增物件</h2>
+      <div class="list" id="list"></div>
+    </section>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
