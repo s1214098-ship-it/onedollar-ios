@@ -3851,14 +3851,15 @@ input[list*="List"],input[list]{
     <div class="form-row"><label>物件門牌號碼：</label><input id="addressDetail" placeholder="只輸入號碼，例如：19號"></div>
     <div class="cadastre-box" data-cadastre-prefix="">
       <h4>物件地籍 / 門牌資料</h4>
-      <div class="rule-note">房屋：建號 + 地號 + 路名 + 門牌；土地：地段 + 地號。地段可從國土測繪官網帶入；地號／建號政府不開放自動串接，請用地籍圖資或電子謄本核對。</div>
+      <div class="rule-note">房屋：建號 + 地號 + 路名 + 門牌；土地：地段 + 地號。可用門牌向國土測繪帶入地段、地號、建號與座標。所有權人與謄本仍需電子謄本。</div>
       <div class="cadastre-official-actions">
+        <button type="button" class="green" onclick="lookupOfficialCadastre('')">用門牌查地號</button>
         <button type="button" class="green" onclick="fetchOfficialSectionsForForm('')">抓官方地段</button>
         <button type="button" class="blue" onclick="openOfficialCadastreSite('','easymap')">開地籍圖資</button>
         <button type="button" class="blue" onclick="openOfficialCadastreSite('','nlsc')">開國土測繪圖</button>
         <button type="button" class="gray" onclick="openOfficialCadastreSite('','yilan')">開宜蘭縣地政</button>
         <button type="button" class="orange" onclick="openOfficialCadastreSite('','transcript')">開電子謄本</button>
-        <div class="cadastre-official-note">先選上方縣市與區域，再抓官方地段清單。謄本、所有權人無法代查，需用地政憑證登入電子謄本。</div>
+        <div class="cadastre-official-note">先選縣市、區域、路名與門牌，再按「用門牌查地號」。謄本、所有權人仍要地政憑證。</div>
       </div>
       <div class="form-row"><label>物件分類：</label><select id="propertyKind" onchange="toggleCadastreFields('')"><option value="房屋">房屋</option><option value="土地">土地</option></select></div>
       <div class="form-row land-field"><label>地段：</label><input id="sectionName" list="sectionList" placeholder="請依地政資料輸入正確地段"><datalist id="sectionList"></datalist></div>
@@ -14257,7 +14258,7 @@ window.onload=async function(){
 </script>
 <script>
 (function(){
-  const HOUSE_RULE = "房屋：建號 + 地號 + 路名 + 門牌；土地：地段 + 地號。地段可從國土測繪官網帶入；地號／建號政府不開放自動串接，請用地籍圖資或電子謄本核對。";
+  const HOUSE_RULE = "房屋：建號 + 地號 + 路名 + 門牌；土地：地段 + 地號。可用門牌向國土測繪帶入地段、地號、建號與座標。所有權人與謄本仍需電子謄本。";
 
   function byId(id){ return document.getElementById(id); }
   function val(id){ return (byId(id) && byId(id).value) || ""; }
@@ -14422,12 +14423,13 @@ window.onload=async function(){
   function cadastreOfficialActionsHtml(prefix){
     const p = JSON.stringify(prefix || "");
     return `<div class="cadastre-official-actions">
+      <button type="button" class="green" onclick="lookupOfficialCadastre(${p})">用門牌查地號</button>
       <button type="button" class="green" onclick="fetchOfficialSectionsForForm(${p})">抓官方地段</button>
       <button type="button" class="blue" onclick="openOfficialCadastreSite(${p},'easymap')">開地籍圖資</button>
       <button type="button" class="blue" onclick="openOfficialCadastreSite(${p},'nlsc')">開國土測繪圖</button>
       <button type="button" class="gray" onclick="openOfficialCadastreSite(${p},'yilan')">開宜蘭縣地政</button>
       <button type="button" class="orange" onclick="openOfficialCadastreSite(${p},'transcript')">開電子謄本</button>
-      <div class="cadastre-official-note">先選縣市與區域，再抓官方地段清單。謄本、所有權人無法代查，需用地政憑證登入電子謄本。</div>
+      <div class="cadastre-official-note">先選縣市、區域、路名與門牌，再按「用門牌查地號」。謄本、所有權人仍要地政憑證。</div>
     </div>`;
   }
   function ensureCadastreOfficialActions(){
@@ -14660,7 +14662,7 @@ window.onload=async function(){
     card.style.display = "none";
     card.innerHTML = `<h2>🗺️ 地籍 / 建號 / 門牌 / 座標查詢</h2>
       <div class="land-query-panel">
-        <div class="rule-note">地段可從國土測繪公開清單帶入。地號、建號、所有權人與謄本需地政憑證，本系統無法代查；請開官方網站核對後再填回。</div>
+        <div class="rule-note">門牌、座標或地號都可向國土測繪查地段地號與建號。所有權人與謄本仍需地政憑證。</div>
         <div class="land-query-tabs">
           <button id="lqTab_land" class="active" onclick="setLandQueryMode('land')">地號</button>
           <button id="lqTab_building" onclick="setLandQueryMode('building')">建號</button>
@@ -14678,7 +14680,7 @@ window.onload=async function(){
         ${row("緯度：", `<input id="lqLat" placeholder="例如：24.702000">`, "lq-coord")}
         ${row("經度：", `<input id="lqLng" placeholder="例如：121.737000">`, "lq-coord")}
         <div class="btns">
-          <button class="blue" onclick="previewLandQuery()">查詢/預覽</button>
+          <button class="blue" onclick="previewLandQuery()">向國土測繪查詢</button>
           <button class="green" onclick="applyLandQuery()">套用到表單</button>
           <button class="gray" onclick="clearLandQuery()">清除</button>
           <button type="button" class="blue" onclick="openOfficialCadastreSite('lq','easymap')">開地籍圖資</button>
@@ -14686,7 +14688,7 @@ window.onload=async function(){
           <button type="button" class="gray" onclick="openOfficialCadastreSite('lq','yilan')">開宜蘭縣地政</button>
           <button type="button" class="orange" onclick="openOfficialCadastreSite('lq','transcript')">開電子謄本</button>
         </div>
-        <div id="lqResult" class="land-query-result">請選擇查詢類型後輸入資料。</div>
+        <div id="lqResult" class="land-query-result">選門牌、座標或地號後按「向國土測繪查詢」。頭城竹安頭濱路一段 425 號可直接用來試查。</div>
       </div>`;
     card.innerHTML += `<div class="land-query-panel">
       <h3 style="margin-top:0">地籍資料庫匯入</h3>
@@ -14724,15 +14726,17 @@ window.onload=async function(){
     document.querySelectorAll(".lq-land,.lq-building,.lq-door,.lq-coord").forEach(el=>el.style.display="none");
     document.querySelectorAll(".lq-"+mode).forEach(el=>el.style.display="");
   };
-  window.previewLandQuery = function(){
+  window.previewLandQuery = async function(){
     const mode = window.landQueryMode || "land";
-    const county = val("lqCounty"), town = val("lqTown");
-    let desc = `${county}${town}`;
-    if(mode==="land") desc += ` ${val("lqSection")} ${val("lqLandNo")}地號`;
-    if(mode==="building") desc += ` ${val("lqSection")} ${val("lqLandNo")}地號 / ${val("lqBuildingNo")}建號`;
-    if(mode==="door") desc += ` ${val("lqRoadName")}${val("lqDoorNo")}`;
-    if(mode==="coord") desc += ` 座標 ${val("lqLat")}, ${val("lqLng")}`;
-    byId("lqResult").innerHTML = `<b>查詢條件：</b>${desc}<br><span class="mobile-stack-note">目前提供地籍欄位輔助查詢，正式資料仍以地政機關登載內容為準。</span>`;
+    const result = byId("lqResult");
+    if(result) result.textContent = "向國土測繪查詢中…";
+    try{
+      const data = await runCadastreLookup(mode, cadastreDoorFields("lq"));
+      fillCadastreLookupFields("lq", data);
+      if(result) result.innerHTML = formatCadastreLookup(data);
+    }catch(e){
+      if(result) result.textContent = (e && e.message) || "查詢失敗，請改開國土測繪圖核對。";
+    }
   };
   window.applyLandQuery = function(){
     const target = val("lqTarget");
@@ -14949,7 +14953,7 @@ window.onload=async function(){
       alert("官方地段清單目前抓不到。可改開「地籍圖資」或側欄「地籍查詢」再試。");
       return;
     }
-    alert("已從國土測繪帶入「"+county+town+"」官方地段 "+(names.length || rows.length)+" 筆，請在「地段」欄點選。\n地號、建號政府不開放自動填寫，請再開地籍圖資或電子謄本核對。");
+    alert("已從國土測繪帶入「"+county+town+"」官方地段 "+(names.length || rows.length)+" 筆，請在「地段」欄點選。\n門牌可再按「用門牌查地號」帶入地號與建號。所有權人與謄本仍要電子謄本。");
   };
   window.openOfficialCadastreSite = function(prefix, kind){
     const urls = {
@@ -14959,6 +14963,161 @@ window.onload=async function(){
       transcript: "https://ep.land.nat.gov.tw/"
     };
     window.open(urls[kind] || urls.easymap, "_blank", "noopener");
+  };
+  async function cadastreApi(params){
+    const qs = new URLSearchParams();
+    Object.keys(params || {}).forEach(key => {
+      const v = params[key];
+      if(v === undefined || v === null || String(v).trim() === "") return;
+      qs.set(key, String(v).trim());
+    });
+    const res = await fetch("api/cadastre.php?" + qs.toString(), {cache:"no-store"});
+    const raw = await res.text();
+    if(raw.trim().startsWith("<?php")) throw new Error("這台沒有執行 PHP，請在 https://huowang.paohui.org/admin.html.html 查");
+    let data;
+    try{ data = JSON.parse(raw); }
+    catch(e){ throw new Error("地籍查詢回傳格式錯誤"); }
+    if(!data || data.ok === false) throw new Error((data && (data.message || data.error)) || "查無資料");
+    return data;
+  }
+  function cadastreDoorFields(prefix){
+    const p = prefix === "lq" ? "lq" : (prefix || "");
+    if(p === "lq"){
+      const coord = val("lqLat") && val("lqLng") ? {lat:val("lqLat"), lng:val("lqLng")} : {};
+      return {
+        county: val("lqCounty"),
+        town: val("lqTown"),
+        road: val("lqRoadName"),
+        door: val("lqDoorNo"),
+        section: val("lqSection"),
+        landNo: val("lqLandNo"),
+        buildingNo: val("lqBuildingNo"),
+        lat: coord.lat || "",
+        lng: coord.lng || ""
+      };
+    }
+    const coordText = val(p+"coordText");
+    let lat = val(p+"lat"), lng = val(p+"lng");
+    if((!lat || !lng) && coordText && coordText.indexOf(",") >= 0){
+      const parts = coordText.split(",").map(v=>v.trim());
+      lat = lat || parts[0];
+      lng = lng || parts[1];
+    }
+    return {
+      county: val(p+"county"),
+      town: val(p+"area"),
+      road: val(p+"roadName") || val(p+"addressRoad") || "",
+      door: val(p+"doorNo") || val(p+"addressDetail") || "",
+      q: p === "t_" ? val("t_address") : "",
+      section: val(p+"sectionName"),
+      landNo: val(p+"landNo"),
+      buildingNo: val(p+"buildingNo"),
+      lat, lng
+    };
+  }
+  async function runCadastreLookup(mode, fields){
+    const f = fields || {};
+    if(mode === "coord" || (mode !== "land" && mode !== "building" && f.lat && f.lng && !f.door && !f.road)){
+      return cadastreApi({action:"coord", county:f.county, lat:f.lat, lng:f.lng});
+    }
+    if(mode === "land" || mode === "building"){
+      if(f.section && f.landNo) return cadastreApi({action:"land", county:f.county, town:f.town, section:f.section, landNo:f.landNo});
+    }
+    return cadastreApi({
+      action:"door",
+      county:f.county,
+      town:f.town,
+      road:f.road,
+      door:f.door,
+      q: f.q || ""
+    });
+  }
+  function formatCadastreLookup(data){
+    const marks = (data.landmarks || []).map(m => `${m.name}（約 ${m.meters} 公尺）`).join("、");
+    return [
+      `<b>國土測繪結果</b>`,
+      data.doorplate ? `門牌：${data.doorplate}` : "",
+      data.section ? `地段：${data.section}${data.sectionCode ? "（"+data.sectionCode+"）" : ""}` : "",
+      data.landNo ? `地號：${data.landNo}` : "",
+      data.buildingNo ? `建號：${data.buildingNo}` : "",
+      data.coordText ? `座標：${data.coordText}` : "",
+      data.areaPing ? `土地面積：${data.areaPing} 坪（${data.areaSqm} ㎡）` : "",
+      data.landUseZone ? `使用分區：${data.landUseZone}` : "",
+      marks ? `附近地標：${marks}` : "",
+      data.dmNearby ? `DM附近位置建議：${data.dmNearby}` : "",
+      `<span class="mobile-stack-note">${data.note || "正式資料仍以地政登載為準。"}</span>`
+    ].filter(Boolean).join("<br>");
+  }
+  function fillCadastreLookupFields(prefix, data){
+    if(!data) return;
+    const p = prefix === "lq" ? "lq" : (prefix || "");
+    if(p === "lq"){
+      if(data.county) setVal("lqCounty", data.county);
+      if(data.area || data.town){
+        fillCountySelect("lqCounty", "lqTown");
+        setVal("lqTown", data.area || data.town);
+      }
+      if(data.section) setVal("lqSection", data.section);
+      if(data.landNo) setVal("lqLandNo", data.landNo);
+      if(data.buildingNo) setVal("lqBuildingNo", data.buildingNo);
+      if(data.roadName) setVal("lqRoadName", data.roadName);
+      if(data.doorNo) setVal("lqDoorNo", data.doorNo);
+      if(data.lat) setVal("lqLat", data.lat);
+      if(data.lng) setVal("lqLng", data.lng);
+      saveCadastreRows([{
+        county: data.county || val("lqCounty"),
+        town: data.area || data.town || val("lqTown"),
+        section: data.section || "",
+        landNo: data.landNo || "",
+        buildingNo: data.buildingNo || "",
+        roadName: data.roadName || val("lqRoadName")
+      }], undefined, true);
+      fillLandQueryDatalists();
+      return;
+    }
+    if(data.county) setVal(p+"county", data.county);
+    if((data.area || data.town) && byId(p+"area")){
+      fillCountySelect(p+"county", p+"area");
+      setVal(p+"area", data.area || data.town);
+    }
+    if(data.section) setVal(p+"sectionName", data.section);
+    if(data.landNo) setVal(p+"landNo", data.landNo);
+    if(data.buildingNo) setVal(p+"buildingNo", data.buildingNo);
+    if(data.roadName) setVal(p+"roadName", data.roadName);
+    if(data.doorNo) setVal(p+"doorNo", data.doorNo);
+    if(data.coordText) setVal(p+"coordText", data.coordText);
+    if(p === ""){
+      if(data.lat) setVal("lat", data.lat);
+      if(data.lng) setVal("lng", data.lng);
+      if(data.roadName && !val("addressRoad")) setVal("addressRoad", data.roadName);
+      if(data.doorNo && !val("addressDetail")) setVal("addressDetail", data.doorNo);
+      if(data.dmNearby && !val("dmNearby")) setVal("dmNearby", data.dmNearby);
+      if(data.landUseZone && !val("landUseZone")) setVal("landUseZone", data.landUseZone);
+      if(data.areaPing && !val("landArea")) setVal("landArea", data.areaPing);
+    }
+    saveCadastreRows([{
+      county: data.county || val(p+"county"),
+      town: data.area || data.town || val(p+"area"),
+      section: data.section || "",
+      landNo: data.landNo || "",
+      buildingNo: data.buildingNo || "",
+      roadName: data.roadName || val(p+"roadName")
+    }], undefined, true);
+    if(typeof toggleCadastreFields === "function") toggleCadastreFields(p);
+    fillCadastreDatalists(p);
+  }
+  window.lookupOfficialCadastre = async function(prefix){
+    const p = prefix === "lq" ? "lq" : (prefix || "");
+    const fields = cadastreDoorFields(p);
+    const mode = prefix === "lq" ? (window.landQueryMode || "door") : (fields.door || fields.road || fields.q ? "door" : (fields.lat && fields.lng ? "coord" : "land"));
+    try{
+      const data = await runCadastreLookup(mode, fields);
+      fillCadastreLookupFields(p, data);
+      if(p === "lq" && byId("lqResult")) byId("lqResult").innerHTML = formatCadastreLookup(data);
+      else alert(["已從國土測繪帶入", data.section, data.landNo ? data.landNo+"地號" : "", data.buildingNo ? data.buildingNo+"建號" : "", data.dmNearby || ""].filter(Boolean).join(" "));
+    }catch(e){
+      alert((e && e.message) || "國土測繪查詢失敗");
+    }
   };
   const salesSheetFields = [
     ["publicNo","公開物件編號","text"],
