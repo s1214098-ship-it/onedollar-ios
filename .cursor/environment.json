@@ -1,0 +1,7 @@
+{
+  "name": "OneDollarIOS Swift",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "install": "swift --version && swiftc -typecheck OneDollarIOS/AppConfig.swift && echo 'Swift environment ready'"
+}
