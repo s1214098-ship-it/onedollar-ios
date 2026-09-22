@@ -1463,7 +1463,11 @@ function warehouse_layer_rank($layer) {
 
 function ops_active_ops_tab(): string
 {
-    return preg_replace('/[^a-z0-9_-]/i', '', (string)($_GET['tab'] ?? $_GET['ops_tab'] ?? $_POST['ops_tab'] ?? ''));
+    if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? '')) === 'POST') {
+        $posted = preg_replace('/[^a-z0-9_-]/i', '', (string)($_POST['ops_tab'] ?? $_POST['tab'] ?? ''));
+        if ($posted !== '') return $posted;
+    }
+    return preg_replace('/[^a-z0-9_-]/i', '', (string)($_GET['tab'] ?? $_GET['ops_tab'] ?? ''));
 }
 
 function ops_needs_member_stats_rebuild(): bool
