@@ -46,6 +46,16 @@ expect(baohui_billing_matches_range($monthlyBill, '2026-06-25', '2026-07-24') ==
 $legacyBill = ['request_date' => '2026-08-10', 'items' => [['date' => '2026-08-01']]];
 expect(baohui_billing_matches_range($legacyBill, '2026-07-25', '2026-08-24') === true, 'legacy requests still match by item/request date');
 
+expect(baohui_billing_customer_matches('宜蘭縣私立達文西幼兒園', '宜蘭縣私立達文西幼兒園') === true, 'exact customer names match');
+expect(baohui_billing_customer_matches('宜蘭縣私立達文西幼兒園(雪山村)(209)', '宜蘭縣私立達文西幼兒園') === true, 'branch suffix still matches the kindergarten');
+expect(baohui_billing_customer_matches('築上設計', '達文西幼兒園') === false, 'unrelated customers do not match');
+
+$js = file_get_contents(dirname(__DIR__) . '/one-dollar-auction/ops-billing-documents.js');
+expect($js !== false && $js !== '', 'billing documents overlay exists');
+expect(str_contains($js, 'billingCustomerDocuments'), 'renders 請款單 step 3 document list');
+expect(str_contains($js, 'data-billing-auto-customer'), '帶入月結請款單 still fills the form');
+expect(str_contains($js, 'billingDeliveryCandidates'), 'uses unclosed delivery candidates');
+
 if ($failed > 0) {
     fwrite(STDERR, $failed . " assertion(s) failed\n");
     exit(1);

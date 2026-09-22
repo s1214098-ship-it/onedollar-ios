@@ -16434,12 +16434,21 @@ document.addEventListener('change', async event => {
 document.querySelector('#productMasterForm input[name="image"]')?.addEventListener('change', renderProductUploadPreview);
 document.querySelector('#productMasterForm input[name="photos[]"]')?.addEventListener('change', renderProductUploadPreview);
 
+function customerNameMatchesBilling(rowName, query) {
+  const row = normalizeProductSearch(rowName);
+  const wanted = normalizeProductSearch(query);
+  if (!row || !wanted) return false;
+  if (row === wanted || row.includes(wanted) || wanted.includes(row)) return true;
+  const core = (value) => normalizeProductSearch(value).replace(/[（(].*$/, '').replace(/\s+/g, '');
+  const a = core(rowName);
+  const b = core(query);
+  return !!(a && b && (a === b || a.includes(b) || b.includes(a)));
+}
 function customerDocumentRows(customerValue, sourceRows, from, to, basis) {
   const query = normalizeProductSearch(customerValue);
   if (!query) return [];
   const rows = Array.isArray(sourceRows) ? sourceRows : [];
-  const exact = rows.filter(row => normalizeProductSearch(row.customer) === query);
-  const matches = exact.length ? exact : rows.filter(row => normalizeProductSearch(row.customer).includes(query));
+  const matches = rows.filter(row => customerNameMatchesBilling(row.customer || row.customer_name || '', customerValue));
   return matches.filter(row => {
     const date = (basis === 'delivery' ? (row.delivery_date || row.date) : row.date) || '';
     if (from && date && date < from) return false;
@@ -16489,8 +16498,17 @@ function renderCustomerDocumentPicker(inputId, boxId, inputName, sourceRows, per
   const from = period && period.from ? period.from : '';
   const to = period && period.to ? period.to : '';
   const basis = period && period.basis ? period.basis : 'document';
-  const rows = customerDocumentRows(input.value, sourceRows, from, to, basis);
-  box.innerHTML = rows.length ? rows.map(row => customerDocumentOption(row, inputName)).join('') : '<div class="customer-document-empty">找不到這位客戶的未結單據。</div>';
+  let rows = customerDocumentRows(input.value, sourceRows, from, to, basis);
+  let note = '';
+  if (!rows.length && String(input.value || '').trim()) {
+    const all = customerDocumentRows(input.value, sourceRows, '', '', basis);
+    if (all.length) {
+      rows = all;
+      note = '<div class="customer-document-empty">本期區間沒有單據，改列出這位客戶其他未結單據。</div>';
+    }
+  }
+  box.innerHTML = rows.length ? note + rows.map(row => customerDocumentOption(row, inputName)).join('') : '<div class="customer-document-empty">找不到這位客戶的未結單據。</div>';
+  if (boxId === 'billingCustomerDocuments') box.querySelectorAll('input[type="checkbox"]').forEach((item) => { item.checked = true; });
 }
 function refreshFinanceDocumentPickers() {
   const receiptPeriod = readPeriodControls(document.querySelector('[data-period-for="receipt"]'));
@@ -16998,6 +17016,7 @@ function setOpsStaffPermissionRole(role) {
   window.parent.postMessage({ type: 'baohui-embed-height', height: 'viewport' }, '*');
 })();
 </script>
+<script src="ops-billing-documents.js?v=billing-docs-20260922" charset="UTF-8"></script>
 <script src="../baohui-paste-image.js?v=20260819-paste-1"></script>
 </body>
 </html>

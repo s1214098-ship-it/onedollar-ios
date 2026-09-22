@@ -111,3 +111,48 @@ function baohui_receipt_match_date(array $receipt, string $basis = 'receipt'): s
     }
     return substr((string)($receipt['receipt_date'] ?? ($receipt['date'] ?? ($receipt['created_at'] ?? ''))), 0, 10);
 }
+
+/**
+ * Empty-branch label used when grouping monthly bills by customer + branch.
+ * Keep in sync with operations.php ops_customer_branch_empty_label().
+ */
+function baohui_customer_branch_empty_label(): string
+{
+    return '（未分店）';
+}
+
+function baohui_normalize_customer_branch($branch): string
+{
+    $branch = trim((string)$branch);
+    return $branch !== '' ? $branch : baohui_customer_branch_empty_label();
+}
+
+function baohui_billing_customer_core(string $name): string
+{
+    $name = trim($name);
+    $name = preg_replace('/[（(].*$/u', '', $name) ?? $name;
+    $name = preg_replace('/\s+/u', '', $name) ?? $name;
+    return mb_strtolower(trim($name), 'UTF-8');
+}
+
+function baohui_billing_customer_matches($left, $right): bool
+{
+    $a = trim((string)$left);
+    $b = trim((string)$right);
+    if ($a === '' || $b === '') {
+        return false;
+    }
+    if ($a === $b) {
+        return true;
+    }
+    $coreA = baohui_billing_customer_core($a);
+    $coreB = baohui_billing_customer_core($b);
+    if ($coreA === '' || $coreB === '') {
+        return false;
+    }
+    if ($coreA === $coreB) {
+        return true;
+    }
+    return mb_strpos($coreA, $coreB, 0, 'UTF-8') !== false
+        || mb_strpos($coreB, $coreA, 0, 'UTF-8') !== false;
+}
