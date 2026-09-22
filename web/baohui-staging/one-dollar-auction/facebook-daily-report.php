@@ -204,6 +204,20 @@ function facebook_daily_has_winner(array $s): bool
         || trim((string)($s['winner_phone'] ?? '')) !== '';
 }
 
+function facebook_daily_can_mark_unsold(array $s): bool
+{
+    if (facebook_daily_has_winner($s) || (float)($s['winning_price'] ?? 0) > 0) return false;
+    if (!facebook_daily_closed($s)) return false;
+    $order = (string)($s['order_status'] ?? '');
+    $cancelled = (function_exists('mb_stripos') ? mb_stripos($order, '取消', 0, 'UTF-8') : strpos($order, '取消')) !== false
+        || (function_exists('mb_stripos') ? mb_stripos($order, '棄標', 0, 'UTF-8') : false) !== false;
+    $unsold = (string)($s['auction_result'] ?? '') === 'unsold'
+        || (function_exists('mb_stripos') ? mb_stripos($order, '流標', 0, 'UTF-8') : strpos($order, '流標')) !== false;
+    if ($cancelled || $unsold) return false;
+    return facebook_daily_recordable($s)
+        && (facebook_daily_verified_post($s) || facebook_daily_posted($s) || facebook_daily_manual_url_lookup($s));
+}
+
 function facebook_daily_build_row(array $s, array $p, array $sets, int $queue, string $date): array
 {
     $setId = (string)($s['post_set_id'] ?? '');
@@ -264,8 +278,9 @@ function facebook_daily_build_row(array $s, array $p, array $sets, int $queue, s
     $needManualPublish = !$codexManaged && !$terminalWithoutWinner && !$verifiedPost;
     $needRemind = !$terminalWithoutWinner && !$closed && $verifiedPost
         && (function_exists('schedule_needs_hourly_update') ? schedule_needs_hourly_update($s) : true);
-    $needWinnerRecord = $inClose && $closed && !$terminalWithoutWinner && $verifiedPost && !$hasWinner;
+    $needWinnerRecord = $inClose && $closed && !$terminalWithoutWinner && ($verifiedPost || $manualUrlLookup) && !$hasWinner;
     $needWinner = $inClose && $closed && !$terminalWithoutWinner && $verifiedPost && $hasWinner && !$winnerSent;
+    $canMarkUnsold = facebook_daily_can_mark_unsold($s);
     return [
         'queue' => $queue,
         'schedule_id' => (string)($s['id'] ?? ''),
@@ -332,6 +347,7 @@ function facebook_daily_build_row(array $s, array $p, array $sets, int $queue, s
         'need_remind' => $needRemind && ($inPublish || $inClose),
         'need_winner' => $needWinner,
         'need_winner_record' => $needWinnerRecord,
+        'can_mark_unsold' => $canMarkUnsold,
         'listing' => $listing,
         'qa_pack' => $qa,
         'reminder' => $reminder,
@@ -388,6 +404,7 @@ function facebook_daily_compare(array $rows, string $date): array
     $needRemind = 0;
     $needWinner = 0;
     $needWinnerRecord = 0;
+    $needUnsold = 0;
     $needPin = 0;
     $assigneeStats = [];
     $publisherStats = [];
@@ -440,6 +457,7 @@ function facebook_daily_compare(array $rows, string $date): array
         if (!empty($row['need_remind'])) $needRemind++;
         if (!empty($row['need_winner'])) $needWinner++;
         if (!empty($row['need_winner_record'])) $needWinnerRecord++;
+        if (!empty($row['can_mark_unsold'])) $needUnsold++;
         $isCompletedSale = !empty($row['in_close_day'])
             && !empty($row['has_winner'])
             && empty($row['cancelled'])
@@ -477,6 +495,7 @@ function facebook_daily_compare(array $rows, string $date): array
         'need_remind' => $needRemind,
         'need_winner' => $needWinner,
         'need_winner_record' => $needWinnerRecord,
+        'need_unsold' => $needUnsold,
         'rows' => count($rows),
         'assignees' => $assigneeStats,
         'publishers' => $publisherStats,

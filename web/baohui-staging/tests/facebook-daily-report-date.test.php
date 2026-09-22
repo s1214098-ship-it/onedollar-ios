@@ -102,11 +102,43 @@ expect(in_array('GOO014P2891', $ids, true), 'TF7 is on 9/21');
 expect(in_array('OTHER', $ids, true) === false, 'next-day lot stays off 9/21');
 
 $publishDayRows = array_values(array_filter($rows, static fn($row) => !empty($row['in_publish_day'])));
-expect(count($publishDayRows) === 6, 'ops in_publish_day filter still keeps the six 9/21 lots');
+expect(count($publishDayRows) === 6, '9/21 lots still count as publish-day rows');
 
 $nextDay = facebook_daily_collect($screenshotLots, [], [], '2026-09-22');
 $nextIds = array_column($nextDay, 'product_id');
 expect($nextIds === ['OTHER'], 'overnight-stamped 9/21 lots no longer pollute 9/22');
+
+$combNoWinner = $comb;
+$combNoWinner['winner'] = '';
+$combNoWinner['winning_price'] = 0;
+expect(facebook_daily_can_mark_unsold($combNoWinner) === true, 'url-missing closed 梳子 can be marked 流標');
+expect(facebook_daily_can_mark_unsold($g4900 + ['winner' => '', 'winning_price' => 0]) === true, 'url-missing closed G4900 can be marked 流標');
+
+$won = $screenshotLots[0];
+$won['winner'] = '蘇文敏';
+$won['winning_price'] = 30;
+expect(facebook_daily_can_mark_unsold($won) === false, 'lot with a winner is not 流標');
+
+$alreadyUnsold = $combNoWinner;
+$alreadyUnsold['auction_result'] = 'unsold';
+$alreadyUnsold['order_status'] = '流標區保留';
+expect(facebook_daily_can_mark_unsold($alreadyUnsold) === false, 'already-unsold lot is not marked again');
+
+$openLot = $combNoWinner;
+$openLot['close_at'] = '2026-09-22 23:59';
+expect(facebook_daily_can_mark_unsold($openLot) === false, 'not-yet-closed lot cannot 流標');
+
+$unsoldRows = facebook_daily_collect([
+    $combNoWinner,
+    $g4900 + ['winner' => '', 'winning_price' => 0, 'close_at' => '2026-09-21 23:59'],
+    $won,
+], [], [], '2026-09-21');
+$unsoldable = array_values(array_filter($unsoldRows, static fn($row) => !empty($row['can_mark_unsold'])));
+$unsoldableIds = array_column($unsoldable, 'product_id');
+expect(in_array('FP2P33907', $unsoldableIds, true), '9/21 daily report offers 確認流標 for 梳子');
+expect(in_array('SING12P50', $unsoldableIds, true), '9/21 daily report offers 確認流標 for G4900');
+$compare = facebook_daily_compare($unsoldRows, '2026-09-21');
+expect((int)($compare['need_unsold'] ?? 0) >= 2, 'compare counts pending 流標 lots');
 
 if ($failed > 0) {
     fwrite(STDERR, "$failed failed\n");
