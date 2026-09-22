@@ -4877,6 +4877,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'product_size' => $product['size'] ?? '',
                     'product_spec' => $product['spec'] ?? '',
                     'product_description' => $product['description'] ?? '',
+                    'product_description_source' => $product['description_source'] ?? '',
                     'warehouse_name' => $product['warehouse_name'] ?? '',
                     'shelf_code' => $product['shelf_code'] ?? '',
                     'warehouse_location' => $product['warehouse_location'] ?? '',
@@ -11181,7 +11182,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
             <label class="wide">貼文網址<input name="post_url" value="<?=h($s['post_url']??'')?>" placeholder="https://www.facebook.com/..."></label>
             <label>目前競標金額<input name="current_bid" type="number" min="0" step="1" value="<?=h($s['current_bid']??($s['winning_price']??0))?>"></label>
             <label class="check">買家看板<input type="checkbox" name="show_on_buyer_board" value="1" <?= (($s['show_on_buyer_board']??'1')!=='0'?'checked':'') ?>></label>
-            <label class="wide">上架文案（依套組帶入，可複製貼到 Facebook）<textarea class="schedule-listing-draft" rows="8" readonly><?=h($listingDraft)?></textarea></label>
+            <label class="wide">上架文案（依套組帶入，可複製貼到 Facebook）<textarea class="schedule-listing-draft" rows="16" readonly><?=h($listingDraft)?></textarea></label>
             <div class="wide form-button-row">
               <button type="button" class="secondary copy-facebook-listing">複製上架文案</button>
               <button type="button" class="secondary copy-schedule-qa">複製問答包</button>
@@ -11355,6 +11356,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           'size' => (string)(($firstPreviewProduct['size'] ?? '') ?: ''),
           'spec' => (string)(($firstPreviewProduct['spec'] ?? '') ?: '16G / 3200'),
           'description' => (string)(($firstPreviewProduct['description'] ?? '') ?: '門市現貨，可自取。'),
+          'description_source' => (string)(($firstPreviewProduct['description_source'] ?? '') ?: '門市現貨，可自取。'),
           'sale_price' => $firstPreviewProduct['sale_price'] ?? ($firstPreviewProduct['selling_price'] ?? 990),
           'warehouse_name' => (string)(($firstPreviewProduct['warehouse_name'] ?? '') ?: '頭城門市'),
           'shelf_code' => (string)($firstPreviewProduct['shelf_code'] ?? ''),
@@ -11366,6 +11368,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           'product_barcode' => $postReplyPreviewProduct['barcode'],
           'product_spec' => $postReplyPreviewProduct['spec'],
           'product_description' => $postReplyPreviewProduct['description'],
+          'product_description_source' => $postReplyPreviewProduct['description_source'] ?? '',
           'close_at' => date('Y-m-d 23:59'),
           'publish_at' => date('Y-m-d 20:00'),
           'winning_price' => $postReplyPreviewProduct['sale_price'],
