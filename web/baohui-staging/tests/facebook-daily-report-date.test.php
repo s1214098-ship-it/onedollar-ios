@@ -140,6 +140,48 @@ expect(in_array('SING12P50', $unsoldableIds, true), '9/21 daily report offers �
 $compare = facebook_daily_compare($unsoldRows, '2026-09-21');
 expect((int)($compare['need_unsold'] ?? 0) >= 2, 'compare counts pending 流標 lots');
 
+require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'one-dollar-auction' . DIRECTORY_SEPARATOR . 'schedule-lifecycle-lib.php';
+
+$staffFuture = [
+    'id' => 'sch_manual_future',
+    'listing_source' => 'staff',
+    'created_by' => '小姐 Facebook 人工預約',
+    'product_id' => 'STAFF001',
+    'product_title' => '小姐人工排程測試',
+    'post_url' => 'https://www.facebook.com/groups/onecheep/posts/4033343033465955/',
+    'facebook_worker_status' => 'manual_facebook_scheduled',
+    'publish_status' => '已排程',
+    'facebook_publish_completed' => '0',
+    'scheduled_publish_at' => '2026-09-23 15:59',
+    'actual_publish_at' => '2026-09-22 07:00',
+    'close_at' => '2026-09-23 23:59',
+];
+expect(facebook_daily_has_real_post_url($staffFuture) === true, '小姐 reservation with permalink has a real URL');
+expect(facebook_daily_recordable($staffFuture) === true, '小姐 reservation with permalink is filed into 當日報 immediately');
+expect(facebook_daily_publish_completed($staffFuture) === true, '人工排程 with permalink counts as archived/completed');
+expect(facebook_daily_report_date($staffFuture) === '2026-09-23', '小姐 reservation files onto the Facebook public day, not the capture day');
+expect(facebook_daily_native_scheduled($staffFuture) === true, '小姐 Facebook 預約 is a native scheduled listing');
+
+$staffRows = facebook_daily_collect([$staffFuture], [], [], '2026-09-23');
+expect(count($staffRows) === 1, '9/23 當日報 includes the 小姐 lot with a link');
+expect(($staffRows[0]['need_manual_publish'] ?? true) === false, 'lot with a permalink is not still waiting for 人工上架');
+expect(str_contains((string)($staffRows[0]['publish_reason'] ?? ''), '已歸檔') === true, 'reason says archived to daily report');
+
+$captureDay = facebook_daily_collect([$staffFuture], [], [], '2026-09-22');
+expect($captureDay === [], 'permalink capture day does not steal the 小姐 reservation from its public day');
+
+$noUrlStaff = $staffFuture;
+$noUrlStaff['post_url'] = '';
+$noUrlStaff['facebook_worker_status'] = 'manual_waiting';
+$noUrlStaff['publish_status'] = '未上架';
+expect(facebook_daily_recordable($noUrlStaff) === false, '人工排程 without a permalink stays out of 當日報');
+
+$archived = $staffFuture;
+expect(schedule_lifecycle_archive_manual_listing_to_daily_report($archived) === true, 'lifecycle archives 人工 lot once it has a permalink');
+expect(($archived['facebook_daily_archived'] ?? '') === '1', 'archive flag is set');
+expect(($archived['facebook_publish_completed'] ?? '') === '1', 'archive marks publish completed');
+expect(schedule_lifecycle_archive_manual_listing_to_daily_report($archived) === false, 'already-archived 人工 lot is not rewritten');
+
 if ($failed > 0) {
     fwrite(STDERR, "$failed failed\n");
     exit(1);

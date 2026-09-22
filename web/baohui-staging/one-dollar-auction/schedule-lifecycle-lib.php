@@ -129,6 +129,30 @@ function schedule_lifecycle_is_codex_managed(array $s): bool
     return !in_array($source, ['unassigned', 'self', 'staff', 'manual', '人工', '人工上架'], true);
 }
 
+function schedule_lifecycle_archive_manual_listing_to_daily_report(array &$s, ?int $nowTs = null): bool
+{
+    if (schedule_lifecycle_is_cancelled($s)) return false;
+    if (schedule_lifecycle_is_codex_managed($s)) return false;
+    $url = schedule_lifecycle_one_line($s['post_url'] ?? $s['facebook_post_url'] ?? '');
+    if (!schedule_lifecycle_real_post_url($url)) return false;
+    $already = !empty($s['facebook_daily_archived']) && (string)$s['facebook_daily_archived'] !== '0';
+    $completed = !empty($s['facebook_publish_completed']) && (string)$s['facebook_publish_completed'] !== '0';
+    if ($already && $completed) return false;
+    $nowTs = $nowTs ?? time();
+    $s['facebook_daily_archived'] = '1';
+    $s['facebook_publish_completed'] = '1';
+    if (schedule_lifecycle_one_line($s['facebook_publish_completed_at'] ?? '') === '') {
+        $s['facebook_publish_completed_at'] = date('Y-m-d H:i', $nowTs);
+    }
+    if (schedule_lifecycle_one_line($s['facebook_publish_completed_by'] ?? '') === '') {
+        $s['facebook_publish_completed_by'] = schedule_lifecycle_one_line(
+            $s['created_by'] ?? $s['facebook_publish_assigned_to'] ?? '小姐人工排程'
+        ) ?: '小姐人工排程';
+    }
+    $s['facebook_daily_archived_at'] = date('c', $nowTs);
+    return true;
+}
+
 function schedule_lifecycle_uses_today_publish_definition(array $s): bool
 {
     return schedule_lifecycle_one_line($s['publish_definition'] ?? '') === 'today_every_5_minutes_close_date_independent';
@@ -651,6 +675,13 @@ function schedule_lifecycle_normalize(array &$schedules, ?int $nowTs = null): ar
     $failedPublishRollover = 0;
     $afterSixCounters = [];
     $occupiedProductSlots = [];
+    foreach ($schedules as &$archiveManualSchedule) {
+        if (!is_array($archiveManualSchedule)) continue;
+        if (schedule_lifecycle_archive_manual_listing_to_daily_report($archiveManualSchedule, $nowTs)) {
+            $changed++;
+        }
+    }
+    unset($archiveManualSchedule);
     foreach ($schedules as $existing) {
         if (!is_array($existing) || schedule_lifecycle_is_cancelled($existing)) continue;
         $existingProductId = schedule_lifecycle_one_line($existing['product_id'] ?? '');

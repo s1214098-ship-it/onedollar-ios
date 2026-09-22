@@ -43,16 +43,21 @@ function facebook_daily_abs_url(string $path): string
     return $path;
 }
 
+function facebook_daily_has_real_post_url(array $s): bool
+{
+    $url = trim((string)($s['post_url'] ?? $s['facebook_post_url'] ?? ''));
+    if ($url === '') return false;
+    return function_exists('schedule_lifecycle_real_post_url')
+        ? schedule_lifecycle_real_post_url($url)
+        : (bool)preg_match('~/posts/|/permalink/|multi_permalinks=|story_fbid=|pfbid~i', $url);
+}
+
 function facebook_daily_posted(array $s): bool
 {
     $status = trim((string)($s['publish_status'] ?? $s['status'] ?? ''));
-    $url = trim((string)($s['post_url'] ?? ''));
-    $realPostUrl = function_exists('schedule_lifecycle_real_post_url')
-        ? schedule_lifecycle_real_post_url($url)
-        : (bool)preg_match('~/posts/|/permalink/|multi_permalinks=|story_fbid=|pfbid~i', $url);
     $manualUrlLookup = facebook_daily_manual_url_lookup($s);
-    return in_array($status, ['已上架', '上架成功', 'published', 'pending_review', 'Facebook 已上架／人工找網址'], true)
-        || $realPostUrl
+    return in_array($status, ['已上架', '上架成功', 'published', 'pending_review', 'Facebook 已上架／人工找網址', '已排程'], true)
+        || facebook_daily_has_real_post_url($s)
         || $manualUrlLookup;
 }
 
@@ -78,47 +83,51 @@ function facebook_daily_verified_post(array $s): bool
 function facebook_daily_publish_completed(array $s): bool
 {
     if (facebook_daily_verified_post($s)) return true;
+    if (!empty($s['facebook_daily_archived']) && (string)$s['facebook_daily_archived'] !== '0') {
+        return facebook_daily_has_real_post_url($s);
+    }
+
+    // 小姐／員工人工排程：只要已回填正式 Facebook 連結，就視為已歸檔當日報。
+    if (facebook_daily_has_real_post_url($s)
+        && function_exists('schedule_lifecycle_is_codex_managed')
+        && !schedule_lifecycle_is_codex_managed($s)) {
+        return true;
+    }
 
     // CODEX worker is the authoritative source for automated publication.
     // A queue item is complete only after Facebook returned a real post URL;
     // queued / pending_review / blocked items must stay in the schedule workspace.
     $workerStatus = trim((string)($s['facebook_worker_status'] ?? ''));
-    $postUrl = trim((string)($s['post_url'] ?? ''));
-    $realPostUrl = function_exists('schedule_lifecycle_real_post_url')
-        ? schedule_lifecycle_real_post_url($postUrl)
-        : (bool)preg_match('~/posts/|/permalink/|multi_permalinks=|story_fbid=|pfbid~i', $postUrl);
-    return $workerStatus === 'published' && $realPostUrl;
+    return $workerStatus === 'published' && facebook_daily_has_real_post_url($s);
 }
 
 function facebook_daily_native_scheduled(array $s): bool
 {
-    if (function_exists('schedule_lifecycle_is_codex_managed') && !schedule_lifecycle_is_codex_managed($s)) return false;
     $workerStatus = trim((string)($s['facebook_worker_status'] ?? ''));
     $queueStatus = trim((string)($s['facebook_queue_status'] ?? ''));
     $facebookStatus = trim((string)($s['facebook_status'] ?? ''));
     $status = trim((string)($s['progress_status'] ?? $s['publish_status'] ?? $s['status'] ?? ''));
     if (preg_match('/^(blocked|failed|cancelled|canceled)/i', $workerStatus)) return false;
     if (preg_match('/^(blocked|failed|cancelled|canceled)/i', $queueStatus)) return false;
-    if (in_array($workerStatus, ['scheduled', 'facebook_scheduled'], true)) return true;
-    if (in_array($queueStatus, ['scheduled', 'facebook_scheduled'], true)) return true;
+    if (in_array($workerStatus, ['scheduled', 'facebook_scheduled', 'manual_facebook_scheduled', 'manual_facebook_published'], true)) return true;
+    if (in_array($queueStatus, ['scheduled', 'facebook_scheduled', 'manual_facebook_scheduled'], true)) return true;
     if ($facebookStatus === 'scheduled_visible_no_url') return true;
-    if (in_array($status, ['scheduled', 'facebook_scheduled', '已排入 Facebook 預約'], true)) return true;
+    if (in_array($status, ['scheduled', 'facebook_scheduled', '已排入 Facebook 預約', '已排程'], true)) return true;
     return false;
 }
 
 function facebook_daily_recordable(array $s): bool
 {
-    // Facebook already accepted and published this item. A missing permalink
-    // belongs in the daily report for manual lookup, not in publish preparation.
+    // A real permalink is enough to file the lot into 當日臉書日報,
+    // including 小姐人工排程 reservations that are not live yet.
+    if (facebook_daily_has_real_post_url($s)) return true;
+    // Facebook already accepted this item. A missing permalink belongs in the
+    // daily report for manual lookup, not in publish preparation.
     if (facebook_daily_manual_url_lookup($s)) return true;
     if (facebook_daily_publish_completed($s)) return true;
     if (!facebook_daily_native_scheduled($s)) return false;
-    $postUrl = trim((string)($s['post_url'] ?? ''));
-    $realPostUrl = function_exists('schedule_lifecycle_real_post_url')
-        ? schedule_lifecycle_real_post_url($postUrl)
-        : (bool)preg_match('~/posts/|/permalink/|multi_permalinks=|story_fbid=|pfbid~i', $postUrl);
     $facebookStatus = trim((string)($s['facebook_status'] ?? ''));
-    return $realPostUrl || $facebookStatus === 'scheduled_visible_no_url';
+    return $facebookStatus === 'scheduled_visible_no_url';
 }
 
 function facebook_daily_report_date(array $s): string
@@ -134,6 +143,11 @@ function facebook_daily_report_date(array $s): string
     // immediate publish → that day; reservation → scheduled public date.
     // Worker confirmation after midnight (actual_publish_at next morning)
     // must not move a 9/21 13:xx listing onto the 9/22 date chip.
+    // 小姐人工預約 often stamps actual_publish_at when the permalink is
+    // captured, which is before Facebook's public time — keep the scheduled day.
+    if (facebook_daily_native_scheduled($s) && $scheduledYmd !== '') {
+        return $scheduledYmd;
+    }
     if ($scheduledYmd !== '') {
         if ($actualYmd !== '' && $actualYmd < $scheduledYmd) {
             return $actualYmd;
@@ -170,7 +184,10 @@ function facebook_daily_publish_reason(array $s): string
     if (facebook_daily_manual_url_lookup($s)) {
         return 'Facebook 已上架；專屬貼文網址未抓到，請在當日報人工找網址並回填，不會重複發文';
     }
-    if (function_exists('schedule_lifecycle_is_codex_managed') && !schedule_lifecycle_is_codex_managed($s) && !facebook_daily_publish_completed($s)) {
+    if (function_exists('schedule_lifecycle_is_codex_managed') && !schedule_lifecycle_is_codex_managed($s)) {
+        if (facebook_daily_has_real_post_url($s) || facebook_daily_publish_completed($s)) {
+            return '人工排程已回填 Facebook 連結，已歸檔當日報';
+        }
         return '人工上架排程，等待負責人發布並回填 Facebook 貼文網址';
     }
     if (function_exists('schedule_publish_result_reason')) {
@@ -274,8 +291,9 @@ function facebook_daily_build_row(array $s, array $p, array $sets, int $queue, s
     $publishDue = $publishTimestamp !== false && $publishTimestamp <= time();
     $codexManaged = !function_exists('schedule_lifecycle_is_codex_managed') || schedule_lifecycle_is_codex_managed($s);
     $manualUrlLookup = facebook_daily_manual_url_lookup($s);
+    $hasRealPostUrl = facebook_daily_has_real_post_url($s);
     $needPost = $codexManaged && !$terminalWithoutWinner && $publishDue && !$verifiedPost && !$manualUrlLookup;
-    $needManualPublish = !$codexManaged && !$terminalWithoutWinner && !$verifiedPost;
+    $needManualPublish = !$codexManaged && !$terminalWithoutWinner && !$verifiedPost && !$publishCompleted && !$hasRealPostUrl;
     $needRemind = !$terminalWithoutWinner && !$closed && $verifiedPost
         && (function_exists('schedule_needs_hourly_update') ? schedule_needs_hourly_update($s) : true);
     $needWinnerRecord = $inClose && $closed && !$terminalWithoutWinner && ($verifiedPost || $manualUrlLookup) && !$hasWinner;
