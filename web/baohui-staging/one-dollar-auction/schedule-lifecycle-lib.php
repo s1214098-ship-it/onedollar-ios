@@ -129,6 +129,16 @@ function schedule_lifecycle_is_codex_managed(array $s): bool
     return !in_array($source, ['unassigned', 'self', 'staff', 'manual', '人工', '人工上架'], true);
 }
 
+function schedule_lifecycle_requires_facebook_lead(array $s): bool
+{
+    return schedule_lifecycle_is_codex_managed($s);
+}
+
+function schedule_lifecycle_facebook_lead_seconds(): int
+{
+    return 3 * 3600;
+}
+
 function schedule_lifecycle_helper_heartbeat_path(): string
 {
     $configured = trim((string)getenv('BAOHUI_HELPER_HEARTBEAT_PATH'));
