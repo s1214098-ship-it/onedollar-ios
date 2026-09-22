@@ -18,8 +18,12 @@ function expect($ok, string $msg): void
 expect($js !== false && $js !== '', 'hold overlay exists');
 expect(str_contains($js, 'hydrateInventoryHoldTab'), 'rebinds 寄庫 form after lazy tab load');
 expect(str_contains($js, 'manualHoldProductSearch'), 'listens for product search on 寄庫單');
+expect(str_contains($js, 'data-manual-hold-product'), 'click/pointerdown selects a 寄庫 search result');
+expect(str_contains($js, 'isComposing'), 'Enter during IME composition does not auto-pick the first product');
+expect(str_contains($js, 'isBarcodeLikeQuery'), 'Enter auto-adds only barcode-like queries');
 expect(str_contains($js, 'hold_product_ids'), 'blocks save unless a product was added');
 expect(str_contains($js, 'stock-tool-btn'), 'keeps red stock filter chips clickable');
+expect(str_contains($js, 'stockFilterStatus'), 'shows status when red stock chips are used');
 expect(str_contains($ops, "\$_POST['ops_tab'] ?? \$_POST['tab']"), 'POST 寄庫 tab wins over leftover GET tab');
 
 if ($failed) {
