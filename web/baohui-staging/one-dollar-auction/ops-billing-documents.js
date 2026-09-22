@@ -9,9 +9,27 @@
     return normalizeName(value).replace(/[（(].*$/, "").replace(/\s+/g, "");
   }
 
-  function customerNameMatches(rowName, query) {
-    const row = normalizeName(rowName);
-    const wanted = normalizeName(query);
+  function resolveParty(rawName, branch) {
+    if (typeof window.baohuiResolveCustomerParty === "function") {
+      return window.baohuiResolveCustomerParty(rawName, branch);
+    }
+    const text = String(rawName || "").trim();
+    const match = text.match(/^(.+?)\s*[（(]([^）)]+)[）)](?:\s*[（(]([^）)]+)[）)])?\s*$/);
+    return {
+      company: match ? String(match[1] || "").trim() : text,
+      branch: String(branch || (match ? String(match[2] || "") : "")).trim(),
+      known: text.indexOf("達文西") !== -1
+    };
+  }
+
+  function customerNameMatches(rowName, query, rowBranch, queryBranch) {
+    const resolvedRow = resolveParty(rowName, rowBranch);
+    const resolvedQuery = resolveParty(query, queryBranch);
+    if (resolvedRow.known && resolvedQuery.known) {
+      return resolvedRow.company === resolvedQuery.company;
+    }
+    const row = normalizeName(resolvedRow.company || rowName);
+    const wanted = normalizeName(resolvedQuery.company || query);
     if (!wanted || !row) return false;
     if (row === wanted) return true;
     if (row.indexOf(wanted) !== -1 || wanted.indexOf(row) !== -1) return true;
@@ -30,10 +48,27 @@
     });
   }
 
+  function selectedBillingBranch() {
+    const el = document.getElementById("billingCustomerBranch");
+    return el ? String(el.value || "").trim() : "";
+  }
+
+  function rowBranch(row) {
+    if (!row) return "";
+    if (row.branch) return String(row.branch).trim();
+    if (row.customer_branch) return String(row.customer_branch).trim();
+    return resolveParty(row.customer || row.customer_name || "", "").branch;
+  }
+
   function filterRows(customerValue, sourceRows, from, to, basis) {
     const rows = Array.isArray(sourceRows) ? sourceRows : [];
+    const branch = selectedBillingBranch();
     const matches = rows.filter(function (row) {
-      return customerNameMatches(row.customer || row.customer_name || "", customerValue);
+      if (!customerNameMatches(row.customer || row.customer_name || "", customerValue, rowBranch(row), branch)) return false;
+      if (!branch) return true;
+      const actual = rowBranch(row);
+      const resolvedActual = resolveParty(row.customer || row.customer_name || "", actual);
+      return normalizeName(resolvedActual.branch || actual) === normalizeName(branch);
     });
     const dated = matches.filter(function (row) {
       const date = String((basis === "delivery" ? (row.delivery_date || row.date) : row.date) || "").slice(0, 10);
@@ -76,7 +111,9 @@
     } else {
       box.innerHTML = note + rows.map(function (row) {
         const id = row.selection_id || row.delivery_id || row.schedule_id || "";
-        return '<label class="customer-document-option"><input type="checkbox" name="billing_delivery_ids[]" value="' + String(id).replace(/"/g, "&quot;") + '" data-outstanding="' + Number(row.outstanding || 0) + '" checked><span><b>' + String(row.date || "-") + "</b><small>" + String(row.document_no || "") + "</small></span><span><b>" + String(row.product || "出貨單") + "</b></span><strong>未收<br>" + String(row.outstanding || 0) + "</strong></label>";
+        const branch = rowBranch(row);
+        const branchHtml = branch ? "<small>" + String(branch).replace(/</g, "") + "</small>" : "";
+        return '<label class="customer-document-option"><input type="checkbox" name="billing_delivery_ids[]" value="' + String(id).replace(/"/g, "&quot;") + '" data-outstanding="' + Number(row.outstanding || 0) + '" checked><span><b>' + String(row.date || "-") + "</b><small>" + String(row.document_no || "") + "</small></span><span><b>" + String(row.product || "出貨單") + "</b>" + branchHtml + "</span><strong>未收<br>" + String(row.outstanding || 0) + "</strong></label>";
       }).join("");
     }
     box.querySelectorAll('input[type="checkbox"]').forEach(function (checkbox) {
@@ -139,7 +176,16 @@
     if (!button) return;
     event.preventDefault();
     const input = document.getElementById("billingCustomerName");
-    if (input) input.value = button.getAttribute("data-billing-auto-customer") || "";
+    const rawCustomer = button.getAttribute("data-billing-auto-customer") || "";
+    const resolved = resolveParty(rawCustomer, button.getAttribute("data-billing-auto-branch") || "");
+    if (input) input.value = resolved.company || rawCustomer;
+    const branchSelect = document.getElementById("billingCustomerBranch");
+    if (branchSelect) {
+      if (typeof window.opsFillBranchSelect === "function") {
+        window.opsFillBranchSelect(branchSelect, resolved.branches || [], resolved.branch || "");
+      }
+      if (resolved.branch) branchSelect.value = resolved.branch;
+    }
     const month = document.getElementById("billingCycleMonth");
     if (month && /^\d{4}-\d{2}$/.test(button.getAttribute("data-billing-month") || "")) month.value = button.getAttribute("data-billing-month");
     if (typeof syncBillingCreatePeriod === "function") syncBillingCreatePeriod();

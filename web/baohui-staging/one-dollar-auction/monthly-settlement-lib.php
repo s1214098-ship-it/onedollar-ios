@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+$companyLib = __DIR__ . DIRECTORY_SEPARATOR . 'ops-customer-company-lib.php';
+if (is_file($companyLib)) {
+    require_once $companyLib;
+}
+
 function baohui_monthly_settlement_cycle($asOf = '', int $endDay = 24): array
 {
     $endDay = max(1, min(28, $endDay));
@@ -143,6 +148,9 @@ function baohui_billing_customer_matches($left, $right): bool
         return false;
     }
     if ($a === $b) {
+        return true;
+    }
+    if (function_exists('ops_customer_same_company') && ops_customer_same_company($a, $b)) {
         return true;
     }
     $coreA = baohui_billing_customer_core($a);

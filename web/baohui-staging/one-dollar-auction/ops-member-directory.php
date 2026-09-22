@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-api-auth.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-data-lib.php';
+if (is_file(__DIR__ . DIRECTORY_SEPARATOR . 'ops-customer-company-lib.php')) {
+    require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-customer-company-lib.php';
+}
 
 header('Cache-Control: private, max-age=30, must-revalidate');
 ops_api_require_login();
@@ -10,24 +13,60 @@ ops_api_require_login();
 $members = read_data('members');
 $out = [];
 foreach (is_array($members) ? $members : [] as $member) {
-    if (!is_array($member)) continue;
+    if (!is_array($member)) {
+        continue;
+    }
+    if (function_exists('ops_customer_directory_item')) {
+        $item = ops_customer_directory_item($member);
+        if (is_array($item)) {
+            $out[] = $item;
+        }
+        continue;
+    }
     $name = trim((string)($member['name'] ?? $member['customer_name'] ?? $member['customer'] ?? ''));
     $aliases = [];
     foreach (['name', 'customer_name', 'customer', 'organization_name', 'title'] as $key) {
         $value = trim((string)($member[$key] ?? ''));
-        if ($value !== '') $aliases[$value] = $value;
+        if ($value !== '') {
+            $aliases[$value] = $value;
+        }
     }
     $phone = '';
     foreach (['phone', 'tel', 'mobile', 'contact_phone'] as $key) {
         $value = trim((string)($member[$key] ?? ''));
-        if ($value !== '') { $phone = $value; break; }
+        if ($value !== '') {
+            $phone = $value;
+            break;
+        }
     }
     $address = '';
     foreach (['address', 'addr', 'company_address', 'ship_address'] as $key) {
         $value = trim((string)($member[$key] ?? ''));
-        if ($value !== '') { $address = $value; break; }
+        if ($value !== '') {
+            $address = $value;
+            break;
+        }
     }
-    if ($name === '' && !$aliases) continue;
+    $branches = [];
+    foreach ((array)($member['branches'] ?? []) as $branch) {
+        if (!is_array($branch)) {
+            continue;
+        }
+        $branchName = trim((string)($branch['name'] ?? ''));
+        if ($branchName === '') {
+            continue;
+        }
+        $branches[] = [
+            'id' => trim((string)($branch['id'] ?? '')),
+            'name' => $branchName,
+            'phone' => trim((string)($branch['phone'] ?? '')),
+            'address' => trim((string)($branch['address'] ?? '')),
+            'note' => trim((string)($branch['note'] ?? '')),
+        ];
+    }
+    if ($name === '' && !$aliases) {
+        continue;
+    }
     $out[] = [
         'id' => (string)($member['id'] ?? ''),
         'name' => $name !== '' ? $name : (array_values($aliases)[0] ?? ''),
@@ -35,6 +74,7 @@ foreach (is_array($members) ? $members : [] as $member) {
         'facebook' => trim((string)($member['facebook'] ?? '')),
         'phone' => $phone,
         'address' => $address,
+        'branches' => $branches,
     ];
 }
 

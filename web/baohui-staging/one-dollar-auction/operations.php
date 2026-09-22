@@ -3,6 +3,7 @@ require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-embed-auth-lib.php';
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'member-sync-bridge.php';
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'ops-document-no.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'document-print-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-customer-company-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'monthly-settlement-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-color-variants-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-archive-lib.php';
@@ -5285,6 +5286,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $customerFacebook = trim((string)($_POST['sales_customer_facebook'] ?? ''));
         $customerPhone = trim((string)($_POST['sales_customer_phone'] ?? ''));
         $customerAddress = trim((string)($_POST['sales_customer_address'] ?? ''));
+        $customerBranch = trim((string)($_POST['sales_customer_branch'] ?? ''));
+        if (function_exists('ops_customer_apply_to_delivery_buyer')) {
+            $normalizedSalesBuyer = ops_customer_apply_to_delivery_buyer([
+                'name' => $customerName,
+                'branch' => $customerBranch,
+            ]);
+            $customerName = trim((string)($normalizedSalesBuyer['name'] ?? $customerName));
+            $customerBranch = trim((string)($normalizedSalesBuyer['branch'] ?? $customerBranch));
+        }
         $salesHandler = trim((string)($_POST['sales_handler'] ?? current_operator()));
         $salesDepartment = trim((string)($_POST['sales_department'] ?? '電商部'));
         $paymentStatus = trim((string)($_POST['sales_payment_status'] ?? '未付款'));
@@ -5406,7 +5416,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'facebook' => $customerFacebook,
                     'phone' => $customerPhone,
                     'address' => $customerAddress,
+                    'branch' => $customerBranch,
+                    'company_name' => $customerName,
                 ],
+                'customer_branch' => $customerBranch,
                 'items' => $items,
                 'line_total' => $lineTotal,
                 'discount' => $discount,
@@ -5621,6 +5634,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'created_at' => trim($_POST['created_at'] ?? '') ?: date('c'),
             'updated_at' => date('c'),
         ];
+        if (isset($_POST['member_branches_text']) && function_exists('ops_customer_parse_branches_text')) {
+            $row['branches'] = ops_customer_parse_branches_text($_POST['member_branches_text'] ?? '');
+        } elseif (!empty($_POST['member_branches_editor']) && function_exists('ops_customer_parse_branches_text')) {
+            $row['branches'] = ops_customer_parse_branches_text($_POST['member_branches_text'] ?? '');
+        }
         $found = false;
         foreach ($members as &$m) if (($m['id'] ?? '') === $id) { $row['created_at'] = $m['created_at'] ?? $row['created_at']; $m = array_merge($m, $row); $found = true; break; }
         unset($m);
@@ -6373,11 +6391,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!is_array($selectedScheduleIds)) $selectedScheduleIds = [];
         $selectedScheduleIds = array_values(array_unique(array_filter(array_map('trim', $selectedScheduleIds))));
         $customerName = trim((string)($_POST['billing_customer_name'] ?? ''));
+        $customerBranch = trim((string)($_POST['billing_customer_branch'] ?? ''));
+        if (function_exists('ops_customer_resolve_party')) {
+            $resolvedBilling = ops_customer_resolve_party($customerName, $customerBranch);
+            if ($resolvedBilling['company'] !== '') $customerName = $resolvedBilling['company'];
+            $customerBranch = $resolvedBilling['branch'];
+        }
         $items = [];
         foreach ($schedules as $schedule) {
             if (!in_array(($schedule['id'] ?? ''), $selectedScheduleIds, true)) continue;
             $scheduleCustomer = trim((string)($schedule['winner'] ?? ''));
-            if ($customerName === '' || $scheduleCustomer !== $customerName) continue;
+            if ($customerName === '' || !baohui_billing_customer_matches($scheduleCustomer, $customerName)) continue;
             $product = product_by_id($products, $schedule['product_id'] ?? '');
             $scheduleTotals = totals($schedule, $product);
             $receivable = (float)$scheduleTotals['receivable'];
@@ -6453,6 +6477,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'request_date' => trim((string)($_POST['billing_request_date'] ?? date('Y-m-d'))),
                 'due_date' => trim((string)($_POST['billing_due_date'] ?? '')),
                 'customer_name' => $customerName,
+                'customer_branch' => $customerBranch,
+                'customer_scope' => $customerBranch !== '' ? 'branch' : 'company',
                 'items' => $items,
                 'total_amount' => array_sum(array_column($items, 'request_amount')),
                 'status' => trim((string)($_POST['billing_status'] ?? '待請款')),
@@ -10383,6 +10409,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label>風險等級<select name="risk_level"><option>一般</option><option>中風險</option><option>高風險</option></select></label>
       <label class="wide">風險原因<textarea name="blacklist_reason" rows="2"></textarea></label>
       <label class="wide">備註<textarea name="note" rows="2"></textarea></label>
+      <label class="wide">分店／據點（同一公司可建多個，逗號分隔）<input name="member_branches_text" placeholder="例如：雪山村、幼兒園、托嬰中心"></label>
       <button class="primary">儲存會員</button>
     </form>
   </section>
@@ -11778,6 +11805,12 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <label>單據日期<input type="date" name="sales_doc_date" value="<?=h($ed['date'] ?? date('Y-m-d'))?>"></label>
       <label>客戶名稱<input id="salesCustomerName" name="sales_customer_name" list="salesCustomerOptions" autocomplete="off" required placeholder="必填，輸入或選擇客戶，會帶入電話與地址" value="<?=h($editingBuyer['name'] ?? '')?>"></label>
       <datalist id="salesCustomerOptions"></datalist>
+      <label>分店／據點
+        <select id="salesCustomerBranch" name="sales_customer_branch" data-current="<?=h($editingBuyer['branch'] ?? '')?>">
+          <option value="">（未分店）</option>
+        </select>
+        <small>同一公司的部門（雪山村／幼兒園／托嬰中心）選這裡，客戶名稱維持總公司。</small>
+      </label>
       <label>電話<input id="salesCustomerPhone" name="sales_customer_phone" value="<?=h($editingBuyer['phone'] ?? '')?>"></label>
       <label class="wide">地址<input id="salesCustomerAddress" name="sales_customer_address" value="<?=h($editingBuyer['address'] ?? '')?>"></label>
       <label>經手人<input name="sales_handler" value="<?=h($ed['handler'] ?? current_operator())?>"></label>
@@ -11996,6 +12029,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
           <label>風險等級<select name="risk_level"><option>一般</option><option>中風險</option><option>高風險</option></select></label>
           <label class="wide">黑名單 / 風險原因<textarea name="blacklist_reason" rows="2" placeholder="例如：棄標、疑似詐騙、匯款異常、退貨爭議"></textarea></label>
           <label class="wide">備註<textarea name="note" rows="2"></textarea></label>
+          <label class="wide">分店／據點（逗號分隔）<input name="member_branches_text" placeholder="例如：雪山村、幼兒園、托嬰中心"></label>
         </div>
         <button class="primary">儲存會員</button>
       </form>
@@ -12026,6 +12060,8 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
                 <select name="risk_level"><?php foreach(['一般','中風險','高風險'] as $v): ?><option <?=$v===($m['risk_level'] ?? '一般')?'selected':''?>><?=h($v)?></option><?php endforeach; ?></select>
                 <textarea name="blacklist_reason" rows="2" placeholder="風險原因"><?=h($m['blacklist_reason'] ?? '')?></textarea>
                 <textarea name="note" rows="2" placeholder="備註"><?=h($m['note'] ?? '')?></textarea>
+                <?php $mb=array_values(array_filter(array_map(static fn($b)=>trim((string)($b['name']??'')), (array)($m['branches']??[])))); ?>
+                <input name="member_branches_text" value="<?=h(implode('、', $mb))?>" placeholder="分店，逗號分隔">
                 <button class="secondary">更新</button>
             <button class="secondary" name="generate_reminder" value="1">產生提醒草稿</button>
             <button class="secondary" name="mark_reminded" value="1">標記已提醒</button>
@@ -12476,7 +12512,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       $reconcileRows = array_values(array_filter($allReconcileRows, function($row) use ($reconcileFrom, $reconcileTo, $reconcileQ, $reconcileCustomer, $reconcileStatusFilter) {
           if ($reconcileFrom !== '' && $row['date'] !== '' && $row['date'] < $reconcileFrom) return false;
           if ($reconcileTo !== '' && $row['date'] !== '' && $row['date'] > $reconcileTo) return false;
-          if ($reconcileCustomer !== '' && $row['customer'] !== $reconcileCustomer) return false;
+          if ($reconcileCustomer !== '' && !(function_exists('ops_customer_same_company') ? ops_customer_same_company($row['customer'], $reconcileCustomer) : $row['customer'] === $reconcileCustomer)) return false;
           if ($reconcileStatusFilter !== '' && $row['status'] !== $reconcileStatusFilter) return false;
           if ($reconcileQ !== '') {
               $haystack = implode(' ', [$row['document_no'], $row['delivery_no'], $row['invoice_no'], $row['customer'], $row['phone'], $row['product'], $row['receipt_nos']]);
@@ -12493,6 +12529,10 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       $reconcileCustomerSummary = [];
       foreach ($reconcileRows as $row) {
           $key = $row['customer'];
+          if (function_exists('ops_customer_resolve_party')) {
+              $resolvedCustomer = ops_customer_resolve_party((string)$key, (string)($row['branch'] ?? ''));
+              if ($resolvedCustomer['company'] !== '') $key = $resolvedCustomer['company'];
+          }
           if (!isset($reconcileCustomerSummary[$key])) $reconcileCustomerSummary[$key] = ['customer'=>$key,'orders'=>0,'receivable'=>0,'paid'=>0,'outstanding'=>0,'overpaid'=>0];
           $reconcileCustomerSummary[$key]['orders']++;
           foreach (['receivable','paid','outstanding','overpaid'] as $field) $reconcileCustomerSummary[$key][$field] += $row[$field];
@@ -12992,6 +13032,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       <input type="hidden" name="action" value="save_billing_request">
       <label>請款單號<input name="billing_request_no" value="<?=h($opsNextDocNos['請款單'] ?? next_billing_request_no($billingRequests ?? []))?>" readonly></label>
       <label class="wide">客戶名稱<input id="billingCustomerName" name="billing_customer_name" list="receiptCustomerOptions" autocomplete="off" required placeholder="輸入客戶名稱後挑選"></label>
+      <label>分店／據點<select id="billingCustomerBranch" name="billing_customer_branch"><option value="">全公司（含各分店）</option></select></label>
       <label>請款週期<select id="billingCycleType" name="billing_cycle_type"><option value="monthly" selected>月份請款</option><option value="custom">自訂期間</option></select></label>
       <label>月份請款<input id="billingCycleMonth" name="billing_cycle_month" type="month" value="<?=h($billingCreateCycle['month'])?>"></label>
       <label>日期依據<select id="billingDateBasis" name="billing_date_basis"><option value="document">訂單／請款日期</option><option value="delivery">出貨單日期</option></select></label>
@@ -17016,7 +17057,8 @@ function setOpsStaffPermissionRole(role) {
   window.parent.postMessage({ type: 'baohui-embed-height', height: 'viewport' }, '*');
 })();
 </script>
-<script src="ops-billing-documents.js?v=billing-docs-20260922" charset="UTF-8"></script>
+<script src="ops-customer-company.js?v=customer-company-20260922" charset="UTF-8"></script>
+<script src="ops-billing-documents.js?v=billing-docs-20260922b" charset="UTF-8"></script>
 <script src="../baohui-paste-image.js?v=20260819-paste-1"></script>
 </body>
 </html>
