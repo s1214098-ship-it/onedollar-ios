@@ -129,6 +129,68 @@ function schedule_lifecycle_is_codex_managed(array $s): bool
     return !in_array($source, ['unassigned', 'self', 'staff', 'manual', '人工', '人工上架'], true);
 }
 
+function schedule_lifecycle_helper_heartbeat_path(): string
+{
+    $configured = trim((string)getenv('BAOHUI_HELPER_HEARTBEAT_PATH'));
+    if ($configured !== '') return $configured;
+    if (function_exists('ops_data_dir')) {
+        return ops_data_dir() . DIRECTORY_SEPARATOR . 'facebook-helper-heartbeat.json';
+    }
+    return __DIR__ . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'facebook-helper-heartbeat.json';
+}
+
+function schedule_lifecycle_record_helper_heartbeat(string $version = '', string $build = '', ?int $nowTs = null): array
+{
+    $nowTs = $nowTs ?? time();
+    $payload = [
+        'seen_at' => date('c', $nowTs),
+        'seen_at_ts' => $nowTs,
+        'helper_version' => schedule_lifecycle_one_line($version),
+        'helper_build' => schedule_lifecycle_one_line($build),
+    ];
+    $path = schedule_lifecycle_helper_heartbeat_path();
+    $dir = dirname($path);
+    if ($dir !== '' && $dir !== '.' && !is_dir($dir)) @mkdir($dir, 0775, true);
+    $tmp = $path . '.tmp.' . bin2hex(random_bytes(4));
+    file_put_contents($tmp, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", LOCK_EX);
+    if (!@rename($tmp, $path) && is_file($tmp)) {
+        @unlink($path);
+        @rename($tmp, $path);
+    }
+    if (is_file($tmp)) @unlink($tmp);
+    return $payload;
+}
+
+function schedule_lifecycle_helper_status(?int $nowTs = null, int $freshSeconds = 180): array
+{
+    $nowTs = $nowTs ?? time();
+    $path = schedule_lifecycle_helper_heartbeat_path();
+    $raw = is_file($path) ? json_decode((string)@file_get_contents($path), true) : null;
+    $seenTs = is_array($raw) ? (int)($raw['seen_at_ts'] ?? 0) : 0;
+    $connected = $seenTs > 0 && ($nowTs - $seenTs) <= max(30, $freshSeconds);
+    return [
+        'connected' => $connected,
+        'seen_at' => is_array($raw) ? schedule_lifecycle_one_line($raw['seen_at'] ?? '') : '',
+        'seen_at_ts' => $seenTs,
+        'helper_version' => is_array($raw) ? schedule_lifecycle_one_line($raw['helper_version'] ?? '') : '',
+        'helper_build' => is_array($raw) ? schedule_lifecycle_one_line($raw['helper_build'] ?? '') : '',
+        'age_seconds' => $seenTs > 0 ? max(0, $nowTs - $seenTs) : null,
+        'stale' => $seenTs > 0 && !$connected,
+    ];
+}
+
+function schedule_lifecycle_helper_may_claim_prepared_listing(array $task, bool $operatorRequested = false, bool $prepareScheduled = false): bool
+{
+    if (schedule_lifecycle_one_line($task['contentType'] ?? '') !== 'facebook_auction_listing') return false;
+    $status = schedule_lifecycle_one_line($task['status'] ?? '');
+    if (!in_array($status, ['queued', 'scheduled'], true)) return false;
+    if ($operatorRequested || $prepareScheduled) return true;
+    $audit = is_array($task['audit'] ?? null) ? $task['audit'] : [];
+    return !empty($audit['manualFullBatchStartedAt'])
+        || !empty($audit['cloudDispatchAt'])
+        || !empty($audit['ownGroupRapidBatchStartedAt']);
+}
+
 function schedule_lifecycle_archive_manual_listing_to_daily_report(array &$s, ?int $nowTs = null): bool
 {
     if (schedule_lifecycle_is_cancelled($s)) return false;
