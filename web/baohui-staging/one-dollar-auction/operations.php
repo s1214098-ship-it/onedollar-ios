@@ -10,6 +10,7 @@ require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-archive-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-description-match-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'product-service-items-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-data-lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-delivery-settle-lib.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-product-index-lib.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
