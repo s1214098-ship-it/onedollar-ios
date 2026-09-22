@@ -58,10 +58,31 @@ function ops_customer_known_companies(): array
     ];
 }
 
+function ops_customer_lower(string $value): string
+{
+    return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+}
+
+function ops_customer_len(string $value): int
+{
+    return function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+}
+
+function ops_customer_contains(string $haystack, string $needle): bool
+{
+    if ($needle === '') {
+        return true;
+    }
+    if (function_exists('mb_strpos')) {
+        return mb_strpos($haystack, $needle) !== false;
+    }
+    return strpos($haystack, $needle) !== false;
+}
+
 function ops_customer_norm($value): string
 {
     $value = preg_replace('/\s+/u', '', (string)$value) ?? (string)$value;
-    return mb_strtolower(trim($value), 'UTF-8');
+    return ops_customer_lower(trim($value));
 }
 
 function ops_customer_alias_hits(string $hay, string $aliasNorm): bool
@@ -74,10 +95,10 @@ function ops_customer_alias_hits(string $hay, string $aliasNorm): bool
     }
     // Require the alias itself to be distinctive so truncated GJP names
     // like「宜蘭縣私」do not swallow every 宜蘭縣私立* customer.
-    if (mb_strlen($aliasNorm, 'UTF-8') < 3) {
+    if (ops_customer_len($aliasNorm) < 3) {
         return false;
     }
-    return str_starts_with($hay, $aliasNorm) || mb_strpos($hay, $aliasNorm) !== false;
+    return str_starts_with($hay, $aliasNorm) || ops_customer_contains($hay, $aliasNorm);
 }
 
 function ops_customer_company_by_text($text): ?array
@@ -96,7 +117,7 @@ function ops_customer_company_by_text($text): ?array
             }
         }
         if (($company['key'] ?? '') === 'daowenxi'
-            && (mb_strpos($hay, '達文西') !== false || mb_strpos($rawHay, '達文西') !== false)) {
+            && (ops_customer_contains($hay, '達文西') || ops_customer_contains($rawHay, '達文西'))) {
             return $company;
         }
     }

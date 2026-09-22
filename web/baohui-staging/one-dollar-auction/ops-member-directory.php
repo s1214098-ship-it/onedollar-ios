@@ -17,11 +17,15 @@ foreach (is_array($members) ? $members : [] as $member) {
         continue;
     }
     if (function_exists('ops_customer_directory_item')) {
-        $item = ops_customer_directory_item($member);
-        if (is_array($item)) {
-            $out[] = $item;
+        try {
+            $item = ops_customer_directory_item($member);
+            if (is_array($item)) {
+                $out[] = $item;
+            }
+            continue;
+        } catch (Throwable $e) {
+            // Keep a basic row if company matching fails for one member.
         }
-        continue;
     }
     $name = trim((string)($member['name'] ?? $member['customer_name'] ?? $member['customer'] ?? ''));
     $aliases = [];
