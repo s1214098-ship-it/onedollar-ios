@@ -221,6 +221,20 @@ function facebook_daily_has_winner(array $s): bool
         || trim((string)($s['winner_phone'] ?? '')) !== '';
 }
 
+function facebook_daily_archived_as_settled(array $s): bool
+{
+    if (empty($s['facebook_daily_archived']) || (string)$s['facebook_daily_archived'] === '0') {
+        return false;
+    }
+    $order = (string)($s['order_status'] ?? '');
+    $unsold = (string)($s['auction_result'] ?? '') === 'unsold'
+        || (function_exists('mb_stripos') ? mb_stripos($order, '流標', 0, 'UTF-8') : strpos($order, '流標')) !== false;
+    if ($unsold) return false;
+    if (facebook_daily_has_winner($s) && (float)($s['winning_price'] ?? 0) > 0) return true;
+    $ready = trim((string)($s['settlement_ready'] ?? ''));
+    return $ready !== '' && $ready !== '0';
+}
+
 function facebook_daily_can_mark_unsold(array $s): bool
 {
     if (facebook_daily_has_winner($s) || (float)($s['winning_price'] ?? 0) > 0) return false;
@@ -299,6 +313,7 @@ function facebook_daily_build_row(array $s, array $p, array $sets, int $queue, s
     $needWinnerRecord = $inClose && $closed && !$terminalWithoutWinner && ($verifiedPost || $manualUrlLookup) && !$hasWinner;
     $needWinner = $inClose && $closed && !$terminalWithoutWinner && $verifiedPost && $hasWinner && !$winnerSent;
     $canMarkUnsold = facebook_daily_can_mark_unsold($s);
+    $archivedAsSettled = facebook_daily_archived_as_settled($s);
     return [
         'queue' => $queue,
         'schedule_id' => (string)($s['id'] ?? ''),
@@ -366,6 +381,7 @@ function facebook_daily_build_row(array $s, array $p, array $sets, int $queue, s
         'need_winner' => $needWinner,
         'need_winner_record' => $needWinnerRecord,
         'can_mark_unsold' => $canMarkUnsold,
+        'archived_as_settled' => $archivedAsSettled,
         'listing' => $listing,
         'qa_pack' => $qa,
         'reminder' => $reminder,

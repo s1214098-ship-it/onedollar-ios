@@ -125,7 +125,7 @@ $alreadyUnsold['order_status'] = '流標區保留';
 expect(facebook_daily_can_mark_unsold($alreadyUnsold) === false, 'already-unsold lot is not marked again');
 
 $openLot = $combNoWinner;
-$openLot['close_at'] = '2026-09-22 23:59';
+$openLot['close_at'] = '2099-12-31 23:59';
 expect(facebook_daily_can_mark_unsold($openLot) === false, 'not-yet-closed lot cannot 流標');
 
 $unsoldRows = facebook_daily_collect([
@@ -181,6 +181,69 @@ expect(schedule_lifecycle_archive_manual_listing_to_daily_report($archived) === 
 expect(($archived['facebook_daily_archived'] ?? '') === '1', 'archive flag is set');
 expect(($archived['facebook_publish_completed'] ?? '') === '1', 'archive marks publish completed');
 expect(schedule_lifecycle_archive_manual_listing_to_daily_report($archived) === false, 'already-archived 人工 lot is not rewritten');
+expect(facebook_daily_archived_as_settled($archived) === false, 'permalink archive without a winner is not 得標結算');
+
+$se269 = [
+    'id' => 'sch_26092216170221656d',
+    'product_id' => 'SE269P869700',
+    'product_title' => '秋葉原2026款金屬筆記本【一標1個】',
+    'listing_source' => 'staff',
+    'created_by' => '曾麒',
+    'status' => '已上架',
+    'publish_status' => '已上架',
+    'facebook_daily_archived' => '1',
+    'facebook_publish_completed' => '1',
+    'facebook_worker_status' => 'published',
+    'winner' => '',
+    'winning_price' => 0,
+    'current_bid' => 30,
+    'order_status' => '待記單',
+    'post_url' => 'https://www.facebook.com/groups/onecheep/permalink/4039681576165434',
+    'scheduled_publish_at' => '2026-09-22 17:00',
+    'actual_publish_at' => '2026-09-22 16:33',
+    'close_at' => '2026-09-22 23:59',
+];
+$life040 = $se269;
+$life040['id'] = 'sch_260922171118b91bc6';
+$life040['product_id'] = 'LIFE040P999100';
+$life040['product_title'] = '保鮮盒黑色【一標1盒】';
+$life040['post_url'] = 'https://www.facebook.com/groups/onecheep/permalink/4039718009495124';
+$ele019 = $se269;
+$ele019['id'] = 'sch_2609221717443f0d1c';
+$ele019['product_id'] = 'ELE019P27092';
+$ele019['product_title'] = '塗鴉智能WIFI面板燈【一標1件】';
+$ele019['post_url'] = 'https://www.facebook.com/groups/onecheep/permalink/4039722149494710';
+
+foreach ([$se269, $life040, $ele019] as $shotLot) {
+    $pid = (string)$shotLot['product_id'];
+    expect(facebook_daily_archived_as_settled($shotLot) === false, $pid . ' archived listing is not 已轉得標結算');
+    expect(facebook_daily_has_winner($shotLot) === false, $pid . ' has no winner yet');
+    expect(facebook_daily_can_mark_unsold($shotLot) === true, $pid . ' can still 流標 after close');
+    expect(facebook_daily_closed($shotLot) === true, $pid . ' already closed 9/22 23:59');
+}
+
+$shotRows = facebook_daily_collect([$se269, $life040, $ele019], [], [], '2026-09-22');
+expect(count($shotRows) === 3, '9/22 當日報 still lists the three screenshot lots');
+foreach ($shotRows as $shotRow) {
+    $pid = (string)($shotRow['product_id'] ?? '');
+    expect(empty($shotRow['archived_as_settled']), $pid . ' daily row is not compact 已轉得標結算');
+    expect(!empty($shotRow['need_winner_record']), $pid . ' still needs 結標 / 補得標人');
+    expect(!empty($shotRow['can_mark_unsold']), $pid . ' daily row still offers 確認流標');
+}
+
+$wonSettled = $se269;
+$wonSettled['winner'] = '蘇文敏';
+$wonSettled['winning_price'] = 130;
+$wonSettled['settlement_ready'] = '1';
+expect(facebook_daily_archived_as_settled($wonSettled) === true, 'winner + 得標金額 is 已轉得標結算');
+$wonRows = facebook_daily_collect([$wonSettled], [], [], '2026-09-22');
+expect(!empty($wonRows[0]['archived_as_settled']), 'settled winner row uses compact 已轉得標結算');
+expect(empty($wonRows[0]['need_winner_record']), 'settled winner does not still ask for 結標');
+
+$unsoldArchived = $se269;
+$unsoldArchived['auction_result'] = 'unsold';
+$unsoldArchived['order_status'] = '流標區保留';
+expect(facebook_daily_archived_as_settled($unsoldArchived) === false, '流標 archive is not 得標結算');
 
 if ($failed > 0) {
     fwrite(STDERR, "$failed failed\n");
