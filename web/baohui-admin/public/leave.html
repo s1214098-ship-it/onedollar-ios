@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>寶輝科技員工請假系統</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<main class="shell">
+  <div class="form-card" style="max-width:860px;margin:40px auto">
+    <h1 style="margin-top:0">寶輝科技員工請假系統</h1>
+    <p class="muted">員工登入後可送出請假申請，資料會寫入後台請假管理。</p>
+    <div id="msg" hidden></div>
+    <div id="loginBox">
+      <label>員工姓名</label>
+      <input id="empName" placeholder="例如：曾麒">
+      <label>員工密碼</label>
+      <input id="empPwd" type="password">
+      <button class="btn btn-green" style="margin-top:14px" onclick="doLogin()">登入</button>
+    </div>
+    <form id="leaveForm" hidden onsubmit="submitLeave(event)">
+      <div class="row">
+        <div>
+          <label>假別</label>
+          <select id="leaveType" name="leave_type">
+            <option>特休</option>
+            <option>事假</option>
+            <option>病假</option>
+            <option>喪假</option>
+            <option>婚假</option>
+            <option>其他</option>
+          </select>
+        </div>
+        <div><label>開始日期</label><input type="date" id="startDate" required></div>
+        <div><label>開始時間</label><input type="time" id="startTime" value="08:30"></div>
+        <div><label>結束日期</label><input type="date" id="endDate" required></div>
+        <div><label>結束時間</label><input type="time" id="endTime" value="17:30"></div>
+        <div>
+          <label>扣除午休</label>
+          <select id="lunchBreak"><option value="1">是</option><option value="0">否</option></select>
+        </div>
+        <div class="full"><label>事由</label><textarea id="reason" required></textarea></div>
+        <div class="full"><label>預估時數</label><input id="hours" readonly></div>
+      </div>
+      <button class="btn btn-green" style="margin-top:14px">送出請假申請</button>
+    </form>
+  </div>
+</main>
+<script src="/js/common.js"></script>
+<script>
+let sessionUser = "";
+async function doLogin() {
+  try {
+    const data = await postJson("/api.php?action=login", {
+      user: document.getElementById("empName").value.trim(),
+      password: document.getElementById("empPwd").value
+    });
+    if (data.isAdmin) throw new Error("請改用後台管理登入管理員帳號");
+    sessionUser = data.user;
+    document.getElementById("loginBox").hidden = true;
+    document.getElementById("leaveForm").hidden = false;
+    showMsg(document.getElementById("msg"), `已登入：${sessionUser}`, true);
+  } catch (e) {
+    showMsg(document.getElementById("msg"), e.message, false);
+  }
+}
+["startDate","startTime","endDate","endTime","lunchBreak"].forEach((id) => {
+  document.getElementById(id).addEventListener("change", previewHours);
+});
+async function previewHours() {
+  const body = {
+    startDate: document.getElementById("startDate").value,
+    startTime: document.getElementById("startTime").value,
+    endDate: document.getElementById("endDate").value,
+    endTime: document.getElementById("endTime").value,
+    lunchBreak: document.getElementById("lunchBreak").value
+  };
+  if (!body.startDate || !body.endDate) return;
+  const res = await fetch("/api.php?action=leave_preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  }).then((r) => r.json());
+  document.getElementById("hours").value = res.hours ? `${res.hours} 小時` : "";
+}
+async function submitLeave(event) {
+  event.preventDefault();
+  try {
+    await postJson("/leave-api", {
+      employee: sessionUser,
+      leave_type: document.getElementById("leaveType").value,
+      start_date: document.getElementById("startDate").value,
+      start_time: document.getElementById("startTime").value,
+      end_date: document.getElementById("endDate").value,
+      end_time: document.getElementById("endTime").value,
+      lunch_break: document.getElementById("lunchBreak").value,
+      reason: document.getElementById("reason").value,
+      hours: Number(String(document.getElementById("hours").value).replace(" 小時","")) || 0
+    });
+    showMsg(document.getElementById("msg"), "請假申請已送出，等待管理者審核。", true);
+    event.currentTarget.reset();
+  } catch (e) {
+    showMsg(document.getElementById("msg"), e.message, false);
+  }
+}
+</script>
+</body>
+</html>

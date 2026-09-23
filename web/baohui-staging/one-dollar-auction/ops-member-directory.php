@@ -1,0 +1,89 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-api-auth.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-data-lib.php';
+if (is_file(__DIR__ . DIRECTORY_SEPARATOR . 'ops-customer-company-lib.php')) {
+    require_once __DIR__ . DIRECTORY_SEPARATOR . 'ops-customer-company-lib.php';
+}
+
+header('Cache-Control: private, max-age=30, must-revalidate');
+ops_api_require_login();
+
+$members = read_data('members');
+$out = [];
+foreach (is_array($members) ? $members : [] as $member) {
+    if (!is_array($member)) {
+        continue;
+    }
+    if (function_exists('ops_customer_directory_item')) {
+        try {
+            $item = ops_customer_directory_item($member);
+            if (is_array($item)) {
+                $out[] = $item;
+            }
+            continue;
+        } catch (Throwable $e) {
+            // Keep a basic row if company matching fails for one member.
+        }
+    }
+    $name = trim((string)($member['name'] ?? $member['customer_name'] ?? $member['customer'] ?? ''));
+    $aliases = [];
+    foreach (['name', 'customer_name', 'customer', 'organization_name', 'title'] as $key) {
+        $value = trim((string)($member[$key] ?? ''));
+        if ($value !== '') {
+            $aliases[$value] = $value;
+        }
+    }
+    $phone = '';
+    foreach (['phone', 'tel', 'mobile', 'contact_phone'] as $key) {
+        $value = trim((string)($member[$key] ?? ''));
+        if ($value !== '') {
+            $phone = $value;
+            break;
+        }
+    }
+    $address = '';
+    foreach (['address', 'addr', 'company_address', 'ship_address'] as $key) {
+        $value = trim((string)($member[$key] ?? ''));
+        if ($value !== '') {
+            $address = $value;
+            break;
+        }
+    }
+    $branches = [];
+    foreach ((array)($member['branches'] ?? []) as $branch) {
+        if (!is_array($branch)) {
+            continue;
+        }
+        $branchName = trim((string)($branch['name'] ?? ''));
+        if ($branchName === '') {
+            continue;
+        }
+        $branches[] = [
+            'id' => trim((string)($branch['id'] ?? '')),
+            'name' => $branchName,
+            'phone' => trim((string)($branch['phone'] ?? '')),
+            'address' => trim((string)($branch['address'] ?? '')),
+            'note' => trim((string)($branch['note'] ?? '')),
+        ];
+    }
+    if ($name === '' && !$aliases) {
+        continue;
+    }
+    $out[] = [
+        'id' => (string)($member['id'] ?? ''),
+        'name' => $name !== '' ? $name : (array_values($aliases)[0] ?? ''),
+        'aliases' => array_values($aliases),
+        'facebook' => trim((string)($member['facebook'] ?? '')),
+        'phone' => $phone,
+        'address' => $address,
+        'branches' => $branches,
+    ];
+}
+
+baohui_json_send([
+    'ok' => true,
+    'count' => count($out),
+    'items' => $out,
+]);

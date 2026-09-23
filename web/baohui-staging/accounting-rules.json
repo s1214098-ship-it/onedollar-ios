@@ -1,0 +1,14 @@
+{
+  "buyerTaxId": "23365425",
+  "jieyuanTaxId": "23134543",
+  "jieyuanName": "捷元股份有限公司",
+  "gmailFrom": "捷元ebill@gcnc-group.com",
+  "gmailSubject": "捷元電子對帳單",
+  "matchFrom": "2026-08-18",
+  "skipTaxIds": ["70537075"],
+  "skipKeywords": ["Agoda"],
+  "oauthRedirect": "https://baohui.paohui.org/accounting-gmail-oauth.php",
+  "googleProject": "groovy-form-466903-k7",
+  "gmailAccount": "s1214098@gmail.com",
+  "amountTolerance": 1
+}

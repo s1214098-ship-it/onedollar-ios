@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>專案服務申請｜寶輝科技</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<main class="shell">
+  <div class="brand-bar">
+    <div class="brand">
+      <div class="mark" style="background:#1f5fae">專</div>
+      <div>
+        <div class="brand-name">專案服務申請</div>
+        <div class="sub">監視器、網路、NAS、雲端與系統開發</div>
+      </div>
+    </div>
+    <a class="btn btn-outline" href="/">回服務入口</a>
+  </div>
+  <section class="hero">
+    <h2>店面、公司、機關 IT 建置從這張表單開始</h2>
+    <p>送出後會進入後台專案清單，由專人確認設備狀況、服務範圍、時程與估價。</p>
+  </section>
+  <form class="form-card" onsubmit="submitProject(event)">
+    <div id="msg" hidden></div>
+    <div class="row">
+      <div>
+        <label>需求類型</label>
+        <select name="kind">
+          <option>監視器與網路</option>
+          <option>NAS 與備份</option>
+          <option>伺服器建置</option>
+          <option>系統開發評估</option>
+          <option>網站製作</option>
+          <option>其他</option>
+        </select>
+      </div>
+      <div><label>公司／單位</label><input name="company" placeholder="選填"></div>
+      <div><label>姓名</label><input name="name" required></div>
+      <div><label>手機</label><input name="phone" required></div>
+      <div><label>Email</label><input name="email" type="email"></div>
+      <div><label>地址</label><input name="addr"></div>
+      <div class="full"><label>需求說明</label><textarea name="memo" placeholder="現場狀況、現有設備、希望完成時間"></textarea></div>
+    </div>
+    <button class="btn btn-blue" style="margin-top:16px;width:100%">送出專案申請</button>
+  </form>
+</main>
+<script src="/js/common.js"></script>
+<script>
+async function submitProject(event) {
+  event.preventDefault();
+  const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+  try {
+    await postJson("/customer-api/project", payload);
+    showMsg(document.getElementById("msg"), "專案申請已送出，寶輝科技會盡快與您聯絡。", true);
+    setTimeout(() => location.href = "/", 1200);
+  } catch (e) {
+    showMsg(document.getElementById("msg"), e.message, false);
+  }
+}
+</script>
+</body>
+</html>
