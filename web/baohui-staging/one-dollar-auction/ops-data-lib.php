@@ -25,6 +25,15 @@ function json_flags($flags = 0): int
     return $flags | (defined('JSON_INVALID_UTF8_SUBSTITUTE') ? JSON_INVALID_UTF8_SUBSTITUTE : 0);
 }
 
+function ops_request_is_inventory_count_draft(): bool
+{
+    return in_array((string)($_POST['action'] ?? ''), [
+        'save_inventory_count',
+        'update_inventory_count_draft',
+        'return_inventory_count',
+    ], true);
+}
+
 function &ops_data_cache(): array
 {
     static $cache = [];
