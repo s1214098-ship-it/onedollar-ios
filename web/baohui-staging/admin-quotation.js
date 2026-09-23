@@ -762,6 +762,9 @@
           '</div>' +
           '<div class="text-muted small">正在載入原價屋即時報價...</div>' +
         '</div>' +
+        '<div class="border rounded p-3 my-3 bg-light" id="genb2bQuoteBox">' +
+          '<div class="text-muted small">捷元公開商品搜尋準備中...</div>' +
+        '</div>' +
         '<div class="border rounded p-3 my-3 bg-light">' +
           '<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">' +
             '<div><h6 class="mb-0">從產品主檔帶入</h6><div class="small text-muted">搜尋產品編號、條碼、名稱、類別、廠牌或規格；實際售價優先，沒有售價時才顯示寶輝科技參考價。外部自有組裝主機依公司規則排除。</div></div>' +
@@ -879,7 +882,8 @@
     it = it || {};
     var mode = it.taxMode || 'none';
     var c = itemCalc(it);
-    return '<tr class="quote-item-row">' +
+    var optional = isOptionalQuoteItem(it);
+    return '<tr class="quote-item-row' + (optional ? ' quote-optional-row' : '') + '"' + (it.productSource ? ' data-product-source="' + esc(it.productSource) + '"' : '') + '>' +
       '<td><div class="quote-suggest-wrap"><input class="form-control quote-item-name" autocomplete="off" value="' + esc(it.name || '') + '" placeholder="品項名稱"></div></td>' +
       '<td><div class="quote-suggest-wrap"><input class="form-control quote-item-brand" autocomplete="off" value="' + esc(it.brand || '') + '" placeholder="廠牌"></div></td>' +
       '<td><div class="quote-suggest-wrap"><input class="form-control quote-item-spec" autocomplete="off" value="' + esc(it.spec || '') + '" placeholder="規格 / 型號 / 說明"></div></td>' +
@@ -891,8 +895,8 @@
       '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove(); updateQuotePreviewTotal();">刪除</button></td>' +
     '</tr>';
   }
-  window.addQuoteItemRow = function (item) { var body = $id('quoteItemRows'); if (body) { body.insertAdjacentHTML('beforeend', rowHtml(item)); updateQuotePreviewTotal(); } };
-  function readItems() { return Array.from(document.querySelectorAll('#quoteItemRows .quote-item-row')).map(function (tr) { var item = { name: tr.querySelector('.quote-item-name').value.trim(), brand: tr.querySelector('.quote-item-brand').value.trim(), spec: tr.querySelector('.quote-item-spec').value.trim(), qty: num(tr.querySelector('.quote-item-qty').value), price: num(tr.querySelector('.quote-item-price').value), warranty: tr.querySelector('.quote-item-warranty').value.trim(), taxMode: tr.querySelector('.quote-item-tax').value }; if (isOptionalQuoteItem(item)) item.optional = true; return item; }).filter(function (it) { return it.name || it.brand || it.spec || it.qty || it.price || it.warranty; }); }  window.updateQuotePreviewTotal = function () {
+  window.addQuoteItemRow = function (item) { var body = $id('quoteItemRows'); if (body) { body.insertAdjacentHTML('beforeend', rowHtml(item)); var last = body.querySelector('.quote-item-row:last-child'); if (last && item && item.productSource) last.dataset.productSource = String(item.productSource); updateQuotePreviewTotal(); } };
+  function readItems() { return Array.from(document.querySelectorAll('#quoteItemRows .quote-item-row')).map(function (tr) { var item = { name: tr.querySelector('.quote-item-name').value.trim(), brand: tr.querySelector('.quote-item-brand').value.trim(), spec: tr.querySelector('.quote-item-spec').value.trim(), qty: num(tr.querySelector('.quote-item-qty').value), price: num(tr.querySelector('.quote-item-price').value), warranty: tr.querySelector('.quote-item-warranty').value.trim(), taxMode: tr.querySelector('.quote-item-tax').value }; if (tr.dataset.productSource) item.productSource = tr.dataset.productSource; if (isOptionalQuoteItem(item)) item.optional = true; return item; }).filter(function (it) { return it.name || it.brand || it.spec || it.qty || it.price || it.warranty; }); }  window.updateQuotePreviewTotal = function () {
     var q = { items: readItems(), discount: $id('quoteDiscount') ? $id('quoteDiscount').value : 0, shipping: $id('quoteShipping') ? $id('quoteShipping').value : 0, depositStatus: $id('quoteDepositStatus') ? $id('quoteDepositStatus').value : 'unpaid', depositPercent: $id('quoteDepositPercent') ? $id('quoteDepositPercent').value : 30, depositReceived: $id('quoteDepositReceived') ? $id('quoteDepositReceived').value : 0, penaltyPercent: $id('quotePenaltyPercent') ? $id('quotePenaltyPercent').value : 30 };
     document.querySelectorAll('#quoteItemRows .quote-item-row').forEach(function (tr) { var it = { qty: tr.querySelector('.quote-item-qty').value, price: tr.querySelector('.quote-item-price').value, taxMode: tr.querySelector('.quote-item-tax').value }; var cell = tr.querySelector('.quote-row-subtotal'); if (cell) cell.textContent = money(itemCalc(it).total); });
     var c = calc(q); var box = $id('quotePreviewTotal');

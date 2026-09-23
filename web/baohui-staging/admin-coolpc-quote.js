@@ -102,13 +102,15 @@
       qty: 1,
       price: Number(item.price) || 0,
       warranty: "依產品或原廠保固條件辦理",
-      taxMode: "none",
+      taxMode: "external",
+      productSource: "coolpc",
     });
     if (typeof updateQuotePreviewTotal === "function") updateQuotePreviewTotal();
     const rows = document.querySelectorAll("#quoteItemRows .quote-item-row");
     const last = rows[rows.length - 1];
     if (last) {
       last.dataset.coolpcId = String(item.id || "");
+      last.dataset.productSource = "coolpc";
       last.querySelector(".quote-item-price")?.focus();
     }
   }
