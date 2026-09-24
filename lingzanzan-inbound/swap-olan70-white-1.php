@@ -34,6 +34,7 @@ try {
   echo 'jsStock0=' . (strpos($js, 'never hide stock 0') !== false ? 'yes' : 'no') . "\n";
   echo 'jsStoredBc=' . (strpos($js, 'search card shows catalog barcode OLAN70P35592') !== false ? 'yes' : 'no') . "\n";
   echo 'jsWh=' . (strpos($js, 'LZ_WH_STOCK_20260924') !== false ? 'yes' : 'no') . "\n";
+  echo 'jsConfirm=' . (strpos($js, 'LZ_CONFIRM_FILL_20260924') !== false ? 'yes' : 'no') . "\n";
   echo 'jsHover=' . (strpos($js, 'LZ_THUMB_HOVER_20260924') !== false ? 'yes' : 'no') . "\n";
   echo 'jsScan=' . (strpos($js, 'skuBarcodeAliasKeys') !== false ? 'yes' : 'no') . "\n";
   echo 'htmlBust=' . (strpos($html, '20260924-olan70-white-1') !== false ? 'yes' : 'no') . "\n";

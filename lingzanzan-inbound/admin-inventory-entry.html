@@ -200,14 +200,13 @@
             <div class="purchase-receipt-item-entry-fields">
               <label>產品關鍵字／Produk<input type="search" data-purchase-receipt-sku-search autocomplete="off" placeholder="名稱、編號、SKU 或條碼"></label>
               <div class="purchase-receipt-keyword-field purchase-receipt-category-field">
-                <label>產品分類／Kategori<input type="search" data-purchase-receipt-category autocomplete="off" placeholder="輸入分類後選擇"></label>
-                <div class="purchase-receipt-field-suggest" data-purchase-receipt-category-suggest hidden></div>
+                <label>產品分類／Kategori<select data-purchase-receipt-category><option value="">請選擇產品分類</option></select></label>
               </div>
               <label>產品編號／Kode produk<input data-purchase-receipt-product-code autocomplete="off" placeholder="選產品後帶入，或依分類產生"></label>
               <label>產品條碼／Barcode<input data-purchase-receipt-product-barcode autocomplete="off" placeholder="可直接掃條碼，不必先填分類"></label>
             </div>
             <div class="purchase-receipt-item-entry-actions">
-              <p class="purchase-receipt-code-status" data-purchase-receipt-code-status>輸入中文分類後可產生下一個編號；空白欄位不會展開全部資料。</p>
+              <p class="purchase-receipt-code-status" data-purchase-receipt-code-status>從選單選擇分類後，新產品可產生下一個編號；空白欄位不會展開全部資料。</p>
               <div class="purchase-receipt-item-entry-buttons">
                 <button type="button" class="ghost-button" data-purchase-receipt-generate-code>產生下一號<span>Buat nomor</span></button>
                 <button type="button" class="primary-button" data-purchase-receipt-add-item>加入進貨項目<span>Tambah item</span></button>
@@ -251,8 +250,8 @@
   <script type="lz/asset" data-lz-src="./assets/admin-labels.js" defer></script>
   <script type="lz/asset" data-lz-src="./assets/admin-ui-rescue.js" defer></script>
   <script type="lz/asset" data-lz-src="./assets/order-payments.js?v=20260910-orders-etag-cache-1" defer></script>
-  <script src="./assets/vendor/qrcode-generator.min.js?v=20260924-olan70-white-1"></script>
-  <script type="lz/asset" data-lz-src="./assets/vendor/qrcode-generator.min.js?v=20260924-olan70-white-1" defer></script>
+  <script src="./assets/vendor/qrcode-generator.min.js?v=20260924-thumb-hover-2"></script>
+  <script type="lz/asset" data-lz-src="./assets/vendor/qrcode-generator.min.js?v=20260924-thumb-hover-2" defer></script>
   <script type="lz/asset" data-lz-src="./assets/inventory-freight-entry-20260810.js?v=20260924-olan70-white-1" defer></script>
 <script type="lz/asset" data-lz-src="./assets/submission-feedback.js" defer data-submission-feedback-script></script>
 <script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260902-agency-collection-1" defer></script>  <script type="lz/asset" data-lz-src="./assets/image-upload-paste.js" defer></script>
