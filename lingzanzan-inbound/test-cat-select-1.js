@@ -12,7 +12,7 @@ function mustContain(hay, needle, label) {
   if (hay.indexOf(needle) === -1) throw new Error('missing ' + (label || needle));
 }
 
-mustContain(html, '20260924-cat-select-1', 'html cache bust');
+mustContain(html, '20260924-cat-select-2', 'html cache bust');
 mustContain(html, '<select data-purchase-receipt-category>', 'header category select');
 mustContain(html, 'LZ_CAT_SELECT_20260924', 'html select marker');
 if (/<input[^>]*data-purchase-receipt-category/.test(html)) throw new Error('header category is still a typing input');
