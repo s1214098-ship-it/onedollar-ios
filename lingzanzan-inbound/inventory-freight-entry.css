@@ -150,7 +150,7 @@
 /* 20260718: keyword-only purchase receipt lookups and explicit category/code/barcode fields. */
 .purchase-receipt-keyword-field{display:grid;gap:6px;min-width:0;align-content:end;position:relative}
 .purchase-receipt-keyword-field>label{display:grid;gap:6px;min-width:0;color:#f1c96f;font-weight:850}
-.purchase-receipt-keyword-field input{width:100%;min-width:0;box-sizing:border-box}
+.purchase-receipt-keyword-field input,.purchase-receipt-keyword-field select{width:100%;min-width:0;box-sizing:border-box}
 .purchase-receipt-field-suggest{display:grid;gap:6px;max-height:280px;overflow:auto;padding:8px;border:1px solid rgba(104,220,195,.55);border-radius:12px;background:#111718;box-shadow:0 16px 32px rgba(0,0,0,.32);z-index:7}
 .purchase-receipt-field-suggest[hidden]{display:none!important}
 .purchase-receipt-field-suggest>p{margin:0;padding:10px;color:#c7d4d0}
@@ -605,11 +605,19 @@
   min-width:0;
   margin:0;
 }
-[data-purchase-receipt-builder] .purchase-receipt-item-entry-fields input{
+[data-purchase-receipt-builder] .purchase-receipt-item-entry-fields input,
+[data-purchase-receipt-builder] .purchase-receipt-item-entry-fields select{
   width:100%;
   min-height:44px;
   box-sizing:border-box;
 }
+.purchase-receipt-keyword-field select,
+.purchase-receipt-line select[data-standalone-line-category]{
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+/* LZ_CAT_SELECT_20260924: category is a native select, same control height as 廠商/平台 */
 [data-purchase-receipt-builder] .purchase-receipt-item-entry-actions{
   display:grid;
   grid-template-columns:minmax(0,1fr) auto;
@@ -869,6 +877,7 @@
   opacity:0;
   cursor:pointer;
   font-size:0;
+  z-index:1;
 }
 [data-purchase-receipt-builder] .purchase-receipt-line-photo span{
   display:flex;
@@ -888,6 +897,17 @@
   border-radius:8px;
   object-fit:cover;
   flex:none;
+}
+/* LZ_THUMB_HOVER_20260924_2: raise thumb above invisible file input */
+[data-purchase-receipt-builder] .purchase-receipt-line-photo img[data-receipt-thumb-zoom]{
+  position:relative;
+  z-index:3;
+  pointer-events:auto!important;
+  cursor:zoom-in;
+}
+[data-purchase-receipt-builder] .purchase-receipt-line-photo span b{
+  position:relative;
+  z-index:1;
 }
 [data-purchase-receipt-builder] .purchase-receipt-line>input[type="hidden"]{display:none}
 [data-purchase-receipt-builder] .purchase-receipt-actions button{
@@ -1284,15 +1304,20 @@
   background:#2a2430;color:#fff;font-size:28px;line-height:1;cursor:pointer;
 }
 
-/* LZ_THUMB_HOVER_20260924: hover preview; do not let suggest-row button grid restyle the thumb */
+/* LZ_THUMB_HOVER_20260924_2: hover preview; pointer-events none so checkbox/file clicks pass through */
 .receipt-thumb-hover{
-  position:fixed;z-index:10130;left:0;top:0;display:none;pointer-events:none;
+  position:fixed!important;z-index:2147482500!important;left:0;top:0;display:none!important;
+  pointer-events:none!important;visibility:hidden;
   padding:8px;border-radius:16px;background:#12161a;border:1px solid rgba(104,220,195,.45);
   box-shadow:0 18px 48px rgba(0,0,0,.45);
+  min-width:120px;min-height:120px;
 }
-.receipt-thumb-hover.is-open{display:block}
+.receipt-thumb-hover.is-open,
+.receipt-thumb-hover[data-open="1"]{
+  display:block!important;visibility:visible!important;opacity:1!important;
+}
 .receipt-thumb-hover img{
-  display:block;width:auto;height:auto;max-width:min(42vw,420px);max-height:min(56vh,420px);
+  display:block;width:auto;height:auto;max-width:min(46vw,460px);max-height:min(62vh,520px);
   object-fit:contain;border-radius:10px;background:#fff;
 }
 .purchase-receipt-product-suggest button.purchase-receipt-suggest-thumb,

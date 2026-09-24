@@ -610,10 +610,10 @@
   }
 
   function liveCategoryForLine(line, product) {
-    /* LZ_CAT_SELECT_20260924: keep clerk-chosen category. Do not overwrite 室溫水壺 they already fixed. */
+    /* LZ_CAT_SELECT_20260924: keep clerk-chosen dropdown. Empty / first-add / confirm-fill still uses product master (OLAN 外套 → 水壺/保溫杯). */
     line = line || {};
-    if (text(line.category)) return text(line.category);
-    return suggestedCategoryForNewLine(line, product);
+    if (line.categoryManual && text(line.category)) return text(line.category);
+    return suggestedCategoryForNewLine(line, product) || text(line.category);
   }
 
   function normalizeProductCode(value) {
@@ -1160,7 +1160,7 @@
     current = text(current);
     var names = standaloneCategoryRows().slice();
     if (current && names.indexOf(current) === -1) names.unshift(current);
-    return '<option value="">請選分類</option>' + names.map(function (name) {
+    return '<option value="">請選擇產品分類</option>' + names.map(function (name) {
       return '<option value="' + escapeHtml(name) + '"' + (name === current ? ' selected' : '') + '>' + escapeHtml(name) + '</option>';
     }).join('');
   }
@@ -1365,10 +1365,8 @@
       if (!line.productCode) line.productCode = text(product.code || product.productLine || product.id);
       if (!line.productName) line.productName = text(product.title || product.name || line.productCode);
     }
-    if (!text(line.category)) {
-      var liveCat = suggestedCategoryForNewLine(line, product);
-      if (liveCat) line.category = liveCat;
-    }
+    var liveCat = liveCategoryForLine(line, product);
+    if (liveCat) line.category = liveCat;
     if (!line.productCode) line.productCode = text((product && (product.code || product.productLine)) || sku.productCode || line.productName);
     var colorVisible = text(line.color || line.colorName);
     if (receivedIsPlaceholderColor(colorVisible) && text(line.colorName) && !receivedIsPlaceholderColor(line.colorName)) colorVisible = text(line.colorName);
@@ -1891,10 +1889,8 @@
     host.innerHTML = state.standaloneLines.map(function (line, index) {
       var product = productById(line.productId) || productByCode(line.productCode) || {};
       var sku = skuById(line.skuId) || {};
-      if (!text(line.category)) {
-        var liveCat = suggestedCategoryForNewLine(line, product);
-        if (liveCat) line.category = liveCat;
-      }
+      var liveCat = liveCategoryForLine(line, product);
+      if (liveCat) line.category = liveCat;
       var cleanedColor = sanitizeInboundColorValue(line.color || line.colorName, line, sku, product, line.barcode);
       if (cleanedColor) line.color = cleanedColor;
       else if (text(line.color || line.colorName) && !receivedIsPlaceholderColor(line.color || line.colorName)) line.color = text(line.color || line.colorName);
@@ -2151,10 +2147,8 @@
       line.productId = text(product.id);
       if (!line.productCode) line.productCode = text(product.code || product.productLine || product.id);
       if (!line.productName) line.productName = text(product.title || product.name || line.productCode);
-      if (!text(line.category)) {
-        var liveCat = suggestedCategoryForNewLine(line, product);
-        if (liveCat) line.category = liveCat;
-      }
+      var liveCat = liveCategoryForLine(line, product);
+      if (liveCat) line.category = liveCat;
     }
     var sku = skuById(line.skuId);
     if (sku && sku.temporaryFreightSku) sku = null;
@@ -3046,7 +3040,11 @@
     document.querySelectorAll('[data-purchase-receipt-line]').forEach(function (host) {
       var line = state.standaloneLines.find(function (row) { return row.key === host.getAttribute('data-purchase-receipt-line'); });
       if (!line) return;
-      var cat = host.querySelector('[data-standalone-line-category]'); if (cat) cat.value = line.category || '';
+      var cat = host.querySelector('[data-standalone-line-category]');
+      if (cat) {
+        cat.innerHTML = standaloneCategoryOptionsHtml(line.category || '');
+        cat.value = line.category || '';
+      }
       var code = host.querySelector('[data-standalone-line-product-code]'); if (code) code.value = line.productCode || '';
       var bar = host.querySelector('[data-standalone-line-barcode]'); if (bar) bar.value = line.barcode || '';
       var color = host.querySelector('[data-standalone-line-color]'); if (color && line.color) color.value = line.color;
@@ -3962,7 +3960,10 @@
     if (event.target.matches('[data-standalone-line-category]')) {
       var catHost = event.target.closest('[data-purchase-receipt-line]');
       var catLine = state.standaloneLines.find(function (row) { return row.key === (catHost && catHost.getAttribute('data-purchase-receipt-line')); });
-      if (catLine) catLine.category = text(event.target.value);
+      if (catLine) {
+        catLine.category = text(event.target.value);
+        catLine.categoryManual = true;
+      }
       refreshStandaloneSizePicker(catHost);
       return;
     }
@@ -4020,7 +4021,10 @@
     if (event.target.matches('[data-standalone-line-category]')) {
       var catChangeHost = event.target.closest('[data-purchase-receipt-line]');
       var catChangeLine = state.standaloneLines.find(function (row) { return row.key === (catChangeHost && catChangeHost.getAttribute('data-purchase-receipt-line')); });
-      if (catChangeLine) catChangeLine.category = text(event.target.value);
+      if (catChangeLine) {
+        catChangeLine.category = text(event.target.value);
+        catChangeLine.categoryManual = true;
+      }
       refreshStandaloneSizePicker(catChangeHost);
       return;
     }
@@ -4451,7 +4455,7 @@
       if (looksLikeBarcodeQuery(query)) addStandaloneSku(query);
     });
   }
-  ['supplier', 'platform', 'category'].forEach(function (kind) {
+  ['supplier', 'platform'].forEach(function (kind) {
     var input = document.querySelector(standaloneReferenceSelectors(kind).input);
     if (!input) return;
     input.addEventListener('focus', function () {
