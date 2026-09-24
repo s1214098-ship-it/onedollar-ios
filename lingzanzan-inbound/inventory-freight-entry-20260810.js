@@ -371,8 +371,13 @@
   }
 
   function hideReceiptThumbHover() {
+    cancelReceiptThumbHoverHide();
+    receiptThumbHoverAnchor = null;
     var hover = document.querySelector('[data-receipt-thumb-hover]');
-    if (hover) hover.classList.remove('is-open');
+    if (hover) {
+      hover.classList.remove('is-open');
+      hover.removeAttribute('data-open');
+    }
   }
 
   function ensureReceiptThumbHover() {
@@ -405,22 +410,51 @@
     hover.style.top = Math.round(top) + 'px';
   }
 
+  var receiptThumbHoverHideTimer = 0;
+  var receiptThumbHoverAnchor = null;
+
+  function receiptVisibleThumbUrl(anchor) {
+    if (!anchor) return '';
+    var attr = text(anchor.getAttribute('data-receipt-thumb-zoom') || '');
+    var nested = anchor.querySelector && anchor.querySelector('img');
+    var shown = '';
+    if (nested) shown = text(nested.currentSrc || nested.getAttribute('src') || nested.src || '');
+    var selfSrc = text(anchor.currentSrc || anchor.src || '');
+    /* LZ_THUMB_HOVER_20260924_2: use the already-visible thumb. /original/ often 403s so hover looks like nothing. */
+    return shown || attr || selfSrc;
+  }
+
+  function cancelReceiptThumbHoverHide() {
+    if (receiptThumbHoverHideTimer) {
+      window.clearTimeout(receiptThumbHoverHideTimer);
+      receiptThumbHoverHideTimer = 0;
+    }
+  }
+
+  function scheduleReceiptThumbHoverHide() {
+    cancelReceiptThumbHoverHide();
+    receiptThumbHoverHideTimer = window.setTimeout(hideReceiptThumbHover, 60);
+  }
+
   function showReceiptThumbHover(anchor) {
-    /* LZ_THUMB_HOVER_20260924: 滑鼠移上縮圖就放大，不勾選該列。 */
+    /* LZ_THUMB_HOVER_20260924_2: 滑鼠移上縮圖就放大，不勾選該列、不擋住到貨照片。 */
     if (!anchor || document.body.classList.contains('is-printing-received-barcodes')) return;
-    var url = text(anchor.getAttribute('data-receipt-thumb-zoom') || anchor.currentSrc || anchor.src || '');
+    var url = receiptVisibleThumbUrl(anchor);
     if (!url) return;
+    cancelReceiptThumbHoverHide();
+    receiptThumbHoverAnchor = anchor;
     var caption = text(anchor.getAttribute('data-receipt-thumb-caption') || anchor.getAttribute('alt') || '');
     var hover = ensureReceiptThumbHover();
     var img = hover.querySelector('[data-receipt-thumb-hover-img]');
-    var full = receiptFullImage(url);
-    img.onload = function () { positionReceiptThumbHover(hover, anchor); };
+    img.onload = function () { if (receiptThumbHoverAnchor === anchor) positionReceiptThumbHover(hover, anchor); };
     img.onerror = function () {
-      if (img.getAttribute('src') !== url) img.src = url;
+      var fallback = text(anchor.getAttribute('data-receipt-thumb-zoom') || '');
+      if (fallback && img.getAttribute('src') !== fallback) img.src = fallback;
     };
-    if (img.getAttribute('src') !== (full || url) && img.getAttribute('src') !== url) img.src = full || url;
+    if (img.getAttribute('src') !== url) img.src = url;
     img.alt = caption || '產品縮圖放大';
     hover.classList.add('is-open');
+    hover.setAttribute('data-open', '1');
     positionReceiptThumbHover(hover, anchor);
   }
 
@@ -480,14 +514,7 @@
       var sku = skuById(item.skuId || item.sku) || {};
       var matchedFreight = freightItem && itemMatchesOrder(freightItem, { items: [item] }) ? freightItem : null;
       var source = matchedFreight || freightItem || {};
-      var storedBarcode = text(item.receivedBarcode || sku.companyBarcode || sku.barcode || item.skuId || item.sku);
-      var product = productById(item.productId || sku.productId) || productByCode(item.code || item.productCode || item.title) || {};
-      var barcode = canonicalInboundBarcode({
-        productCode: text(item.code || item.productCode || product.code || product.productLine),
-        color: item.receivedColor || source.colorName || source.color || item.color || sku.colorName || sku.color,
-        size: item.receivedSize || source.sizeName || source.size || item.size || sku.sizeName || sku.size || 'NO SIZE',
-        unitCostTwd: sku.currentCostTwd || sku.cost
-      }, sku, product, storedBarcode) || storedBarcode;
+      var barcode = text(item.receivedBarcode || sku.companyBarcode || sku.barcode || item.skuId || item.sku);
       var color = sanitizeInboundColorValue(item.receivedColor || source.colorName || source.color || item.color || sku.colorName || sku.color, { barcode: barcode, productId: item.productId || sku.productId, skuId: item.skuId || item.sku, productCode: item.code || item.productCode }, sku, productById(item.productId || sku.productId) || productByCode(item.code || item.productCode || item.title) || {}, barcode);
       var size = text(item.receivedSize || source.sizeName || source.size || item.size || sku.sizeName || sku.size || 'NO SIZE');
       var qty = Math.max(1, Number(item.qty || item.quantity || 1));
@@ -496,6 +523,7 @@
       var savedLine = Array.isArray(order.freightReceiptLines) && order.freightReceiptLines[index] || {};
       var arrivalImages = state.arrivalImages && typeof state.arrivalImages === 'object' ? state.arrivalImages : {};
       var arrivalImage = arrivalImages[arrivalKey(order, index)] || savedLine.arrivalImage || item.arrivalImage || '';
+      var product = productById(item.productId || sku.productId) || productByCode(item.code || item.productCode || item.title) || {};
       var productImage = firstProductImage(product, sku, item);
       var previewImage = arrivalImage || productImage;
       var proofRequired = requiresArrivalProof(order, entry);
@@ -567,6 +595,19 @@
 
   function productCategory(product) {
     return text(product && (product.category || product.categoryName || product.productCategory));
+  }
+
+  function liveCategoryForLine(line, product) {
+    /* LZ_CONFIRM_FILL_20260924: already-added lines refresh category from products.json.
+       OLAN cups copied 外套 at add-time; JA stays jacket. Never invent SKUs. */
+    line = line || {};
+    product = product || productById(line.productId) || productByCode(line.productCode || line.productName) || {};
+    var live = '';
+    if (product && !product.temporaryFreightProduct) live = productCategory(product);
+    var code = normalizeProductCode(line.productCode || (product && (product.code || product.productLine)) || '');
+    if (/^OLAN\d+/i.test(code) && (!live || live === '外套' || /夾克|大衣|風衣/.test(live))) return '水壺/保溫杯';
+    if (/^JA\d+/i.test(code) && (!live || live === '水壺/保溫杯' || /保溫杯|水壺/.test(live))) return '外套';
+    return live || text(line.category);
   }
 
   function normalizeProductCode(value) {
@@ -715,7 +756,7 @@
     return (state.skus || []).some(function (sku) {
       if (sku && sku.temporaryFreightSku) return false;
       var skuBarcode = key(sku.companyBarcode || sku.barcode || sku.legacyBarcode || '');
-      if (skuBarcode !== wanted && key(sku.legacyBarcode || '') !== wanted && !skuExactBarcodeHit(sku, inboundBarcodeSearchKeys(barcode))) return false;
+      if (skuBarcode !== wanted && key(sku.legacyBarcode || '') !== wanted) return false;
       if (wantedColor && receiptColorFamilyKey(sku, productById(sku.productId), color) !== receiptColorFamilyKey(sku, productById(sku.productId))) return false;
       if (wantedSize && key(sku.sizeName || sku.size || 'NO SIZE') !== wantedSize) return false;
       return true;
@@ -764,7 +805,8 @@
       'c:91': '黑色',
       'c:92': '白色',
       'c:952': '淺灰色',
-      'c:99': '灰色'
+      'c:99': '灰色',
+      'c:904': '卡其色'
     };
     if (family === 'c:brown') {
       var brown = colors.find(function (row) { return /棕/.test(text(row && (row.name || row.color || row.colorName))); })
@@ -781,10 +823,19 @@
       var rowCode = text(row.code || row.colorCode);
       var rowName = receiptChineseColor(row.name || row.colorName || row.color) || text(row.name || row.colorName || row.color);
       if (receiptColorFamilyKey({ colorName: row.name || row.color, colorCode: rowCode }, product) === family) {
+        if (receivedIsPlaceholderColor(rowName)) {
+          var mapped = receivedColorNameFromCode(rowCode || text(sku.colorCode || sku.colorNo)) || named[family];
+          if (mapped) return mapped;
+          continue;
+        }
         return rowName || named[family] || rowName;
       }
     }
-    return named[family] || receiptChineseColor(sku.colorName || sku.color) || text(sku.colorName || sku.color) || '未填顏色';
+    var fallback = named[family] || receiptChineseColor(sku.colorName || sku.color) || text(sku.colorName || sku.color) || '未填顏色';
+    if (receivedIsPlaceholderColor(fallback)) {
+      return receivedColorNameFromCode(text(sku.colorCode || sku.colorNo) || String(family || '').replace(/^c:/, '')) || named[family] || '未填顏色';
+    }
+    return fallback;
   }
 
   function receiptWarehouseCode(sku) {
@@ -817,15 +868,123 @@
     })[0] || null;
   }
 
+  function receiptProductLineCode(sku) {
+    /* LZ_WH_STOCK_20260924: group by 款號, not warehouse SKU id / barcode-as-code. */
+    sku = sku || {};
+    var product = productById(sku.productId) || productByCode(sku.productCode || sku.productId) || {};
+    var line = text(product.productLine || sku.productLine);
+    if (line) return line.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var code = text(product.code || sku.productCode || '');
+    var compact = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var parsed = compact ? receivedParseConcatBarcode(compact, {}, sku, product) : null;
+    if (parsed && parsed.base && parsed.base.length < compact.length) return String(parsed.base).toUpperCase();
+    if (compact && !looksLikeBarcodeQuery(compact)) return compact;
+    return compact || text(product.id || sku.productId || '').toUpperCase();
+  }
+
+  function receiptProductGroupKey(sku) {
+    sku = sku || {};
+    var product = productById(sku.productId) || productByCode(sku.productCode || sku.productId) || {};
+    var size = key(sku.sizeName || sku.size || 'NOSIZE') || 'nosize';
+    return key(receiptProductLineCode(sku) || product.id || sku.productId || '') + '|' + receiptColorFamilyKey(sku, product) + '|' + size;
+  }
+
+  function receiptWeakProductImage(src) {
+    return /brand-logo|placeholder|no[-_]?image/i.test(text(src));
+  }
+
+  function receiptGroupCatalogImage(list) {
+    /* 預購倉 empty / freight temp must reuse 中國倉 catalog color photo. */
+    var ranked = (list || []).slice().sort(function (a, b) {
+      return Number(!!a.temporaryFreightSku) - Number(!!b.temporaryFreightSku)
+        || Number(receiptWarehouseCode(a) === 'PREORDER') - Number(receiptWarehouseCode(b) === 'PREORDER')
+        || Number(receiptWarehouseCode(b) === 'CN') - Number(receiptWarehouseCode(a) === 'CN');
+    });
+    var fallback = '';
+    for (var i = 0; i < ranked.length; i += 1) {
+      var sku = ranked[i] || {};
+      var product = productById(sku.productId) || productByCode(sku.productCode) || {};
+      if (product.temporaryFreightProduct) product = productByCode(product.productLine || product.code) || product;
+      var img = firstProductImage(product, sku, sku) || text(sku.colorImage || sku.lastArrivalImage || sku.image || sku.imageUrl || product.mainImage);
+      if (!img) continue;
+      if (receiptWeakProductImage(img)) {
+        if (!fallback) fallback = img;
+        continue;
+      }
+      return img;
+    }
+    return fallback;
+  }
+
+  function receiptGroupProductCode(list, chosen) {
+    var sku = chosen || (list && list[0]) || {};
+    var line = receiptProductLineCode(sku);
+    if (line) return line;
+    for (var i = 0; i < (list || []).length; i += 1) {
+      line = receiptProductLineCode(list[i]);
+      if (line) return line;
+    }
+    return productCodeForSku(sku);
+  }
+
+  function receiptGroupCanonicalBarcode(list, chosen) {
+    var wanted = receiptWantedWarehouse();
+    var byWh = {};
+    (list || []).forEach(function (sku) {
+      var w = receiptWarehouseCode(sku);
+      if (!byWh[w] || (byWh[w].temporaryFreightSku && !sku.temporaryFreightSku)) byWh[w] = sku;
+    });
+    var pick = byWh[wanted] || byWh.CN || byWh.TW || byWh.ID || byWh.PREORDER || chosen;
+    return text(pick && (pick.companyBarcode || pick.barcode || pick.officialBarcode || pick.id || pick.sku));
+  }
+
+  function attachReceiptWarehouseGroup(chosen, list) {
+    var stocks = { CN: 0, TW: 0, ID: 0, PREORDER: 0 };
+    var byWh = { CN: null, TW: null, ID: null, PREORDER: null };
+    var seen = {};
+    (list || []).forEach(function (sku) {
+      if (!sku) return;
+      var id = text(sku.id || sku.sku || sku.companyBarcode || sku.barcode);
+      if (id && seen[id]) return;
+      if (id) seen[id] = true;
+      var w = receiptWarehouseCode(sku);
+      if (!Object.prototype.hasOwnProperty.call(stocks, w)) w = 'TW';
+      stocks[w] += Math.max(0, Number(sku.stock || 0));
+      var cur = byWh[w];
+      if (!cur) byWh[w] = sku;
+      else if (cur.temporaryFreightSku && !sku.temporaryFreightSku) byWh[w] = sku;
+      else if (Number(sku.stock || 0) > Number(cur.stock || 0)) byWh[w] = sku;
+    });
+    chosen.receiptWarehouseStocks = stocks;
+    chosen.receiptWarehouseSkus = byWh;
+    chosen.receiptGroupSkus = list;
+    chosen.receiptGroupImage = receiptGroupCatalogImage(list);
+    chosen.receiptGroupProductCode = receiptGroupProductCode(list, chosen);
+    chosen.receiptGroupBarcode = receiptGroupCanonicalBarcode(list, chosen);
+    return chosen;
+  }
+
+  function receiptSkuForInbound(sku) {
+    if (!sku) return sku;
+    var wanted = receiptWantedWarehouse();
+    var byWh = sku.receiptWarehouseSkus || {};
+    var group = sku.receiptGroupSkus || [];
+    var real = group.filter(function (row) {
+      return row && receiptWarehouseCode(row) !== 'PREORDER' && !row.temporaryFreightSku;
+    });
+    var wantedSku = byWh[wanted];
+    if (wantedSku && !wantedSku.temporaryFreightSku) return attachReceiptWarehouseGroup(wantedSku, group);
+    var preferred = preferredReceiptSku(real.length ? real : group);
+    return preferred ? attachReceiptWarehouseGroup(preferred, group) : sku;
+  }
+
   function collapseStandaloneSkuMatches(skus) {
+    /* LZ_WH_STOCK_20260924: one row per 款+色+尺, four warehouse stocks on the card. */
     var groups = {};
     var order = [];
     (skus || []).forEach(function (sku) {
       if (!sku) return;
-      var product = productById(sku.productId) || productByCode(sku.productCode || sku.productId) || {};
-      var size = key(sku.sizeName || sku.size || 'NOSIZE') || 'nosize';
-      var productKey = key(product.id || product.code || product.productLine || sku.productId || sku.productCode || '');
-      var groupKey = productKey + '|' + receiptColorFamilyKey(sku, product) + '|' + size;
+      var groupKey = receiptProductGroupKey(sku);
       if (!groups[groupKey]) {
         groups[groupKey] = [];
         order.push(groupKey);
@@ -837,7 +996,8 @@
       var real = list.filter(function (sku) {
         return receiptWarehouseCode(sku) !== 'PREORDER' && !sku.temporaryFreightSku;
       });
-      return preferredReceiptSku(real.length ? real : list);
+      var chosen = preferredReceiptSku(real.length ? real : list);
+      return chosen ? attachReceiptWarehouseGroup(chosen, list) : null;
     }).filter(Boolean);
   }
 
@@ -1053,13 +1213,15 @@
   }
 
   function knownInboundColorCode(value) {
-    var code = String(value || '').trim();
-    return /^(91|92|93|94|95|96|98|99|902|904|907|912|952)$/.test(code) ? code : '';
+    var code = String(value || '').trim().toUpperCase();
+    if (/^(91|92|93|94|95|96|98|99|902|904|907|912|923|924|952)$/.test(code)) return code;
+    if (/^9\d{2}$/.test(code)) return code;
+    return '';
   }
 
   function padReceiptSizeCode(value) {
     var raw = text(value).toUpperCase().replace(/[\s_\-]/g, '');
-    if (!raw || raw === '00' || raw === 'NOSIZE' || raw === 'NO-SIZE') return '00';
+    if (!raw || raw === '00' || raw === 'NOSIZE') return '00';
     var mapped = receiptSizeCode(value);
     if (!mapped || mapped === '00' || mapped === 'NOSIZE' || mapped === 'NO-SIZE') return '00';
     if (/^\d$/.test(mapped)) return '0' + mapped;
@@ -1067,8 +1229,19 @@
     return '00';
   }
 
+  function looksLikeUglyCompanyBarcode(value) {
+    var raw = text(value).toUpperCase();
+    if (!raw) return true;
+    if (/NO-?SIZE/.test(raw)) return true;
+    if (/-(TW|CN|ID)$/.test(raw)) return true;
+    if (raw.indexOf('-') !== -1) return true;
+    var compact = raw.replace(/[^A-Z0-9]/g, '');
+    if (/P\d+C[A-Z0-9]+S[A-Z0-9]+$/.test(compact)) return true;
+    return false;
+  }
+
   function composeCanonicalCompanyBarcode(productCode, colorCode, sizeCode, cost) {
-    /* LZ_BARCODE_FMT_20260924: {productCode}{colorCode}{sizeCode}P{cost}. NO SIZE=00. No C/S letters. */
+    /* LZ_BARCODE_FMT_20260924: {編號}{色碼}{尺碼}P{成本}. NO SIZE=00. P at END. Never C/S, never NO-SIZE, never warehouse suffix. */
     var base = String(productCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     var color = String(colorCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     var size = padReceiptSizeCode(sizeCode);
@@ -1077,108 +1250,220 @@
     return base + color + size + 'P' + costPart;
   }
 
-  function peelSizeFromMidDigits(mid, skuColor) {
-    mid = String(mid || '');
-    skuColor = String(skuColor || '');
-    var sizeTail = mid.slice(-2);
-    if (sizeTail === '00') return { body: mid.slice(0, -2), sizeCode: '00' };
-    if (/^0[1-8]$/.test(sizeTail)) {
-      var body = mid.slice(0, -2);
-      if ((skuColor && body.slice(-skuColor.length) === skuColor)
-        || knownInboundColorCode(body.slice(-3))
-        || knownInboundColorCode(body.slice(-2))) {
-        return { body: body, sizeCode: sizeTail };
-      }
+  function inboundProductColorCode(product, colorName) {
+    var wanted = key(colorName);
+    if (!wanted) return '';
+    var colors = Array.isArray(product && product.colors) ? product.colors : [];
+    var exact = '';
+    var partial = '';
+    for (var i = 0; i < colors.length; i += 1) {
+      var row = colors[i] || {};
+      var rowCode = text(row.code || row.colorCode || row.colorNo);
+      var rowName = key(row.name || row.colorName || row.color);
+      if (!/^\d{2,4}$/.test(rowCode) || !rowName) continue;
+      if (rowName === wanted) { exact = rowCode; break; }
+      if (!partial && (wanted.indexOf(rowName) !== -1 || rowName.indexOf(wanted) !== -1)) partial = rowCode;
     }
-    return { body: mid, sizeCode: '00' };
+    return exact || partial;
   }
 
-  function splitProductColorFromBody(letters, body, skuColor, productCode) {
-    body = String(body || '');
-    letters = String(letters || '');
-    skuColor = String(skuColor || '');
-    productCode = String(productCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (productCode && productCode.indexOf(letters) === 0) {
-      var productDigits = productCode.slice(letters.length);
-      if (body.indexOf(productDigits) === 0 && body.length > productDigits.length) {
-        return { base: productCode, colorCode: body.slice(productDigits.length) };
+  function inboundVariantColorCode(line, sku, product) {
+    line = line || {};
+    sku = sku || {};
+    product = product || {};
+    var colorName = text(line.color || line.colorName || sku.colorName || sku.color);
+    var fromProduct = inboundProductColorCode(product, colorName);
+    if (fromProduct) return fromProduct;
+    var stored = text(line.barcode || line.companyBarcode || sku.companyBarcode || sku.barcode || sku.officialBarcode || '');
+    var peeled = '';
+    if (stored && !looksLikeUglyCompanyBarcode(stored)) {
+      var compact = stored.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      var mid = compact.match(/^([A-Z]+\d*)P(\d+)$/);
+      if (mid) {
+        var digits = mid[2];
+        var skuColor = text(sku.colorCode || sku.colorNo);
+        /* Prefer 3-digit known color (923 in P350923) over a 2-digit sku 93 suffix. */
+        if (knownInboundColorCode(digits.slice(-3)) && digits.length > 3) peeled = digits.slice(-3);
+        else if (skuColor && skuColor.length >= 3 && digits.length > skuColor.length && digits.slice(-skuColor.length) === skuColor) peeled = skuColor;
+        else if (skuColor && digits.length > skuColor.length && digits.slice(-skuColor.length) === skuColor) peeled = skuColor;
+        else if (knownInboundColorCode(digits.slice(-2)) && digits.length > 2) peeled = digits.slice(-2);
       }
     }
-    if (skuColor && body.length > skuColor.length && body.slice(-skuColor.length) === skuColor) {
-      return { base: letters + body.slice(0, -skuColor.length), colorCode: skuColor };
-    }
-    if (knownInboundColorCode(body.slice(-3)) && body.length > 3) {
-      return { base: letters + body.slice(0, -3), colorCode: body.slice(-3) };
-    }
-    if (knownInboundColorCode(body.slice(-2)) && body.length > 2) {
-      return { base: letters + body.slice(0, -2), colorCode: body.slice(-2) };
-    }
-    if (body.length >= 5) return { base: letters + body.slice(0, -3), colorCode: body.slice(-3) };
-    if (body.length >= 4) return { base: letters + body.slice(0, -2), colorCode: body.slice(-2) };
-    return { base: letters + body, colorCode: skuColor || '' };
+    if (peeled) return peeled;
+    var skuCode = text(sku.colorCode || sku.colorNo || line.colorCode);
+    if (/^\d{2,4}$/.test(skuCode)) return skuCode;
+    return receiptColorCode(colorName);
+  }
+
+  function storedBarcodeAliases(sku, line) {
+    sku = sku || {};
+    line = line || {};
+    return uniqueTextRows([
+      sku.id, sku.sku, sku.companyBarcode, sku.barcode, sku.officialBarcode,
+      sku.legacyBarcode, sku.mappingCode, line.legacyBarcode, line.sampleBarcode, line.taiwanBarcode
+    ].concat(Array.isArray(sku.barcodeAliases) ? sku.barcodeAliases : [])
+      .concat(Array.isArray(sku.linkedBarcodes) ? sku.linkedBarcodes : [])
+      .concat(Array.isArray(line.barcodeAliases) ? line.barcodeAliases : [])
+      .filter(function (value) { return text(value); }));
   }
 
   function canonicalInboundBarcode(line, sku, product, raw) {
     line = line || {};
     sku = sku || {};
     product = product || {};
-    var stored = text(raw || line.barcode || line.companyBarcode || line.officialBarcode || sku.companyBarcode || sku.officialBarcode || sku.barcode || '');
     var productCode = text(line.productCode || (product && (product.code || product.productLine)) || sku.productCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    var colorCode = text(sku.colorCode || sku.colorNo || receiptColorCode(line.color || line.colorName || sku.colorName || sku.color));
-    var sizeCode = padReceiptSizeCode(line.size || line.sizeName || sku.sizeName || sku.size);
-    var cost = Math.max(0, Math.round(Number(line.unitCostTwd || line.cost || line.barcodeCostTwd || sku.currentCostTwd || sku.cost || 0)));
-    var parsed = receivedParseConcatBarcode(stored, Object.assign({}, line, {
-      productCode: productCode,
-      color: line.color || line.colorName || sku.colorName || sku.color,
-      size: line.size || line.sizeName || sku.sizeName || sku.size,
-      unitCostTwd: cost
-    }), sku, Object.assign({}, product, { code: productCode || (product && product.code) }));
-    if (parsed) {
-      productCode = parsed.base || productCode;
-      colorCode = parsed.colorCode || colorCode;
-      sizeCode = padReceiptSizeCode(parsed.sizeCode || sizeCode);
-      cost = Number(parsed.cost || cost);
-    }
-    return composeCanonicalCompanyBarcode(productCode, colorCode, sizeCode, cost) || stored;
+    var colorCode = inboundVariantColorCode(line, sku, product);
+    var sizeCode = line.size || line.sizeName || sku.sizeName || sku.size;
+    var cost = Math.max(0, Math.round(Number(line.unitCostTwd || line.cost || line.barcodeCostTwd || 0)));
+    if (!cost) cost = Math.max(0, Math.round(Number(sku.currentCostTwd || sku.cost || 0)));
+    var composed = composeCanonicalCompanyBarcode(productCode, colorCode, sizeCode, cost);
+    if (composed) return composed;
+    var stored = text(raw || line.barcode || sku.companyBarcode || sku.barcode || '');
+    if (stored && !looksLikeUglyCompanyBarcode(stored)) return stored.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return '';
   }
 
   function inboundFormatAliases(raw, line, sku, product) {
-    /* LZ_BARCODE_FMT_20260924: scan both new 編號顏色尺碼P成本 and old 編號P成本顏色 / C/S. */
     var compact = text(raw).replace(/\s+/g, '').toUpperCase();
     if (!compact) return [];
-    var aliases = [compact];
-    var parsed = receivedParseConcatBarcode(compact, line || {}, sku || {}, product || {});
-    if (parsed && parsed.base && parsed.cost && parsed.colorCode) {
-      var size = padReceiptSizeCode(parsed.sizeCode);
-      var unpadded = String(Number(size));
-      aliases.push(composeCanonicalCompanyBarcode(parsed.base, parsed.colorCode, size, parsed.cost));
-      aliases.push(String(parsed.base).toUpperCase() + String(parsed.colorCode) + 'P' + String(parsed.cost));
-      aliases.push(String(parsed.base).toUpperCase() + 'P' + String(parsed.cost) + String(parsed.colorCode));
-      aliases.push(String(parsed.base).toUpperCase() + 'P' + String(parsed.cost) + 'C' + String(parsed.colorCode) + 'S' + size);
-      aliases.push(String(parsed.base).toUpperCase() + 'C' + String(parsed.colorCode) + 'S' + size + 'P' + String(parsed.cost));
-      if (size !== '00' && unpadded !== size) {
-        aliases.push(String(parsed.base).toUpperCase() + String(parsed.colorCode) + unpadded + 'P' + String(parsed.cost));
-      }
+    var aliases = [compact, compact.replace(/[^A-Z0-9]/g, '')];
+    var canonical = '';
+    try { canonical = canonicalInboundBarcode(line || {}, sku || {}, product || {}, compact); } catch (error) {}
+    if (canonical) aliases.push(canonical);
+    var parsed = null;
+    try { parsed = receivedParseConcatBarcode(compact, line || {}, sku || {}, product || {}); } catch (error) {}
+    function pushParts(base, color, size, cost) {
+      if (!base || !color || cost === '' || cost == null) return;
+      size = padReceiptSizeCode(size);
+      aliases.push(composeCanonicalCompanyBarcode(base, color, size, cost));
+      aliases.push(String(base).toUpperCase() + String(color) + 'P' + String(cost));
+      aliases.push(String(base).toUpperCase() + 'P' + String(cost) + String(color));
+      aliases.push(String(base).toUpperCase() + 'P' + String(cost) + 'C' + String(color) + 'S' + size);
     }
-    var match = compact.match(/^([A-Z]+)(\d+)P(\d+)$/);
+    if (parsed && parsed.base && parsed.cost && parsed.colorCode) {
+      pushParts(parsed.base, parsed.colorCode, parsed.sizeCode, parsed.cost);
+    }
+    var match = compact.replace(/[^A-Z0-9]/g, '').match(/^([A-Z]+)(\d+)P(\d+)$/);
     if (match) {
       var letters = match[1];
       var midDigits = match[2];
       var costPart = match[3];
-      var peeled = peelSizeFromMidDigits(midDigits, '');
+      var body = midDigits;
+      var size = '00';
+      if (body.slice(-2) === '00' && body.length > 2) {
+        size = '00';
+        body = body.slice(0, -2);
+      } else if (/^0[1-8]$/.test(body.slice(-2)) && body.length > 2) {
+        size = body.slice(-2);
+        body = body.slice(0, -2);
+      }
       [4, 3, 2].forEach(function (colorLen) {
-        if (peeled.body.length > colorLen) {
-          aliases.push(letters + peeled.body.slice(0, -colorLen) + 'P' + costPart + peeled.body.slice(-colorLen));
+        if (body.length > colorLen && knownInboundColorCode(body.slice(-colorLen))) {
+          pushParts(letters + body.slice(0, -colorLen), body.slice(-colorLen), size, costPart);
         }
-        if (midDigits.length > colorLen) {
-          aliases.push(letters + midDigits.slice(0, -colorLen) + 'P' + costPart + midDigits.slice(-colorLen));
+      });
+      [4, 3, 2].forEach(function (colorLen) {
+        if (costPart.length > colorLen && knownInboundColorCode(costPart.slice(-colorLen))) {
+          pushParts(letters + midDigits, costPart.slice(-colorLen), '00', costPart.slice(0, -colorLen));
         }
       });
     }
     return aliases.filter(Boolean);
   }
 
+  function rememberBarcodeAlias(line, oldBarcode) {
+    oldBarcode = text(oldBarcode);
+    if (!oldBarcode) return;
+    line.legacyBarcode = text(line.legacyBarcode) || oldBarcode;
+    var aliases = Array.isArray(line.barcodeAliases) ? line.barcodeAliases.slice() : [];
+    if (aliases.indexOf(oldBarcode) === -1) aliases.push(oldBarcode);
+    line.barcodeAliases = aliases;
+  }
+
+  function applyCanonicalLineBarcode(line, sku, product) {
+    var oldBarcode = text(line.barcode || line.companyBarcode);
+    var nextBarcode = '';
+    try { nextBarcode = canonicalInboundBarcode(line, sku || {}, product || {}, oldBarcode); } catch (error) { nextBarcode = ''; }
+    if (nextBarcode && oldBarcode && key(nextBarcode) !== key(oldBarcode)) rememberBarcodeAlias(line, oldBarcode);
+    line.barcode = nextBarcode || oldBarcode;
+    return line.barcode;
+  }
+
+  function completeStandaloneReceiptLine(line) {
+    /* LZ_CONFIRM_FILL_20260924: auto-fill 分類/編號/條碼/顏色/尺寸 from live product+SKU before confirm. */
+    line = line || {};
+    var sku = skuById(line.skuId) || {};
+    if (sku.temporaryFreightSku) sku = {};
+    var product = productById(line.productId) || productByCode(line.productCode) || productById(sku.productId) || {};
+    if (product.temporaryFreightProduct) product = productByCode(line.productCode) || {};
+    if (!sku.id && typeof catalogSkuForReceiptLine === 'function') {
+      try { sku = catalogSkuForReceiptLine(line) || sku || {}; } catch (error) {}
+    }
+    if (product && product.id && !product.temporaryFreightProduct) {
+      line.productId = text(product.id);
+      if (!line.productCode) line.productCode = text(product.code || product.productLine || product.id);
+      if (!line.productName) line.productName = text(product.title || product.name || line.productCode);
+    }
+    var liveCat = liveCategoryForLine(line, product);
+    if (liveCat) line.category = liveCat;
+    if (!line.productCode) line.productCode = text((product && (product.code || product.productLine)) || sku.productCode || line.productName);
+    var colorVisible = text(line.color || line.colorName);
+    if (receivedIsPlaceholderColor(colorVisible) && text(line.colorName) && !receivedIsPlaceholderColor(line.colorName)) colorVisible = text(line.colorName);
+    if (receivedIsPlaceholderColor(colorVisible) && text(line.color) && !receivedIsPlaceholderColor(line.color)) colorVisible = text(line.color);
+    var colorClean = '';
+    try { colorClean = sanitizeInboundColorValue(colorVisible, line, sku, product, line.barcode); } catch (error) { colorClean = ''; }
+    if (colorClean) line.color = colorClean;
+    else if (colorVisible && !receivedIsPlaceholderColor(colorVisible)) line.color = colorVisible;
+    else {
+      var suggested = '';
+      try { suggested = inboundSuggestColor(sku, product, line.barcode || sku.companyBarcode); } catch (error) {}
+      line.color = suggested || text(sku.colorName || sku.color || '');
+    }
+    line.size = text(line.size || line.sizeName || sku.sizeName || sku.size) || 'NO SIZE';
+    if (!line.barcode) line.barcode = text(sku.companyBarcode || sku.barcode || sku.legacyBarcode || sku.id || sku.sku);
+    applyCanonicalLineBarcode(line, sku, product);
+    if (sku && (sku.id || sku.sku) && !line.skuId) line.skuId = text(sku.id || sku.sku);
+    return line;
+  }
+
+  function inboundSuggestColor(sku, product, barcode) {
+    /* LZ_RECV_SCAN_20260924_2: barcode 904 / stored OLAN75P315904 must suggest 卡其色, never 圖片色. */
+    sku = sku || {};
+    product = product || productById(sku.productId) || productByCode(sku.productCode) || {};
+    barcode = barcode || text(sku.companyBarcode || sku.barcode || sku.officialBarcode || sku.legacyBarcode || sku.id || sku.sku);
+    var parsed = null;
+    try { parsed = receivedParseConcatBarcode(barcode, { productCode: text(product.code || product.productLine || sku.productCode) }, sku, product); } catch (error) {}
+    var code = text((parsed && parsed.colorCode) || sku.colorCode || sku.colorNo);
+    var fromCode = receivedColorNameFromCode(code);
+    if (fromCode) return fromCode;
+    var display = receiptDisplayColor(sku, product);
+    if (display && !receivedIsPlaceholderColor(display)) return display;
+    return sanitizeInboundColorValue(sku.colorName || sku.color, { barcode: barcode, productCode: sku.productCode, productId: sku.productId }, sku, product, barcode) || '';
+  }
+
+  function inboundDisplayBarcode(sku, product) {
+    sku = sku || {};
+    product = product || productById(sku.productId) || productByCode(sku.productCode) || {};
+    var stored = text(sku.companyBarcode || sku.barcode || sku.officialBarcode || sku.legacyBarcode || sku.mappingCode || '');
+    var line = {
+      productCode: text(product.code || product.productLine || sku.productCode),
+      color: inboundSuggestColor(sku, product, stored) || sku.colorName || sku.color,
+      colorName: sku.colorName || sku.color,
+      size: sku.sizeName || sku.size,
+      sizeName: sku.sizeName || sku.size,
+      unitCostTwd: sku.barcodeCostTwd || sku.currentCostTwd || sku.cost
+    };
+    var printed = canonicalInboundBarcode(line, sku, product, stored);
+    if (printed) return printed;
+    if (stored && !looksLikeUglyCompanyBarcode(stored)) return stored;
+    return printed || stored;
+  }
+
   function inboundPrintAliasesFromStored(raw) {
+    /* LZ_RECV_SCAN_20260924: stored mid-P OLAN75P315904 → print OLAN75904P315 */
+    var compact = text(raw).replace(/\s+/g, '').toUpperCase();
+    if (!compact) return [];
+    var aliases = [compact];
     return inboundFormatAliases(raw, {}, {}, {});
   }
 
@@ -1198,7 +1483,8 @@
     var aliases = [
       sku.id, sku.sku, sku.companyBarcode, sku.barcode, sku.officialBarcode,
       sku.legacyBarcode, sku.mappingCode, stored, product.code, product.productLine
-    ];
+    ].concat(Array.isArray(sku.barcodeAliases) ? sku.barcodeAliases : [])
+      .concat(Array.isArray(sku.linkedBarcodes) ? sku.linkedBarcodes : []);
     try {
       var printCode = canonicalInboundBarcode({
         productCode: text(product.code || product.productLine || sku.productCode),
@@ -1233,8 +1519,9 @@
     var categoryInput = document.querySelector('[data-purchase-receipt-category]');
     var codeInput = document.querySelector('[data-purchase-receipt-product-code]');
     var barcodeInput = document.querySelector('[data-purchase-receipt-product-barcode]');
+    var suggestedColor = inboundSuggestColor(sku, product);
     if (!options.keepSearch && searchInput) {
-      searchInput.value = [product.code || product.productLine || '', product.title || product.name || '', sku.colorName || sku.color || '', sku.sizeName || sku.size || 'NO SIZE'].filter(Boolean).join('／');
+      searchInput.value = [product.code || product.productLine || '', product.title || product.name || '', suggestedColor || sku.colorName || sku.color || '', sku.sizeName || sku.size || 'NO SIZE'].filter(Boolean).join('／');
     }
     if (categoryInput) categoryInput.value = productCategory(product);
     if (codeInput) {
@@ -1243,11 +1530,11 @@
     }
     if (barcodeInput) barcodeInput.value = canonicalInboundBarcode({
       productCode: text(product.code || product.productLine || product.id),
-      color: sku.colorName || sku.color,
+      color: suggestedColor || sku.colorName || sku.color,
       size: sku.sizeName || sku.size,
       unitCostTwd: sku.currentCostTwd || sku.cost
-    }, sku, product, text(sku.companyBarcode || sku.barcode || sku.legacyBarcode || sku.mappingCode || sku.id || sku.sku));
-    setStandaloneCodeStatus('已對到既有產品 ' + (product.code || product.productLine || product.id || '') + '；分類、產品編號與條碼已帶入，可直接加入進貨項目。', 'ok');
+    }, sku, product, text(sku.companyBarcode || sku.barcode || sku.legacyBarcode || sku.mappingCode)) || text(sku.companyBarcode || sku.barcode || '');
+    setStandaloneCodeStatus('已對到既有產品 ' + (product.code || product.productLine || product.id || '') + '（' + (suggestedColor || '顏色已依條碼色碼') + '）；分類、產品編號與條碼已帶入，可直接加入進貨項目。不必先填分類。', 'ok');
   }
 
   function standaloneSkuMatches(value) {
@@ -1318,10 +1605,10 @@
         return [row && row.name, row && row.color, row && row.colorName, Array.isArray(row && row.aliases) ? row.aliases.join(' ') : ''].join(' ');
       }).join(' ');
       var aliasBlob = Array.isArray(product.nameAliases) ? product.nameAliases.join(' ') : '';
-      var fields = primary.concat([product.title, product.name, product.brand, product.category, product.categoryName, sku.colorName, sku.color, sku.sizeName, sku.size, colorBlob, aliasBlob].map(key).filter(Boolean));
+      var fields = primary.concat([product.title, product.name, product.brand, product.category, product.categoryName, product.productLine, product.code, sku.colorName, sku.color, sku.sizeName, sku.size, colorBlob, aliasBlob].map(key).filter(Boolean));
       var exactHit = barcodeKeys.some(function (field) { return queryKeys.indexOf(field) !== -1; });
       var rank = exactHit ? 0 : (barcodeLike ? 999 : (primary.some(function (field) { return field.indexOf(wanted) === 0; }) ? 1 : (fields.some(function (field) { return field.indexOf(wanted) !== -1; }) ? 2 : 999)));
-      return { sku: sku, rank: rank, index: index, code: product.code || product.productLine || product.id || '', color: text(sku.colorName || sku.color), size: text(sku.sizeName || sku.size) };
+      return { sku: sku, rank: rank, index: index, code: product.productLine || product.code || product.id || '', color: text(sku.colorName || sku.color), size: text(sku.sizeName || sku.size) };
     }).filter(function (row) { return row.rank < 999; }).sort(function (a, b) {
       return a.rank - b.rank || String(a.code).localeCompare(String(b.code), 'zh-Hant', { numeric: true }) || String(a.color).localeCompare(String(b.color), 'zh-Hant') || String(a.size).localeCompare(String(b.size), 'zh-Hant', { numeric: true }) || a.index - b.index;
     });
@@ -1361,14 +1648,17 @@
     }
     syncStandaloneLinesFromDom();
     skus.forEach(function (sku) {
+      sku = receiptSkuForInbound(sku) || sku;
       var product = productById(sku.productId) || {};
       var barcode = text(sku.companyBarcode || sku.barcode || sku.legacyBarcode || sku.mappingCode || sku.id || sku.sku);
+      var productCode = text(sku.receiptGroupProductCode || product.productLine || product.code || product.id);
       state.standaloneLines.push(standaloneLineFromSku(sku, {
         productName: text(product.title || product.name || productCodeForSku(sku)),
         category: productCategory(product),
-        productCode: text(product.code || product.productLine || product.id),
+        productCode: productCode,
         sampleBarcode: barcode,
-        taiwanBarcode: barcode
+        taiwanBarcode: barcode,
+        productImage: sku.receiptGroupImage || ''
       }, null));
     });
     clearStandaloneItemEditor();
@@ -1406,20 +1696,36 @@
     var rows = matches.map(function (sku, index) {
       var product = productById(sku.productId) || productByCode(sku.productCode || sku.productId) || {};
       var productName = text(product.title || product.name || productCodeForSku(sku)) || '未命名產品';
-      var code = productCodeForSku(sku) || text(sku.productId);
-      var barcode = canonicalInboundBarcode({
-        productCode: code,
-        color: sku.colorName || sku.color,
-        size: sku.sizeName || sku.size,
-        unitCostTwd: sku.currentCostTwd || sku.cost
-      }, sku, product, text(sku.companyBarcode || sku.barcode || sku.id || sku.sku)) || text(sku.companyBarcode || sku.barcode || sku.id || sku.sku) || '未建條碼';
-      var color = receiptDisplayColor(sku, product);
+      var code = text(sku.receiptGroupProductCode || product.productLine || productCodeForSku(sku) || sku.productId);
+      var inboundSku = receiptSkuForInbound(sku) || sku;
+      var inboundProduct = productById(inboundSku.productId) || product;
+      var storedBarcode = text(sku.receiptGroupBarcode || inboundSku.companyBarcode || inboundSku.barcode || sku.companyBarcode || sku.barcode || sku.id || sku.sku) || '未建條碼';
+      var barcode = inboundDisplayBarcode(inboundSku, inboundProduct) || storedBarcode;
+      var color = inboundSuggestColor(inboundSku, inboundProduct, storedBarcode) || receiptDisplayColor(sku, product);
       var size = text(sku.sizeName || sku.size) || 'NO SIZE';
-      var warehouse = text(sku.warehouseName || sku.warehouse) || '未指定倉別';
-      var category = productCategory(product) || '未填分類';
-      var productImage = firstProductImage(product, sku, {});
+      var productImage = text(sku.receiptGroupImage) || firstProductImage(inboundProduct, inboundSku, inboundSku) || firstProductImage(product, sku, sku);
       var thumbCaption = [code, productName, color, size].filter(Boolean).join('／');
       var thumb = receiptThumbButtonHtml(productImage, thumbCaption);
+      var stocks = sku.receiptWarehouseStocks || { CN: 0, TW: 0, ID: 0, PREORDER: 0 };
+      if (!sku.receiptWarehouseStocks) {
+        var w = receiptWarehouseCode(sku);
+        if (Object.prototype.hasOwnProperty.call(stocks, w)) stocks[w] = Math.max(0, Number(sku.stock || 0));
+      }
+      var wanted = receiptWantedWarehouse();
+      var stockHtml = [
+        { code: 'CN', label: '中國倉' },
+        { code: 'TW', label: '台灣倉' },
+        { code: 'ID', label: '印尼倉' },
+        { code: 'PREORDER', label: '預購倉' }
+      ].map(function (row) {
+        var qty = Math.max(0, Number(stocks[row.code] || 0));
+        var hasSku = !!(sku.receiptWarehouseSkus && sku.receiptWarehouseSkus[row.code]);
+        var inbound = row.code === wanted;
+        return '<label class="purchase-receipt-suggest-wh' + (inbound ? ' is-inbound' : '') + (hasSku ? '' : ' is-empty') + '" data-receipt-wh="' + row.code + '" title="' + (row.code === 'PREORDER' ? '預購倉現有庫存' : '點此改入庫倉為' + row.label) + '">' +
+          '<small>' + row.label + '</small>' +
+          '<input type="number" min="0" step="1" readonly value="' + qty + '" data-receipt-wh-stock="' + row.code + '" aria-label="' + row.label + '現有庫存">' +
+          '</label>';
+      }).join('');
       return '<article class="purchase-receipt-suggest-row" data-purchase-receipt-sku-pick="' + index + '">' +
         '<label class="purchase-receipt-suggest-check"><input type="checkbox" data-purchase-receipt-sku-check="' + index + '"><span></span></label>' +
         thumb +
@@ -1428,11 +1734,11 @@
         '<em>' + escapeHtml(barcode) + '</em>' +
         '<small>' + escapeHtml(color) + '</small>' +
         '<strong>' + escapeHtml(size) + '</strong>' +
-        '<small>' + escapeHtml(category + '／' + warehouse) + '</small>' +
+        '<div class="purchase-receipt-suggest-whs" data-purchase-receipt-wh-stocks>' + stockHtml + '</div>' +
         '</article>';
     }).join('');
     host.innerHTML = '<div class="purchase-receipt-suggest-toolbar">' +
-      '<small>可勾多個尺寸一次加入；每筆預設 1 件，加入後再改數量。點縮圖可放大。</small>' +
+      '<small>搜尋後同一款顏色尺寸只列一列，顯示中國／台灣／印尼／預購倉現有庫存。勾選加入會進上方入庫倉，每筆預設 1 件。滑鼠移上縮圖可放大。</small>' +
       '<div class="purchase-receipt-suggest-toolbar-actions">' +
       '<label class="purchase-receipt-suggest-all"><input type="checkbox" data-purchase-receipt-sku-check-all><span>全選目前結果</span></label>' +
       '<button type="button" class="primary-button" data-purchase-receipt-add-checked>加入已勾選<span>Tambah ukuran</span></button>' +
@@ -1492,11 +1798,12 @@
       skuId: text(sku.id || sku.sku),
       productId: temporaryProduct ? text(catalogProduct && catalogProduct.id) : text((product && product.id) || sku.productId),
       productName: text(source.productName || product.title || product.name || source.productCode),
-      category: text(source.category || productCategory(product)),
+      category: liveCategoryForLine({ productCode: text(source.productCode) || productCodeForSku(sku) || text(source.productName), category: source.category, productId: (product && product.id) || sku.productId }, product) || text(source.category || productCategory(product)),
       productCode: text(source.productCode) || productCodeForSku(sku) || text(source.productName),
       barcode: '',
       barcodeAuto: true,
       barcodeManualEdited: false,
+      legacyBarcode: text(source.taiwanBarcode || source.sampleBarcode || sku.companyBarcode || sku.barcode || sku.legacyBarcode || sku.id || sku.sku),
       color: sanitizeInboundColorValue(source.colorName || source.color || sku.colorName || sku.color, { productCode: text(source.productCode) || productCodeForSku(sku) || text(source.productName), barcode: text(source.taiwanBarcode || source.sampleBarcode || sku.companyBarcode || sku.barcode), skuId: text(sku.id || sku.sku), productId: text((product && product.id) || sku.productId) }, sku, product, text(source.taiwanBarcode || source.sampleBarcode || sku.companyBarcode || sku.barcode)),
       size: text(source.sizeName || source.size || sku.sizeName || sku.size) || 'NO SIZE',
       qty: qty,
@@ -1505,7 +1812,7 @@
       productImage: firstProductImage(product, sku, source),
       sourceTrackingNo: text(source.trackingNo || source.haohongTrackingNo)
     };
-    line.barcode = canonicalInboundBarcode(line, sku, product, text(source.taiwanBarcode || source.sampleBarcode || sku.companyBarcode || sku.barcode || sku.id || sku.sku));
+    line.barcode = canonicalInboundBarcode(line, sku, product, line.legacyBarcode);
     return line;
   }
 
@@ -1540,12 +1847,19 @@
     host.innerHTML = state.standaloneLines.map(function (line, index) {
       var product = productById(line.productId) || productByCode(line.productCode) || {};
       var sku = skuById(line.skuId) || {};
+      var liveCat = liveCategoryForLine(line, product);
+      if (liveCat) line.category = liveCat;
       var cleanedColor = sanitizeInboundColorValue(line.color || line.colorName, line, sku, product, line.barcode);
       if (cleanedColor) line.color = cleanedColor;
-      if (!line.barcodeManualEdited) {
-        line.barcode = canonicalInboundBarcode(line, sku, product, line.barcode);
-        line.barcodeAuto = true;
-      }
+      else if (text(line.color || line.colorName) && !receivedIsPlaceholderColor(line.color || line.colorName)) line.color = text(line.color || line.colorName);
+      if (!line.barcodeManualEdited) applyCanonicalLineBarcode(line, sku, product);
+      var aliasHint = storedBarcodeAliases(sku, line).filter(function (value) {
+        return value && key(value) !== key(line.barcode) && looksLikeUglyCompanyBarcode(value);
+      }).slice(0, 2).join('、');
+      var nameHint = line.barcode
+        ? (aliasHint ? '舊編號僅作掃描別名：' + aliasHint : '公司條碼 ' + line.barcode)
+        : (line.skuId || '尚未對到既有 SKU');
+      var barcodeHint = line.barcodeManualEdited ? '手動條碼不會被覆蓋' : '編號+色碼+尺碼+P成本；改成本或加新列會重算';
       var liveImage = firstProductImage(product, sku, line);
       if (liveImage && !line.arrivalImage) line.productImage = liveImage;
       var previewImage = line.arrivalImage || liveImage || line.productImage || '';
@@ -1556,17 +1870,17 @@
         receiptThumbButtonHtml(previewImage, [line.productCode, line.productName, line.color, line.size].filter(Boolean).join('／'), 'purchase-receipt-line-thumb'),
         '</div>',
         '<div class="purchase-receipt-line-fields">',
-        '<label class="purchase-receipt-line-name">產品名稱<input value="' + escapeHtml(line.productName || line.productCode || '') + '" data-standalone-line-product-name><small>' + escapeHtml(line.skuId || '尚未對到既有 SKU') + '</small></label>',
+        '<label class="purchase-receipt-line-name">產品名稱<input value="' + escapeHtml(line.productName || line.productCode || '') + '" data-standalone-line-product-name><small>' + escapeHtml(nameHint) + '</small></label>',
         '<label>產品分類<input value="' + escapeHtml(line.category || '') + '" data-standalone-line-category></label>',
         '<label>產品編號<input value="' + escapeHtml(line.productCode || '') + '" data-standalone-line-product-code></label>',
-        '<label class="purchase-receipt-line-barcode">公司條碼<input value="' + escapeHtml(line.barcode || '') + '" data-standalone-line-barcode data-barcode-auto="' + (line.barcodeAuto ? '1' : '0') + '" data-barcode-manual="' + (line.barcodeManualEdited ? '1' : '0') + '"><small>' + (line.barcodeManualEdited ? '手動條碼不會被覆蓋' : '會隨選好的顏色／尺寸更新') + '</small></label>',
+        '<label class="purchase-receipt-line-barcode">公司條碼<input value="' + escapeHtml(line.barcode || '') + '" data-standalone-line-barcode data-barcode-auto="' + (line.barcodeAuto ? '1' : '0') + '" data-barcode-manual="' + (line.barcodeManualEdited ? '1' : '0') + '"><small>' + escapeHtml(barcodeHint) + '</small></label>',
         '<label class="purchase-receipt-line-qty">實收數量<input type="number" min="1" step="1" value="' + Math.max(1, Number(line.qty || 1)) + '" data-standalone-line-qty></label>',
         '<label class="purchase-receipt-line-cost">單件成本<input type="number" min="0" step="1" value="' + Math.max(0, Number(line.unitCostTwd || 0)) + '" data-standalone-line-cost></label>',
         '<label class="purchase-receipt-line-color">顏色<div class="purchase-receipt-color-picker"><select data-standalone-line-color-preset>' + standaloneColorOptionsHtml(line.color || '') + '</select><input value="' + escapeHtml(line.color || '') + '" data-standalone-line-color placeholder="可手動輸入新顏色"></div></label>',
         '<label class="purchase-receipt-line-size">尺寸<div class="purchase-receipt-size-picker"><select data-standalone-line-size-preset>' + standaloneSizeOptionsHtml(line.category, line.size || 'NO SIZE') + '</select><input value="' + escapeHtml(line.size || 'NO SIZE') + '" data-standalone-line-size placeholder="可手動輸入其他尺寸"></div></label>',
         '<div class="purchase-receipt-line-actions"><button type="button" class="ghost-button" data-purchase-receipt-add-variant="' + escapeHtml(line.key) + '">＋同款加色尺</button><button type="button" class="danger-button" data-purchase-receipt-remove-line="' + escapeHtml(line.key) + '">移除</button></div>',
         '</div>',
-        '<label class="purchase-receipt-line-photo">到貨照片<input type="file" accept="image/*" capture="environment" data-standalone-line-photo><span data-standalone-line-photo-preview>' + (previewImage ? '<img src="' + escapeHtml(previewImage) + '" alt="商品或到貨照片" data-receipt-thumb-zoom="' + escapeHtml(previewImage) + '" data-receipt-thumb-caption="' + escapeHtml([line.productCode, line.color].filter(Boolean).join('／')) + '"><b>' + (line.arrivalImage ? '已上傳，入庫後設為此色圖' : '點縮圖可放大，也可改到貨照片') + '</b>' : '<b>點此上傳到貨照片</b>') + '</span></label>',
+        '<label class="purchase-receipt-line-photo">到貨照片<input type="file" accept="image/*" capture="environment" data-standalone-line-photo><span data-standalone-line-photo-preview>' + (previewImage ? '<img src="' + escapeHtml(previewImage) + '" alt="商品或到貨照片" data-receipt-thumb-zoom="' + escapeHtml(previewImage) + '" data-receipt-thumb-caption="' + escapeHtml([line.productCode, line.color].filter(Boolean).join('／')) + '"><b>' + (line.arrivalImage ? '已上傳，入庫後設為此色圖' : '滑鼠移上放大；點文字可改到貨照片') + '</b>' : '<b>點此上傳到貨照片</b>') + '</span></label>',
         '<input type="hidden" value="' + escapeHtml(line.skuId || '') + '" data-standalone-line-sku>',
         '<input type="hidden" value="' + escapeHtml(line.productId || '') + '" data-standalone-line-product>',
         '</article>'
@@ -1595,6 +1909,7 @@
       (Array.isArray(product.colors) ? product.colors : []).forEach(function (color) { values.push(text(color.name || color.color || color.code)); });
     });
     (state.skus || []).forEach(function (sku) { values.push(text(sku.colorName || sku.color)); });
+    values.push('卡其色');
     return uniqueTextRows(values).filter(function (color) { return color && !receivedIsPlaceholderColor(color); }).sort(function (a, b) { return a.localeCompare(b, 'zh-Hant', { numeric: true }); });
   }
 
@@ -1621,7 +1936,7 @@
     if (!picker || !sizeInput) return;
     var presets = standaloneSizePresets(category);
     var current = text(sizeInput.value);
-    if (presets.length > 1 && presets.indexOf(current) === -1) {
+    if (presets.length > 1 && presets.indexOf(current) === -1 && !/^(nosize|均碼|free)$/i.test(key(current))) {
       current = '';
       sizeInput.value = '';
     }
@@ -1646,17 +1961,10 @@
   }
 
   function automaticVariantBarcode(line) {
-    /* LZ_BARCODE_FMT_20260924: 編號+顏色+尺碼+P(成本), no C/S letters. */
-    var productCode = text(line.productCode).toUpperCase().replace(/[^A-Z0-9]/g, '');
-    var color = text(line.color);
-    var size = text(line.size);
-    if (!productCode || !color || !size) return '';
-    var cost = Math.max(0, Math.round(Number(line.unitCostTwd || line.cost || 0)));
-    var colorCode = receiptColorCode(color);
-    var sizeCode = padReceiptSizeCode(size);
-    var candidate = composeCanonicalCompanyBarcode(productCode, colorCode, sizeCode, cost);
-    if (!candidate) return '';
-    return candidate;
+    /* LZ_BARCODE_FMT_20260924: 編號+色碼+尺碼+P成本, P at END, NO SIZE=00. Never C/S. */
+    var sku = skuById(line && line.skuId) || {};
+    var product = productById(line && line.productId) || productByCode(line && line.productCode) || {};
+    return canonicalInboundBarcode(line, sku, product, line && line.legacyBarcode);
   }
 
   function receiptColorCode(value) {
@@ -1668,15 +1976,18 @@
       '黃色': '94', '黃': '94', 'KUR': '94', 'KUNING': '94',
       '綠色': '95', '綠': '95', 'HIGAU': '95', 'HIJAU': '95',
       '藍色': '96', '藍': '96', 'BIRU': '96',
-      '粉紅色': '98', '粉紅': '98', '粉色': '98', 'PINK': '98',
+      '粉紅色': '98', '粉紅': '98', '粉色': '98', '粉': '98', 'PINK': '98',
       '灰色': '99', '灰': '99', 'ABU': '99',
       '卡其色': '904', 'DRIL': '904',
       '咖啡色': '902', '咖色': '902', 'COKELAT': '902',
       '圖片色': '907', 'PICSCOLOR': '907'
     };
     if (aliases[raw]) return aliases[raw];
+    for (var latin in aliases) {
+      if (/^[A-Z0-9]+$/.test(latin) && raw.indexOf(latin) !== -1) return aliases[latin];
+    }
     for (var name in aliases) {
-      if (raw.indexOf(name) !== -1) return aliases[name];
+      if (raw.indexOf(name) === 0) return aliases[name];
     }
     return '';
   }
@@ -1705,7 +2016,12 @@
       return sameProduct && key(sku.colorName || sku.color) === key(line.color) && key(sku.sizeName || sku.size || 'NO SIZE') === key(line.size || 'NO SIZE');
     });
     var product = productById(line.productId) || productByCode(line.productCode) || {};
-    line.barcode = canonicalInboundBarcode(line, matchedSku || {}, product, matchedSku && (matchedSku.companyBarcode || matchedSku.barcode || matchedSku.id || matchedSku.sku) || line.barcode) || automaticVariantBarcode(line);
+    if (matchedSku && !line.legacyBarcode) {
+      line.legacyBarcode = text(matchedSku.companyBarcode || matchedSku.barcode || matchedSku.legacyBarcode || matchedSku.id || matchedSku.sku);
+    }
+    var previousBarcode = text(line.barcode);
+    line.barcode = canonicalInboundBarcode(line, matchedSku || skuById(line.skuId) || {}, product, line.legacyBarcode || line.barcode) || automaticVariantBarcode(line);
+    if (previousBarcode && line.barcode && key(previousBarcode) !== key(line.barcode)) rememberBarcodeAlias(line, previousBarcode);
     line.barcodeAuto = true;
     line.barcodeManualEdited = false;
     line.productImage = firstProductImage(product, matchedSku || {}, line);
@@ -1736,10 +2052,17 @@
       line.barcode = text(host.querySelector('[data-standalone-line-barcode]') && host.querySelector('[data-standalone-line-barcode]').value);
       line.barcodeAuto = !!(host.querySelector('[data-standalone-line-barcode]') && host.querySelector('[data-standalone-line-barcode]').dataset.barcodeAuto === '1');
       line.barcodeManualEdited = !!(host.querySelector('[data-standalone-line-barcode]') && host.querySelector('[data-standalone-line-barcode]').dataset.barcodeManual === '1');
-      line.color = sanitizeInboundColorValue(host.querySelector('[data-standalone-line-color]') && host.querySelector('[data-standalone-line-color]').value, line, skuById(line.skuId), productById(line.productId) || productByCode(line.productCode), line.barcode);
       var colorInput = host.querySelector('[data-standalone-line-color]');
+      var colorPreset = host.querySelector('[data-standalone-line-color-preset]');
+      var colorVisible = text(colorInput && colorInput.value);
+      if (!colorVisible && colorPreset && colorPreset.value && colorPreset.value !== '__custom__') colorVisible = text(colorPreset.value);
+      var cleanedColor = sanitizeInboundColorValue(colorVisible, line, skuById(line.skuId), productById(line.productId) || productByCode(line.productCode), line.barcode);
+      if (cleanedColor) line.color = cleanedColor;
+      else if (colorVisible && !receivedIsPlaceholderColor(colorVisible)) line.color = colorVisible;
+      else line.color = cleanedColor || '';
       if (colorInput && line.color && colorInput.value !== line.color) colorInput.value = line.color;
-      line.size = text(host.querySelector('[data-standalone-line-size]') && host.querySelector('[data-standalone-line-size]').value) || 'NO SIZE';
+      line.size = text(host.querySelector('[data-standalone-line-size]') && host.querySelector('[data-standalone-line-size]').value) || text(host.querySelector('[data-standalone-line-size-preset]') && host.querySelector('[data-standalone-line-size-preset]').value) || 'NO SIZE';
+      if (line.size === '__custom__') line.size = 'NO SIZE';
       line.qty = Math.max(1, Number(host.querySelector('[data-standalone-line-qty]') && host.querySelector('[data-standalone-line-qty]').value || 1));
       line.unitCostTwd = Math.max(0, Number(host.querySelector('[data-standalone-line-cost]') && host.querySelector('[data-standalone-line-cost]').value || 0));
     });
@@ -1758,13 +2081,13 @@
     line = line || {};
     var product = productById(line.productId) || productByCode(line.productCode);
     var wantedBarcode = key(line.barcode);
-    var wantedBarcodeKeys = wantedBarcode ? inboundBarcodeSearchKeys(line.barcode) : [];
     var wantedColor = key(line.color);
     var wantedSize = key(line.size || 'NO SIZE');
     var warehouseCode = selfUseWarehouseCode(warehouse || (document.querySelector('[data-purchase-receipt-warehouse]') && document.querySelector('[data-purchase-receipt-warehouse]').value) || '');
     var matches = (state.skus || []).filter(function (sku) {
       if (!sku || sku.temporaryFreightSku) return false;
       if (product && text(sku.productId) && text(sku.productId) !== text(product.id)) return false;
+      var wantedBarcodeKeys = wantedBarcode ? inboundBarcodeSearchKeys(line.barcode) : [];
       var barcodeOk = !wantedBarcode || skuExactBarcodeHit(sku, wantedBarcodeKeys);
       var colorOk = !wantedColor || key(sku.colorName || sku.color) === wantedColor;
       var sizeOk = !wantedSize || key(sku.sizeName || sku.size || 'NO SIZE') === wantedSize;
@@ -1789,7 +2112,8 @@
       line.productId = text(product.id);
       if (!line.productCode) line.productCode = text(product.code || product.productLine || product.id);
       if (!line.productName) line.productName = text(product.title || product.name || line.productCode);
-      if (!line.category) line.category = productCategory(product);
+      var liveCat = liveCategoryForLine(line, product);
+      if (liveCat) line.category = liveCat;
     }
     var sku = skuById(line.skuId);
     if (sku && sku.temporaryFreightSku) sku = null;
@@ -1797,7 +2121,8 @@
     if (sku) {
       line.skuId = text(sku.id || sku.sku);
       if (!line.productId) line.productId = text(sku.productId);
-      if (!line.barcode) line.barcode = canonicalInboundBarcode(line, sku, product, text(sku.companyBarcode || sku.barcode || line.barcode));
+      if (!line.legacyBarcode) line.legacyBarcode = text(sku.companyBarcode || sku.barcode || sku.legacyBarcode || sku.id || sku.sku);
+      line.barcode = canonicalInboundBarcode(line, sku, product, line.legacyBarcode || line.barcode) || line.barcode;
     }
     return line;
   }
@@ -1892,63 +2217,57 @@
     var skuColor = text((sku && (sku.colorCode || sku.colorNo)) || receiptColorCode((line && (line.color || line.colorName)) || (sku && (sku.colorName || sku.color)) || ''));
     var costNum = Math.max(0, Math.round(Number((line && (line.unitCostTwd || line.cost || line.barcodeCostTwd)) || (sku && (sku.currentCostTwd || sku.cost)) || 0)));
     var productCode = text((line && line.productCode) || (product && (product.code || product.productLine)) || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    var sizeHint = (line && (line.size || line.sizeName)) || (sku && (sku.sizeName || sku.size)) || '';
     var v3 = code.match(/^([A-Z0-9]+)C([A-Z0-9]+)S([A-Z0-9]+)P(\d+)$/);
-    if (v3) return { base: v3[1], colorCode: v3[2], sizeCode: padReceiptSizeCode(v3[3]), cost: v3[4] };
+    if (v3) return { base: v3[1], colorCode: v3[2], sizeCode: v3[3], cost: v3[4] };
     var v2 = code.match(/^([A-Z0-9]+)P(\d+)C([A-Z0-9]+)S([A-Z0-9]+)$/);
-    if (v2) return { base: v2[1], colorCode: v2[3], sizeCode: padReceiptSizeCode(v2[4]), cost: v2[2] };
+    if (v2) return { base: v2[1], colorCode: v2[3], sizeCode: v2[4], cost: v2[2] };
     var tailP = code.match(/^([A-Z]+)(\d+)P(\d+)$/);
-    if (!tailP) return null;
-    var letters = tailP[1];
-    var mid = tailP[2];
-    var afterP = tailP[3];
-    var isNewTail = afterP.length <= 4 && mid.length >= 5;
-    var isOldMid = afterP.length >= 5;
-    if (isNewTail) {
-      var peeled = peelSizeFromMidDigits(mid, skuColor);
-      var split = splitProductColorFromBody(letters, peeled.body, skuColor, productCode);
-      if (split.colorCode) {
-        return {
-          base: split.base || productCode || (letters + peeled.body),
-          colorCode: split.colorCode,
-          sizeCode: peeled.sizeCode || padReceiptSizeCode(sizeHint),
-          cost: afterP.replace(/^0+(?=\d)/, '')
-        };
+    if (tailP) {
+      var letters = tailP[1];
+      var midDigits = tailP[2];
+      var afterP = tailP[3];
+      /* Print form OLAN75904P315: color sits before P, cost after P. */
+      if (afterP.length <= 4 && midDigits.length >= 5) {
+        var colorLens = [4, 3, 2];
+        for (var ci = 0; ci < colorLens.length; ci += 1) {
+          var colorLen = colorLens[ci];
+          if (midDigits.length <= colorLen) continue;
+          var maybeColor = midDigits.slice(-colorLen);
+          if (skuColor === maybeColor || knownInboundColorCode(maybeColor)) {
+            return {
+              base: (productCode || (letters + midDigits.slice(0, -colorLen))).toUpperCase(),
+              colorCode: maybeColor,
+              sizeCode: '',
+              cost: afterP.replace(/^0+(?=\d)/, '')
+            };
+          }
+        }
       }
     }
-    if (isOldMid || !isNewTail) {
-      var base = letters + mid;
-      var digits = afterP;
-      var colorCode = '';
-      var cost = '';
-      if (productCode && base !== productCode && letters + mid === productCode) base = productCode;
-      if (skuColor && digits.length > skuColor.length && digits.slice(-skuColor.length) === skuColor) {
-        colorCode = skuColor;
-        cost = digits.slice(0, -skuColor.length);
-      } else if (costNum > 0 && digits.indexOf(String(costNum)) === 0 && digits.length > String(costNum).length) {
-        cost = String(costNum);
-        colorCode = digits.slice(String(costNum).length);
-      } else if (knownInboundColorCode(digits.slice(-3)) && digits.length > 3) {
-        colorCode = digits.slice(-3);
-        cost = digits.slice(0, -3);
-      } else if (knownInboundColorCode(digits.slice(-2)) && digits.length > 2) {
-        colorCode = digits.slice(-2);
-        cost = digits.slice(0, -2);
-      } else if (digits.length >= 5) {
-        colorCode = digits.slice(-3);
-        cost = digits.slice(0, -3);
-      } else {
-        if (isNewTail) return null;
-        return null;
-      }
-      if (!cost || !colorCode) return null;
-      return { base: productCode || (letters + mid), colorCode: colorCode, sizeCode: padReceiptSizeCode(sizeHint), cost: cost.replace(/^0+(?=\d)/, '') };
+    var mid = code.match(/^([A-Z]+\d*)P(\d+)$/);
+    if (!mid) return null;
+    var base = mid[1];
+    var digits = mid[2];
+    var colorCode = '';
+    var cost = '';
+    if (skuColor && digits.length > skuColor.length && digits.slice(-skuColor.length) === skuColor) {
+      colorCode = skuColor;
+      cost = digits.slice(0, -skuColor.length);
+    } else if (costNum > 0 && digits.indexOf(String(costNum)) === 0 && digits.length > String(costNum).length) {
+      cost = String(costNum);
+      colorCode = digits.slice(String(costNum).length);
+    } else if (digits.length >= 5) {
+      colorCode = digits.slice(-3);
+      cost = digits.slice(0, -3);
+    } else {
+      return null;
     }
-    return null;
+    if (!cost || !colorCode) return null;
+    return { base: productCode || base, colorCode: colorCode, sizeCode: '', cost: cost.replace(/^0+(?=\d)/, '') };
   }
 
   function receivedPrintBarcode(raw, line, sku, product) {
-    /* LZ_BARCODE_FMT_20260924: print 編號+顏色+尺碼+P(成本). NO SIZE=00. No C/S. Keep window.print path. */
+    /* LZ_BARCODE_FMT_20260924: print 編號+色碼+尺碼+P成本. NO SIZE=00. Keep window.print path. */
     return canonicalInboundBarcode(line, sku, product, raw) || String(raw || '').trim().toUpperCase();
   }
 
@@ -2624,14 +2943,9 @@
     var productName = text(value);
     if (selectedSku) {
       var product = productById(selectedSku.productId) || {};
-      category = category || productCategory(product);
+      category = productCategory(product) || category;
       productCode = productCode || text(product.code || product.productLine || product.id);
-      barcode = canonicalInboundBarcode({
-        productCode: productCode,
-        color: selectedSku.colorName || selectedSku.color,
-        size: selectedSku.sizeName || selectedSku.size,
-        unitCostTwd: selectedSku.currentCostTwd || selectedSku.cost
-      }, selectedSku, product, barcode || text(selectedSku.companyBarcode || selectedSku.barcode || selectedSku.legacyBarcode || selectedSku.mappingCode || selectedSku.id || selectedSku.sku));
+      barcode = barcode || text(selectedSku.companyBarcode || selectedSku.barcode || selectedSku.legacyBarcode || selectedSku.mappingCode || selectedSku.id || selectedSku.sku);
       productName = text(product.title || product.name || productCode);
       applyStandaloneSkuSelection(selectedSku, { keepSearch: true });
       addStandaloneSkuRecord(selectedSku, { productName: productName || productCode, category: category, productCode: productCode, sampleBarcode: barcode, taiwanBarcode: barcode });
@@ -2640,6 +2954,10 @@
     if (looksLikeBarcodeQuery(value)) {
       standaloneMessage('掃到的完整條碼沒有對到現有產品；不會要求先填分類。請改搜產品編號，或先輸入分類再建立新品。', 'error');
       renderStandaloneSkuSuggest(value);
+      return;
+    }
+    if (productCode || barcode) {
+      addStandaloneSkuRecord(selectedSku || {}, { productName: productName || productCode, category: category, productCode: productCode, sampleBarcode: barcode, taiwanBarcode: barcode });
       return;
     }
     if (!category) { standaloneMessage('請先輸入產品分類；分類會決定產品編號的第一個字首與流水號。', 'error'); document.querySelector('[data-purchase-receipt-category]')?.focus(); return; }
@@ -2677,6 +2995,16 @@
 
   function standaloneReceiptPayload(action) {
     syncStandaloneLinesFromDom();
+    state.standaloneLines.forEach(function (line) { completeStandaloneReceiptLine(line); });
+    document.querySelectorAll('[data-purchase-receipt-line]').forEach(function (host) {
+      var line = state.standaloneLines.find(function (row) { return row.key === host.getAttribute('data-purchase-receipt-line'); });
+      if (!line) return;
+      var cat = host.querySelector('[data-standalone-line-category]'); if (cat) cat.value = line.category || '';
+      var code = host.querySelector('[data-standalone-line-product-code]'); if (code) code.value = line.productCode || '';
+      var bar = host.querySelector('[data-standalone-line-barcode]'); if (bar) bar.value = line.barcode || '';
+      var color = host.querySelector('[data-standalone-line-color]'); if (color && line.color) color.value = line.color;
+      var size = host.querySelector('[data-standalone-line-size]'); if (size) size.value = line.size || 'NO SIZE';
+    });
     var documentNo = text(document.querySelector('[data-purchase-receipt-no]') && document.querySelector('[data-purchase-receipt-no]').value);
     var supplier = text(document.querySelector('[data-purchase-receipt-supplier]') && document.querySelector('[data-purchase-receipt-supplier]').value);
     var operatorName = text(document.querySelector('[data-purchase-receipt-operator]') && document.querySelector('[data-purchase-receipt-operator]').value);
@@ -2688,8 +3016,9 @@
     var item = entry && entry.item || {};
     var entryItems = freightItemsForEntry(entry);
     var lines = state.standaloneLines.map(function (line) {
-      var attached = attachExistingCatalogToLine(Object.assign({}, line));
-      return { skuId: attached.skuId, productId: attached.productId, productName: attached.productName, category: attached.category, productCode: attached.productCode, barcode: attached.barcode, color: sanitizeInboundColorValue(attached.color, attached) || attached.color, size: attached.size || 'NO SIZE', qty: Math.max(1, Number(attached.qty || 1)), unitCostTwd: Math.max(0, Number(attached.unitCostTwd || 0)), arrivalImage: attached.arrivalImage || '', colorImage: attached.arrivalImage || attached.productImage || '', proofRequired: /拚張|拚A|張張/i.test(platform) };
+      var attached = completeStandaloneReceiptLine(attachExistingCatalogToLine(Object.assign({}, line)));
+      var colorValue = sanitizeInboundColorValue(attached.color, attached) || attached.color;
+      return { skuId: attached.skuId, productId: attached.productId, productName: attached.productName, category: attached.category, productCode: attached.productCode, barcode: attached.barcode, companyBarcode: attached.barcode, legacyBarcode: attached.legacyBarcode || '', barcodeAliases: attached.barcodeAliases || [], color: colorValue, size: attached.size || 'NO SIZE', qty: Math.max(1, Number(attached.qty || 1)), unitCostTwd: Math.max(0, Number(attached.unitCostTwd || 0)), arrivalImage: attached.arrivalImage || '', colorImage: attached.arrivalImage || attached.productImage || '', proofRequired: /拚張|拚A|張張/i.test(platform) };
     });
     if (!documentNo || !supplier || !operatorName) return { error: '請補齊進貨單號、廠商與經手人。' };
     if (!lines.length) return { error: '請至少加入一個進貨項目。' };
@@ -3785,7 +4114,19 @@
   document.addEventListener('click', handleReceivedLineDeleteClick, true);
   document.addEventListener('click', handleReceivedPrintSelectedClick, true);
 
+  function receiptThumbHoverRelatedInside(thumb, related) {
+    if (!related || !thumb) return false;
+    if (thumb === related || (thumb.contains && thumb.contains(related))) return true;
+    if (related.closest && related.closest('[data-receipt-thumb-hover]')) return true;
+    return false;
+  }
+
   document.addEventListener('pointerover', function (event) {
+    var thumb = receiptThumbZoomTarget(event.target);
+    if (!thumb) return;
+    showReceiptThumbHover(thumb);
+  }, true);
+  document.addEventListener('mouseover', function (event) {
     var thumb = receiptThumbZoomTarget(event.target);
     if (!thumb) return;
     showReceiptThumbHover(thumb);
@@ -3794,19 +4135,28 @@
   document.addEventListener('pointerout', function (event) {
     var thumb = receiptThumbZoomTarget(event.target);
     if (!thumb) return;
-    var related = event.relatedTarget;
-    if (related && (thumb === related || (thumb.contains && thumb.contains(related)))) return;
-    hideReceiptThumbHover();
+    if (receiptThumbHoverRelatedInside(thumb, event.relatedTarget)) return;
+    scheduleReceiptThumbHoverHide();
+  }, true);
+  document.addEventListener('mouseout', function (event) {
+    var thumb = receiptThumbZoomTarget(event.target);
+    if (!thumb) return;
+    if (receiptThumbHoverRelatedInside(thumb, event.relatedTarget)) return;
+    scheduleReceiptThumbHoverHide();
   }, true);
 
   document.addEventListener('pointerdown', function (event) {
     var thumb = receiptThumbZoomTarget(event.target);
     if (!thumb) return;
+    /* stop row toggle; do not preventDefault so checkbox still works when the target is the box */
+    if (event.target.closest && event.target.closest('[data-purchase-receipt-sku-check]')) return;
     event.stopPropagation();
   }, true);
 
   document.addEventListener('scroll', hideReceiptThumbHover, true);
   window.addEventListener('blur', hideReceiptThumbHover);
+  window.addEventListener('resize', hideReceiptThumbHover);
+  ensureReceiptThumbHover();
 
   root.addEventListener('click', function (event) {
     var referencePick = event.target.closest('[data-purchase-receipt-reference-kind]');
@@ -3843,10 +4193,25 @@
       openReceiptThumbZoom(thumbZoom.getAttribute('data-receipt-thumb-zoom') || (thumbZoom.currentSrc || thumbZoom.src || ''), thumbZoom.getAttribute('data-receipt-thumb-caption') || thumbZoom.getAttribute('alt') || '');
       return;
     }
+    var warehouseChip = event.target.closest('[data-receipt-wh]');
+    if (warehouseChip && warehouseChip.closest('[data-purchase-receipt-sku-pick]')) {
+      event.preventDefault();
+      event.stopPropagation();
+      var warehouseCode = text(warehouseChip.getAttribute('data-receipt-wh')).toUpperCase();
+      var warehouseSelect = document.querySelector('[data-purchase-receipt-warehouse]');
+      if (warehouseSelect && (warehouseCode === 'CN' || warehouseCode === 'TW' || warehouseCode === 'ID')) {
+        warehouseSelect.value = warehouseCode;
+        var searchInput = document.querySelector('[data-purchase-receipt-sku-search]');
+        if (searchInput && text(searchInput.value)) renderStandaloneSkuSuggest(searchInput.value);
+        standaloneMessage('入庫倉已改為' + warehouseDisplayName(warehouseCode) + '。勾選加入會進此倉，數量預設 1 件。', 'ok');
+      }
+      return;
+    }
     var standaloneSkuPick = event.target.closest('[data-purchase-receipt-sku-pick]');
     if (standaloneSkuPick) {
       if (event.target.closest('[data-purchase-receipt-sku-check]')) return;
       if (event.target.closest('[data-receipt-thumb-zoom]')) return;
+      if (event.target.closest('[data-receipt-wh]')) return;
       event.preventDefault();
       var box = standaloneSkuPick.querySelector('[data-purchase-receipt-sku-check]');
       if (box) {
@@ -3989,6 +4354,10 @@
       return;
     }
     if (event.target.matches('[data-purchase-receipt-sku-check]')) syncStandaloneSuggestChecks();
+    if (event.target.matches('[data-purchase-receipt-warehouse]')) {
+      var liveSearch = document.querySelector('[data-purchase-receipt-sku-search]');
+      if (liveSearch && text(liveSearch.value)) renderStandaloneSkuSuggest(liveSearch.value);
+    }
   });
 
   var standaloneSkuInput = document.querySelector('[data-purchase-receipt-sku-search]');
@@ -4002,6 +4371,24 @@
       if (event.key !== 'Enter') return;
       event.preventDefault();
       addStandaloneSku(standaloneSkuInput.value);
+    });
+  }
+  var standaloneBarcodeInput = document.querySelector('[data-purchase-receipt-product-barcode]');
+  if (standaloneBarcodeInput) {
+    var searchFromBarcodeField = function (value) {
+      var query = text(value);
+      if (!looksLikeBarcodeQuery(query)) return false;
+      if (standaloneSkuInput && !text(standaloneSkuInput.value)) standaloneSkuInput.value = query;
+      clearStandaloneSelectedProduct({ keepSearch: true });
+      renderStandaloneSkuSuggest(query);
+      return true;
+    };
+    standaloneBarcodeInput.addEventListener('input', function () { searchFromBarcodeField(standaloneBarcodeInput.value); });
+    standaloneBarcodeInput.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      var query = text(standaloneBarcodeInput.value);
+      if (looksLikeBarcodeQuery(query)) addStandaloneSku(query);
     });
   }
   ['supplier', 'platform', 'category'].forEach(function (kind) {
