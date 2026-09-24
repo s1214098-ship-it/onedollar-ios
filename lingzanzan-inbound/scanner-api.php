@@ -332,7 +332,11 @@ function scanner_sku_lookup_codes(array $product,array $sku): array {
         $sku['labelBarcode']??'',$product['code']??'',$product['id']??'',$product['mappingCode']??'',
         scanner_generated_label_barcode($product,$sku),scanner_generated_v2_label_barcode($product,$sku)
     ];
-    foreach(($product['nameAliases']??[]) as $aliasName)$codes[]=$aliasName;
+    foreach(($product['nameAliases']??[]) as $aliasName){
+        $base=scanner_quick_product_code($aliasName);
+        $norm=scanner_norm($aliasName);
+        if($base!==''&&$norm!==''&&$base===$norm&&scanner_is_category_serial($base))$codes[]=$aliasName;
+    }
     foreach(scanner_generated_pend_label_barcodes($product,$sku) as $pend)$codes[]=$pend;
     foreach(($sku['linkedBarcodes']??[]) as $linkedBarcode)$codes[]=$linkedBarcode;
     foreach(($sku['barcodeAliases']??[]) as $aliasCode)$codes[]=is_array($aliasCode)?($aliasCode['code']??''):$aliasCode;
