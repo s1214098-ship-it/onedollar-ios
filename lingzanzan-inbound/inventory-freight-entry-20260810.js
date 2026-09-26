@@ -1321,6 +1321,39 @@
     return inboundColorJoined(zh, id) || text(host.querySelector('[data-standalone-line-color]') && host.querySelector('[data-standalone-line-color]').value);
   }
 
+  function receiptColorAssetKey(src) {
+    var raw = text(src);
+    if (!raw || /brand-logo|placeholder|no[-_]?image/i.test(raw) || /^data:image\//i.test(raw)) return '';
+    try { raw = decodeURIComponent(raw); } catch (error) {}
+    raw = String(raw).replace(/\\/g, '/');
+    var pathMatch = raw.match(/(?:[?&]path=)([^&]+)/i);
+    if (pathMatch) {
+      try { raw = decodeURIComponent(pathMatch[1]); } catch (error) { raw = pathMatch[1]; }
+    }
+    var file = raw.split('?')[0].split('#')[0].split('/').pop() || '';
+    return file.replace(/\.(webp|jpe?g|png|gif)$/i, '').toLowerCase();
+  }
+
+  function receiptSharesWhiteCatalogPhoto(sku, product) {
+    /* LZ_WHITE_MERGE_20260926: 粉紅與白色同一張圖時併成白色；白粉／白藍有自己的圖不併. */
+    product = product || {};
+    sku = sku || {};
+    var colors = Array.isArray(product.colors) ? product.colors : [];
+    var white = null;
+    var pink = null;
+    colors.forEach(function (row) {
+      var name = text(row && (row.name || row.color || row.colorName));
+      var code = text(row && (row.code || row.colorCode));
+      if (code === '92' || /^(白色|白)($|[（(])/.test(name.replace(/\s+/g, ''))) white = white || row;
+      if (code === '98' || (/粉紅/.test(name) && !/白粉/.test(name))) pink = pink || row;
+    });
+    var whiteKey = receiptColorAssetKey(white && white.image);
+    if (!whiteKey) return false;
+    var mine = receiptColorAssetKey(sku.colorImage || sku.image || sku.imageUrl || sku.lastArrivalImage)
+      || receiptColorAssetKey(pink && pink.image);
+    return !!(mine && mine === whiteKey);
+  }
+
   function receiptColorFamilyKey(sku, product, extraColor) {
     /* LZ_GB2_COLOR_20260924: 咖色／咖啡色／棕色同一色，不要因倉別或印尼別名再拆一列。 */
     sku = sku || {};
@@ -1337,7 +1370,10 @@
     if (code === '931' || /白黑/.test(zh || raw)) return 'c:931';
     if (code === '932' || /白紅/.test(zh || raw)) return 'c:932';
     if (/史努比|小熊維尼|老花/.test(zh || raw)) return 'c:' + (code || key(zh || raw));
-    if (code === '98' || (/粉紅|粉色|pink/.test(blob) && !/粉底|白粉/.test(blob))) return 'c:98';
+    if (code === '98' || (/粉紅|粉色|pink/.test(blob) && !/粉底|白粉/.test(blob))) {
+      if (receiptSharesWhiteCatalogPhoto(sku, product)) return 'c:92'; /* LZ_WHITE_MERGE_20260926 */
+      return 'c:98';
+    }
     if (code === '910' || /深藍|藏青|biru tua/.test(blob)) return 'c:910';
     if (code === '904' || /卡其|khaki|dril/.test(blob)) return 'c:904';
     if (code === '902' || code === '912' || /棕|咖啡|咖色|cokelat|coklat/.test(blob)) return 'c:brown';
@@ -1448,7 +1484,10 @@
     return (skus || []).slice().sort(function (a, b) {
       var aw = receiptWarehouseCode(a);
       var bw = receiptWarehouseCode(b);
+      var aWhite = /^(92|白色)/.test(text(a.colorCode || a.colorNo || a.colorName || a.color));
+      var bWhite = /^(92|白色)/.test(text(b.colorCode || b.colorNo || b.colorName || b.color));
       return Number(bw === wanted) - Number(aw === wanted)
+        || Number(bWhite) - Number(aWhite)
         || Number(Number(b.stock || 0) > 0) - Number(Number(a.stock || 0) > 0)
         || Number(!!a.temporaryFreightSku) - Number(!!b.temporaryFreightSku)
         || Number(aw === 'PREORDER') - Number(bw === 'PREORDER')
