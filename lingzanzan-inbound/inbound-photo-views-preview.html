@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>進貨照片：貼上／前後左右／旋轉</title>
+  <style>
+    body{margin:0;background:#141218;color:#fff8ed;font-family:sans-serif;}
+    .wrap{max-width:420px;margin:24px auto;padding:16px;}
+    .purchase-receipt-line-photo{display:grid;gap:8px;padding:12px;border:1px solid #3f524e;border-radius:12px;background:#19171c;}
+    .purchase-receipt-photo-head{display:flex;justify-content:space-between;gap:8px;}
+    .purchase-receipt-photo-head small{color:#c9bec6;}
+    .purchase-receipt-photo-views{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+    .purchase-receipt-photo-view{min-height:34px;border-radius:8px;border:1px solid #3f524e;background:#111014;color:#fff8ed;font-weight:800;}
+    .purchase-receipt-photo-view.has-photo{border-color:#35c2ae;color:#9debd5;}
+    .purchase-receipt-photo-view.is-active{background:#f4cf76;color:#181118;border-color:#e8b75b;}
+    .purchase-receipt-photo-stage{min-height:92px;display:flex;align-items:center;gap:8px;padding:8px;border:1px dashed rgba(104,220,195,.45);border-radius:10px;background:#101716;}
+    .purchase-receipt-photo-stage img{width:72px;height:72px;border-radius:8px;object-fit:cover;}
+    .is-photo-hot .purchase-receipt-photo-stage{outline:2px dashed #f4cf76;}
+    .purchase-receipt-photo-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+    .purchase-receipt-photo-actions button,.ghost-button{min-height:34px;background:#111014;color:#fff8ed;border:1px solid #3f524e;border-radius:8px;}
+    .msg{margin-top:12px;color:#9debd5;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>到貨照片預覽</h1>
+    <p>選前／後／左／右，再貼上、拍照、選檔或左轉右轉。</p>
+    <div class="purchase-receipt-line-photo" data-standalone-line-photo-box tabindex="0"></div>
+    <p class="msg" data-msg></p>
+  </div>
+  <script>
+    var KEYS=['front','back','left','right'];
+    var labels={front:'前',back:'後',left:'左',right:'右'};
+    var state={active:'front', views:{front:'',back:'',left:'',right:''}};
+    function label(k){return labels[k]||'前';}
+    function msg(t){document.querySelector('[data-msg]').textContent=t;}
+    function render(){
+      var box=document.querySelector('[data-standalone-line-photo-box]');
+      var current=state.views[state.active]||'';
+      var tabs=KEYS.map(function(k){
+        return '<button type="button" class="purchase-receipt-photo-view'+(k===state.active?' is-active':'')+(state.views[k]?' has-photo':'')+'" data-view="'+k+'">'+label(k)+(state.views[k]?'✓':'')+'</button>';
+      }).join('');
+      box.innerHTML =
+        '<div class="purchase-receipt-photo-head"><b>到貨照片</b><small>複製貼上；可選前／後／左／右再轉</small></div>'+
+        '<div class="purchase-receipt-photo-views">'+tabs+'</div>'+
+        '<div class="purchase-receipt-photo-stage">'+(current?'<img src="'+current+'" alt=""><b>'+label(state.active)+'面已就緒</b>':'<b>選「'+label(state.active)+'」後可貼上、拍照或選檔</b>')+'</div>'+
+        '<div class="purchase-receipt-photo-actions">'+
+        '<button type="button" data-camera>拍照</button><button type="button" data-pick>選擇檔案</button><button type="button" data-paste>貼上圖片</button>'+
+        '<button type="button" data-rot="-90">左轉</button><button type="button" data-rot="90">右轉</button><button type="button" data-clear>清除</button></div>'+
+        '<input type="file" accept="image/*" capture="environment" hidden data-cam><input type="file" accept="image/*" hidden data-file>';
+    }
+    function readFile(file){
+      return new Promise(function(resolve){
+        var r=new FileReader();
+        r.onload=function(){
+          var img=new Image();
+          img.onload=function(){
+            var c=document.createElement('canvas');
+            var s=Math.min(1, 480/Math.max(img.width,img.height));
+            c.width=Math.max(1,Math.round(img.width*s));
+            c.height=Math.max(1,Math.round(img.height*s));
+            c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+            resolve(c.toDataURL('image/jpeg',.7));
+          };
+          img.src=r.result;
+        };
+        r.readAsDataURL(file);
+      });
+    }
+    function rotate(src, deg){
+      return new Promise(function(resolve){
+        var img=new Image();
+        img.onload=function(){
+          var c=document.createElement('canvas');
+          c.width=img.height; c.height=img.width;
+          var ctx=c.getContext('2d');
+          ctx.translate(c.width/2,c.height/2);
+          ctx.rotate((deg>=0?90:-90)*Math.PI/180);
+          ctx.drawImage(img,-img.width/2,-img.height/2);
+          resolve(c.toDataURL('image/jpeg',.7));
+        };
+        img.src=src;
+      });
+    }
+    document.body.addEventListener('click', function(e){
+      var box=document.querySelector('[data-standalone-line-photo-box]');
+      var view=e.target.closest('[data-view]');
+      if(view){state.active=view.getAttribute('data-view'); render(); return;}
+      if(e.target.closest('[data-camera]')){box.querySelector('[data-cam]').click(); return;}
+      if(e.target.closest('[data-pick]')){box.querySelector('[data-file]').click(); return;}
+      if(e.target.closest('[data-paste]')){
+        box.classList.add('is-photo-hot'); box.focus();
+        msg('請按 Ctrl+V 貼上「'+label(state.active)+'」面');
+        return;
+      }
+      if(e.target.closest('[data-rot]')){
+        var cur=state.views[state.active];
+        if(!cur){msg('請先貼上或拍照再旋轉'); return;}
+        rotate(cur, Number(e.target.closest('[data-rot]').getAttribute('data-rot'))).then(function(url){state.views[state.active]=url; render(); msg('已旋轉'+label(state.active)+'面');});
+        return;
+      }
+      if(e.target.closest('[data-clear]')){state.views[state.active]=''; render(); return;}
+    });
+    document.body.addEventListener('change', function(e){
+      if(!e.target.files||!e.target.files[0]) return;
+      readFile(e.target.files[0]).then(function(url){state.views[state.active]=url; render(); msg('已套用'+label(state.active)+'面');});
+      e.target.value='';
+    });
+    document.addEventListener('paste', function(e){
+      var files=[].slice.call((e.clipboardData&&e.clipboardData.files)||[]).filter(function(f){return String(f.type).indexOf('image/')===0;});
+      if(!files.length) return;
+      e.preventDefault();
+      readFile(files[0]).then(function(url){state.views[state.active]=url; render(); msg('已貼上'+label(state.active)+'面'); document.querySelector('[data-standalone-line-photo-box]').classList.remove('is-photo-hot');});
+    }, true);
+    render();
+  </script>
+</body>
+</html>

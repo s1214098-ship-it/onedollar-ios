@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>快速入庫模式預覽</title>
+  <link rel="stylesheet" href="./inventory-freight-entry.css">
+  <style>
+    body{margin:0;background:#111014;color:#fffaf4;font-family:"Noto Sans TC",sans-serif}
+    .ghost-button,.primary-button,.danger-button{appearance:none;border:1px solid #5a534c;background:#211d24;color:#fff8ed;padding:8px 12px;border-radius:10px;font-weight:800}
+    .primary-button{background:#276b58;border-color:#35c2ae}
+    .danger-button{background:#7a1824;border-color:#a33a46}
+    .panel{padding:18px}
+    input,select{background:#19161b;color:#fffaf4;border:1px solid #3e3a43;border-radius:8px;padding:8px}
+  </style>
+</head>
+<body>
+<section class="panel is-quick-inbound" id="inventory-entry" data-inventory-entry-page data-inventory-freight-entry>
+  <div class="panel-head" style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+    <h2>廠商進貨單 · 快速入庫預覽</h2>
+    <button type="button" class="primary-button is-active" data-quick-inbound-toggle aria-pressed="true">快速入庫模式<span>Mode cepat</span></button>
+  </div>
+  <section class="inventory-freight-overview"><h3>正式進貨單／可選擇物流來源</h3><strong>應被快速模式藏起</strong></section>
+  <section class="purchase-receipt-builder is-quick-inbound" data-purchase-receipt-builder>
+    <div class="purchase-receipt-head-grid">
+      <label>進貨單號<input value="PREC-20260926-DEMO"></label>
+      <label>進貨日期<input type="date" value="2026-09-26"></label>
+      <label>廠商<select><option>示範廠商</option></select></label>
+      <label>入庫倉<select><option>台灣倉</option></select></label>
+      <label>來源採購單／No. pesanan<input data-purchase-receipt-source-order value="應藏起"></label>
+      <label>經手人／Petugas<input data-purchase-receipt-operator value="應藏起"></label>
+      <label class="purchase-receipt-note-field">進貨備註<input value="應藏起"></label>
+    </div>
+    <section class="purchase-receipt-item-entry">
+      <div class="purchase-receipt-item-entry-head">
+        <div class="purchase-receipt-item-entry-title">
+          <b>進貨項目／Item penerimaan</b>
+          <button type="button" class="primary-button is-active" data-quick-inbound-toggle aria-pressed="true">快速入庫模式</button>
+        </div>
+        <span data-quick-inbound-hint>快速入庫開啟中。掃條碼或搜名稱後加入；列上分類、中文顏色與印尼文翻譯都還在。</span>
+      </div>
+      <div class="purchase-receipt-item-entry-fields">
+        <label>產品關鍵字／Produk<input value="Eo7"></label>
+        <div class="purchase-receipt-keyword-field purchase-receipt-category-field">
+          <label>產品分類／Kategori<select><option>長褲</option></select></label>
+        </div>
+        <label>產品編號／Kode produk<input data-purchase-receipt-product-code value="C164"></label>
+        <label>產品條碼／Barcode<input data-purchase-receipt-product-barcode value="SE281"></label>
+      </div>
+      <div class="purchase-receipt-item-entry-actions">
+        <p class="purchase-receipt-code-status">可繼續掃描下一個產品</p>
+        <div class="purchase-receipt-item-entry-buttons">
+          <button type="button" class="primary-button is-active" data-quick-inbound-toggle aria-pressed="true">快速入庫模式</button>
+          <button type="button" class="ghost-button" data-purchase-receipt-generate-code>產生下一號</button>
+          <button type="button" class="primary-button">加入進貨項目</button>
+        </div>
+      </div>
+    </section>
+    <div class="purchase-receipt-lines">
+      <article class="purchase-receipt-line">
+        <div class="purchase-receipt-line-media"><span class="purchase-receipt-line-index">1</span><div class="purchase-receipt-line-thumb">圖</div></div>
+        <div class="purchase-receipt-line-fields">
+          <label class="purchase-receipt-line-name">產品名稱<input value="C164"><small>公司條碼 SE2819603P400</small></label>
+          <label class="purchase-receipt-line-category">產品分類<select><option>長褲</option></select></label>
+          <label class="purchase-receipt-line-code">產品編號<input value="C164"></label>
+          <label class="purchase-receipt-line-barcode">公司條碼<input value="SE2819603P400"><small>自動</small></label>
+          <label class="purchase-receipt-line-qty">實收數量<input value="1"></label>
+          <label class="purchase-receipt-line-cost">單件成本<input value="400"></label>
+          <div class="purchase-receipt-line-color">
+            <span class="purchase-receipt-color-legend">顏色（中文一欄、印尼文一欄）</span>
+            <div class="purchase-receipt-color-picker purchase-receipt-color-split">
+              <span class="purchase-receipt-color-zh-field"><b>中文顏色</b><input value="藍色"></span>
+              <span class="purchase-receipt-color-id-field"><b>印尼文顏色</b><input value="BIRU"></span>
+            </div>
+          </div>
+          <label class="purchase-receipt-line-size">尺寸<div class="purchase-receipt-size-picker"><select><option>M</option></select><input value="M"></div></label>
+          <div class="purchase-receipt-line-actions">
+            <button type="button" class="ghost-button" data-purchase-receipt-focus-search>回搜尋列</button>
+            <button type="button" class="ghost-button">＋同款加色尺</button>
+            <button type="button" class="danger-button">移除</button>
+          </div>
+        </div>
+        <div class="purchase-receipt-line-photo" data-standalone-line-photo-box>
+          <div class="purchase-receipt-photo-head"><b>到貨照片</b><small>複製貼上</small></div>
+          <div class="purchase-receipt-photo-views">
+            <button type="button" class="purchase-receipt-photo-view is-active">前</button>
+            <button type="button" class="purchase-receipt-photo-view">後</button>
+            <button type="button" class="purchase-receipt-photo-view">左</button>
+            <button type="button" class="purchase-receipt-photo-view">右</button>
+          </div>
+          <div class="purchase-receipt-photo-stage"><b>選「前」後可貼上、拍照或選檔</b></div>
+          <div class="purchase-receipt-photo-actions">
+            <button type="button" class="ghost-button">拍照</button>
+            <button type="button" class="ghost-button">選擇檔案</button>
+            <button type="button" class="ghost-button">貼上圖片</button>
+            <button type="button" class="ghost-button">左轉</button>
+            <button type="button" class="ghost-button">右轉</button>
+            <button type="button" class="ghost-button">清除</button>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+</section>
+<script>
+  document.querySelectorAll('[data-quick-inbound-toggle]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var page = document.querySelector('[data-inventory-entry-page]');
+      var on = !page.classList.contains('is-quick-inbound');
+      page.classList.toggle('is-quick-inbound', on);
+      document.querySelector('[data-purchase-receipt-builder]').classList.toggle('is-quick-inbound', on);
+      document.querySelectorAll('[data-quick-inbound-toggle]').forEach(function (b) {
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    });
+  });
+</script>
+</body>
+</html>
