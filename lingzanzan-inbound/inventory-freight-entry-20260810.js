@@ -292,13 +292,13 @@
     });
   }
 
-  /* LZ_PHOTO_VIEWS_20260926: 進貨到貨照可複製貼上，並選前／後／左／右後旋轉。 */
+  /* LZ_PHOTO_VIEWS_20260926 / LZ_COLOR_AS_MAIN_20260926: 進貨到貨照可複製貼上；前＝顏色圖第一張＝主圖。 */
   var PHOTO_VIEW_KEYS = ['front', 'back', 'left', 'right'];
   function photoViewLabel(view) {
     return { front: '前', back: '後', left: '左', right: '右' }[view] || '前';
   }
   function photoViewRole(view) {
-    return view === 'front' ? '顏色圖' : '替代圖';
+    return view === 'front' ? '顏色圖第一張／主圖' : '替代圖';
   }
   function normalizeArrivalViews(line) {
     var src = line && line.arrivalViews && typeof line.arrivalViews === 'object' ? line.arrivalViews : {};
@@ -411,7 +411,7 @@
       : '<b>選「' + photoViewLabel(active) + '」後可貼上；這張會當' + photoViewRole(active) + '</b>';
     return [
       '<div class="purchase-receipt-line-photo" data-standalone-line-photo-box tabindex="0">',
-      '<div class="purchase-receipt-photo-head"><b>到貨照片</b><small>前＝顏色圖／主圖；後左右＝替代更換圖</small></div>',
+      '<div class="purchase-receipt-photo-head"><b>到貨照片</b><small>前＝顏色圖第一張＝主圖，不再另留舊主圖；後左右＝替代更換圖</small></div>',
       '<div class="purchase-receipt-photo-views" role="tablist">' + tabs + '</div>',
       '<div class="purchase-receipt-photo-stage" data-standalone-line-photo-preview>' + preview + '</div>',
       '<div class="purchase-receipt-photo-actions">',
@@ -511,7 +511,10 @@
       if (Array.isArray(item.images)) fallbacks = fallbacks.concat(item.images);
     });
     if (Array.isArray(sku.images)) fallbacks = fallbacks.concat(sku.images);
-    if (wantedColor) fallbacks = fallbacks.concat([product.mainImage, product.coverImage, product.image]);
+    var uniqueColorImages = matched.filter(Boolean).filter(function (img, idx, arr) { return arr.indexOf(img) === idx; });
+    if (!(uniqueColorImages.length === 1 && wantedColor)) {
+      if (wantedColor) fallbacks = fallbacks.concat([product.mainImage, product.coverImage, product.image]);
+    }
     if (Array.isArray(product.images)) fallbacks = fallbacks.concat(product.images);
     var candidates = matched.concat(fallbacks);
     for (var i = 0; i < candidates.length; i += 1) {
@@ -2701,6 +2704,7 @@
       productImage: firstProductImage(product, sku, source),
       sourceTrackingNo: text(source.trackingNo || source.haohongTrackingNo)
     };
+    if (line.productImage) line.arrivalViews.front = line.productImage;
     line.barcode = canonicalInboundBarcode(line, sku, product, line.legacyBarcode);
     return line;
   }
@@ -2751,6 +2755,11 @@
       var barcodeHint = line.barcodeManualEdited ? '手動條碼不會被覆蓋' : '編號+色碼+尺碼+P成本；改成本或加新列會重算';
       var liveImage = firstProductImage(product, sku, line);
       var frontPhoto = primaryArrivalImage(line);
+      if (!frontPhoto && liveImage) {
+        if (!line.arrivalViews || typeof line.arrivalViews !== 'object') line.arrivalViews = { front: '', back: '', left: '', right: '' };
+        line.arrivalViews.front = liveImage;
+        frontPhoto = liveImage;
+      }
       if (frontPhoto) line.productImage = frontPhoto;
       else if (liveImage && !line.arrivalImage) line.productImage = liveImage;
       var previewImage = frontPhoto || liveImage || line.productImage || '';
@@ -4256,7 +4265,8 @@
       var views = normalizeArrivalViews(attached);
       attached.arrivalViews = views;
       attached.arrivalImage = primaryArrivalImage(attached);
-      return { skuId: attached.skuId, productId: attached.productId, productName: attached.productName, category: attached.category, productCode: attached.productCode, barcode: attached.barcode, companyBarcode: attached.barcode, legacyBarcode: attached.legacyBarcode || '', barcodeAliases: attached.barcodeAliases || [], color: colorValue, size: attached.size || 'NO SIZE', qty: Math.max(1, Number(attached.qty || 1)), unitCostTwd: Math.max(0, Number(attached.unitCostTwd || 0)), arrivalImage: attached.arrivalImage || '', colorImage: views.front || attached.arrivalImage || '', arrivalViews: views, replacementAlts: replacementAltImages(attached), images: PHOTO_VIEW_KEYS.map(function (key) { return views[key]; }).filter(Boolean), proofRequired: /拚張|拚A|張張/i.test(platform) };
+      var frontImage = views.front || attached.arrivalImage || '';
+      return { skuId: attached.skuId, productId: attached.productId, productName: attached.productName, category: attached.category, productCode: attached.productCode, barcode: attached.barcode, companyBarcode: attached.barcode, legacyBarcode: attached.legacyBarcode || '', barcodeAliases: attached.barcodeAliases || [], color: colorValue, size: attached.size || 'NO SIZE', qty: Math.max(1, Number(attached.qty || 1)), unitCostTwd: Math.max(0, Number(attached.unitCostTwd || 0)), arrivalImage: attached.arrivalImage || '', colorImage: frontImage, mainImage: frontImage, useFirstColorAsMain: true, arrivalViews: views, replacementAlts: replacementAltImages(attached), images: PHOTO_VIEW_KEYS.map(function (key) { return views[key]; }).filter(Boolean), proofRequired: /拚張|拚A|張張/i.test(platform) };
     });
     if (!documentNo || !supplier || !operatorName) return { error: '請補齊進貨單號、廠商與經手人。' };
     if (!lines.length) return { error: '請至少加入一個進貨項目。' };
