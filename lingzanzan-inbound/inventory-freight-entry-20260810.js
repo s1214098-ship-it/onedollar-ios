@@ -464,32 +464,58 @@
   }
 
   function receiptColorLabelMatch(a, b) {
+    /* LZ_COLOR_PHOTO_20260926: 白粉≠白≠粉紅, 白藍≠白≠藍. No prefix collapse. */
     var za = receiptChineseColor(a);
     var zb = receiptChineseColor(b);
     var ka = key(a);
     var kb = key(b);
     var kza = key(za);
     var kzb = key(zb);
+    var stemA = inboundCompoundWhiteStem(a) || inboundCompoundWhiteStem(za);
+    var stemB = inboundCompoundWhiteStem(b) || inboundCompoundWhiteStem(zb);
+    if (stemA || stemB) return !!(stemA && stemB && stemA === stemB);
     if (ka && kb && ka === kb) return true;
     if (kza && kzb && kza === kzb) return true;
-    if (kza && kb && kza.length >= 2 && (kb.indexOf(kza) === 0 || kza.indexOf(kb) === 0)) return true;
-    if (kzb && ka && kzb.length >= 2 && (ka.indexOf(kzb) === 0 || kzb.indexOf(ka) === 0)) return true;
+    var sa = inboundColorStem(a);
+    var sb = inboundColorStem(b);
+    if (sa && sb && sa === sb) return true;
     return false;
+  }
+
+  function receiptLineOwnImage(source) {
+    source = source || {};
+    var views = source.arrivalViews && typeof source.arrivalViews === 'object' ? source.arrivalViews : {};
+    return text(views.front)
+      || text(source.colorImage)
+      || text(source.arrivalImage)
+      || text(source.useFirstColorAsMain ? source.mainImage : '')
+      || '';
   }
 
   function firstProductImage(product, sku, source) {
     /* LZ_K325_COLOR_IMG_20260924: 先對顏色圖，不要拿主圖／紅色蓋掉黑色、白色。 */
+    /* LZ_COLOR_PHOTO_20260926: 進貨單上剛放的顏色圖優先；列印不要回落到舊主圖。 */
     product = product || {};
     sku = sku || {};
     source = source || {};
+    var fromLine = receiptLineOwnImage(source);
+    if (fromLine) return fromLine;
     var wantedColor = text(source.colorName || source.color || sku.colorName || sku.color);
     var productColors = Array.isArray(product.colors) ? product.colors : [];
     var matched = [];
     var otherColorImages = [];
+    var wantedFamily = '';
+    try { wantedFamily = receiptColorFamilyKey({ colorName: wantedColor, colorCode: sku.colorCode || source.colorCode }, product, wantedColor); } catch (error) { wantedFamily = ''; }
     productColors.forEach(function (color) {
       var labels = [color && color.colorName, color && color.name, color && color.color, color && color.code];
       var hit = !wantedColor || labels.some(function (label) { return label && receiptColorLabelMatch(wantedColor, label); });
       if (!hit && wantedColor && sku.colorCode && text(color && (color.code || color.colorCode)) === text(sku.colorCode)) hit = true;
+      if (!hit && wantedFamily) {
+        try {
+          var rowFamily = receiptColorFamilyKey({ colorName: color && (color.name || color.colorName || color.color), colorCode: color && (color.code || color.colorCode) }, product);
+          if (rowFamily && rowFamily === wantedFamily) hit = true;
+        } catch (error) {}
+      }
       var img = color && (color.image || color.colorImage || color.imageUrl || color.photo);
       if (hit) matched.push(img);
       else if (img) otherColorImages.push(receiptImageAssetKey(img));
@@ -512,8 +538,8 @@
     });
     if (Array.isArray(sku.images)) fallbacks = fallbacks.concat(sku.images);
     var uniqueColorImages = matched.filter(Boolean).filter(function (img, idx, arr) { return arr.indexOf(img) === idx; });
-    if (!(uniqueColorImages.length === 1 && wantedColor)) {
-      if (wantedColor) fallbacks = fallbacks.concat([product.mainImage, product.coverImage, product.image]);
+    if (!(uniqueColorImages.length === 1 && wantedColor) && wantedColor && !inboundCompoundWhiteStem(wantedColor)) {
+      fallbacks = fallbacks.concat([product.mainImage, product.coverImage, product.image]);
     }
     if (Array.isArray(product.images)) fallbacks = fallbacks.concat(product.images);
     var candidates = matched.concat(fallbacks);
@@ -4073,6 +4099,39 @@
       : 'PRINT BARCODES／CETAK BARCODE';
   }
 
+  function applyReceiptPhotosToCatalog(lines) {
+    /* LZ_COLOR_PHOTO_20260926: after inbound, same-session print/search use the new colour photo. */
+    (Array.isArray(lines) ? lines : []).forEach(function (line) {
+      var photo = receiptLineOwnImage(line);
+      if (!photo) return;
+      var sku = skuById(line && (line.skuId || line.sku));
+      if (sku) {
+        sku.colorImage = photo;
+        sku.lastArrivalImage = photo;
+        if (line.color || line.colorName) {
+          sku.colorName = text(line.color || line.colorName);
+          sku.color = sku.colorName;
+        }
+      }
+      var product = productById(line && line.productId) || productByCode(line && line.productCode);
+      if (!product) return;
+      var wanted = text(line.color || line.colorName);
+      if (!wanted) return;
+      if (!Array.isArray(product.colors)) product.colors = [];
+      var hit = false;
+      product.colors.forEach(function (row) {
+        if (!row) return;
+        if (receiptColorLabelMatch(wanted, row.name || row.colorName || row.color) || (sku && sku.colorCode && text(row.code || row.colorCode) === text(sku.colorCode))) {
+          row.image = photo;
+          hit = true;
+        }
+      });
+      if (!hit) {
+        product.colors.push({ code: receiptColorCode(wanted) || text(sku && sku.colorCode), name: wanted, image: photo });
+      }
+    });
+  }
+
   function enterReceivedPrintPage(summary, printLines) {
     /* LZ_RECV_PRINT_20260924_3: inbound already succeeded; stay on a print page, not an empty receiving form. */
     summary = summary || {};
@@ -4081,6 +4140,7 @@
     state.standaloneLines = [];
     state.standaloneImages = {};
     state.lastReceivedPrintLines = (Array.isArray(printLines) ? printLines : []).slice();
+    applyReceiptPhotosToCatalog(state.lastReceivedPrintLines);
     renderStandaloneLines();
     setReceivedPrintPage(true, summary);
     var pickerOpened = renderReceivedPrintPicker(state.lastReceivedPrintLines);
@@ -4125,9 +4185,12 @@
     }
     list.innerHTML = rows.map(function (line, index) {
       /* LZ_HIST_THUMB_POS_20260924: per-SKU thumb on print picker, not on history document cards. */
+      /* LZ_COLOR_PHOTO_20260926: thumb from this colour photo; barcode from 928/929 concat not pink alias. */
       var qty = Math.max(1, Math.min(99, Math.floor(Number(line.qty || line.quantity || 1))));
-      var barcode = receivedLineBarcode(line);
-      var storedBarcode = text(line.barcode || line.companyBarcode || barcode);
+      var sku = skuById(line.skuId || line.sku) || {};
+      var product = productById(line.productId || sku.productId) || productByCode(line.productCode) || {};
+      var storedBarcode = text(line.barcode || line.companyBarcode || receivedLineBarcode(line, sku));
+      var barcode = receivedPrintBarcode(storedBarcode, line, sku, product) || receivedLineBarcode(line, sku);
       var colorLabel = receivedLineDisplayColor(line);
       var caption = [line.productCode || '', line.productName || '', colorLabel || '', line.size || line.sizeName || ''].filter(Boolean).join('／');
       var sourceIndex = (Array.isArray(lines) ? lines : []).indexOf(line);
@@ -4584,7 +4647,7 @@
       attached.arrivalViews = views;
       attached.arrivalImage = primaryArrivalImage(attached);
       var frontImage = views.front || attached.arrivalImage || '';
-      return { skuId: attached.skuId, productId: attached.productId, productName: attached.productName, category: attached.category, productCode: attached.productCode, barcode: attached.barcode, companyBarcode: attached.barcode, legacyBarcode: attached.legacyBarcode || '', barcodeAliases: attached.barcodeAliases || [], color: colorValue, size: attached.size || 'NO SIZE', qty: Math.max(1, Number(attached.qty || 1)), unitCostTwd: Math.max(0, Number(attached.unitCostTwd || 0)), arrivalImage: attached.arrivalImage || '', colorImage: frontImage, mainImage: frontImage, useFirstColorAsMain: true, arrivalViews: views, replacementAlts: replacementAltImages(attached), images: PHOTO_VIEW_KEYS.map(function (key) { return views[key]; }).filter(Boolean), proofRequired: /拚張|拚A|張張/i.test(platform) };
+      return { skuId: attached.skuId, productId: attached.productId, productName: attached.productName, category: attached.category, productCode: attached.productCode, barcode: attached.barcode, companyBarcode: attached.barcode, legacyBarcode: attached.legacyBarcode || '', barcodeAliases: attached.barcodeAliases || [], color: colorValue, size: attached.size || 'NO SIZE', qty: Math.max(1, Number(attached.qty || 1)), unitCostTwd: Math.max(0, Number(attached.unitCostTwd || 0)), arrivalImage: attached.arrivalImage || '', colorImage: frontImage, mainImage: frontImage, productImage: frontImage, useFirstColorAsMain: true, arrivalViews: views, replacementAlts: replacementAltImages(attached), images: PHOTO_VIEW_KEYS.map(function (key) { return views[key]; }).filter(Boolean), proofRequired: /拚張|拚A|張張/i.test(platform) };
     });
     if (!documentNo || !supplier || !operatorName) return { error: '請補齊進貨單號、廠商與經手人。' };
     if (!lines.length) return { error: '請至少加入一個進貨項目。' };
@@ -4715,12 +4778,13 @@
   }
 
   function stockDocLineThumb(line) {
+    /* LZ_COLOR_PHOTO_20260926: print/history thumbs use this colour photo, not the product mainImage. */
     line = line || {};
-    var direct = stockDocSafeThumb(line.productImage || line.image || line.imageUrl || line.photo);
+    var direct = stockDocSafeThumb(receiptLineOwnImage(line) || line.productImage || line.image || line.imageUrl || line.photo);
     if (direct) return direct;
     var product = productById(line.productId) || productByCode(line.productCode || line.catalogProductCode || line.code || line.productName) || {};
     var sku = skuById(line.skuId || line.sku) || {};
-    return stockDocSafeThumb(firstProductImage(product, sku, line));
+    return stockDocSafeThumb(firstProductImage(product, sku, line) || sku.colorImage);
   }
 
   function stockDocThumbsHtml(urls, fallbackLabel) {
@@ -5162,7 +5226,7 @@
         productName: line.productName || product.title || product.name || line.productCode || '',
         category: line.category || productCategory(product),
         productCode: line.productCode || productCodeForSku(sku),
-        productImage: firstProductImage(product, sku, line)
+        productImage: receiptLineOwnImage(line) || firstProductImage(product, sku, line)
       }, line);
     });
     renderStandaloneLines();

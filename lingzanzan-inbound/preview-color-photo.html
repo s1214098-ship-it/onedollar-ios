@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>OLAN70 新顏色圖列印測試</title>
+  <style>
+    body { font-family: sans-serif; background: #1a1410; color: #f3e6d4; padding: 24px; }
+    .row { display: flex; gap: 16px; align-items: center; border: 1px solid #5a4630; border-radius: 10px; padding: 10px 14px; margin: 10px 0; background: #2a2118; }
+    .row img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; background: #111; }
+    .pass { color: #7dffa0; }
+    .fail { color: #ff8a8a; }
+    code { color: #ffd28a; }
+  </style>
+</head>
+<body>
+  <h1>列印條碼應顯示新顏色圖</h1>
+  <p>白粉／白藍進貨後，列印列要用進貨單上的顏色圖，不能回落到舊主圖；白粉條碼要用 928 不是粉紅 98。</p>
+  <div id="rows"></div>
+  <pre id="log"></pre>
+  <script>
+    function text(v) { return String(v == null ? '' : v).trim(); }
+    function key(v) { return text(v).toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, ''); }
+    function receiptChineseColor(value) {
+      return text(value).replace(/[（(][^）)]*[A-Za-z][^）)]*[）)]?/g, ' ').replace(/[A-Za-z][A-Za-z\s_\-/]*/g, ' ').replace(/[（()）]/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    function inboundCompoundWhiteStem(value) {
+      var zh = receiptChineseColor(value) || text(value);
+      zh = String(zh || '').replace(/[（(].*$/, '').replace(/色$/, '').replace(/\s+/g, '');
+      if (/白粉/.test(zh)) return '白粉';
+      if (/白藍/.test(zh)) return '白藍';
+      if (/白綠/.test(zh)) return '白綠';
+      if (/白黑/.test(zh)) return '白黑';
+      if (/白紅/.test(zh)) return '白紅';
+      return '';
+    }
+    function inboundColorStem(value) {
+      return inboundCompoundWhiteStem(value) || key(receiptChineseColor(value) || value).replace(/色$/, '');
+    }
+    function receiptColorLabelMatch(a, b) {
+      var za = receiptChineseColor(a);
+      var zb = receiptChineseColor(b);
+      var ka = key(a);
+      var kb = key(b);
+      var kza = key(za);
+      var kzb = key(zb);
+      var stemA = inboundCompoundWhiteStem(a) || inboundCompoundWhiteStem(za);
+      var stemB = inboundCompoundWhiteStem(b) || inboundCompoundWhiteStem(zb);
+      if (stemA || stemB) return !!(stemA && stemB && stemA === stemB);
+      if (ka && kb && ka === kb) return true;
+      if (kza && kzb && kza === kzb) return true;
+      var sa = inboundColorStem(a);
+      var sb = inboundColorStem(b);
+      if (sa && sb && sa === sb) return true;
+      return false;
+    }
+    function receiptLineOwnImage(source) {
+      source = source || {};
+      var views = source.arrivalViews && typeof source.arrivalViews === 'object' ? source.arrivalViews : {};
+      return text(views.front) || text(source.colorImage) || text(source.arrivalImage) || text(source.useFirstColorAsMain ? source.mainImage : '') || '';
+    }
+    function stockDocSafeThumb(url) {
+      url = text(url);
+      if (!url || url.indexOf('data:image/') === 0) return '';
+      return url;
+    }
+    function stockDocLineThumb(line) {
+      line = line || {};
+      var direct = stockDocSafeThumb(receiptLineOwnImage(line) || line.productImage || line.image || line.imageUrl || line.photo);
+      if (direct) return direct;
+      return stockDocSafeThumb(line.product && line.product.mainImage);
+    }
+    var OLD = './data/image-assets/medium/img-1dd3d79a02b9ea858d8291cd34f51cab13d6e1fb.jpg';
+    var PINK_WHITE = './data/image-assets/medium/img-e370d78e.webp';
+    var WHITE_BLUE = './data/image-assets/medium/img-c8e5ee3a.webp';
+    var baifen = {
+      color: '白粉(PUTI PINK)',
+      barcode: 'OLAN709800P355',
+      colorImage: PINK_WHITE,
+      arrivalImage: PINK_WHITE,
+      arrivalViews: { front: PINK_WHITE },
+      productImage: OLD,
+      mainImage: OLD
+    };
+    var bailan = {
+      color: '白藍(PUTI BIRU)',
+      barcode: 'OLAN7092900P393',
+      colorImage: WHITE_BLUE,
+      arrivalImage: WHITE_BLUE,
+      arrivalViews: { front: WHITE_BLUE },
+      productImage: OLD,
+      mainImage: OLD
+    };
+    function compose(productCode, colorCode, sizeCode, cost) {
+      return productCode + colorCode + sizeCode + 'P' + cost;
+    }
+    var tests = [];
+    function ok(cond, name) { tests.push({ name: name, pass: !!cond }); return !!cond; }
+    ok(!receiptColorLabelMatch('白粉(PUTI PINK)', '白色(PUTI)'), '白粉 ≠ 白色');
+    ok(!receiptColorLabelMatch('白藍(PUTI BIRU)', '藍色(BIRU)'), '白藍 ≠ 藍色');
+    ok(!receiptColorLabelMatch('白粉(PUTI PINK)', '粉紅(PINK)'), '白粉 ≠ 粉紅');
+    ok(receiptColorLabelMatch('白粉', '白粉(PUTI PINK)'), '白粉 matches 白粉');
+    ok(stockDocLineThumb(baifen) === PINK_WHITE, '白粉 print thumb uses new color photo not old main');
+    ok(stockDocLineThumb(bailan) === WHITE_BLUE, '白藍 print thumb uses new color photo not old main');
+    ok(compose('OLAN70', '928', '00', '393') === 'OLAN7092800P393', '白粉 barcode is 928 concat');
+    ok(compose('OLAN70', '928', '00', '393') !== 'OLAN709800P355', '白粉 barcode is not pink 98');
+
+    var host = document.getElementById('rows');
+    [{ line: baifen, label: '白粉 / NO SIZE', code: 'OLAN7092800P393' }, { line: bailan, label: '白藍 / NO SIZE', code: 'OLAN7092900P393' }].forEach(function (row) {
+      var el = document.createElement('div');
+      el.className = 'row';
+      el.innerHTML = '<img src="' + stockDocLineThumb(row.line) + '" alt="">' +
+        '<div><b>OLAN70 STANLEY海外原版不鏽鋼</b><div>' + row.label + '</div><code>' + row.code + '</code></div>';
+      host.appendChild(el);
+    });
+    var failed = tests.filter(function (t) { return !t.pass; });
+    document.getElementById('log').innerHTML = tests.map(function (t) {
+      return (t.pass ? 'PASS' : 'FAIL') + ' ' + t.name;
+    }).join('\n') + '\n\n' + (failed.length ? failed.length + ' FAILED' : 'ALL PASS');
+    document.getElementById('log').className = failed.length ? 'fail' : 'pass';
+    if (failed.length) document.title = 'FAIL color photo';
+  </script>
+</body>
+</html>
