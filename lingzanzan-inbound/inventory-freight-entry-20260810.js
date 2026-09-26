@@ -520,9 +520,11 @@
       if (hit) matched.push(img);
       else if (img) otherColorImages.push(receiptImageAssetKey(img));
     });
-    var fallbacks = [
-      sku.colorImage, sku.lastArrivalImage, sku.image, sku.imageUrl, sku.photo
-    ];
+    var fallbacks = inboundBarcodeForeignToProduct(sku.companyBarcode || sku.barcode, product, sku)
+      ? []
+      : [
+        sku.colorImage, sku.lastArrivalImage, sku.image, sku.imageUrl, sku.photo
+      ];
     if (!wantedColor) {
       fallbacks = fallbacks.concat([source.productImage, source.image, source.imageUrl, source.photo, product.mainImage, product.coverImage, product.image, product.imageUrl, product.photo]);
     }
@@ -1505,14 +1507,45 @@
     return 'TW';
   }
 
+  function inboundBarcodeForeignToProduct(barcode, product, sku) {
+    /* LZ_IMAGE_MIX_20260926: K4129200P414 must not ride on OLAN66. Title aliases like TSH001/K388 stay. */
+    product = product || {};
+    sku = sku || {};
+    var compact = key(barcode);
+    var own = key(product.code || product.productLine || sku.productCode || '');
+    if (!compact || !own) return false;
+    if (compact.indexOf(own) === 0) return false;
+    var title = key(product.title || product.name || '');
+    if (title && compact.indexOf(title) === 0) return false;
+    var aliases = [].concat(product.nameAliases || [], product.codeAliases || [], sku.barcodeAliases || [], sku.linkedBarcodes || []);
+    if (aliases.some(function (alias) { return key(alias) && compact.indexOf(key(alias)) === 0; })) return false;
+    var codes = (state.products || []).map(function (row) { return key(row && row.code); }).filter(Boolean).sort(function (a, b) { return b.length - a.length; });
+    var i;
+    for (i = 0; i < codes.length; i += 1) {
+      if (codes[i] !== own && compact.indexOf(codes[i]) === 0) return true;
+    }
+    var parsed = null;
+    try { parsed = receivedParseConcatBarcode(compact, {}, sku, product); } catch (error) { parsed = null; }
+    if (parsed && parsed.base) {
+      var base = key(parsed.base);
+      if (base && base !== own && compact.indexOf(own) !== 0 && !(title && base === title)) return true;
+    }
+    return false;
+  }
+
   function preferredReceiptSku(skus) {
     var wanted = receiptWantedWarehouse();
     return (skus || []).slice().sort(function (a, b) {
       var aw = receiptWarehouseCode(a);
       var bw = receiptWarehouseCode(b);
+      var ap = productById(a.productId) || productByCode(a.productCode) || {};
+      var bp = productById(b.productId) || productByCode(b.productCode) || {};
+      var aForeign = inboundBarcodeForeignToProduct(a.companyBarcode || a.barcode, ap, a);
+      var bForeign = inboundBarcodeForeignToProduct(b.companyBarcode || b.barcode, bp, b);
       var aWhite = /^(92|白色)/.test(text(a.colorCode || a.colorNo || a.colorName || a.color));
       var bWhite = /^(92|白色)/.test(text(b.colorCode || b.colorNo || b.colorName || b.color));
-      return Number(bw === wanted) - Number(aw === wanted)
+      return Number(aForeign) - Number(bForeign)
+        || Number(bw === wanted) - Number(aw === wanted)
         || Number(bWhite) - Number(aWhite)
         || Number(Number(b.stock || 0) > 0) - Number(Number(a.stock || 0) > 0)
         || Number(!!a.temporaryFreightSku) - Number(!!b.temporaryFreightSku)
@@ -1549,8 +1582,13 @@
   function receiptGroupCatalogImage(list) {
     /* 預購倉 empty / freight temp must reuse 中國倉 catalog color photo. */
     var ranked = (list || []).slice().sort(function (a, b) {
-      return Number(!!a.temporaryFreightSku) - Number(!!b.temporaryFreightSku)
+      var pa = productById(a.productId) || productByCode(a.productCode) || {};
+      var pb = productById(b.productId) || productByCode(b.productCode) || {};
+      return Number(inboundBarcodeForeignToProduct(a.companyBarcode || a.barcode, pa, a))
+        - Number(inboundBarcodeForeignToProduct(b.companyBarcode || b.barcode, pb, b))
+        || Number(!!a.temporaryFreightSku) - Number(!!b.temporaryFreightSku)
         || Number(receiptWarehouseCode(a) === 'PREORDER') - Number(receiptWarehouseCode(b) === 'PREORDER')
+        || Number(receiptWarehouseCode(b) === 'TW') - Number(receiptWarehouseCode(a) === 'TW')
         || Number(receiptWarehouseCode(b) === 'CN') - Number(receiptWarehouseCode(a) === 'CN');
     });
     var fallback = '';
@@ -1558,6 +1596,7 @@
       var sku = ranked[i] || {};
       var product = productById(sku.productId) || productByCode(sku.productCode) || {};
       if (product.temporaryFreightProduct) product = productByCode(product.productLine || product.code) || product;
+      if (inboundBarcodeForeignToProduct(sku.companyBarcode || sku.barcode, product, sku)) continue;
       var img = firstProductImage(product, sku, sku) || text(sku.colorImage || sku.lastArrivalImage || sku.image || sku.imageUrl || product.mainImage);
       if (!img) continue;
       if (receiptWeakProductImage(img)) {
@@ -1587,8 +1626,16 @@
       var w = receiptWarehouseCode(sku);
       if (!byWh[w] || (byWh[w].temporaryFreightSku && !sku.temporaryFreightSku)) byWh[w] = sku;
     });
-    var pick = byWh[wanted] || byWh.CN || byWh.TW || byWh.ID || byWh.PREORDER || chosen;
-    return text(pick && (pick.companyBarcode || pick.barcode || pick.officialBarcode || pick.id || pick.sku));
+    function barcodeOf(sku) {
+      return text(sku && (sku.companyBarcode || sku.barcode || sku.officialBarcode || sku.id || sku.sku));
+    }
+    function usable(sku) {
+      if (!sku) return false;
+      var product = productById(sku.productId) || productByCode(sku.productCode) || {};
+      return !inboundBarcodeForeignToProduct(barcodeOf(sku), product, sku);
+    }
+    var pick = [byWh[wanted], byWh.TW, byWh.CN, byWh.ID, byWh.PREORDER, chosen].filter(usable)[0] || chosen;
+    return barcodeOf(pick);
   }
 
   function attachReceiptWarehouseGroup(chosen, list) {
@@ -2948,6 +2995,9 @@
       var storedBarcode = text(sku.receiptGroupBarcode || inboundSku.companyBarcode || inboundSku.barcode || sku.companyBarcode || sku.barcode || sku.id || sku.sku) || '未建條碼';
       /* LZ_OLAN70_WHITE_20260924: search card shows catalog barcode OLAN70P35592, not print OLAN7092P355. */
       var barcode = storedBarcode;
+      if (inboundBarcodeForeignToProduct(storedBarcode, inboundProduct, inboundSku)) {
+        barcode = inboundDisplayBarcode(inboundSku, inboundProduct) || storedBarcode;
+      }
       var color = inboundSuggestColor(inboundSku, inboundProduct, storedBarcode) || receiptDisplayColor(sku, product);
       var size = text(sku.sizeName || sku.size) || 'NO SIZE';
       var productImage = text(sku.receiptGroupImage) || firstProductImage(inboundProduct, inboundSku, inboundSku) || firstProductImage(product, sku, sku);
