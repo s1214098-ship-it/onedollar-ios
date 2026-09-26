@@ -1,0 +1,5 @@
+/* Live sidecar excerpt patched into admin-products-horizontal-9.css
+ * Marker: LZ_SKU_PRINT_ADD_SIZE_20260926
+ */
+.matrix-quick-size { display:flex; flex-wrap:wrap; gap:8px; }
+.matrix-qty-cell button, .matrix-print-color-btn { background:#111; color:#fff8ed; }
