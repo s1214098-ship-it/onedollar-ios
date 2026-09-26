@@ -4032,6 +4032,7 @@
       /* LZ_HIST_THUMB_POS_20260924: per-SKU thumb on print picker, not on history document cards. */
       var qty = Math.max(1, Math.min(99, Math.floor(Number(line.qty || line.quantity || 1))));
       var barcode = receivedLineBarcode(line);
+      var storedBarcode = text(line.barcode || line.companyBarcode || barcode);
       var colorLabel = receivedLineDisplayColor(line);
       var caption = [line.productCode || '', line.productName || '', colorLabel || '', line.size || line.sizeName || ''].filter(Boolean).join('／');
       var sourceIndex = (Array.isArray(lines) ? lines : []).indexOf(line);
@@ -4043,9 +4044,11 @@
         '<em>' + escapeHtml(barcode) + '</em>' +
         '<small>' + escapeHtml((colorLabel || '') + '／' + (line.size || line.sizeName || 'NO SIZE')) + '</small>' +
         '<input type="number" min="1" max="99" step="1" value="' + qty + '" data-purchase-receipt-print-qty="' + index + '" aria-label="列印張數">' +
-        '<button type="button" class="danger-button" data-purchase-receipt-delete-line="' + sourceIndex + '" data-delete-sku="' + escapeHtml(line.skuId || line.sku || '') + '" data-delete-barcode="' + escapeHtml(barcode) + '" data-delete-product-code="' + escapeHtml(line.productCode || '') + '" data-delete-color="' + escapeHtml((colorLabel && !receivedIsPlaceholderColor(colorLabel) ? colorLabel : '') || (receivedIsPlaceholderColor(line.color || line.colorName) ? '' : (line.color || line.colorName || ''))) + '" data-delete-size="' + escapeHtml(line.size || line.sizeName || '') + '">刪除</button>' +
+        '<button type="button" class="danger-button" data-purchase-receipt-delete-line="' + sourceIndex + '" data-delete-sku="' + escapeHtml(line.skuId || line.sku || '') + '" data-delete-barcode="' + escapeHtml(storedBarcode) + '" data-delete-display-barcode="' + escapeHtml(barcode) + '" data-delete-product-code="' + escapeHtml(line.productCode || '') + '" data-delete-color="' + escapeHtml((colorLabel && !receivedIsPlaceholderColor(colorLabel) ? colorLabel : '') || (receivedIsPlaceholderColor(line.color || line.colorName) ? '' : (line.color || line.colorName || ''))) + '" data-delete-size="' + escapeHtml(line.size || line.sizeName || '') + '">刪除</button>' +
         '</div>';
     }).join('');
+    picker.setAttribute('data-received-document-id', currentReceivedDocumentId());
+    picker.setAttribute('data-received-receipt-no', currentReceivedReceiptNo());
     var selectAll = picker.querySelector('[data-purchase-receipt-print-all]');
     if (selectAll) selectAll.checked = true;
     picker.hidden = false;
@@ -5564,11 +5567,21 @@
   });
 
   function currentReceivedDocumentId() {
-    return text((state.lastReceivedSummary && state.lastReceivedSummary.documentId) || (document.querySelector('[data-purchase-receipt-id]') && document.querySelector('[data-purchase-receipt-id]').value));
+    var picker = document.querySelector('[data-purchase-receipt-print-picker]');
+    return text(
+      (state.lastReceivedSummary && state.lastReceivedSummary.documentId)
+      || (picker && picker.getAttribute('data-received-document-id'))
+      || (document.querySelector('[data-purchase-receipt-id]') && document.querySelector('[data-purchase-receipt-id]').value)
+    );
   }
 
   function currentReceivedReceiptNo() {
-    return text((state.lastReceivedSummary && state.lastReceivedSummary.receiptNo) || (document.querySelector('[data-purchase-receipt-no]') && document.querySelector('[data-purchase-receipt-no]').value));
+    var picker = document.querySelector('[data-purchase-receipt-print-picker]');
+    return text(
+      (state.lastReceivedSummary && state.lastReceivedSummary.receiptNo)
+      || (picker && picker.getAttribute('data-received-receipt-no'))
+      || (document.querySelector('[data-purchase-receipt-no]') && document.querySelector('[data-purchase-receipt-no]').value)
+    );
   }
 
   var ignorePrintSelectedUntil = 0;
@@ -5645,7 +5658,7 @@
   }
 
   function deleteReceivedReceiptLine(button) {
-    /* LZ_RECV_DEL_20260926: delete inbound SKU from a received/history/print page. Never print or re-inbound. */
+    /* LZ_RECV_DEL_20260926B: delete inbound SKU from a received/history/print page. Never print or re-inbound. */
     if (!button || button.disabled) return;
     ignorePrintSelectedUntil = Date.now() + 8000;
     var sourceIndex = Number(button.getAttribute('data-purchase-receipt-delete-line'));
@@ -5673,6 +5686,8 @@
       button.disabled = true;
       button.textContent = '刪除中…';
       var storedColor = text(line.color || line.colorName || '');
+      var storedBarcode = text(button.getAttribute('data-delete-barcode') || line.barcode || line.companyBarcode || '');
+      var displayBarcode = text(button.getAttribute('data-delete-display-barcode') || receivedLineBarcode(line));
       postJson({
         action: 'delete-purchase-receipt-line',
         documentId: documentId || receiptNo,
@@ -5680,7 +5695,8 @@
         lineIndex: sourceIndex,
         skuId: text(button.getAttribute('data-delete-sku') || line.skuId || line.sku || ''),
         productCode: text(button.getAttribute('data-delete-product-code') || line.productCode || ''),
-        barcode: text(button.getAttribute('data-delete-barcode') || receivedLineBarcode(line)),
+        barcode: storedBarcode || displayBarcode,
+        barcodeAliases: [storedBarcode, displayBarcode].filter(Boolean),
         color: receivedIsPlaceholderColor(storedColor) ? '' : storedColor,
         size: text(button.getAttribute('data-delete-size') || line.size || line.sizeName || ''),
         confirmVoid: !!isLast,
@@ -5797,6 +5813,10 @@
 
   function handleStandaloneConfirmButton(button) {
     /* LZ_CONFIRM_CLICK_20260924 */
+    if (state.receivedPrintPage || (document.querySelector('[data-purchase-receipt-print-picker]') && !document.querySelector('[data-purchase-receipt-print-picker]').hidden)) {
+      standaloneMessage('這張進貨單已經入庫完成。要拿掉品項請按列印列上的「刪除」，不要再按建立進貨單。', 'ok');
+      return;
+    }
     if (!button) button = document.querySelector('[data-purchase-receipt-confirm]');
     handleStandaloneConfirmButton._busy = false;
     saveStandaloneReceipt('confirm-purchase-receipt', button);
