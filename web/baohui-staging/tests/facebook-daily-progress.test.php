@@ -23,6 +23,8 @@ expect(str_contains($js, 'facebook-daily-progress.php'), 'loads lightweight prog
 expect(str_contains($js, 'openOneDollarModule'), 'opens full 當日日報');
 expect(str_contains($js, 'refreshDashboard'), 'hooks dashboard refresh');
 expect(str_contains($js, 'leaveDashboardCard'), 'places card after 員工請假表');
+expect(str_contains($js, '>圖<'), 'adds a 圖 thumbnail column');
+expect(str_contains($js, 'fb-daily-thumb'), 'renders product thumbnails');
 
 $endpoint = (string)file_get_contents($root . DIRECTORY_SEPARATOR . 'one-dollar-auction' . DIRECTORY_SEPARATOR . 'facebook-daily-progress.php');
 expect(str_contains($endpoint, 'facebook_daily_progress_payload'), 'endpoint uses compact payload');
@@ -39,6 +41,7 @@ $posted = [
     'facebook_publish_completed' => '1',
     'post_url' => 'https://www.facebook.com/groups/x/posts/123',
     'listing_source' => 'codex',
+    'schedule_image' => 'uploads/products/SE100.png',
 ];
 $needPost = [
     'id' => 'sch_todo',
@@ -53,12 +56,18 @@ $needPost = [
     'post_url' => '',
     'listing_source' => 'codex',
 ];
-$payload = facebook_daily_progress_payload([$posted, $needPost], [], [], '2026-09-26');
+$products = [
+    ['id' => 'SE200', 'title' => '待發文測試', 'image' => 'uploads/products/SE200.jpg'],
+];
+$payload = facebook_daily_progress_payload([$posted, $needPost], $products, [], '2026-09-26');
 expect($payload['date'] === '2026-09-26', 'payload date is Taipei day');
 expect($payload['planned'] >= 1, 'planned includes today lots');
 expect(count($payload['rows']) === 2, 'two compact rows');
 expect($payload['rows'][0]['product_id'] === 'SE200', 'open todos sort first');
 expect(str_contains((string)$payload['rows'][0]['todo_text'], '發文'), 'pending lot todo includes 發文');
+expect(str_contains((string)$payload['rows'][0]['image'], 'SE200.jpg'), 'pending lot uses product thumbnail');
+expect(str_contains((string)$payload['rows'][1]['image'], 'SE100.png'), 'posted lot keeps schedule thumbnail');
+expect(str_starts_with((string)$payload['rows'][0]['image'], '/one-dollar-auction/'), 'relative thumbnail is dashboard-safe');
 expect(in_array('發文', facebook_daily_todo_labels(['need_post' => true]), true), 'need_post becomes 發文');
 expect(facebook_daily_todo_labels(['posted' => true]) === [], 'done lot has no todos');
 

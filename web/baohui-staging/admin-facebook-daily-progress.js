@@ -12,14 +12,27 @@
     });
   }
 
-  function money(value) {
-    var n = Number(value || 0);
-    if (!Number.isFinite(n) || n <= 0) return "-";
-    return Math.round(n).toLocaleString("zh-TW") + " 元";
+  function thumbUrl(src) {
+    src = String(src || "").trim();
+    if (!src) return "";
+    if (/^https?:\/\//i.test(src) || src.indexOf("//") === 0) return src;
+    if (src.charAt(0) === "/") return src;
+    return "/one-dollar-auction/" + src.replace(/^\.\//, "");
+  }
+
+  function ensureStyle() {
+    if (document.getElementById("facebookDailyProgressStyle")) return;
+    var style = document.createElement("style");
+    style.id = "facebookDailyProgressStyle";
+    style.textContent = ""
+      + "#facebookDailyProgressCard .fb-daily-thumb{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc;display:block;margin:0 auto}"
+      + "#facebookDailyProgressCard .fb-daily-noimg{width:64px;height:64px;border-radius:8px;border:1px dashed #cbd5e1;background:#f8fafc;color:#94a3b8;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto}";
+    document.head.appendChild(style);
   }
 
   function ensureCard() {
     if (document.getElementById(CARD_ID)) return document.getElementById(CARD_ID);
+    ensureStyle();
     var html = ""
       + '<div class="form-card mb-4" id="' + CARD_ID + '">'
       + '  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">'
@@ -36,9 +49,9 @@
       + '  <div class="table-responsive">'
       + '    <table class="table table-sm table-bordered align-middle text-center">'
       + "      <thead class=\"table-light\">"
-      + "        <tr><th>序</th><th>產品</th><th>預定上架</th><th>截標</th><th>狀態</th><th>待辦</th><th>金額</th><th>貼文</th></tr>"
+      + "        <tr><th>序</th><th>圖</th><th>產品</th><th>預定上架</th><th>截標</th><th>狀態</th><th>待辦</th><th>金額</th><th>貼文</th></tr>"
       + "      </thead>"
-      + '      <tbody id="' + BODY_ID + '"><tr><td colspan="8" class="text-muted">載入中…</td></tr></tbody>'
+      + '      <tbody id="' + BODY_ID + '"><tr><td colspan="9" class="text-muted">載入中…</td></tr></tbody>'
       + "    </table>"
       + "  </div>"
       + "</div>";
@@ -97,7 +110,7 @@
       ].join("");
     }
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="8" class="text-muted">這天沒有上架或截標場次。</td></tr>';
+      body.innerHTML = '<tr><td colspan="9" class="text-muted">這天沒有上架或截標場次。</td></tr>';
       return;
     }
     body.innerHTML = rows.map(function (row) {
@@ -108,8 +121,13 @@
       var post = row.post_url
         ? '<a href="' + esc(row.post_url) + '" target="_blank" rel="noopener">開貼文</a>'
         : '<span class="text-muted">未回填</span>';
+      var imgSrc = thumbUrl(row.image);
+      var thumb = imgSrc
+        ? '<a href="' + esc(imgSrc) + '" target="_blank" rel="noopener"><img class="fb-daily-thumb" src="' + esc(imgSrc) + '" alt="' + esc(row.title || row.product_id || "") + '"></a>'
+        : '<div class="fb-daily-noimg">無圖</div>';
       return "<tr>"
         + "<td>" + esc(String(row.queue || "").padStart(2, "0")) + "</td>"
+        + "<td>" + thumb + "</td>"
         + '<td class="text-start"><b>' + esc(row.product_id || "-") + "</b><br>" + esc(row.title || "-") + "</td>"
         + "<td>" + esc(row.publish_at || "-") + "</td>"
         + "<td>" + esc(row.close_at || "-") + "</td>"
@@ -124,18 +142,18 @@
   function loadFacebookDailyProgress() {
     ensureCard();
     var body = document.getElementById(BODY_ID);
-    if (body) body.innerHTML = '<tr><td colspan="8" class="text-muted">載入中…</td></tr>';
+    if (body) body.innerHTML = '<tr><td colspan="9" class="text-muted">載入中…</td></tr>';
     fetch(URL + "?t=" + Date.now(), { credentials: "same-origin", cache: "no-store" })
       .then(function (res) { return res.json().then(function (json) { return { ok: res.ok, json: json }; }); })
       .then(function (result) {
         if (!result.json || result.json.ok === false) {
-          if (body) body.innerHTML = '<tr><td colspan="8" class="text-muted">還沒載入到當日上架資料，請打開當日日報或重新整理。</td></tr>';
+          if (body) body.innerHTML = '<tr><td colspan="9" class="text-muted">還沒載入到當日上架資料，請打開當日日報或重新整理。</td></tr>';
           return;
         }
         renderPayload(result.json);
       })
       .catch(function () {
-        if (body) body.innerHTML = '<tr><td colspan="8" class="text-muted">當日上架進度讀取失敗，請重新整理。</td></tr>';
+        if (body) body.innerHTML = '<tr><td colspan="9" class="text-muted">當日上架進度讀取失敗，請重新整理。</td></tr>';
       });
   }
 

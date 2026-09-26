@@ -40,7 +40,8 @@ function facebook_daily_abs_url(string $path): string
     if (function_exists('public_base_url')) {
         return rtrim(public_base_url(), '/') . '/' . ltrim($path, '/');
     }
-    return $path;
+    if (isset($path[0]) && $path[0] === '/') return $path;
+    return '/one-dollar-auction/' . ltrim($path, './');
 }
 
 function facebook_daily_has_real_post_url(array $s): bool
@@ -416,9 +417,18 @@ function facebook_daily_collect(array $schedules, array $products, array $sets, 
         $cmp = strcmp($ta, $tb);
         return $cmp !== 0 ? $cmp : strcmp((string)($a['id'] ?? ''), (string)($b['id'] ?? ''));
     });
+    $map = [];
+    if (!function_exists('product_by_id')) {
+        foreach ($products as $product) {
+            if (!is_array($product)) continue;
+            $pid = (string)($product['id'] ?? '');
+            if ($pid !== '') $map[$pid] = $product;
+        }
+    }
     $rows = [];
     foreach ($matched as $i => $s) {
-        $p = function_exists('product_by_id') ? product_by_id($products, $s['product_id'] ?? '') : [];
+        $pid = $s['product_id'] ?? '';
+        $p = function_exists('product_by_id') ? product_by_id($products, $pid) : ($map[(string)$pid] ?? []);
         if (!is_array($p)) $p = [];
         $rows[] = facebook_daily_build_row($s, $p, $sets, $i + 1, $date);
     }
@@ -673,6 +683,7 @@ function facebook_daily_progress_row(array $row): array
         'product_id' => (string)($row['product_id'] ?? ''),
         'title' => (string)($row['title'] ?? ''),
         'spec' => (string)($row['spec'] ?? ''),
+        'image' => (string)($row['image'] ?? ''),
         'publish_at' => (string)($row['publish_at'] ?? ''),
         'close_at' => (string)($row['close_at'] ?? ''),
         'publish_status' => (string)($row['publish_status'] ?? ''),

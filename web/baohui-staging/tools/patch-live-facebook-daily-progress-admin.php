@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 $target = $argv[1] ?? '';
-$version = $argv[2] ?? 'fb-daily-progress-20260926';
+$version = $argv[2] ?? 'fb-daily-progress-thumb-20260926';
 if ($target === '' || !is_file($target)) {
     fwrite(STDERR, "usage: php patch-live-facebook-daily-progress-admin.php <admin.php> [version]\n");
     exit(1);
