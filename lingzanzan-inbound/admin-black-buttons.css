@@ -1,0 +1,223 @@
+/* LZ_BLACK_BUTTONS_20260926
+   分析：黑字配黑按鈕看不見。
+   動作按鈕＝黑底 + 淺色字；頁面資訊卡片＝黑底 + 奶油／金／灰層次。
+   只有「選取／滑過」時金底才用黑字。
+*/
+:root {
+  --lz-btn-black: #111014;
+  --lz-btn-ink: #fff8ed;
+  --lz-btn-muted: #c9bec6;
+  --lz-btn-gold: #f4cf76;
+  --lz-btn-gold-border: #e8b75b;
+  --lz-btn-danger: #ffb4bc;
+  --lz-btn-danger-border: #ef4b4b;
+  --lz-btn-ok: #9debd5;
+  --lz-btn-ok-border: #35c2ae;
+}
+
+html body button,
+html body .button,
+html body .primary-button,
+html body .ghost-button,
+html body .danger-button,
+html body .action-button,
+html body input[type="button"],
+html body input[type="submit"],
+html body input[type="reset"],
+html body [role="button"],
+html body .admin-hero a,
+html body .admin-top-actions a,
+html body .admin-top-actions button,
+html body .head-actions button,
+html body .login-card button,
+html body .panel-head button,
+html body .inline-form button,
+html body .overview-track-actions > a,
+html body .overview-track-actions > button,
+html body .overview-workboard-head button,
+html body .overview-pagination button,
+html body .overview-activity-head-actions button,
+html body .overview-payment-actions button,
+html body .myship-daily-report__actions button,
+html body .myship-daily-report__actions a,
+html body .company-announcement-head button,
+html body .company-announcement-board button,
+html body .ai-monitor-headquarters button {
+  background: var(--lz-btn-black) !important;
+  background-image: none !important;
+  color: var(--lz-btn-ink) !important;
+  -webkit-text-fill-color: var(--lz-btn-ink) !important;
+  border: 1px solid var(--lz-btn-gold-border) !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+html body button small,
+html body button span,
+html body button label,
+html body .button small,
+html body .button span,
+html body [role="button"] small,
+html body [role="button"] span,
+html body .overview-stat-link span,
+html body .overview-stat-link small,
+html body .overview-finance-card span,
+html body .overview-finance-card small {
+  color: var(--lz-btn-muted) !important;
+  -webkit-text-fill-color: var(--lz-btn-muted) !important;
+}
+
+html body button b,
+html body button strong,
+html body button em,
+html body .button b,
+html body .button strong,
+html body [role="button"] b,
+html body [role="button"] strong,
+html body .overview-stat-link strong,
+html body .overview-finance-card strong {
+  color: var(--lz-btn-gold) !important;
+  -webkit-text-fill-color: var(--lz-btn-gold) !important;
+}
+
+html body .primary-button,
+html body button.primary-button,
+html body .login-card button,
+html body [type="submit"],
+html body .admin-hero a {
+  color: var(--lz-btn-gold) !important;
+  -webkit-text-fill-color: var(--lz-btn-gold) !important;
+  border-color: var(--lz-btn-gold-border) !important;
+  font-weight: 900 !important;
+}
+
+html body .ghost-button,
+html body button.ghost-button {
+  color: var(--lz-btn-ink) !important;
+  -webkit-text-fill-color: var(--lz-btn-ink) !important;
+  border-color: #5a515c !important;
+}
+
+html body .danger-button,
+html body button.danger-button,
+html body button[data-remove],
+html body button[data-delete],
+html body .overview-payment-actions button.is-reject {
+  color: var(--lz-btn-danger) !important;
+  -webkit-text-fill-color: var(--lz-btn-danger) !important;
+  border-color: var(--lz-btn-danger-border) !important;
+  background: #1a0c10 !important;
+}
+
+html body button.is-active,
+html body .button.is-active,
+html body .primary-button.is-active,
+html body [aria-pressed="true"],
+html body .company-announcement-board button.is-active,
+html body .overview-activity-tabs button.is-active {
+  background: var(--lz-btn-gold) !important;
+  color: #111014 !important;
+  -webkit-text-fill-color: #111014 !important;
+  border-color: var(--lz-btn-gold-border) !important;
+}
+
+html body button.is-active small,
+html body button.is-active span,
+html body .overview-activity-tabs button.is-active b {
+  color: #111014 !important;
+  -webkit-text-fill-color: #111014 !important;
+}
+
+html body button:hover:not(:disabled):not(.is-active),
+html body .button:hover:not(:disabled):not(.is-active),
+html body .primary-button:hover:not(:disabled),
+html body .ghost-button:hover:not(:disabled),
+html body input[type="submit"]:hover:not(:disabled),
+html body .admin-hero a:hover,
+html body .admin-top-actions a:hover,
+html body .admin-top-actions button:hover,
+html body .login-card button:hover:not(:disabled),
+html body .overview-track-actions > a:hover,
+html body .myship-daily-report__actions button:hover,
+html body .myship-daily-report__actions a:hover {
+  background: #1c181f !important;
+  color: var(--lz-btn-gold) !important;
+  -webkit-text-fill-color: var(--lz-btn-gold) !important;
+  border-color: #ffe39a !important;
+}
+
+html body button:disabled,
+html body .button:disabled,
+html body .primary-button:disabled,
+html body input[type="submit"]:disabled {
+  background: #1a171c !important;
+  color: #8a8088 !important;
+  -webkit-text-fill-color: #8a8088 !important;
+  border-color: #3a3338 !important;
+  cursor: not-allowed !important;
+}
+
+html body .stats article.overview-stat-card,
+html body .overview-stat-link,
+html body .overview-finance-card,
+html body .overview-track-panel,
+html body .myship-daily-report__kpis article {
+  background: var(--lz-btn-black) !important;
+  color: var(--lz-btn-ink) !important;
+  border-color: #3a3338 !important;
+}
+
+html body .overview-stat-link,
+html body .overview-finance-card {
+  color: var(--lz-btn-ink) !important;
+  -webkit-text-fill-color: var(--lz-btn-ink) !important;
+}
+
+html body .overview-stat-card:hover,
+html body .overview-finance-card:hover {
+  border-color: var(--lz-btn-gold-border) !important;
+}
+
+html body .company-announcement-board button[data-announcement-filter="all"] {
+  border-color: var(--lz-btn-ok-border) !important;
+  color: var(--lz-btn-ok) !important;
+  -webkit-text-fill-color: var(--lz-btn-ok) !important;
+}
+html body .company-announcement-board button[data-announcement-filter="rule"] {
+  border-color: #60a5fa !important;
+  color: #bfd6ff !important;
+  -webkit-text-fill-color: #bfd6ff !important;
+}
+html body .company-announcement-board button[data-announcement-filter="routine"] {
+  border-color: #94a3b8 !important;
+  color: var(--lz-btn-ink) !important;
+  -webkit-text-fill-color: var(--lz-btn-ink) !important;
+}
+html body .company-announcement-board button[data-announcement-filter="important"] {
+  border-color: #f59e0b !important;
+  color: var(--lz-btn-gold) !important;
+  -webkit-text-fill-color: var(--lz-btn-gold) !important;
+}
+html body .company-announcement-board button[data-announcement-filter].is-active {
+  background: var(--lz-btn-gold) !important;
+  color: #111014 !important;
+  -webkit-text-fill-color: #111014 !important;
+}
+
+html body .modal-close,
+html body [data-freight-arrival-status-close] {
+  background: var(--lz-btn-black) !important;
+  color: var(--lz-btn-ink) !important;
+  -webkit-text-fill-color: var(--lz-btn-ink) !important;
+}
+
+@media print {
+  html body button,
+  html body .button,
+  html body .primary-button {
+    background: #fff !important;
+    color: #111 !important;
+    -webkit-text-fill-color: #111 !important;
+    border-color: #ccc !important;
+  }
+}
