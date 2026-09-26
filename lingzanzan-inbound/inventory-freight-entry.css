@@ -1580,13 +1580,17 @@ button.purchase-receipt-line-thumb:focus-visible{
   display:none!important;
 }
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-fields{
-  grid-template-columns:minmax(180px,1.4fr) minmax(140px,1fr) minmax(150px,1fr) 88px 100px!important;
+  grid-template-columns:minmax(180px,1.4fr) minmax(130px,.9fr) minmax(140px,.9fr) 92px 108px!important;
+  grid-template-areas:
+    "name color size qty cost"
+    "actions actions actions actions actions";
 }
-[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-name,
-[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-color,
-[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-size{
-  grid-column:auto!important;
-}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-name{grid-area:name;grid-column:auto!important}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-color{grid-area:color;grid-column:auto!important}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-size{grid-area:size;grid-column:auto!important}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-qty{grid-area:qty}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-cost{grid-area:cost}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-actions{grid-area:actions;grid-column:auto!important}
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-color-split{
   min-height:0!important;
   height:40px!important;
@@ -1601,6 +1605,15 @@ button.purchase-receipt-line-thumb:focus-visible{
 @media(max-width:760px){
   [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-fields{
     grid-template-columns:1fr!important;
+    grid-template-areas:none!important;
+  }
+  [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-name,
+  [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-color,
+  [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-size,
+  [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-qty,
+  [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-cost,
+  [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-actions{
+    grid-area:auto!important;
   }
 }
 
