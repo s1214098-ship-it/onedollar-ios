@@ -1,0 +1,679 @@
+﻿<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <script src="./asset-boot.php?v=20260911-product-editor-link-1"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>LINGZANZAN - 產品管理</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="lz-asset" data-lz-href="./assets/admin-products-horizontal-9.css?v=20260922-product-popup-confirm-1">
+  <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css?v=20260922-product-popup-confirm-1" data-admin-navigation-style>
+  <link rel="lz-asset" data-lz-href="./assets/admin-products-no-hints.css?v=20260926-no-hints-1">
+</head>
+<body class="labels-ready">
+    <script>
+    var loginParams = new URLSearchParams(location.search);
+    if (loginParams.get('popup') === '1') {
+      document.body.classList.add('is-product-popup');
+    }
+    var loginKey = 'lingzanzan-v1-admin-login';
+    if (loginParams.get('resetLogin') === '1') {
+      localStorage.removeItem(loginKey);
+    }
+    if (loginParams.get('login') === 'sales') {
+      localStorage.removeItem(loginKey);
+      document.documentElement.setAttribute('data-sales-entry', 'true');
+    } else {
+      try {
+        var cachedLogin = JSON.parse(localStorage.getItem(loginKey) || '{}');
+        if (cachedLogin.version === 'password-login-v2' && cachedLogin.serverSession === true && ['admin', 'staff'].indexOf(cachedLogin.role) !== -1 && cachedLogin.until && Date.now() < cachedLogin.until) {
+          document.body.classList.add('is-admin-unlocked');
+        }
+      } catch (error) {}
+    }
+  </script>
+    <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>請輸入管理者或員工帳號密碼，登入後可管理會員、商品、訂單、庫存與物流。</span>
+      <input data-login-account type="text" placeholder="輸入管理員帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入管理員密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button>
+      <a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint>登入一次後，24 小時內同一台瀏覽器不用重複輸入密碼。</small>
+    </form>
+  </div>
+  <div class="admin-top-actions" hidden style="display:none">
+    <span class="login-identity" data-current-user hidden></span>
+    <a href="./">回首頁</a>
+    <button type="button" data-logout-admin>登出</button>
+  </div>
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+            <nav>
+        <a href="./admin.html">總覽</a>
+        <a href="./admin-security.html">管理者</a>
+        <a href="./admin-staff.html">員工管理</a>
+        <a href="./admin-members.html">會員管理</a>
+        <a href="./admin-sales.html">業務管理</a>
+        <a href="./admin-products.html">產品管理</a>
+        <a href="./admin-offline-products.html">下架產品</a>
+        <a href="./admin-style-columns.html">首頁區塊</a>
+        <a href="./admin-orders.html">訂單</a>
+        <a href="./admin-preorders.html" class="preorder-menu-link">預購打單</a>
+        <a href="./admin-purchase.html" class="purchase-menu-link">採購區</a>
+        <a href="./admin-suppliers.html">廠商管理</a>
+        <a href="./admin-freight.html">物流集運</a>
+        <a href="./admin-live.html">直播打單</a>
+        <a href="./admin-inquiries.html">客戶詢問</a>
+        <a href="./admin-inventory.html">貨倉管理</a>
+        <a href="./admin-logistics.html">物流回報</a>
+        <a href="./admin-profit.html" class="profit-menu-link" data-profit-menu-link="true">營銷毛利</a>
+        <a href="./admin-backup.html">備份還原</a>
+      </nav>
+    </aside>
+
+    <main>
+      <section class="panel" id="product-admin">
+        <div class="panel-head">
+          <div>
+            <p>PRODUCTS</p>
+            <h2>產品管理與套版</h2>
+          </div>
+          <button type="button" data-scroll-target="#product-create">新增商品</button>
+        </div>
+
+        <nav class="product-section-nav" data-product-section-nav aria-label="產品管理工作區">
+          <button type="button" class="is-active" data-product-section="list" aria-pressed="true">
+            <b>產品清單</b>
+          </button>
+          <button type="button" data-product-section="create" aria-pressed="false">
+            <b>產品建檔</b>
+          </button>
+          <button type="button" data-product-section="price" aria-pressed="false">
+            <b>快速改價</b>
+          </button>
+          <button type="button" data-product-section="stockin" aria-pressed="false">
+            <b>快速入庫</b>
+          </button>
+          <button type="button" data-product-section="verify" aria-pressed="false">
+            <b>庫存核對</b>
+          </button>
+        </nav>
+
+        <div class="member-tools is-product-section-active" data-product-section-panel="list">
+          <label>搜尋產品編號 / 商品
+            <input data-product-search placeholder="輸入產品編號 / 名稱 / 品牌 / 規格 / SKU / 條碼">
+          </label>
+          <label>部門
+            <select data-product-department-filter>
+              <option value="all">全部部門</option>
+              <option value="clothing">服裝部門</option>
+              <option value="computer">電腦部門</option>
+              <option value="unassigned">未設定部門</option>
+            </select>
+          </label>
+          <label>貨倉
+            <select data-product-warehouse-filter>
+              <option value="all">全部貨倉</option>
+            </select>
+          </label>
+          <label>貨架
+            <select data-product-shelf-filter>
+              <option value="all">全部貨架</option>
+            </select>
+          </label>
+          <label>層位
+            <select data-product-layer-filter>
+              <option value="all">全部層位</option>
+            </select>
+          </label>
+          <label>編號／價格排序
+            <select data-product-price-sort>
+              <option value="code-p">編號排序（分類＋流水＋P成本）</option>
+              <option value="price-desc">售價高到低</option>
+              <option value="price-asc">售價低到高</option>
+              <option value="cost-desc">成本高到低</option>
+              <option value="cost-asc">成本低到高</option>
+            </select>
+          </label>
+        </div>
+          <div class="product-search-status" data-product-search-status hidden role="status"></div>
+
+        <div class="template-card sheet-stock-compare-card" data-sheet-stock-compare-panel data-product-section-panel="verify">
+          <div class="panel-subhead">
+            <div>
+              <p>SHEET STOCK VERIFY</p>
+              <h3>雲端表格核對倉位庫存</h3>
+            </div>
+            <button type="button" class="primary-button" data-sheet-stock-compare-run>讀取台灣現貨倉位核對</button>
+          </div>
+          <div class="logic-note">
+            <b>只做核對，不會修改後台庫存。</b>
+          </div>
+          <div class="sheet-stock-tools">
+            <label>分類
+              <select data-sheet-stock-filter>
+                <option value="issues">待處理（儲存後自動移除已完成）</option>
+                <option value="all">全部</option>
+                <option value="same">一致</option>
+                <option value="diff">數量不同</option>
+                <option value="sheet-only">現場有，後台沒有</option>
+                <option value="backend-only">後台有，現場表沒有</option>
+                <option value="color-issue">顏色待確認</option>
+              </select>
+            </label>
+            <label>查詢
+              <input data-sheet-stock-search placeholder="產品編號 / 顏色 / 尺寸 / 倉位">
+            </label>
+            <button type="button" class="ghost-button" data-sheet-stock-copy>複製異常清單</button>
+          </div>
+          <div class="sheet-stock-summary" data-sheet-stock-summary>尚未核對。</div>
+          <div class="sheet-stock-results" data-sheet-stock-results></div>
+        </div>
+
+        <div class="template-card quick-price-card" data-product-section-panel="price">
+          <div class="panel-subhead">
+            <div>
+              <p>QUICK PRICE</p>
+              <h3>快速修改售價 / 成本</h3>
+            </div>
+            <button type="button" data-save-quick-prices>儲存目前頁面價格</button>
+          </div>
+          <div class="quick-price-tools">
+            <label>搜尋商品
+              <input data-quick-price-search placeholder="輸入產品條碼、商品名稱或 SKU">
+            </label>
+
+          </div>
+          <div class="quick-price-list" data-quick-price-list></div>
+        </div>
+
+        <div class="template-card quick-stockin-panel" data-quick-stockin-panel data-product-section-panel="stockin">
+          <div class="quick-stockin-head">
+            <div>
+              <p>QUICK STOCK IN</p>
+              <h3>快速入庫</h3>
+
+            </div>
+            <strong data-quick-stockin-status>等待掃描</strong>
+          </div>
+          <div class="quick-stockin-grid">
+            <label>本批入庫倉
+              <select data-quick-stockin-warehouse></select>
+            </label>
+            <label>本批貨架
+              <select data-quick-stockin-shelf></select>
+            </label>
+            <label>本批層位
+              <select data-quick-stockin-layer></select>
+            </label>
+            <label>新增貨架 / 層位
+              <div class="quick-stockin-location-add">
+                <input data-quick-stockin-new-shelf placeholder="新貨架，例如 A架">
+                <input data-quick-stockin-new-layer placeholder="新層位，例如 第三層">
+              </div>
+            </label>
+            <button type="button" class="ghost-button" data-quick-stockin-add-location>新增並套用位置</button>
+            <label>產品分類
+              <select data-quick-stockin-category><option value="">沿用已建檔分類／加入後逐筆核對</option></select>
+            </label>
+            <label>掃描條碼 / 商品碼
+              <input data-quick-stockin-scan autocomplete="off" placeholder="例如 JA316P600913 / K361P210913">
+            </label>
+            <label>數量
+              <input data-quick-stockin-qty type="number" min="1" step="1" value="1">
+            </label>
+            <label>該色圖片（可多選；第一張為顏色圖）
+              <input data-quick-stockin-image type="file" accept="image/*" multiple>
+            </label>
+            <button type="button" class="ghost-button" data-quick-stockin-paste-image>貼上截圖</button>
+            <button type="button" class="ghost-button" data-quick-stockin-screen-snip>剪刀截圖</button>
+            <button type="button" class="primary-button" data-quick-stockin-save>加入本批清單</button>
+            <button type="button" class="primary-button" data-quick-stockin-commit>確認寫入共用庫存</button>
+            <button type="button" class="ghost-button" data-quick-stockin-clear>清空本批清單</button>
+          </div>
+          <div class="quick-stockin-preview" data-quick-stockin-preview></div>
+          <div class="quick-stockin-log" data-quick-stockin-log></div>
+          <section class="quick-stock-review-panel" data-quick-stock-review-panel>
+            <div class="quick-stock-review-head">
+              <div>
+                <p>QUICK STOCK REVIEW</p>
+                <h3>快速入庫待整理資料</h3>
+
+              </div>
+              <strong data-quick-stock-review-count>0 筆待整理</strong>
+            </div>
+            <div class="quick-stock-review-rule" hidden></div>
+            <div class="quick-stock-review-list" data-quick-stock-review-list></div>
+          </section>
+        </div>
+
+        <div class="product-editor-shell" data-product-editor-shell data-product-section-panel="create">
+          <div class="product-popup-save-bar" data-product-popup-save-bar>
+            <div>
+              <b>確定存檔</b>
+            </div>
+            <button type="button" data-product-save-new>確定</button>
+          </div>
+          <div class="product-editor-modal-head">
+            <div>
+              <p>PRODUCT EDITOR</p>
+              <h3 data-product-editor-title>新增 / 編輯商品</h3>
+            </div>
+            <button type="button" data-product-editor-close>關閉</button>
+          </div>
+
+          <div class="product-create-layout" id="product-create">
+            <div class="template-card product-image-card" data-image-size-scope>
+              <h3>1. 商品圖片</h3>
+              <div class="product-main-preview" data-product-main-preview></div>
+              <div class="product-photo-actions">
+                <label class="photo-action-button">選主圖／多張圖片
+                  <input data-product-main-image-file type="file" accept="image/*" multiple>
+                </label>
+                <label class="photo-action-button">選細節圖（可多選）
+                  <input data-product-image-file type="file" accept="image/*" multiple>
+                </label>
+              </div>
+              <div class="inline-form module-form">
+                <input data-product-image-url placeholder="貼上圖片網址，或直接選擇圖片檔">
+                <input data-product-detail-image-file type="file" accept="image/*" multiple>
+                <button type="button" data-product-add-image>加入圖片</button>
+                <button type="button" data-product-paste-image>貼上截圖</button>
+                <button type="button" data-product-screen-snip>剪刀截圖</button>
+                <button type="button" class="ghost-button" data-start-product-image-recognition>辨識目前圖片（選用）</button>
+              </div>
+              <div class="image-view-size-switch" data-image-size-switch aria-label="圖片瀏覽大小">
+                <button type="button" data-image-size-option="small">小</button>
+                <button type="button" class="is-active" data-image-size-option="medium">中</button>
+                <button type="button" data-image-size-option="large">大</button>
+              </div>
+              <div class="product-similar-panel" data-product-similar-panel hidden></div>
+              <div class="product-image-strip" data-product-image-list data-image-gallery data-image-size="medium"></div>
+            </div>
+
+            <div class="template-card">
+              <h3>2. 商品基本資料</h3>
+              <div class="form-grid product-basic-grid">
+                <label>產品編號／條碼
+                  <input data-new-product-code placeholder="產品編號" autocomplete="off">
+                  <small class="product-auto-code-note" data-product-auto-code-note hidden></small>
+                </label>
+                <label>產品流水序號
+                  <input data-new-product-serial readonly placeholder="流水序號">
+                </label>
+                <label>專屬序號／SN
+                  <input data-new-product-dedicated-serial maxlength="120" placeholder="SN">
+                </label>
+                <div class="product-official-barcode-preview" data-product-official-barcode-preview>
+                  <b>正式條碼預覽</b>
+                  <strong data-product-official-barcode-sample>COM001P15096</strong>
+                  <span data-product-official-barcode-rule hidden></span>
+                </div>
+                <label>產品名稱
+                  <input data-new-product-title placeholder="例如：夏季字母短袖 女生款">
+                </label>
+                <div class="product-name-similar-panel" data-product-name-similar-panel hidden></div>
+                <div class="product-master-select-field">
+                  <label>品牌／Merek<select data-new-product-brand><option value="">請選擇已建檔品牌</option></select></label>
+                  <div class="product-master-add"><input data-new-brand-master maxlength="80" placeholder="新增品牌名稱"><button type="button" class="ghost-button" data-add-product-master="brand">＋新增品牌</button></div>
+                </div>
+                <div class="product-master-select-field">
+                  <label>規格／Spesifikasi<select data-new-product-spec><option value="">請選擇已建檔規格</option></select></label>
+                  <div class="product-master-add"><input data-new-spec-master maxlength="160" placeholder="新增規格名稱"><button type="button" class="ghost-button" data-add-product-master="spec">＋新增規格</button></div>
+                </div>
+                <label>產品模式
+                  <select data-product-visibility-mode>
+                    <option value="ready">READY 現貨商品（前台可上架）</option>
+                    <option value="preorder">預購商品（只給後台 / 業務下單，不出現在前台）</option>
+                    <option value="china_sample">中國樣品（東莞據點收到／內部庫存，永不前台上架）</option>
+                  </select>
+                </label>
+                <div class="product-storefront-control" data-product-storefront-control>
+                  <b>前台曝光</b>
+                  <span class="product-storefront-toggle" hidden></span>
+                  <small data-product-storefront-note hidden></small>
+                </div>
+                <label class="stock-import-field" data-product-physical-location>台灣倉庫存匯入
+                  <button type="button" data-import-tw-stock>匯入台灣倉庫存</button>
+                </label>
+                <section class="product-cost-entry-panel" data-product-cost-entry>
+                  <div class="product-cost-entry-head">
+                    <div>
+                      <h4>進貨批號與平均成本</h4>
+                    </div>
+                    <strong data-product-cost-status>尚未選擇成本批號</strong>
+                  </div>
+                  <div class="product-cost-mode-switch">
+                    <label>建檔／成本計算方式
+                      <select data-product-cost-mode>
+                        <option value="pinduoduo_freight">拼多多／集運建檔（商品人民幣＋關稅／批次分攤＋倉庫處理費）</option>
+                        <option value="haohong_freight">豪鴻建檔（商品人民幣＋本批重量運費分攤＋倉庫處理費）</option>
+                        <option value="direct_ready">現貨直接建檔（手填商品成本＋每件 NT$20）</option>
+                      </select>
+                    </label>
+                    <p data-product-cost-mode-note hidden></p>
+                  </div>
+                  <div class="product-cost-tracking-lookup" data-product-freight-only>
+                    <label>物流單號（主要入口）／Nomor resi utama
+                      <input data-product-cost-tracking-search inputmode="numeric" autocomplete="off" placeholder="掃描或輸入物流單號，按 Enter 也可帶入">
+                    </label>
+                    <button type="button" class="primary-button" data-product-cost-tracking-find>帶入物流資料／Muat data logistik</button>
+                    <button type="button" class="ghost-button" data-product-cost-charge-refresh>重新比對寶輝關稅／Cocokkan ulang</button>
+                    <p data-product-cost-tracking-result></p>
+                  </div>
+                  <section class="product-cost-receiving-summary is-empty" data-product-cost-receiving-summary data-product-freight-only>
+                    <div><small>物流／正式入庫狀態／Status masuk stok</small><strong data-product-cost-receiving-stage>尚未選擇物流資料</strong></div>
+                    <div><small>本批預計／Rencana</small><strong data-product-cost-receiving-expected>0 件</strong></div>
+                    <div><small>已收到／Diterima</small><strong data-product-cost-receiving-received>0 件</strong></div>
+                    <div><small>尚缺／未點／Kurang</small><strong data-product-cost-receiving-missing>0 件</strong></div>
+                    <p data-product-cost-receiving-note hidden></p>
+                  </section>
+                  <section class="product-receiving-variance" data-product-receiving-variance hidden>
+                    <div><small>物流預計數量</small><strong data-product-receiving-expected>0</strong></div>
+                    <div><small>本次點貨數量</small><strong data-product-receiving-actual>0</strong></div>
+                    <div><small>數量差異</small><strong data-product-receiving-difference>0</strong></div>
+                    <div class="product-receiving-quantity-editor" data-product-receiving-quantity-editor></div>
+                    <label>數量不同原因（強制填寫）
+                      <textarea data-product-receiving-variance-reason rows="2" placeholder="例如：缺 1 件未收到／廠商多寄 2 件／包裹破損退回"></textarea>
+                    </label>
+
+                  </section>
+                  <div class="product-cost-formula" data-product-inventory-ownership-note data-product-freight-only hidden></div>
+                  <div class="product-cost-entry-grid">
+                    <label data-product-freight-only>對應物流批號（自動帶入／亦可手選）／Batch terkait
+                      <select data-product-cost-batch-select>
+                        <option value="">正在讀取物流批號…</option>
+                      </select>
+                    </label>
+                    <label data-product-freight-only>本批產品物流明細／Rincian barang batch
+                      <select data-product-cost-item-select>
+                        <option value="">請先選物流批號</option>
+                      </select>
+                    </label>
+                    <label data-product-freight-only>集運來源
+                      <select data-product-freight-source>
+                        <option value="pinduoduo">拼多多｜寶輝關稅與台灣快遞</option>
+                        <option value="haohong">豪鴻｜免稅、整批運費平均</option>
+                      </select>
+                    </label>
+                    <label data-product-freight-only><span data-product-batch-number-label>寶輝關稅／台灣快遞紀錄</span>
+                      <select data-product-cost-charge-select>
+                        <option value="">請先選物流批號</option>
+                      </select>
+                      <small data-product-cost-charge-result hidden></small>
+                    </label>
+                    <label data-product-freight-only>最近關稅／集運號碼（可搜尋或自行輸入）
+                      <input data-new-product-customs-no list="product-customs-options" autocomplete="off" placeholder="例如 SA260722000588">
+
+                    </label>
+                    <label data-product-freight-only>本批關稅／集運運費總額（系統帶入）
+                      <input data-product-cost-total-twd type="number" min="0" step="0.01" readonly placeholder="由關稅／運費紀錄自動帶入">
+                    </label>
+                    <label data-product-freight-only>整批成本分攤件數（不是本商品數量／庫存）
+                      <input data-product-cost-item-count type="number" min="1" step="1" readonly placeholder="由關稅號碼或豪鴻批次自動帶入；不會加入庫存">
+                      <small data-product-cost-count-source hidden></small>
+                    </label>
+                    <label data-product-freight-only>平均每件額外成本（台幣）
+                      <input data-product-cost-average-twd type="number" min="0" step="0.01" readonly>
+                    </label>
+                    <label data-product-freight-only>到達據點／成本倉別（物流帶入）
+                      <input data-product-cost-destination-label readonly placeholder="選批內產品後自動帶入">
+                      <input data-product-cost-destination type="hidden">
+                    </label>
+                    <label>每件人事處理成本（系統自動）
+                      <input data-product-cost-handling-twd type="number" min="0" step="1" readonly>
+                    </label>
+                    <label data-product-freight-only>人民幣商品成本（物流帶入，可核對）
+                      <input data-new-product-cost-rmb type="number" min="0" step="0.01" placeholder="選批內產品後自動帶入">
+                    </label>
+                    <label data-product-freight-only>人民幣換算台幣（× 5）
+                      <input data-product-base-cost-twd type="number" min="0" step="0.01" readonly>
+                    </label>
+                    <label data-product-direct-only hidden>現貨商品手填成本（每件）
+                      <input data-product-direct-base-cost type="number" min="0" step="0.01" placeholder="輸入商品原始成本；系統自動再加 NT$20">
+                    </label>
+                    <label>最終每件成本（台幣）
+                      <input data-new-product-final-cost type="number" min="0" step="0.01" readonly>
+                    </label>
+                  </div>
+                  <div class="product-cost-formula" data-product-freight-rule>請先選物流批號，再選批內產品與關稅／運費紀錄。</div>
+                  <input data-new-product-cost type="hidden">
+                  <input data-new-product-weight-kg type="hidden" value="0">
+                  <input data-new-product-customs-allocation type="hidden">
+                  <input data-new-product-freight-twd type="hidden">
+                  <input data-product-cost-tracking-no type="hidden">
+                  <input data-product-cost-freight-item-id type="hidden">
+                  <input data-product-cost-receiving-status type="hidden">
+                  <datalist id="product-customs-options" data-product-customs-options></datalist>
+                </section>
+                <label>售價
+                  <input data-new-product-price type="number" min="0" step="1">
+                  <small class="field-hint" data-product-pricing-rule hidden></small>
+                </label>
+                <label>商品部門
+                  <select data-new-product-department>
+                    <option value="lingzanzan">服裝部門</option>
+                    <option value="computer">電腦部門（電腦倉）</option>
+                  </select>
+
+                </label>
+                <label>產品分類
+                  <select data-new-product-category>
+                    <option value="">請先選分類</option>
+                  </select>
+                </label>
+                <label>新增分類（中文大綱）
+                  <input data-new-product-category-name placeholder="例如：主機 / 外套 / 套裝">
+                </label>
+                <label>新增分類英文（取前三碼當字首）
+                  <input data-new-product-category-english-new placeholder="例如：COMPUTER">
+                </label>
+                <label>目前分類英文
+                  <input data-new-product-category-english-name placeholder="選分類後可改，例如 COMPUTER">
+                </label>
+                <label>條碼字首
+                  <input data-new-product-category-prefix placeholder="COM" readonly>
+                </label>
+                <label>&nbsp;
+                  <button type="button" data-add-product-category>新增／更新分類</button>
+                </label>
+                <label data-product-physical-location>貨倉
+                  <select data-product-warehouse-select>
+                    <option>台灣倉</option>
+                  </select>
+                </label>
+                <label data-product-physical-location>貨架
+                  <select data-product-shelf-select multiple size="4">
+                    <option>請先建立貨架</option>
+                  </select>
+
+                </label>
+                <label data-product-physical-location>層位
+                  <select data-product-layer-select multiple size="4">
+                    <option>請先建立層位</option>
+                  </select>
+                </label>
+              </div>
+              <div class="product-category-outline" data-product-category-outline>
+                <div class="product-category-outline-head">
+                  <b>產品大綱編號</b>
+                </div>
+                <div class="product-outline-table-wrap" data-product-category-list></div>
+              </div>
+              <div class="product-logistics-editor">
+                <div class="product-logistics-head">
+                  <b>採購 / 淘寶追蹤物流</b>
+                </div>
+                <div class="product-logistics-grid">
+                  <label class="product-logistics-date-field">物流建檔日期
+                    <input data-product-logistics-date type="date" readonly>
+                  </label>
+                  <div class="product-logistics-record-fields">
+                    <label>物流單號
+                      <input data-product-logistics-no placeholder="海關單號 / 物流單號">
+                    </label>
+                    <label>處理進度
+                      <input data-product-logistics-progress placeholder="例如：中國收到 / 等轉台灣 / 商損處理">
+                    </label>
+                    <label>備註
+                      <input data-product-logistics-note placeholder="例如：拼直備註、平台處理進度">
+                    </label>
+                  </div>
+                  <label class="product-logistics-platform-field">購買平台
+                    <select data-product-logistics-platform>
+                      <option value="拼多多">拼多多（含運到台灣）</option>
+                      <option value="拼直">拼直</option>
+                      <option value="拼郭">拼郭</option>
+                      <option value="拼張">拼張</option>
+                      <option value="拼A">拼A</option>
+                      <option value="拼電">拼電</option>
+                      <option value="淘寶">淘寶</option>
+                      <option value="抖音">抖音</option>
+                      <option value="其他">其他</option>
+                    </select>
+                  </label>
+                  <button type="button" class="ghost-button" data-product-logistics-add>加入物流紀錄</button>
+                </div>
+                <div class="product-logistics-list" data-product-logistics-list></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="logic-note ai-copy-box">
+            <b>3. AI 產生商品介紹</b>
+            <div class="inline-form module-form">
+              <input data-ai-product-extra placeholder="例如：棉質、寬鬆、顯瘦、適合夏天">
+              <button type="button" data-ai-description>AI 產生商品介紹</button>
+            </div>
+            <textarea data-ai-description-output rows="5" placeholder="AI 產生的中文與印尼文介紹會出現在這裡。"></textarea>
+          </div>
+
+          <div class="template-layout product-option-layout">
+            <div class="template-card">
+              <h3>4. 顏色</h3>
+              <div class="inline-form color-add-row">
+                <label class="photo-action-button color-photo-button">拍顏色圖
+                  <input data-new-color-file type="file" accept="image/*" capture="environment">
+                </label>
+                <input data-new-color-code type="hidden">
+                <input data-new-color-image type="hidden">
+                <input data-new-color-name placeholder="中文顏色，例如：暗黑色" aria-label="中文顏色">
+                <input data-new-color-name-id placeholder="印尼文由系統自動判定" aria-label="印尼文顏色（系統自動）" readonly>
+                <button type="button" data-product-add-color>＋ 加入這個顏色</button>
+              </div>
+              <section class="product-color-main-picker" data-product-color-main-picker>
+                <div class="product-color-main-picker-head">
+                  <div>
+                    <b>從上方商品圖片選顏色圖</b>
+                  </div>
+                  <label>套用到
+                    <select data-product-color-image-target>
+                      <option value="new">準備新增的顏色</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="product-color-main-image-options" data-product-color-main-image-options></div>
+                <div class="product-color-main-picker-actions">
+                  <button type="button" data-apply-product-color-main-image>套用勾選圖片</button>
+                  <button type="button" class="secondary" data-clear-product-color-main-image>清除選擇</button>
+                  <span data-product-color-main-image-status>尚未勾選上方商品圖片</span>
+                </div>
+              </section>
+              <div class="product-color-count-row" aria-live="polite">
+                <strong data-product-color-count>已加入 0 個顏色</strong>
+              </div>
+              <div class="chips dynamic-chips" data-product-color-list></div>
+            </div>
+            <div class="template-card">
+              <h3>5. 尺碼</h3>
+              <div class="inline-form module-form">
+                <select data-size-module-select><option value="">選擇尺碼模組</option></select>
+                <button type="button" data-apply-size-module>套用尺碼模組</button>
+              </div>
+              <div class="inline-form">
+                <input data-new-size-name placeholder="NO SIZE / S / M / L / XL / 2XL">
+                <button type="button" data-product-add-size>新增尺碼</button>
+              </div>
+              <div class="chips dynamic-chips" data-product-size-list></div>
+            </div>
+          </div>
+
+          <div class="template-card">
+            <h3>6. 顏色、尺寸與庫存明細</h3>
+            <div class="variant-matrix" data-product-variant-matrix></div>
+            <div class="product-create-actions">
+              <span data-product-create-message></span>
+              <button type="button" data-product-save-new>儲存商品</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="product-list-actions is-product-section-active" data-product-section-panel="list">
+          <button type="button" data-product-select-all>全選</button>
+          <button type="button" data-product-bulk-save>大量儲存</button>
+          <button type="button" data-product-delete-selected>刪除勾選商品</button>
+        </div>
+        <div class="product-section-searches is-product-section-active" data-product-section-panel="list">
+          <label>搜尋現貨產品
+            <input data-product-ready-search placeholder="名稱、編號、品牌、規格、SKU">
+          </label>
+          <label>搜尋預購產品
+            <input data-product-preorder-search placeholder="名稱、編號、品牌、規格、SKU">
+          </label>
+          <label>搜尋下架 / 零庫存
+            <input data-product-offline-search placeholder="名稱、編號、品牌、規格、SKU">
+          </label>
+        </div>
+        <div class="admin-list is-product-section-active" data-admin-products data-product-section-panel="list"></div>
+        <div class="admin-pager is-product-section-active" data-product-pager data-product-section-panel="list"></div>
+      </section>
+</main>
+  </div>
+  <aside class="product-stock-success" data-product-stock-success hidden aria-live="assertive" aria-atomic="true">
+    <div class="product-stock-success-icon" aria-hidden="true">✓</div>
+    <div class="product-stock-success-body">
+      <small data-product-stock-success-kicker>INVENTORY SAVED</small>
+      <strong data-product-stock-success-title>庫存已成功寫入</strong>
+      <div class="product-stock-success-facts" data-product-stock-success-facts></div>
+      <p data-product-stock-success-detail></p>
+    </div>
+    <button type="button" data-product-stock-success-dismiss>我知道了</button>
+  </aside>
+  <div class="toast" data-admin-toast hidden></div>
+  <script type="lz/asset" data-lz-src="./assets/vendor/qrcode-generator.min.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-warehouse-authority-1.js?v=20260924-admin-search-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-product-forwarder-cost-9.js?v=20260926-dup-color-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-products-no-hints.js?v=20260926-no-hints-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/zhangzhang-pricing-ui.js?v=20260917-pricing-50-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-labels.js?v=20260918-product-department-filter-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-ui-rescue.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/submission-feedback.js" defer data-submission-feedback-script></script>
+<script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260922-product-popup-confirm-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-products-sections.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/image-upload-paste.js" defer></script>
+  <script>
+    (function () {
+      if (!document.body.classList.contains('is-product-popup')) return;
+      function placeConfirm() {
+        if (document.querySelector('[data-product-popup-confirm-fab]')) return;
+        var fab = document.createElement('button');
+        fab.type = 'button';
+        fab.className = 'product-popup-confirm-fab';
+        fab.setAttribute('data-product-popup-confirm-fab', '');
+        fab.setAttribute('data-product-save-new', '');
+        fab.textContent = '確定';
+        document.body.appendChild(fab);
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', placeConfirm);
+      else placeConfirm();
+    })();
+  </script>
+</body>
+</html>
+
+
