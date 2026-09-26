@@ -927,6 +927,77 @@
     }, 80);
   }
 
+  var inboundPendingFocusRestore = null;
+
+  function inboundActiveFieldSnapshot() {
+    var el = document.activeElement;
+    if (!el || el === document.body || el === document.documentElement) return { kind: 'none', el: null };
+    if (el.closest && el.closest('[data-purchase-receipt-sku-search], [data-purchase-receipt-product-barcode], [data-inventory-freight-global-input]')) {
+      return { kind: 'search', el: el };
+    }
+    var line = el.closest && el.closest('[data-purchase-receipt-line]');
+    if (line) {
+      var attr = '';
+      Array.prototype.forEach.call(el.attributes || [], function (item) {
+        if (!attr && item && item.name && item.name.indexOf('data-standalone-line') === 0 && item.name !== 'data-standalone-line-photo-box') attr = item.name;
+      });
+      return {
+        kind: 'line',
+        el: el,
+        key: line.getAttribute('data-purchase-receipt-line') || '',
+        attr: attr,
+        photo: !!(el.closest && el.closest('[data-standalone-line-photo-box]')),
+        tag: el.tagName || '',
+        value: el.value == null ? null : el.value,
+        start: el.selectionStart,
+        end: el.selectionEnd
+      };
+    }
+    return { kind: 'other', el: el, value: el.value == null ? null : el.value, start: el.selectionStart, end: el.selectionEnd };
+  }
+
+  function inboundRestoreFieldSnapshot(snap) {
+    if (!snap || snap.kind === 'search' || snap.kind === 'none') {
+      focusPurchaseReceiptSearch();
+      return;
+    }
+    if (snap.kind === 'line' && snap.key) {
+      var host = document.querySelector('[data-purchase-receipt-line="' + snap.key + '"]');
+      if (!host) return;
+      var el = null;
+      if (snap.photo) el = host.querySelector('[data-standalone-line-photo-box]');
+      if (!el && snap.attr) el = host.querySelector('[' + snap.attr + ']');
+      if (el && el.focus) {
+        try { el.focus(); } catch (error) {}
+        if (snap.value != null && el.value != null && snap.start != null) {
+          try { el.setSelectionRange(snap.start, snap.end == null ? snap.start : snap.end); } catch (error) {}
+        }
+      }
+      return;
+    }
+    if (snap.el && snap.el.isConnected && snap.el.focus) {
+      try { snap.el.focus(); } catch (error) {}
+    }
+  }
+
+  function inboundRevertLeakedScan(snap) {
+    if (!snap || !snap.el || snap.value == null || snap.el.value == null) return;
+    try {
+      snap.el.value = snap.value;
+      if (snap.start != null) snap.el.setSelectionRange(snap.start, snap.end == null ? snap.start : snap.end);
+    } catch (error) {}
+  }
+
+  function finishStandaloneAddFocus() {
+    var snap = inboundPendingFocusRestore;
+    inboundPendingFocusRestore = null;
+    if (snap && snap.kind && snap.kind !== 'search' && snap.kind !== 'none') {
+      window.setTimeout(function () { inboundRestoreFieldSnapshot(snap); }, 0);
+      return;
+    }
+    focusPurchaseReceiptSearch();
+  }
+
   function standaloneMessage(message, kind) {
     var host = document.querySelector('[data-purchase-receipt-message]');
     if (!host) {
@@ -1698,6 +1769,13 @@
     if (compact.length < 8) return false;
     if (/[\u4e00-\u9fff]/.test(compact)) return false;
     return /^[A-Za-z0-9\-_]+$/.test(compact) && /[A-Za-z]/.test(compact) && /\d/.test(compact);
+  }
+
+  function inboundLooksLikeScanCode(value) {
+    var compact = text(value).replace(/\s+/g, '');
+    if (compact.length < 4) return false;
+    if (/[\u4e00-\u9fff]/.test(compact)) return false;
+    return looksLikeBarcodeQuery(compact) || !!typedProductCodeFromScan(compact);
   }
 
   function peelProductCodeBeforeP(compact) {
@@ -2515,7 +2593,7 @@
     clearStandaloneItemEditor();
     renderStandaloneLines();
     standaloneMessage('已加入 ' + skus.length + ' 個尺寸，可在下方改數量。', 'ok');
-    focusPurchaseReceiptSearch();
+    finishStandaloneAddFocus();
   }
 
   function renderStandaloneSkuSuggest(value) {
@@ -4119,15 +4197,31 @@
     clearStandaloneItemEditor();
     renderStandaloneLines();
     standaloneMessage('已加入進貨項目，可繼續掃描下一個產品。', 'ok');
-    focusPurchaseReceiptSearch();
+    finishStandaloneAddFocus();
   }
 
-  function addStandaloneSku(value) {
-    var checkedSkus = checkedStandaloneSkus();
-    if (checkedSkus.length) { addStandaloneSkuRecords(checkedSkus); return; }
-    var selectedSku = state.selectedStandaloneSku;
-    var matches = selectedSku ? [selectedSku] : standaloneSkuMatches(value);
-    if (!selectedSku && matches.length > 1) { standaloneMessage('找到多個顏色或尺寸，請勾選要加入的尺寸，再按「加入已勾選尺寸」。', 'error'); renderStandaloneSkuSuggest(value); return; }
+  function addStandaloneSku(value, options) {
+    options = options || {};
+    var scanned = text(value);
+    var isScan = !!options.fromScanner || inboundLooksLikeScanCode(scanned);
+    if (isScan) {
+      state.selectedStandaloneSku = null;
+      document.querySelectorAll('[data-purchase-receipt-sku-check]').forEach(function (input) { input.checked = false; });
+      var checkAll = document.querySelector('[data-purchase-receipt-sku-check-all]');
+      if (checkAll) { checkAll.checked = false; checkAll.indeterminate = false; }
+    } else {
+      var checkedSkus = checkedStandaloneSkus();
+      if (checkedSkus.length) { addStandaloneSkuRecords(checkedSkus); return; }
+    }
+    var selectedSku = isScan ? null : state.selectedStandaloneSku;
+    var matches = selectedSku ? [selectedSku] : standaloneSkuMatches(scanned || value);
+    if (!selectedSku && matches.length > 1) {
+      inboundPendingFocusRestore = null;
+      standaloneMessage('找到多個顏色或尺寸，請勾選要加入的尺寸，再按「加入已勾選尺寸」。', 'error');
+      renderStandaloneSkuSuggest(value);
+      focusPurchaseReceiptSearch();
+      return;
+    }
     if (!selectedSku && matches.length === 1) selectedSku = matches[0];
     var category = text(document.querySelector('[data-purchase-receipt-category]') && document.querySelector('[data-purchase-receipt-category]').value);
     var productCode = text(document.querySelector('[data-purchase-receipt-product-code]') && document.querySelector('[data-purchase-receipt-product-code]').value);
@@ -5917,6 +6011,88 @@
     if (document.visibilityState === 'hidden') persistStandaloneDraft();
   });
 
+
+  /* LZ_SCAN_ANYWHERE_20260926: 選了品項欄位／公告仍可刷條碼，字不會打進當前格。 */
+  (function bindInboundScanAnywhere() {
+    var buf = '';
+    var lastAt = 0;
+    var snap = null;
+    var flushTimer = 0;
+    var SCAN_GAP_MS = 55;
+    var SCAN_IDLE_MS = 140;
+
+    function inboundScanBlockedTarget(el) {
+      if (!el || !el.closest) return false;
+      if (el.closest('[data-login-form], [data-login-gate], [data-inbound-confirm], input[type="password"]')) return true;
+      if (el.closest('[data-purchase-receipt-sku-search], [data-purchase-receipt-product-barcode], [data-inventory-freight-global-input], [data-stock-docs-query]')) return true;
+      return false;
+    }
+
+    function resetBuf() {
+      buf = '';
+      snap = null;
+      window.clearTimeout(flushTimer);
+    }
+
+    function commitScan(code) {
+      var held = snap;
+      resetBuf();
+      code = text(code).replace(/\s+/g, '');
+      if (!inboundLooksLikeScanCode(code)) return false;
+      inboundRevertLeakedScan(held);
+      inboundPendingFocusRestore = held && held.kind !== 'search' ? held : null;
+      var search = document.querySelector('[data-purchase-receipt-sku-search]');
+      var barcodeInput = document.querySelector('[data-purchase-receipt-product-barcode]');
+      if (search) search.value = code;
+      if (barcodeInput) barcodeInput.value = code;
+      addStandaloneSku(code, { fromScanner: true, keepFocus: !!(held && held.kind !== 'search' && held.kind !== 'none') });
+      standaloneMessage('已用條碼加入，可繼續改這一列或再刷下一筆。', 'ok');
+      return true;
+    }
+
+    function scheduleFlush() {
+      window.clearTimeout(flushTimer);
+      flushTimer = window.setTimeout(function () {
+        if (looksLikeBarcodeQuery(buf)) commitScan(buf);
+        else resetBuf();
+      }, SCAN_IDLE_MS);
+    }
+
+    document.addEventListener('keydown', function (event) {
+      if (event.isComposing || event.key === 'Process' || event.altKey || event.metaKey || event.ctrlKey) return;
+      if (inboundScanBlockedTarget(event.target)) return;
+      if (document.querySelector('[data-inbound-confirm]')) return;
+      var now = Date.now();
+      var key = event.key;
+      if (now - lastAt > SCAN_GAP_MS + 30) {
+        buf = '';
+        snap = inboundActiveFieldSnapshot();
+      }
+      lastAt = now;
+      if (key === 'Enter' || key === 'Tab') {
+        if (looksLikeBarcodeQuery(buf) || (buf.length >= 6 && inboundLooksLikeScanCode(buf))) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+          commitScan(buf);
+        } else resetBuf();
+        return;
+      }
+      if (key.length !== 1) {
+        if (now - lastAt > SCAN_IDLE_MS) resetBuf();
+        return;
+      }
+      if (!/[A-Za-z0-9\-_]/.test(key)) {
+        resetBuf();
+        return;
+      }
+      buf += key;
+      if (buf.length >= 2) {
+        event.preventDefault();
+      }
+      scheduleFlush();
+    }, true);
+  })();
 
   document.addEventListener('paste', function (event) {
     var hot = (event.target && event.target.closest && event.target.closest('[data-standalone-line-photo-box]')) || document.querySelector('[data-standalone-line-photo-box].is-photo-hot');
