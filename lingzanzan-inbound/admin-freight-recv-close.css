@@ -1,0 +1,31 @@
+/* Live sidecar excerpt patched into assets/admin.css
+ * Marker: LZ_RECV_CLOSE_20260926
+ * 入庫完成層要蓋過殘留工作台；關閉列要在點擊範圍內。
+ */
+.freight-received-print-ready{position:fixed;inset:0;z-index:10050}
+.freight-received-print-ready {
+  overflow: auto;
+  z-index: 10050;
+  pointer-events: auto;
+}
+.freight-received-print-ready > section {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 36px);
+  overflow: hidden;
+  pointer-events: auto;
+}
+.freight-received-print-scroller {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.freight-received-print-ready > section > .freight-received-print-actions {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 6;
+  pointer-events: auto;
+}
+.inventory-label-purpose-picker { z-index: 10055; }
+.inventory-barcode-print-overlay { z-index: 10060; }
