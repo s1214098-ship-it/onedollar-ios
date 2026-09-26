@@ -980,20 +980,22 @@
   function inboundColorJoined(zh, id) {
     zh = text(zh);
     id = text(id);
-    if (zh && id) {
-      try { return canonicalBilingualColorName(zh) || (zh + '(' + id + ')'); } catch (error) { return zh + '(' + id + ')'; }
-    }
-    if (zh) {
-      try { return canonicalBilingualColorName(zh) || zh; } catch (error) { return zh; }
-    }
-    return '';
+    if (!zh) return '';
+    var auto = '';
+    try { auto = canonicalBilingualColorName(zh) || ''; } catch (error) { auto = ''; }
+    var autoId = '';
+    var match = String(auto).match(/[（(]([^）)]+)[）)]\s*$/);
+    if (match) autoId = text(match[1]);
+    if (autoId) return auto;
+    if (id) return zh + '(' + id + ')';
+    return auto || zh;
   }
 
   function standaloneColorDatalistHtml() {
     var names = uniqueTextRows((standaloneColorPresets() || []).map(function (color) {
       return inboundColorParts(color).zh;
     })).filter(Boolean);
-    ['紫色', '黑色', '白色', '紅色', '黃色', '綠色', '藍色', '粉紅', '灰色', '咖色', '卡其色', '深藍', '淺藍', '白粉', '白藍', '白綠'].forEach(function (name) {
+    ['紫色', '黑色', '白色', '紅色', '黃色', '綠色', '藍色', '粉紅', '灰色', '咖色', '卡其色', '深藍', '淺藍', '白粉', '白藍', '白綠', '白黑', '白紅', '棕色', '淺灰'].forEach(function (name) {
       if (names.indexOf(name) === -1) names.push(name);
     });
     return '<datalist id="purchase-receipt-color-zh-list">' + names.map(function (name) {
@@ -1095,12 +1097,12 @@
     var named = {
       'c:91': '黑色(HITEM)',
       'c:92': '白色(PUTI)',
-      'c:928': '白粉',
-      'c:929': '白藍',
-      'c:930': '白綠',
-      'c:931': '白黑',
-      'c:932': '白紅',
-      'c:952': '淺灰色',
+      'c:928': '白粉(PUTI PINK)',
+      'c:929': '白藍(PUTI BIRU)',
+      'c:930': '白綠(PUTI HIGAU)',
+      'c:931': '白黑(PUTI HITEM)',
+      'c:932': '白紅(PUTI MERAL)',
+      'c:952': '淺灰色(ABU muda)',
       'c:99': '灰色(ABU)',
       'c:904': '卡其色(Dril)',
       'c:98': '粉紅(PINK)',
@@ -3018,9 +3020,56 @@
     );
   }
 
+  function indonesianGlossFromChinese(value) {
+    /* LZ_COLOR_AUTO_ID_20260926: 新進中文色自動拆詞翻譯；白藍仍是白藍，不會變成白色。 */
+    var zh = receiptChineseColor(value) || text(value);
+    zh = zh.replace(/[（(].*$/, '').replace(/\s+/g, '');
+    if (!zh) return '';
+    var exact = {
+      '紫色': 'UNGU', '紫': 'UNGU',
+      '黑色': 'HITEM', '黑': 'HITEM',
+      '白色': 'PUTI', '白': 'PUTI',
+      '紅色': 'MERAL', '紅': 'MERAL',
+      '黃色': 'KUR', '黃': 'KUR',
+      '綠色': 'HIGAU', '綠': 'HIGAU',
+      '藍色': 'BIRU', '藍': 'BIRU',
+      '粉紅': 'PINK', '粉': 'PINK', '粉色': 'PINK', '粉紅色': 'PINK',
+      '灰色': 'ABU', '灰': 'ABU',
+      '咖色': 'cokelat', '咖啡': 'cokelat', '咖啡色': 'cokelat', '棕色': 'cokelat', '棕': 'cokelat',
+      '卡其色': 'Dril', '卡其': 'Dril',
+      '深藍': 'biru tua', '深藍色': 'biru tua',
+      '淺藍': 'biru muda', '淺藍色': 'biru muda',
+      '淺灰': 'ABU muda', '淺灰色': 'ABU muda',
+      '白粉': 'PUTI PINK', '白粉色': 'PUTI PINK',
+      '白藍': 'PUTI BIRU', '白藍色': 'PUTI BIRU',
+      '白綠': 'PUTI HIGAU', '白綠色': 'PUTI HIGAU',
+      '白黑': 'PUTI HITEM',
+      '白紅': 'PUTI MERAL'
+    };
+    if (exact[zh]) return exact[zh];
+    var stripped = zh.replace(/色$/g, '');
+    if (exact[stripped]) return exact[stripped];
+    var tokens = ['白粉', '白藍', '白綠', '白黑', '白紅', '深藍', '淺藍', '粉紅', '卡其', '咖啡', '淺灰', '紫', '黑', '白', '紅', '黃', '綠', '藍', '粉', '灰', '咖', '棕'];
+    var rest = stripped;
+    var parts = [];
+    while (rest) {
+      var hit = '';
+      var i;
+      for (i = 0; i < tokens.length; i += 1) {
+        if (rest.indexOf(tokens[i]) === 0) { hit = tokens[i]; break; }
+      }
+      if (!hit) return '';
+      parts.push(exact[hit]);
+      rest = rest.slice(hit.length);
+    }
+    return parts.filter(Boolean).join(' ');
+  }
+
   function canonicalBilingualColorName(value) {
     /* LZ_COLOR_UNIFY_20260925: 小姐打中文，系統存一筆雙語。 */
+    /* LZ_COLOR_AUTO_ID_20260926: 白藍／新進組合色自動帶印尼文。 */
     var raw = text(value);
+    if (!raw) return '';
     var map = {
       '紫色': '紫色(UNGU)', '黑色': '黑色(HITEM)', '白色': '白色(PUTI)', '紅色': '紅色(MERAL)',
       '黃色': '黃色(KUR)', '綠色': '綠色(HIGAU)', '藍色': '藍色(BIRU)', '粉紅': '粉紅(PINK)',
@@ -3029,18 +3078,28 @@
       '深藍(biru tua)': '深藍(biru tua)', '深藍色(biru tua)': '深藍(biru tua)', '咖啡色': '咖色(cokelat)',
       '咖色(cokelat)': '咖色(cokelat)', '卡其': '卡其色(Dril)', '淺藍色': '淺藍(biru muda)',
       '淺藍': '淺藍(biru muda)', '淺藍(biru muda)': '淺藍(biru muda)',
-      '白粉': '白粉', '白粉色': '白粉', '白藍': '白藍', '白藍色': '白藍',
-      '白綠': '白綠', '白綠色': '白綠', '白黑': '白黑', '白紅': '白紅'
+      '白粉': '白粉(PUTI PINK)', '白粉色': '白粉(PUTI PINK)',
+      '白藍': '白藍(PUTI BIRU)', '白藍色': '白藍(PUTI BIRU)',
+      '白綠': '白綠(PUTI HIGAU)', '白綠色': '白綠(PUTI HIGAU)',
+      '白黑': '白黑(PUTI HITEM)', '白紅': '白紅(PUTI MERAL)',
+      '棕色': '棕色(cokelat)', '淺灰': '淺灰色(ABU muda)', '淺灰色': '淺灰色(ABU muda)'
     };
-    return map[raw] || raw;
+    if (map[raw]) return map[raw];
+    var existing = raw.match(/^(.*?)[（(]([^）)]+)[）)]\s*$/);
+    var zhOnly = existing ? text(existing[1]) : (receiptChineseColor(raw) || raw);
+    if (map[zhOnly]) return map[zhOnly];
+    var gloss = indonesianGlossFromChinese(zhOnly || raw);
+    if (zhOnly && gloss) return zhOnly + '(' + gloss + ')';
+    if (existing && text(existing[2])) return zhOnly + '(' + text(existing[2]) + ')';
+    return raw;
   }
 
   function receivedColorNameFromCode(code) {
     var map = {
       '91': '黑色(HITEM)', '92': '白色(PUTI)', '93': '紅色(MERAL)', '94': '黃色(KUR)', '95': '綠色(HIGAU)', '96': '藍色(BIRU)',
-      '98': '粉紅(PINK)', '99': '灰色(ABU)', '904': '卡其色(Dril)', '902': '咖色(cokelat)', '912': '棕色', '952': '淺灰色',
+      '98': '粉紅(PINK)', '99': '灰色(ABU)', '904': '卡其色(Dril)', '902': '咖色(cokelat)', '912': '棕色(cokelat)', '952': '淺灰色(ABU muda)',
       '910': '深藍(biru tua)', '922': '深藍(biru tua)',
-      '928': '白粉', '929': '白藍', '930': '白綠', '931': '白黑', '932': '白紅'
+      '928': '白粉(PUTI PINK)', '929': '白藍(PUTI BIRU)', '930': '白綠(PUTI HIGAU)', '931': '白黑(PUTI HITEM)', '932': '白紅(PUTI MERAL)'
     };
     return map[String(code || '').trim()] || '';
   }
@@ -5105,11 +5164,8 @@
       var colorHostLive = event.target.closest('[data-purchase-receipt-line]');
       if (event.target.matches('[data-standalone-line-color-zh]') && colorHostLive) {
         var typedZh = text(event.target.value);
-        var idLive = colorHostLive.querySelector('[data-standalone-line-color-id]');
-        var partsLive = inboundColorParts(typedZh);
-        if (idLive && partsLive.id) idLive.value = partsLive.id;
-        var hiddenLiveZh = colorHostLive.querySelector('[data-standalone-line-color]');
-        if (hiddenLiveZh) hiddenLiveZh.value = inboundColorJoined(typedZh, partsLive.id || text(idLive && idLive.value));
+        var currentId = text(colorHostLive.querySelector('[data-standalone-line-color-id]') && colorHostLive.querySelector('[data-standalone-line-color-id]').value);
+        applyStandaloneColorSplit(colorHostLive, inboundColorJoined(typedZh, currentId));
       }
       if (event.target.matches('[data-standalone-line-color-id]') && colorHostLive) {
         var typedId = text(event.target.value);
@@ -5164,6 +5220,7 @@
         var picked = sanitizeInboundColorValue(event.target.value, state.standaloneLines.find(function (row) { return row.key === (colorHost && colorHost.getAttribute('data-purchase-receipt-line')); }) || {}, null, null, colorHost && colorHost.querySelector('[data-standalone-line-barcode]') && colorHost.querySelector('[data-standalone-line-barcode]').value);
         colorField.value = picked || event.target.value;
         if (receivedIsPlaceholderColor(event.target.value) && !picked) colorField.value = '';
+        applyStandaloneColorSplit(colorHost, colorField.value);
         refreshAutomaticVariantBarcode(colorHost);
       }
       return;
