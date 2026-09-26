@@ -381,10 +381,12 @@ function scanner_image(array $product, array $sku): string {
 function sku_warehouse(array $sku): string {
     $code = scanner_warehouse_code($sku['warehouseCode'] ?? '');
     if ($code === '') $code = scanner_warehouse_code($sku['warehouseName'] ?? $sku['warehouse'] ?? '');
+    if ($code === 'BH') return '寶輝電腦倉';
     if ($code === 'TW') return '台灣倉';
     if ($code === 'CN') return '中國倉';
     if ($code === 'ID') return '印尼倉';
     $name = trim((string)($sku['warehouseName'] ?? $sku['warehouse'] ?? ''));
+    if ($name !== '' && scanner_warehouse_is_baohui($name)) return '寶輝電腦倉';
     return $name !== '' ? $name : '未設定倉庫';
 }
 function sku_key(array $sku): string { return implode('|', [(string)($sku['productId']??''),(string)($sku['colorName']??$sku['color']??''),(string)($sku['sizeName']??$sku['size']??'NO SIZE')]); }
@@ -541,9 +543,24 @@ function clone_to_warehouse(array &$skus, array $source, string $warehouse, int 
     $skus[]=$copy; return count($skus)-1;
 }
 function warehouses_from_state(array $state, array $skus): array {
-    // 盤點機只提供實際作業使用的四種庫存歸屬，順序固定，避免舊資料中的
-    // 待判別倉／退貨倉擠掉主要選項。預購倉也必須能直接盤點與查詢。
+    // 服裝各門：中國／台灣／印尼／預購。寶輝電腦倉獨立，不可再折進台灣倉。
+    return ['中國倉','台灣倉','印尼倉','預購倉','寶輝電腦倉'];
+}
+function scanner_clothing_warehouses(): array {
     return ['中國倉','台灣倉','印尼倉','預購倉'];
+}
+function scanner_computer_warehouses(): array {
+    return ['寶輝電腦倉'];
+}
+function scanner_warehouse_is_baohui($value): bool {
+    $text=strtolower(trim((string)$value));
+    return $text==='bh' || $text==='tw_baohui' || (bool)preg_match('/寶輝|宝辉|baohui/u',$text);
+}
+function scanner_is_computer_category_name(string $name): bool {
+    $name=trim($name);
+    if ($name==='' || $name==='服裝' || $name==='服裝部') return false;
+    if ($name==='電腦' || $name==='電腦部' || $name==='電腦部門') return true;
+    return (bool)preg_match('/電腦|筆電|螢幕|顯示卡|主機板|記憶體|處理器|CPU|GPU|SSD|電源供應|機殼|散熱|網路設備|鍵盤|滑鼠|3C|電子周邊|線材|轉接器|音訊|視訊|儲存裝置|周邊設備|工具相關|電燈|伺服器|工作站|軟體|探測|施工設備/u',$name);
 }
 function scanner_location_list_from_state(array $state, array $skus, string $key): array {
     $list=[];
@@ -577,6 +594,7 @@ function scanner_add_location_values(array &$state, string $key, array $values):
 }
 function scanner_warehouse_code($value): string {
     $text=strtolower(trim((string)$value));
+    if($text==='bh'||$text==='tw_baohui'||preg_match('/寶輝|宝辉|baohui/u',$text))return 'BH';
     if($text==='cn'||preg_match('/中國|中国|china/u',$text))return 'CN';
     if($text==='id'||preg_match('/印尼|indonesia|indo/u',$text))return 'ID';
     if($text==='tw'||preg_match('/台灣|台湾|taiwan/u',$text))return 'TW';
@@ -761,6 +779,48 @@ function scanner_categories(array $products, array $skus = []): array {
     }
     usort($rows,static fn($a,$b)=>strcmp((string)$b['updatedAt'],(string)$a['updatedAt']));
     return array_slice(array_column($rows,'name'),0,80);
+}
+function scanner_split_categories(array $all): array {
+    $clothing=[];$computer=[];
+    foreach ($all as $name) {
+        $name=trim((string)$name);
+        if ($name==='' || $name==='快速入庫待補' || $name==='請先選分類') continue;
+        if (scanner_is_computer_category_name($name)) {
+            if (!in_array($name,$computer,true)) $computer[]=$name;
+        } else {
+            if (!in_array($name,$clothing,true)) $clothing[]=$name;
+        }
+    }
+    return ['clothing'=>$clothing,'computer'=>$computer];
+}
+function scanner_clear_clothing_qty_keep_name(array &$skus, array &$products, string $productId, string $color, string $size, string $exceptWarehouse, string $now): int {
+    /* LZ_DEPT_CAT_20260926: 驗收到寶輝後服裝倉數量歸零，主檔品名保留。 */
+    $cleared=0;
+    $colorKey=scanner_color_key($color);
+    $sizeKey=scanner_quick_size($size);
+    foreach ($skus as $i=>$sku) {
+        if (!is_array($sku)) continue;
+        if ((string)($sku['productId']??'')!==$productId) continue;
+        if (scanner_color_key($sku['colorName']??$sku['color']??'')!==$colorKey) continue;
+        if (scanner_quick_size($sku['sizeName']??$sku['size']??'')!==$sizeKey) continue;
+        $warehouse=sku_warehouse($sku);
+        if (scanner_warehouse_is_baohui($warehouse) || $warehouse===$exceptWarehouse) continue;
+        if (!in_array($warehouse, scanner_clothing_warehouses(), true)) continue;
+        $stock=(int)($sku['stock']??0);
+        if ($stock===0) continue;
+        $skus[$i]['stock']=0;
+        $skus[$i]['updatedAt']=$now;
+        $skus[$i]['baohuiReceivedClearedAt']=$now;
+        $cleared+=$stock;
+    }
+    foreach ($products as $pi=>$product) {
+        if (!is_array($product) || (string)($product['id']??'')!==$productId) continue;
+        $products[$pi]['title']=(string)($product['title']??$product['name']??$product['code']??'');
+        $products[$pi]['name']=(string)($product['name']??$products[$pi]['title']);
+        $products[$pi]['updatedAt']=$now;
+        break;
+    }
+    return $cleared;
 }
 function scanner_backend_colors(array $products, array $skus): array {
     $seen=[];$colors=[];
@@ -1261,7 +1321,9 @@ if($_SERVER['REQUEST_METHOD']==='GET'){
     if($mode==='quick_stockin_review') scanner_response(['ok'=>true,'drafts'=>array_values(array_reverse(scanner_read($pendingStockinFile))),'initialStockMode'=>$initialStockMode,'updatedAt'=>date(DATE_ATOM)]);
     $q=trim((string)($_GET['q']??''));
     $searchRows=$q===''?[]:scanner_rows($products,$skus,$q,$sessions,$barcodeAliases);
-    scanner_response(['ok'=>true,'rows'=>$searchRows,'ambiguousBarcode'=>scanner_rows_have_identity_conflict($searchRows),'warehouses'=>warehouses_from_state($state,$skus),'shelves'=>scanner_location_list_from_state($state,$skus,'shelves'),'layers'=>scanner_location_list_from_state($state,$skus,'layers'),'categories'=>scanner_categories($products,$skus),'colors'=>$q===''?scanner_backend_colors($products,$skus):[],'categoryPrefixes'=>scanner_category_prefixes($products),'initialStockMode'=>$initialStockMode,'updatedAt'=>date(DATE_ATOM)]);
+    $allCategories=scanner_categories($products,$skus);
+    $split=scanner_split_categories($allCategories);
+    scanner_response(['ok'=>true,'rows'=>$searchRows,'ambiguousBarcode'=>scanner_rows_have_identity_conflict($searchRows),'warehouses'=>warehouses_from_state($state,$skus),'clothingWarehouses'=>scanner_clothing_warehouses(),'computerWarehouses'=>scanner_computer_warehouses(),'shelves'=>scanner_location_list_from_state($state,$skus,'shelves'),'layers'=>scanner_location_list_from_state($state,$skus,'layers'),'categories'=>$allCategories,'clothingCategories'=>$split['clothing'],'computerCategories'=>$split['computer'],'colors'=>$q===''?scanner_backend_colors($products,$skus):[],'categoryPrefixes'=>scanner_category_prefixes($products),'initialStockMode'=>$initialStockMode,'updatedAt'=>date(DATE_ATOM)]);
 }
 
 $payload=json_decode((string)file_get_contents('php://input'),true); if(!is_array($payload))scanner_response(['ok'=>false,'error'=>'資料格式錯誤'],400);
@@ -2139,6 +2201,13 @@ if($action==='quick_stockin_batch'){
         }
         $skus[$targetIndex]['updatedAt']=$now;
         if($item['shelf']!=='')$skus[$targetIndex]['shelf']=$item['shelf'];if($item['layer']!=='')$skus[$targetIndex]['layer']=$item['layer'];
+        if (scanner_warehouse_is_baohui($item['warehouse']) || scanner_is_computer_category_name($item['category'])) {
+            $skus[$targetIndex]['inventoryBusinessUnit']='baohui_computer';
+            $skus[$targetIndex]['department']='computer';
+            $products[$productIndex]['inventoryBusinessUnit']='baohui_computer';
+            $products[$productIndex]['department']='computer';
+            scanner_clear_clothing_qty_keep_name($skus,$products,$productId,$item['color'],$item['size'],$item['warehouse'],$now);
+        }
         $pendingMetadata=$item['category']==='快速入庫待補'||scanner_placeholder_color($item['color']);
         $products[$productIndex]['category']=$item['category'];$products[$productIndex]['status']='active';$products[$productIndex]['active']=true;$products[$productIndex]['pendingMetadata']=$pendingMetadata;
         $hasProductCost=false;

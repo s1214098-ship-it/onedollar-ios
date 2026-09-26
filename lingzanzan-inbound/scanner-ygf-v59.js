@@ -18,6 +18,8 @@
   var sourceWarehouse = document.querySelector('[data-source-warehouse]');
   var targetWarehouse = document.querySelector('[data-target-warehouse]');
   var transferDepartmentMode = document.querySelector('[data-transfer-department-mode]');
+  var scannerDepartmentSelect = document.querySelector('[data-scanner-department]');
+  var scannerDepartmentKey = 'lingzanzan-scanner-department-v1';
   var arrivalWarehouse = document.querySelector('[data-arrival-warehouse]');
   var pendingPanel = document.querySelector('[data-pending-panel]');
   var pendingPurpose = 'stockin';
@@ -61,6 +63,10 @@
   if (!Array.isArray(stockinDraft)) stockinDraft = [];
   stockinDraft.forEach(function (line) { if (line) line.qty = Math.max(1, Number(line.qty || 1)); });
   var stockinCategories = [];
+  var clothingCategories = [];
+  var computerCategories = [];
+  var clothingWarehouses = ['中國倉', '台灣倉', '印尼倉', '預購倉'];
+  var computerWarehouses = ['寶輝電腦倉'];
   var stockinColors = [];
   var stockinCategoryPrefixes = {};
   var initialStockMode = { enabled: true, mode: 'initial_inventory_setup', stayOpen: true };
@@ -845,7 +851,7 @@ function stockinCode128Svg(value) {
   function currentOperator() {
     var login = readJson(loginKey, {});
     if (login && login.until && Date.now() < Number(login.until)) {
-      return {name: login.name || login.account || '管理者', account: login.account || '', role: login.role || 'admin', permissions: Array.isArray(login.permissions) ? login.permissions : []};
+      return {name: login.name || login.account || '管理者', account: login.account || '', role: login.role || 'admin', permissions: Array.isArray(login.permissions) ? login.permissions : [], department: login.department || ''};
     }
     return {name: '未登入人員', account: '', role: 'unknown', permissions: []};
   }
@@ -1110,6 +1116,7 @@ function stockinCode128Svg(value) {
       name: user.name || (role === 'admin' ? '管理者' : ''),
       account: user.account || '',
       permissions: permissions,
+      department: user.department || user.businessUnit || user.inventoryBusinessUnit || '',
       serverSession: true
     }));
     operator = currentOperator();
@@ -1227,7 +1234,7 @@ function stockinCode128Svg(value) {
     renderSession();
   }
   function renderSession() {
-    document.querySelector('[data-operator]').textContent = operator.name + (operator.role === 'staff' ? '（員工）' : operator.role === 'admin' ? '（管理者）' : '');
+    document.querySelector('[data-operator]').textContent = operator.name + (operator.role === 'staff' ? '（員工）' : operator.role === 'admin' ? '（管理者）' : '') + (scannerDepartment() === 'computer' ? '｜寶輝／電腦' : '｜服裝');
     document.querySelector('[data-started-at]').textContent = session ? new Date(session.startedAt).toLocaleString('zh-TW') : '-';
     document.querySelector('[data-session-id]').textContent = session ? session.id : '-';
   }
@@ -1508,13 +1515,84 @@ function stockinCode128Svg(value) {
       return true;
     });
   }
+  function isComputerCategoryName(name) {
+    /* LZ_DEPT_CAT_20260926: 電腦分類不可混進服裝下拉。 */
+    var raw = String(name || '').trim();
+    if (!raw || raw === '服裝' || raw === '服裝部') return false;
+    if (raw === '電腦' || raw === '電腦部' || raw === '電腦部門') return true;
+    return /電腦|筆電|螢幕|顯示卡|主機板|記憶體|處理器|CPU|GPU|SSD|電源供應|機殼|散熱|網路設備|鍵盤|滑鼠|3C|電子周邊|線材|轉接器|音訊|視訊|儲存裝置|周邊設備|工具相關|電燈|伺服器|工作站|軟體|探測|施工設備/.test(raw);
+  }
+  function scannerDepartmentFromLogin() {
+    var login = readJson(loginKey, {});
+    var blob = [login.department, login.businessUnit, login.inventoryBusinessUnit, login.account, login.name].map(function (value) { return String(value || ''); }).join(' ');
+    if (/computer|baohui|寶輝|宝辉|電腦/.test(blob.toLowerCase()) || /電腦|寶輝/.test(blob)) return 'computer';
+    var perms = Array.isArray(login.permissions) ? login.permissions : [];
+    if (perms.indexOf('電腦部產品管理') !== -1 && perms.indexOf('盤點機') === -1 && perms.indexOf('盤點') === -1) return 'computer';
+    return 'clothing';
+  }
+  function scannerDepartment() {
+    var selected = scannerDepartmentSelect && String(scannerDepartmentSelect.value || '').trim();
+    if (selected === 'computer' || selected === 'clothing') return selected;
+    try {
+      var stored = String(localStorage.getItem(scannerDepartmentKey) || '').trim();
+      if (stored === 'computer' || stored === 'clothing') return stored;
+    } catch (error) {}
+    return scannerDepartmentFromLogin();
+  }
+  function departmentWarehouses() {
+    return scannerDepartment() === 'computer' ? computerWarehouses.slice() : clothingWarehouses.slice();
+  }
+  function applyScannerDepartment(options) {
+    options = options || {};
+    var dept = scannerDepartment();
+    try { localStorage.setItem(scannerDepartmentKey, dept); } catch (error) {}
+    if (scannerDepartmentSelect && scannerDepartmentSelect.value !== dept) scannerDepartmentSelect.value = dept;
+    var list = departmentWarehouses();
+    if (!list.length) list = clothingWarehouses.slice();
+    var html = list.map(function (item) { return '<option value="' + escapeHtml(item) + '">' + escapeHtml(item) + '</option>'; }).join('');
+    var keep = options.keepWarehouse || '';
+    fillWarehouseSelect(warehouse, html, false);
+    fillWarehouseSelect(document.querySelector('[data-pending-warehouse]'), html, false);
+    fillWarehouseSelect(lookupWarehouse, html, true);
+    if (dept === 'computer') {
+      fillWarehouseSelect(sourceWarehouse, clothingWarehouses.map(function (item) { return '<option value="' + escapeHtml(item) + '">' + escapeHtml(item) + '</option>'; }).join(''), false);
+    } else {
+      fillWarehouseSelect(sourceWarehouse, html, false);
+    }
+    if (dept === 'computer' && list.indexOf('寶輝電腦倉') !== -1) {
+      if (warehouse) warehouse.value = '寶輝電腦倉';
+      if (lookupWarehouse && lookupWarehouse.value !== 'all') lookupWarehouse.value = '寶輝電腦倉';
+    } else if (keep && list.indexOf(keep) !== -1 && warehouse) {
+      warehouse.value = keep;
+    } else if (warehouse && list.indexOf('台灣倉') !== -1) {
+      warehouse.value = '台灣倉';
+    }
+    applyTransferMode();
+    var recentCategory = String(localStorage.getItem(stockinRecentCategoryKey) || '');
+    var defaultCategory = document.querySelector('[data-stockin-default-category]');
+    var pendingCategory = document.querySelector('[data-pending-category]');
+    if (defaultCategory) defaultCategory.innerHTML = stockinCategoryOptions(recentCategory);
+    if (pendingCategory) pendingCategory.innerHTML = stockinCategoryOptions('');
+    renderStockinDraft();
+    renderSession();
+  }
   function setStockinCategories(values) {
     stockinCategories = normalizeStockinCategoryList(values);
   }
   function stockinCategoryOptions(selected) {
     selected = String(selected || '').trim();
-    var list = normalizeStockinCategoryList(['電腦', '服裝'].concat(stockinCategories));
-    if (selected && selected !== '快速入庫待補' && list.indexOf(selected) === -1) list.unshift(selected);
+    var dept = scannerDepartment();
+    var source = dept === 'computer' ? computerCategories : clothingCategories;
+    if (!source.length) {
+      source = stockinCategories.filter(function (name) {
+        return dept === 'computer' ? isComputerCategoryName(name) : !isComputerCategoryName(name);
+      });
+    }
+    var list = normalizeStockinCategoryList(source);
+    if (selected && selected !== '快速入庫待補' && list.indexOf(selected) === -1) {
+      var selectedOk = dept === 'computer' ? isComputerCategoryName(selected) : !isComputerCategoryName(selected);
+      if (selectedOk) list.unshift(selected);
+    }
     return '<option value="">請選分類</option>' + list.map(function (item) {
       return '<option value="' + escapeHtml(item) + '"' + (item === selected ? ' selected' : '') + '>' + escapeHtml(item) + '</option>';
     }).join('') + '<option value="快速入庫待補"' + (selected === '快速入庫待補' ? ' selected' : '') + '>稍後補分類</option>';
@@ -1624,7 +1702,7 @@ function stockinCode128Svg(value) {
     return [String(line.skuId || line.rawCode || ''), String(line.warehouse || ''), String(line.shelf || ''), String(line.layer || ''), String(line.color || ''), stockinCanonicalSize(line.size), String(line.category || '')].join('|');
   }
   function stockinWarehouseOptions(selected) {
-    var values = Array.isArray(warehouses) ? warehouses.filter(Boolean) : [];
+    var values = departmentWarehouses();
     if (selected && values.indexOf(selected) === -1) values.unshift(selected);
     return values.map(function (value) {
       return '<option value="' + escapeHtml(value) + '"' + (String(selected || '') === String(value) ? ' selected' : '') + '>' + escapeHtml(value) + '</option>';
@@ -2326,9 +2404,10 @@ function stockinCode128Svg(value) {
   function warehouseCodeOf(name) {
     var text = String(name || '').trim().toLowerCase();
     if (!text || text === 'all') return 'all';
+    if (text === 'bh' || text === 'tw_baohui' || /寶輝|宝辉|baohui/.test(text)) return 'BH';
     if (text === 'cn' || text === 'cn_dongguan' || /中國|中国|東莞|东莞|china/.test(text)) return 'CN';
     if (text === 'id' || text === 'id_direct' || /印尼|indonesia/.test(text)) return 'ID';
-    if (text === 'tw' || text === 'tw_baohui' || /台灣|台湾|寶輝|宝辉|taiwan/.test(text)) return 'TW';
+    if (text === 'tw' || /台灣|台湾|taiwan/.test(text)) return 'TW';
     return text;
   }
   function sameWarehouse(rowWarehouse, selectedWarehouse) {
@@ -3145,32 +3224,26 @@ function stockinCode128Svg(value) {
       .then(function (res) { return res.json(); })
       .then(function (payload) {
         initialStockMode = payload.initialStockMode && typeof payload.initialStockMode === 'object' ? payload.initialStockMode : { enabled: true, mode: 'initial_inventory_setup' };
-        var requiredWarehouses = ['中國倉', '台灣倉', '印尼倉', '預購倉'];
-        var list = Array.isArray(payload.warehouses) && payload.warehouses.length ? payload.warehouses : requiredWarehouses.slice();
+        clothingWarehouses = Array.isArray(payload.clothingWarehouses) && payload.clothingWarehouses.length ? payload.clothingWarehouses.slice() : ['中國倉', '台灣倉', '印尼倉', '預購倉'];
+        computerWarehouses = Array.isArray(payload.computerWarehouses) && payload.computerWarehouses.length ? payload.computerWarehouses.slice() : ['寶輝電腦倉'];
+        var list = clothingWarehouses.concat(computerWarehouses.filter(function (name) { return clothingWarehouses.indexOf(name) === -1; }));
         stockinShelves = Array.isArray(payload.shelves) ? payload.shelves.filter(Boolean) : [];
         stockinLayers = Array.isArray(payload.layers) ? payload.layers.filter(Boolean) : [];
-        list = requiredWarehouses.filter(function (name) { return list.indexOf(name) !== -1; });
-        requiredWarehouses.forEach(function (name) { if (list.indexOf(name) === -1) list.push(name); });
         warehouses = list.slice();
         var options = list.map(function (item) { return '<option value="' + escapeHtml(item) + '">' + escapeHtml(item) + '</option>'; }).join('');
-        fillWarehouseSelect(warehouse, options, false);
         fillWarehouseSelect(sourceWarehouse, options, false);
         fillWarehouseSelect(targetWarehouse, options, false);
         fillWarehouseSelect(arrivalWarehouse, options, false);
-        if (list.indexOf('台灣倉') !== -1) arrivalWarehouse.value = '台灣倉';
+        if (clothingWarehouses.indexOf('台灣倉') !== -1) arrivalWarehouse.value = '台灣倉';
         if (targetWarehouse.options.length > 1 && targetWarehouse.value === sourceWarehouse.value) targetWarehouse.selectedIndex = 1;
-        applyTransferMode();
-        fillWarehouseSelect(lookupWarehouse, options, true);
-        fillWarehouseSelect(document.querySelector('[data-pending-warehouse]'), options, false);
         refreshLocationSelects();
         setStockinCategories(Array.isArray(payload.categories) ? payload.categories : []);
+        clothingCategories = Array.isArray(payload.clothingCategories) ? payload.clothingCategories.slice() : stockinCategories.filter(function (name) { return !isComputerCategoryName(name); });
+        computerCategories = Array.isArray(payload.computerCategories) ? payload.computerCategories.slice() : stockinCategories.filter(function (name) { return isComputerCategoryName(name); });
         stockinColors = Array.isArray(payload.colors) ? payload.colors.map(function (name) { return String(name || '').trim(); }).filter(Boolean) : [];
         initStockinSelectControls();
         stockinCategoryPrefixes = payload.categoryPrefixes && typeof payload.categoryPrefixes === 'object' ? payload.categoryPrefixes : {};
-        var recentCategory = String(localStorage.getItem(stockinRecentCategoryKey) || '');
-        document.querySelector('[data-stockin-default-category]').innerHTML = stockinCategoryOptions(recentCategory);
-        document.querySelector('[data-pending-category]').innerHTML = stockinCategoryOptions('');
-        renderStockinDraft();
+        applyScannerDepartment({ keepWarehouse: session && session.warehouse });
         applyPermissionUi();
         if (requestedTab && canUseTab(requestedTab)) {
           var requestedButton = document.querySelector('[data-tab="' + requestedTab + '"]');
@@ -3180,7 +3253,8 @@ function stockinCode128Svg(value) {
           }
         }
         requestedTab = '';
-        if (session && list.indexOf(session.warehouse) !== -1) warehouse.value = session.warehouse;
+        var deptList = departmentWarehouses();
+        if (session && deptList.indexOf(session.warehouse) !== -1 && warehouse) warehouse.value = session.warehouse;
         document.querySelector('[data-online]').textContent = '系統已連線';
         document.querySelector('[data-online]').className = 'is-online';
         ensureSession();
@@ -4940,6 +5014,13 @@ function stockinCode128Svg(value) {
     if (transferMode() === 'clothing' && targetWarehouse.value === sourceWarehouse.value && targetWarehouse.options.length > 1) {
       targetWarehouse.selectedIndex = (sourceWarehouse.selectedIndex + 1) % targetWarehouse.options.length;
     }
+  });
+  if (scannerDepartmentSelect) scannerDepartmentSelect.addEventListener('change', function () {
+    try { localStorage.setItem(scannerDepartmentKey, scannerDepartmentSelect.value === 'computer' ? 'computer' : 'clothing'); } catch (error) {}
+    applyScannerDepartment();
+    setMessage(scannerDepartment() === 'computer' ? '已切到寶輝／電腦：分類與盤點倉只顯示電腦部；驗收到寶輝後服裝倉只留品名、不再掛庫存。' : '已切到服裝：分類只顯示服裝，電腦分類不會出現。', 'ok');
+    var code = activeScanCode();
+    if (code) lookup(code);
   });
   if (transferDepartmentMode) transferDepartmentMode.addEventListener('change', function () {
     var nextMode = transferMode();

@@ -29,10 +29,10 @@
   </script>
   <link rel="manifest" href="./scanner.webmanifest">
   <link rel="icon" href="./assets/brand-icon-192.png">
-  <link rel="stylesheet" href="./assets/scanner-ygf-v59.css?v=20260924-scan-lookup-1">
+  <link rel="stylesheet" href="./assets/scanner-ygf-v59.css?v=20260926-dept-cat-1">
 </head>
 <body data-scanner-app class="scanner-pda-layout">
-      <header class="scan-app-head"><button type="button" class="scanner-nav-back" data-scanner-back aria-label="回上一頁">‹</button><div><small class="system-name">LINGZANZAN盤點系統</small><h1 data-scanner-screen-title>商品盤點</h1><b class="scanner-build-badge">版本 v152</b></div><nav class="scanner-install-actions" aria-label="盤點機安裝"><a class="scanner-apk-download" href="./scanner-apk-download.php" download>↓ YGF安裝檔</a><button type="button" data-install-app>網頁安裝</button></nav><span data-online>連線中</span></header>
+      <header class="scan-app-head"><button type="button" class="scanner-nav-back" data-scanner-back aria-label="回上一頁">‹</button><div><small class="system-name">LINGZANZAN盤點系統</small><h1 data-scanner-screen-title>商品盤點</h1><b class="scanner-build-badge">版本 v153</b></div><nav class="scanner-install-actions" aria-label="盤點機安裝"><a class="scanner-apk-download" href="./scanner-apk-download.php" download>↓ YGF安裝檔</a><button type="button" data-install-app>網頁安裝</button></nav><span data-online>連線中</span></header>
   <section class="operator-bar"><div><small>目前操作人</small><b data-operator>檢查登入狀態…</b></div><div><small>開始時間</small><b data-started-at>-</b></div><button type="button" data-scanner-logout hidden>登出</button></section>
   <script>
     (function () {
@@ -69,6 +69,7 @@
   <main>
     <section class="scanner-stocktake-flow" data-stocktake-flow-guide><b>YGF 快速盤點順序</b><span>1 掃條碼</span><span>2 選產品／顏色／尺寸與數量</span><span>3 首次選倉位／層架</span><span>4 不同產品沿用同一位置</span><span>5 要換位置再按換倉／換層架</span><small data-stocktake-flow-status>尚未鎖定位置；第一次選好後，不同產品會沿用到你主動換倉架。</small></section>
     <section class="warehouse-context">
+      <label data-scanner-department-label>盤點部門<select data-scanner-department><option value="clothing">服裝</option><option value="computer">寶輝／電腦</option></select></label>
       <label data-stocktake-warehouse-label>盤點倉庫<select data-warehouse></select></label>
       <label data-lookup-warehouse-label hidden>查詢倉庫<select data-lookup-warehouse><option value="all">全部倉庫</option></select></label>
       <div class="transfer-warehouse-fields" data-transfer-warehouse-fields hidden>
@@ -128,7 +129,7 @@
   </main>
   <footer><button type="button" data-scanner-back>回上一頁</button><button type="button" data-scanner-login-focus>登入盤點機</button><span>正式資料由後台管理</span></footer>
   <script src="./assets/vendor/qrcode-generator.min.js?v=1.4.4"></script>
-  <script src="./assets/scanner-ygf-v59.js?v=20260924-scan-lookup-1"></script>
+  <script src="./assets/scanner-ygf-v59.js?v=20260926-dept-cat-1"></script>
   <script src="./assets/scanner-review.js?v=20260916-staff-draft-correction-3" defer></script>
   <script src="./assets/image-upload-paste.js?v=20260911-fast-stocktake-photo" defer></script>
 </body>
