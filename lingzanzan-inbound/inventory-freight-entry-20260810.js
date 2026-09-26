@@ -293,6 +293,9 @@
   function photoViewLabel(view) {
     return { front: '前', back: '後', left: '左', right: '右' }[view] || '前';
   }
+  function photoViewRole(view) {
+    return view === 'front' ? '顏色圖' : '替代圖';
+  }
   function normalizeArrivalViews(line) {
     var src = line && line.arrivalViews && typeof line.arrivalViews === 'object' ? line.arrivalViews : {};
     var out = { front: '', back: '', left: '', right: '' };
@@ -302,19 +305,43 @@
   }
   function primaryArrivalImage(line) {
     var views = normalizeArrivalViews(line);
-    return views.front || views.back || views.left || views.right || text(line && line.arrivalImage) || text(line && line.productImage) || '';
+    return views.front || text(line && line.arrivalImage) || '';
+  }
+  function replacementAltImages(line) {
+    var views = normalizeArrivalViews(line);
+    return [views.back, views.left, views.right].filter(Boolean);
   }
   function activePhotoView(line) {
     var view = text(line && line.activePhotoView) || 'front';
     return PHOTO_VIEW_KEYS.indexOf(view) >= 0 ? view : 'front';
   }
+  function paintStandaloneLineThumb(host, line) {
+    if (!host || !line) return;
+    var front = primaryArrivalImage(line) || text(line.productImage);
+    if (!front) return;
+    line.productImage = front;
+    var thumbHost = host.querySelector('.purchase-receipt-line-thumb');
+    if (!thumbHost) return;
+    var caption = [line.productCode, line.productName, line.color, line.size].filter(Boolean).join('／');
+    thumbHost.setAttribute('data-receipt-thumb-zoom', front);
+    thumbHost.setAttribute('data-receipt-thumb-caption', caption);
+    var img = thumbHost.querySelector('img');
+    if (img) {
+      img.src = front;
+      img.setAttribute('data-receipt-thumb-zoom', front);
+    } else {
+      thumbHost.insertAdjacentHTML('afterbegin', '<img src="' + escapeHtml(front) + '" alt="">');
+    }
+  }
   function setStandaloneViewPhoto(line, view, dataUrl) {
+    /* LZ_REPLACE_IMGS_20260926: 前＝顏色圖；後左右＝替代更換圖。 */
     if (!line) return;
     view = PHOTO_VIEW_KEYS.indexOf(view) >= 0 ? view : activePhotoView(line);
     line.arrivalViews = normalizeArrivalViews(line);
     line.activePhotoView = view;
     line.arrivalViews[view] = text(dataUrl);
     line.arrivalImage = primaryArrivalImage(line);
+    if (view === 'front') line.productImage = text(dataUrl) || line.productImage;
   }
   function rotateReceiptImage(dataUrl, degrees) {
     return new Promise(function (resolve, reject) {
@@ -372,14 +399,14 @@
     var active = activePhotoView(line);
     var current = views[active] || '';
     var tabs = PHOTO_VIEW_KEYS.map(function (key) {
-      return '<button type="button" class="purchase-receipt-photo-view' + (key === active ? ' is-active' : '') + (views[key] ? ' has-photo' : '') + '" data-standalone-photo-view="' + key + '">' + photoViewLabel(key) + (views[key] ? '✓' : '') + '</button>';
+      return '<button type="button" class="purchase-receipt-photo-view' + (key === active ? ' is-active' : '') + (views[key] ? ' has-photo' : '') + (key === 'front' ? ' is-color-shot' : ' is-alt-shot') + '" data-standalone-photo-view="' + key + '">' + photoViewLabel(key) + (views[key] ? '✓' : '') + '</button>';
     }).join('');
     var preview = current
-      ? '<img src="' + escapeHtml(current) + '" alt="' + photoViewLabel(active) + '面到貨照片" data-receipt-thumb-zoom="' + escapeHtml(current) + '" data-receipt-thumb-caption="' + escapeHtml([line.productCode, line.color, photoViewLabel(active)].filter(Boolean).join('／')) + '"><b>' + photoViewLabel(active) + '面已就緒</b>'
-      : '<b>選「' + photoViewLabel(active) + '」後可貼上、拍照或選檔</b>';
+      ? '<img src="' + escapeHtml(current) + '" alt="' + photoViewLabel(active) + '面' + photoViewRole(active) + '" data-receipt-thumb-zoom="' + escapeHtml(current) + '" data-receipt-thumb-caption="' + escapeHtml([line.productCode, line.color, photoViewLabel(active), photoViewRole(active)].filter(Boolean).join('／')) + '"><b>' + photoViewLabel(active) + '面＝' + photoViewRole(active) + ' 已就緒</b>'
+      : '<b>選「' + photoViewLabel(active) + '」後可貼上；這張會當' + photoViewRole(active) + '</b>';
     return [
       '<div class="purchase-receipt-line-photo" data-standalone-line-photo-box tabindex="0">',
-      '<div class="purchase-receipt-photo-head"><b>到貨照片</b><small>複製貼上；可選前／後／左／右再轉</small></div>',
+      '<div class="purchase-receipt-photo-head"><b>到貨照片</b><small>前＝顏色圖／主圖；後左右＝替代更換圖</small></div>',
       '<div class="purchase-receipt-photo-views" role="tablist">' + tabs + '</div>',
       '<div class="purchase-receipt-photo-stage" data-standalone-line-photo-preview>' + preview + '</div>',
       '<div class="purchase-receipt-photo-actions">',
@@ -414,9 +441,13 @@
     if (!line || !file) return Promise.resolve(false);
     return receiptImageData(file).then(function (dataUrl) {
       setStandaloneViewPhoto(line, activePhotoView(line), dataUrl);
-      paintStandaloneLinePhoto(host.closest('[data-purchase-receipt-line]') || host, line);
+      var row = host.closest('[data-purchase-receipt-line]') || host;
+      paintStandaloneLinePhoto(row, line);
+      paintStandaloneLineThumb(row, line);
       schedulePersistStandaloneDraft();
-      standaloneMessage('已套用「' + photoViewLabel(activePhotoView(line)) + '」面照片。', 'ok');
+      standaloneMessage(activePhotoView(line) === 'front'
+        ? '已換此色顏色圖；入庫後會當主圖。'
+        : '已套用「' + photoViewLabel(activePhotoView(line)) + '」面替代更換圖；入庫後會蓋掉舊的其他照片。', 'ok');
       return true;
     });
   }
@@ -2714,8 +2745,10 @@
         : (line.skuId || '尚未對到既有 SKU');
       var barcodeHint = line.barcodeManualEdited ? '手動條碼不會被覆蓋' : '編號+色碼+尺碼+P成本；改成本或加新列會重算';
       var liveImage = firstProductImage(product, sku, line);
-      if (liveImage && !line.arrivalImage) line.productImage = liveImage;
-      var previewImage = line.arrivalImage || liveImage || line.productImage || '';
+      var frontPhoto = primaryArrivalImage(line);
+      if (frontPhoto) line.productImage = frontPhoto;
+      else if (liveImage && !line.arrivalImage) line.productImage = liveImage;
+      var previewImage = frontPhoto || liveImage || line.productImage || '';
       return [
         '<article class="purchase-receipt-line" data-purchase-receipt-line="' + escapeHtml(line.key) + '">',
         '<div class="purchase-receipt-line-media">',
@@ -2894,7 +2927,7 @@
     if (previousBarcode && line.barcode && key(previousBarcode) !== key(line.barcode)) rememberBarcodeAlias(line, previousBarcode);
     line.barcodeAuto = true;
     line.barcodeManualEdited = false;
-    line.productImage = firstProductImage(product, matchedSku || {}, line);
+    line.productImage = primaryArrivalImage(line) || firstProductImage(product, matchedSku || {}, line);
     var thumbHost = host.querySelector('.purchase-receipt-line-thumb');
     if (line.productImage && thumbHost && thumbHost.tagName === 'BUTTON') {
       var caption = [line.productCode, line.productName, line.color, line.size].filter(Boolean).join('／');
@@ -4231,7 +4264,7 @@
       var views = normalizeArrivalViews(attached);
       attached.arrivalViews = views;
       attached.arrivalImage = primaryArrivalImage(attached);
-      return { skuId: attached.skuId, productId: attached.productId, productName: attached.productName, category: attached.category, productCode: attached.productCode, barcode: attached.barcode, companyBarcode: attached.barcode, legacyBarcode: attached.legacyBarcode || '', barcodeAliases: attached.barcodeAliases || [], color: colorValue, size: attached.size || 'NO SIZE', qty: Math.max(1, Number(attached.qty || 1)), unitCostTwd: Math.max(0, Number(attached.unitCostTwd || 0)), arrivalImage: attached.arrivalImage || '', colorImage: attached.arrivalImage || attached.productImage || '', arrivalViews: views, images: PHOTO_VIEW_KEYS.map(function (key) { return views[key]; }).filter(Boolean), proofRequired: /拚張|拚A|張張/i.test(platform) };
+      return { skuId: attached.skuId, productId: attached.productId, productName: attached.productName, category: attached.category, productCode: attached.productCode, barcode: attached.barcode, companyBarcode: attached.barcode, legacyBarcode: attached.legacyBarcode || '', barcodeAliases: attached.barcodeAliases || [], color: colorValue, size: attached.size || 'NO SIZE', qty: Math.max(1, Number(attached.qty || 1)), unitCostTwd: Math.max(0, Number(attached.unitCostTwd || 0)), arrivalImage: attached.arrivalImage || '', colorImage: views.front || attached.arrivalImage || '', arrivalViews: views, replacementAlts: replacementAltImages(attached), images: PHOTO_VIEW_KEYS.map(function (key) { return views[key]; }).filter(Boolean), proofRequired: /拚張|拚A|張張/i.test(platform) };
     });
     if (!documentNo || !supplier || !operatorName) return { error: '請補齊進貨單號、廠商與經手人。' };
     if (!lines.length) return { error: '請至少加入一個進貨項目。' };
@@ -5537,6 +5570,7 @@
           rotateReceiptImage(currentImg, degrees).then(function (dataUrl) {
             setStandaloneViewPhoto(photoLine, currentView, dataUrl);
             paintStandaloneLinePhoto(photoRow, photoLine);
+            paintStandaloneLineThumb(photoRow, photoLine);
             schedulePersistStandaloneDraft();
             standaloneMessage('已旋轉「' + photoViewLabel(currentView) + '」面。', 'ok');
           }).catch(function (error) {
@@ -5548,6 +5582,7 @@
           event.preventDefault();
           setStandaloneViewPhoto(photoLine, activePhotoView(photoLine), '');
           paintStandaloneLinePhoto(photoRow, photoLine);
+          paintStandaloneLineThumb(photoRow, photoLine);
           schedulePersistStandaloneDraft();
           return;
         }

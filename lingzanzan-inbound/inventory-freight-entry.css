@@ -1516,10 +1516,17 @@ button.purchase-receipt-line-thumb:focus-visible{
   border-color:#35c2ae!important;
   color:#9debd5!important;
 }
-[data-purchase-receipt-builder] .purchase-receipt-photo-view.is-active{
-  background:#f4cf76!important;
-  color:#181118!important;
-  border-color:#e8b75b!important;
+[data-purchase-receipt-builder] .purchase-receipt-photo-view.is-alt-shot{
+  border-color:#3d6a86!important;
+}
+[data-purchase-receipt-builder] .purchase-receipt-photo-view.is-alt-shot.has-photo{
+  border-color:#5ec8ff!important;
+  color:#bfe9ff!important;
+}
+[data-purchase-receipt-builder] .purchase-receipt-photo-view.is-alt-shot.is-active{
+  background:#5ec8ff!important;
+  color:#10222c!important;
+  border-color:#7ed4ff!important;
 }
 [data-purchase-receipt-builder] .purchase-receipt-photo-stage{
   min-height:92px;

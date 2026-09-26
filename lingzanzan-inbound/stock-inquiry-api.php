@@ -2,6 +2,7 @@
 declare(strict_types=1);
 // parse-ok 20260817-save-fix-1
 // LZ_PHOTO_VIEWS_20260926
+// LZ_REPLACE_IMGS_20260926
 
 @ini_set('display_errors', '0');
 @ini_set('html_errors', '0');
@@ -1758,6 +1759,65 @@ function receipt_merge_product_color_entry(array &$product, string $receivedColo
     return $changed;
 }
 
+function receipt_color_images_from_product(array $product): array {
+    $out = [];
+    foreach (($product['colors'] ?? []) as $row) {
+        if (!is_array($row)) continue;
+        $img = receipt_text($row['image'] ?? $row['imageUrl'] ?? $row['photo'] ?? '');
+        if ($img !== '' && !in_array($img, $out, true)) $out[] = $img;
+    }
+    return $out;
+}
+
+function receipt_apply_inbound_replacement_images(array &$product, string $receivedColor, string $frontImage, array $altImages): bool {
+    /* LZ_REPLACE_IMGS_20260926: 前＝顏色圖／主圖；後左右＝替代更換圖，蓋掉舊的其他照片。 */
+    $changed = false;
+    if ($receivedColor !== '') {
+        if (receipt_merge_product_color_entry($product, $receivedColor, $frontImage)) $changed = true;
+    }
+    $colorImages = receipt_color_images_from_product($product);
+    $firstColor = $colorImages[0] ?? '';
+    if ($frontImage !== '') {
+        $product['mainImage'] = $frontImage;
+        $changed = true;
+        if (isset($product['colorImages']) && is_array($product['colorImages']) && $receivedColor !== '') {
+            $product['colorImages'][$receivedColor] = $frontImage;
+            $canon = canonical_bilingual_color_name($receivedColor);
+            if ($canon !== '' && $canon !== $receivedColor) $product['colorImages'][$canon] = $frontImage;
+        }
+    } elseif ($firstColor !== '' && receipt_text($product['mainImage'] ?? '') === '') {
+        $product['mainImage'] = $firstColor;
+        $changed = true;
+    }
+    $main = receipt_text($product['mainImage'] ?? '');
+    $keep = [];
+    foreach (array_merge([$main], $colorImages) as $img) {
+        $img = receipt_text($img);
+        if ($img !== '' && !in_array($img, $keep, true)) $keep[] = $img;
+    }
+    $alts = [];
+    foreach ($altImages as $img) {
+        $img = receipt_text($img);
+        if ($img === '' || in_array($img, $keep, true) || in_array($img, $alts, true)) continue;
+        $alts[] = $img;
+    }
+    if ($alts) {
+        $product['images'] = array_slice(array_merge($keep, $alts), 0, 30);
+        $changed = true;
+    } elseif ($frontImage !== '') {
+        $images = isset($product['images']) && is_array($product['images']) ? array_values($product['images']) : [];
+        $next = $keep;
+        foreach ($images as $img) {
+            $img = receipt_text($img);
+            if ($img === '' || in_array($img, $next, true)) continue;
+            $next[] = $img;
+        }
+        $product['images'] = array_slice($next, 0, 30);
+        $changed = true;
+    }
+    return $changed;
+}
+
 function receipt_line_ref(int $index, string $productCode, string $barcode): string {
     $label = '第' . ($index + 1) . '項';
     if ($productCode !== '') $label .= ' 貨號 ' . $productCode;
@@ -2272,23 +2332,21 @@ function sync_preorder_receipt_products(array &$products, array $receiptLog, str
             $receivedGoodsPurpose = strtolower(receipt_text($received['goodsPurpose'] ?? ''));
             if ($receivedGoodsPurpose === 'internal_use') $receivedStockPurpose = 'internal_use';
             $receivedColor = canonical_bilingual_color_name($received['color'] ?? '');
-            $receivedImage = receipt_first_text([$received['arrivalImage'] ?? '', $received['colorImage'] ?? '']);
-            if ($receivedImage !== '') {
-                if (receipt_text($product['mainImage'] ?? '') === '') $product['mainImage'] = $receivedImage;
-                $productImages = isset($product['images']) && is_array($product['images']) ? array_values($product['images']) : [];
-                if (!in_array($receivedImage, $productImages, true)) array_unshift($productImages, $receivedImage);
-                $product['images'] = array_slice($productImages, 0, 30);
-            }
-            if (isset($received['arrivalViews']) && is_array($received['arrivalViews'])) {
-                $productImages = isset($product['images']) && is_array($product['images']) ? array_values($product['images']) : [];
-                foreach (['front', 'back', 'left', 'right'] as $viewKey) {
-                    $viewImg = receipt_text($received['arrivalViews'][$viewKey] ?? '');
-                    if ($viewImg === '' || in_array($viewImg, $productImages, true)) continue;
-                    $productImages[] = $viewImg;
+            $frontImage = receipt_text(($received['arrivalViews']['front'] ?? '') ?: ($received['arrivalImage'] ?? '') ?: ($received['colorImage'] ?? ''));
+            $altImages = [];
+            if (isset($received['replacementAlts']) && is_array($received['replacementAlts'])) {
+                foreach ($received['replacementAlts'] as $alt) {
+                    $alt = receipt_text($alt);
+                    if ($alt !== '') $altImages[] = $alt;
                 }
-                $product['images'] = array_slice($productImages, 0, 30);
             }
-            if ($receivedColor !== '' && receipt_merge_product_color_entry($product, $receivedColor, $receivedImage)) {
+            if (!$altImages && isset($received['arrivalViews']) && is_array($received['arrivalViews'])) {
+                foreach (['back', 'left', 'right'] as $viewKey) {
+                    $viewImg = receipt_text($received['arrivalViews'][$viewKey] ?? '');
+                    if ($viewImg !== '') $altImages[] = $viewImg;
+                }
+            }
+            if (receipt_apply_inbound_replacement_images($product, $receivedColor, $frontImage, $altImages)) {
                 $product['updatedAt'] = date(DATE_ATOM);
                 $productsChanged = true;
             }
@@ -2466,7 +2524,7 @@ function apply_preorder_receipt_inventory(array $inquiry, array $payload, string
             }
         }
         if ($arrivalImage === '' && $arrivalViews) {
-            $arrivalImage = receipt_first_text([$arrivalViews['front'] ?? '', $arrivalViews['back'] ?? '', $arrivalViews['left'] ?? '', $arrivalViews['right'] ?? '']);
+            $arrivalImage = receipt_text($arrivalViews['front'] ?? '');
         }
         $colorImage = receipt_text($line['colorImage'] ?? (is_array($sourceSku) ? ($sourceSku['colorImage'] ?? '') : ''));
         if ($colorImage !== '') {
@@ -2822,7 +2880,12 @@ function apply_preorder_receipt_inventory(array $inquiry, array $payload, string
         if ($arrivalViews) $item['arrivalViews'] = $arrivalViews;
         $lineSellableQty = $goodsPurpose === 'internal_use' ? 0 : max(0, $qty - $internalQty);
         $lineGoodsPurpose = ($internalQty > 0 && $lineSellableQty > 0) ? 'mixed' : (($internalQty > 0 && $lineSellableQty <= 0) || $goodsPurpose === 'internal_use' ? 'internal_use' : 'sellable');
-        $receiptLine = ['itemIndex' => $index, 'skuId' => $receivedSkuId, 'productId' => $productId, 'productName' => $productName, 'category' => $category, 'productCode' => $productCode, 'createdProduct' => $createdThisLine, 'barcode' => $barcode, 'color' => $color, 'size' => $size, 'qty' => $qty, 'internalUseQty' => $internalQty, 'sellableQty' => $lineSellableQty, 'warehouse' => $profile['code'], 'stockPurpose' => $lineStockPurpose, 'goodsPurpose' => $lineGoodsPurpose, 'unitCostTwd' => round($unitCost, 2), 'costSource' => $unitCost > 0 ? 'purchase_receipt' : '', 'costEffectiveAt' => $unitCost > 0 ? $freightCostSnapshot['capturedAt'] : '', 'arrivalImage' => $arrivalImage, 'colorImage' => $colorImage, 'arrivalViews' => $arrivalViews, 'proofRequired' => $proofRequired, 'freightCostSnapshot' => $freightCostSnapshot, 'inquiryId' => (string)($inquiry['id'] ?? ''), 'payloadHash' => $payloadHash, 'appliedAt' => $freightCostSnapshot['capturedAt']];
+        $replacementAlts = [];
+        foreach (['back', 'left', 'right'] as $altKey) {
+            $altImg = receipt_text($arrivalViews[$altKey] ?? '');
+            if ($altImg !== '') $replacementAlts[] = $altImg;
+        }
+        $receiptLine = ['itemIndex' => $index, 'skuId' => $receivedSkuId, 'productId' => $productId, 'productName' => $productName, 'category' => $category, 'productCode' => $productCode, 'createdProduct' => $createdThisLine, 'barcode' => $barcode, 'color' => $color, 'size' => $size, 'qty' => $qty, 'internalUseQty' => $internalQty, 'sellableQty' => $lineSellableQty, 'warehouse' => $profile['code'], 'stockPurpose' => $lineStockPurpose, 'goodsPurpose' => $lineGoodsPurpose, 'unitCostTwd' => round($unitCost, 2), 'costSource' => $unitCost > 0 ? 'purchase_receipt' : '', 'costEffectiveAt' => $unitCost > 0 ? $freightCostSnapshot['capturedAt'] : '', 'arrivalImage' => $arrivalImage, 'colorImage' => $colorImage, 'arrivalViews' => $arrivalViews, 'replacementAlts' => $replacementAlts, 'proofRequired' => $proofRequired, 'freightCostSnapshot' => $freightCostSnapshot, 'inquiryId' => (string)($inquiry['id'] ?? ''), 'payloadHash' => $payloadHash, 'appliedAt' => $freightCostSnapshot['capturedAt']];
         if ($operationId !== '') {
             $receiptLine['operationContext'] = [
                 'receivedBy' => receipt_text($payload['receivedBy'] ?? $payload['employeeName'] ?? ''),
