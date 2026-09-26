@@ -187,7 +187,6 @@ export const PAGES = [
   { id: "employeeSalary", label: "我的薪資月報", hint: "查看自己的薪資月報。", group: "人資" },
   { id: "task", label: "工作任務", hint: "工作任務指派、回報與扣點。", group: "營運" },
   { id: "adminMemo", label: "備忘錄與每月事項", hint: "行政備忘錄、每月固定事項、登入提醒與完成回報。", group: "行政" },
-  { id: "codexReport", label: "CODEX 回報", hint: "把後台問題、異常與修改需求交給開發處理。", group: "行政" },
   { id: "rma", label: "原廠送修管理", hint: "原廠送修追蹤與回件。", group: "維修" },
   { id: "punishSystem", label: "獎懲制度", hint: "獎懲、扣點與年度考核。", group: "人資" },
   { id: "salaryReports", label: "薪資報表", hint: "薪資結算與報表。", group: "人資" },
