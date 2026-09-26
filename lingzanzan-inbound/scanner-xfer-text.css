@@ -1,0 +1,84 @@
+/* LZ_XFER_TEXT_20260926
+   淺底調撥單把 --text 設成 #24313d，清空鈕沿用暗底 color:var(--text) 變成近黑字。
+   標題／說明改青綠層次；黑按鈕強制奶油字，主按鈕白字。 */
+body.scanner-pda-layout .transfer-draft-panel {
+  color: #2a6d66 !important;
+}
+body.scanner-pda-layout .transfer-draft-panel header small {
+  color: #4c7ae8 !important;
+  -webkit-text-fill-color: #4c7ae8 !important;
+}
+body.scanner-pda-layout .transfer-draft-panel header h2,
+body.scanner-pda-layout .transfer-draft-panel h2 {
+  color: #1f6b63 !important;
+  -webkit-text-fill-color: #1f6b63 !important;
+}
+body.scanner-pda-layout .transfer-draft-panel header p {
+  color: #5f7380 !important;
+  -webkit-text-fill-color: #5f7380 !important;
+}
+body.scanner-pda-layout .transfer-draft-panel header strong,
+body.scanner-pda-layout .transfer-draft-panel [data-transfer-draft-total] {
+  background: #e7f6f1 !important;
+  color: #1f6b63 !important;
+  -webkit-text-fill-color: #1f6b63 !important;
+}
+body.scanner-pda-layout .transfer-draft-line {
+  color: #2a6d66 !important;
+}
+body.scanner-pda-layout .transfer-draft-line b {
+  color: #3d6ee8 !important;
+  -webkit-text-fill-color: #3d6ee8 !important;
+}
+body.scanner-pda-layout .transfer-draft-line span,
+body.scanner-pda-layout .transfer-draft-line small {
+  color: #5f7380 !important;
+  -webkit-text-fill-color: #5f7380 !important;
+}
+body.scanner-pda-layout .transfer-draft-line label {
+  color: #4a7a74 !important;
+  -webkit-text-fill-color: #4a7a74 !important;
+}
+body.scanner-pda-layout .transfer-draft-line input {
+  background: #fff !important;
+  color: #355bd8 !important;
+  -webkit-text-fill-color: #355bd8 !important;
+  border: 1px solid #c5cfe5 !important;
+}
+body.scanner-pda-layout .transfer-draft-line > button,
+body.scanner-pda-layout .transfer-draft-line button[data-remove-transfer-line] {
+  background: #111014 !important;
+  color: #ffe4e8 !important;
+  -webkit-text-fill-color: #ffe4e8 !important;
+  border: 1px solid #ef4b4b !important;
+}
+body.scanner-pda-layout .transfer-save-bar {
+  background: #111014 !important;
+  border: 1px solid #111014 !important;
+}
+body.scanner-pda-layout .transfer-save-bar button,
+body.scanner-pda-layout .transfer-save-bar button[data-clear-transfer-draft] {
+  background: #111014 !important;
+  color: #fff8ed !important;
+  -webkit-text-fill-color: #fff8ed !important;
+  border: 1px solid #e8b75b !important;
+}
+body.scanner-pda-layout .transfer-save-bar .transfer-save-button,
+body.scanner-pda-layout .transfer-save-bar button.primary {
+  background: #355bd8 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  border-color: #355bd8 !important;
+}
+body.scanner-pda-layout .transfer-save-help {
+  color: #1f6b63 !important;
+  -webkit-text-fill-color: #1f6b63 !important;
+}
+body.scanner-pda-layout .session-actions b {
+  color: #1f6b63 !important;
+  -webkit-text-fill-color: #1f6b63 !important;
+}
+body.scanner-pda-layout .session-actions small {
+  color: #5f7380 !important;
+  -webkit-text-fill-color: #5f7380 !important;
+}
