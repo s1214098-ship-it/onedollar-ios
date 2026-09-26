@@ -1425,7 +1425,7 @@
   }
 
   var QUICK_INBOUND_KEY = 'lingzanzan-quick-inbound-v1'; /* LZ_QUICK_INBOUND_20260926 */
-  var QUICK_INBOUND_HINT_ON = '掃條碼或搜名稱後按加入／Enter；列上改顏色、尺碼、數量，並直接貼該色圖。分類與公司條碼在背景自動帶入。';
+  var QUICK_INBOUND_HINT_ON = '掃條碼或搜名稱後加入。分類、中文顏色與印尼文自動翻譯都還在列上；公司條碼在背景自動帶入。';
   var QUICK_INBOUND_HINT_OFF = '先搜產品編號，同一款顏色尺寸只列一列並顯示中國／台灣／印尼／預購倉現有庫存。勾選加入會進上方入庫倉。掃完整條碼會絕對比對，不必先填分類。新產品才需要分類產生編號。';
 
   function isQuickInbound() {
@@ -1440,7 +1440,7 @@
     try { localStorage.setItem(QUICK_INBOUND_KEY, on ? '1' : '0'); } catch (error) {}
     applyQuickInboundMode();
     standaloneMessage(on
-      ? '已開啟快速入庫：掃碼加入後只改顏色、尺碼、數量並貼圖。'
+      ? '已開啟快速入庫：掃碼加入。分類、中文顏色與印尼文自動翻譯都還在列上。'
       : '已切回完整建檔欄位。', 'ok');
     if (on) focusPurchaseReceiptSearch();
   }

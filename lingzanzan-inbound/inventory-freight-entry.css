@@ -1542,6 +1542,7 @@ button.purchase-receipt-line-thumb:focus-visible{
 }
 
 /* LZ_QUICK_INBOUND_20260926 */
+/* LZ_QUICK_INBOUND_KEEP_CAT_COLOR_20260926: 快速入庫仍顯示分類與印尼文顏色 */
 [data-quick-inbound-toggle].is-active{
   background:#f4cf76!important;
   color:#181118!important;
@@ -1562,39 +1563,48 @@ button.purchase-receipt-line-thumb:focus-visible{
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-head-grid > label:has([data-purchase-receipt-source-order]),
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-head-grid > label:has([data-purchase-receipt-operator]),
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-note-field,
-[data-inventory-entry-page].is-quick-inbound .purchase-receipt-category-field,
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-item-entry-fields > label:has([data-purchase-receipt-product-code]),
-[data-inventory-entry-page].is-quick-inbound .purchase-receipt-item-entry-fields > label:has([data-purchase-receipt-product-barcode]),
-[data-inventory-entry-page].is-quick-inbound [data-purchase-receipt-generate-code]{
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-item-entry-fields > label:has([data-purchase-receipt-product-barcode]){
   display:none!important;
 }
-[data-inventory-entry-page].is-quick-inbound .purchase-receipt-item-entry-fields{
-  grid-template-columns:minmax(0,1fr)!important;
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-category-field{
+  display:grid!important;
 }
-[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-category,
+[data-inventory-entry-page].is-quick-inbound [data-purchase-receipt-generate-code]{
+  display:inline-flex!important;
+}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-item-entry-fields{
+  grid-template-columns:minmax(0,1.4fr) minmax(180px,.9fr)!important;
+}
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-code,
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-barcode,
-[data-inventory-entry-page].is-quick-inbound .purchase-receipt-color-legend,
-[data-inventory-entry-page].is-quick-inbound .purchase-receipt-color-id-field,
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-actions [data-purchase-receipt-focus-search]{
   display:none!important;
 }
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-fields{
-  grid-template-columns:minmax(180px,1.4fr) minmax(130px,.9fr) minmax(140px,.9fr) 92px 108px!important;
+  grid-template-columns:minmax(160px,1.2fr) minmax(130px,.85fr) minmax(240px,1.5fr) minmax(140px,.9fr) 88px 108px!important;
   grid-template-areas:
-    "name color size qty cost"
-    "actions actions actions actions actions";
+    "name category color size qty cost"
+    "actions actions actions actions actions actions";
 }
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-name{grid-area:name;grid-column:auto!important}
-[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-color{grid-area:color;grid-column:auto!important}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-category{grid-area:category;grid-column:auto!important;display:grid!important}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-color{grid-area:color;grid-column:auto!important;display:grid!important}
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-size{grid-area:size;grid-column:auto!important}
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-qty{grid-area:qty}
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-cost{grid-area:cost}
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-actions{grid-area:actions;grid-column:auto!important}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-color-legend{
+  display:block!important;
+  margin:0 0 4px;
+}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-color-id-field{
+  display:grid!important;
+}
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-color-split{
-  min-height:0!important;
-  height:40px!important;
-  grid-template-columns:1fr!important;
+  min-height:72px!important;
+  height:auto!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
 }
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-photo{
   min-width:196px;
@@ -1608,6 +1618,7 @@ button.purchase-receipt-line-thumb:focus-visible{
     grid-template-areas:none!important;
   }
   [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-name,
+  [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-category,
   [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-color,
   [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-size,
   [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-qty,
