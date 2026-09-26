@@ -40,7 +40,8 @@ function facebook_daily_abs_url(string $path): string
     if (function_exists('public_base_url')) {
         return rtrim(public_base_url(), '/') . '/' . ltrim($path, '/');
     }
-    return $path;
+    if (isset($path[0]) && $path[0] === '/') return $path;
+    return '/one-dollar-auction/' . ltrim($path, './');
 }
 
 function facebook_daily_has_real_post_url(array $s): bool
@@ -416,9 +417,18 @@ function facebook_daily_collect(array $schedules, array $products, array $sets, 
         $cmp = strcmp($ta, $tb);
         return $cmp !== 0 ? $cmp : strcmp((string)($a['id'] ?? ''), (string)($b['id'] ?? ''));
     });
+    $map = [];
+    if (!function_exists('product_by_id')) {
+        foreach ($products as $product) {
+            if (!is_array($product)) continue;
+            $pid = (string)($product['id'] ?? '');
+            if ($pid !== '') $map[$pid] = $product;
+        }
+    }
     $rows = [];
     foreach ($matched as $i => $s) {
-        $p = function_exists('product_by_id') ? product_by_id($products, $s['product_id'] ?? '') : [];
+        $pid = $s['product_id'] ?? '';
+        $p = function_exists('product_by_id') ? product_by_id($products, $pid) : ($map[(string)$pid] ?? []);
         if (!is_array($p)) $p = [];
         $rows[] = facebook_daily_build_row($s, $p, $sets, $i + 1, $date);
     }
@@ -649,4 +659,72 @@ function facebook_daily_codex_text(array $rows, array $compare, string $date): s
     $lines[] = '3. 回填貼文網址後，這張日報的比對才會變成已上架。';
     $lines[] = '4. 不要略過待發文或已截標未填得標人的場次。';
     return implode("\n", $lines);
+}
+
+function facebook_daily_todo_labels(array $row): array
+{
+    $todos = [];
+    if (!empty($row['need_post']) || !empty($row['need_manual_publish'])) $todos[] = '發文';
+    if (!empty($row['need_pin_qa'])) $todos[] = '問答';
+    if (!empty($row['manual_find_url'])) $todos[] = '補網址';
+    if (!empty($row['need_remind'])) $todos[] = '提醒';
+    if (!empty($row['need_winner_record'])) $todos[] = '補得標人';
+    elseif (!empty($row['need_winner'])) $todos[] = '得標通知';
+    if (!empty($row['can_mark_unsold'])) $todos[] = '流標確認';
+    return $todos;
+}
+
+function facebook_daily_progress_row(array $row): array
+{
+    $todos = facebook_daily_todo_labels($row);
+    return [
+        'queue' => (int)($row['queue'] ?? 0),
+        'schedule_id' => (string)($row['schedule_id'] ?? ''),
+        'product_id' => (string)($row['product_id'] ?? ''),
+        'title' => (string)($row['title'] ?? ''),
+        'spec' => (string)($row['spec'] ?? ''),
+        'image' => (string)($row['image'] ?? ''),
+        'publish_at' => (string)($row['publish_at'] ?? ''),
+        'close_at' => (string)($row['close_at'] ?? ''),
+        'publish_status' => (string)($row['publish_status'] ?? ''),
+        'auction_status' => (string)($row['auction_status'] ?? ''),
+        'post_url' => (string)($row['post_url'] ?? ''),
+        'current_bid' => (float)($row['current_bid'] ?? 0),
+        'publish_assigned_to' => (string)($row['publish_assigned_to'] ?? ''),
+        'posted' => !empty($row['posted']),
+        'need_post' => !empty($row['need_post']) || !empty($row['need_manual_publish']),
+        'todos' => $todos,
+        'todo_text' => $todos ? implode('、', $todos) : '已齊',
+    ];
+}
+
+function facebook_daily_progress_payload(array $schedules, array $products, array $sets, string $date): array
+{
+    $date = facebook_daily_date($date);
+    $rows = facebook_daily_collect($schedules, $products, $sets, $date);
+    $compare = facebook_daily_compare($rows, $date);
+    $compact = [];
+    foreach ($rows as $row) {
+        $compact[] = facebook_daily_progress_row(is_array($row) ? $row : []);
+    }
+    usort($compact, static function ($a, $b) {
+        $ta = empty($a['todos']) ? 1 : 0;
+        $tb = empty($b['todos']) ? 1 : 0;
+        if ($ta !== $tb) return $ta <=> $tb;
+        return ((int)($a['queue'] ?? 0)) <=> ((int)($b['queue'] ?? 0));
+    });
+    $open = 0;
+    foreach ($compact as $row) {
+        if (!empty($row['todos'])) $open++;
+    }
+    return [
+        'date' => $date,
+        'compare' => $compare,
+        'rows' => $compact,
+        'open' => $open,
+        'planned' => (int)($compare['planned'] ?? 0),
+        'posted' => (int)($compare['posted'] ?? 0),
+        'missing_post' => (int)($compare['missing_post'] ?? 0),
+        'need_winner' => (int)($compare['need_winner'] ?? 0) + (int)($compare['need_winner_record'] ?? 0),
+    ];
 }
