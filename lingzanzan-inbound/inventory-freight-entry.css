@@ -1134,17 +1134,23 @@
 .inventory-barcode-print-overlay .received-barcode-print-preview .variant-grid span{display:block;margin:0;padding:0;font-size:5.1pt;font-weight:950;line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inventory-barcode-print-overlay .received-barcode-print-preview .brand-note{display:flex;align-items:center;justify-content:center;height:2.8mm;font-size:4.3pt;font-weight:900;text-align:center;border:0;letter-spacing:.04em;line-height:1;overflow:hidden}
 
-.received-barcode-print-sheet,
-[data-received-print-sheet]{
-  display:block;
-  position:fixed!important;
-  left:-10000px!important;
-  top:0!important;
-  z-index:-1!important;
-  pointer-events:none!important;
-  width:40mm;
-  height:auto;
-  min-height:0;
+@media screen{
+  .received-barcode-print-sheet,
+  [data-received-print-sheet]{
+    display:none;
+    position:fixed;
+    left:-10000px;
+    top:0;
+    z-index:-1;
+    pointer-events:none;
+    width:40mm;
+    height:auto;
+    min-height:0;
+  }
+  /* LZ_PRINT_ONPAGE_20260926: park on screen only. Print media must see left:0. */
+  [data-received-print-sheet].is-print-armed{
+    display:block;
+  }
 }
 [data-received-print-sheet] .qr-area-main,
 [data-received-print-sheet] .qr-svg{
@@ -1222,8 +1228,10 @@
     display:none!important;
   }
   body.is-printing-received-barcodes [data-received-print-sheet],
-  body.is-printing-received-barcodes .received-barcode-print-sheet{
-    display:block!important;position:absolute!important;left:0!important;top:0!important;
+  body.is-printing-received-barcodes .received-barcode-print-sheet,
+  html body [data-received-print-sheet].is-print-armed{
+    display:block!important;position:absolute!important;left:0!important;top:0!important;right:auto!important;bottom:auto!important;
+    transform:none!important;z-index:1!important;
     width:40mm!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;
     background:#fff!important;color:#000!important;overflow:visible!important;visibility:visible!important;
     break-before:avoid!important;page-break-before:avoid!important;

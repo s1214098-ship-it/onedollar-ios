@@ -28,11 +28,12 @@ try {
   $api = file_get_contents($root . '/stock-inquiry-api.php') ?: '';
   echo 'jsMark=' . (strpos($js, 'LZ_QUICK_INBOUND_20260926') !== false ? 'yes' : 'no') . "\n";
   echo 'cssMark=' . (strpos($css, 'LZ_QUICK_INBOUND_KEEP_CAT_COLOR_20260926') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlMark=' . (strpos($html, 'quick-inb-8') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlMark=' . (strpos($html, 'quick-inb-9') !== false ? 'yes' : 'no') . "\n";
   echo 'oldBarcode=' . (strpos($js, 'LZ_OLD_BARCODE_PCOST_20260926') !== false ? 'yes' : 'no') . "\n";
   echo 'typedCode=' . (strpos($js, 'LZ_TYPED_CODE_20260926') !== false ? 'yes' : 'no') . "\n";
   echo 'colorAutoId=' . (strpos($js, 'LZ_COLOR_AUTO_ID_20260926') !== false ? 'yes' : 'no') . "\n";
   echo 'replaceImgs=' . (strpos($js, 'LZ_REPLACE_IMGS_20260926') !== false ? 'yes' : 'no') . "\n";
+  echo 'printOnPage=' . (strpos($js, 'LZ_PRINT_ONPAGE_20260926') !== false && strpos($css, 'LZ_PRINT_ONPAGE_20260926') !== false ? 'yes' : 'no') . "\n";
   echo 'apiMark=' . (strpos($api, 'LZ_REPLACE_IMGS_20260926') !== false ? 'yes' : 'no') . "\n";
   echo "ok\n";
 } catch (Exception $e) {

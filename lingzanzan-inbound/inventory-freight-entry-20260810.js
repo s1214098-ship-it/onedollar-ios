@@ -3493,7 +3493,8 @@
   }
 
   function receivedPrintStyleText() {
-    /* LZ_PRINT_QR_20260924_9: 203dpi 1-dot modules; hide overlay leftovers. */
+    /* LZ_PRINT_ONPAGE_20260926: never park the sheet with inline left;-10000 during print.
+       Inline !important beats @media print, which made Chrome preview a blank white page. */
     return [
       '@page{size:40mm 30mm;margin:0;}',
       '@media print{',
@@ -3504,7 +3505,7 @@
       'body > *:not([data-received-print-sheet]){display:none!important;visibility:hidden!important;opacity:0!important;height:0!important;width:0!important;overflow:hidden!important;position:static!important;inset:auto!important;left:auto!important;top:auto!important;background:transparent!important;box-shadow:none!important;border:0!important;border-radius:0!important;}',
       '[data-received-barcode-print-overlay],[data-received-barcode-print-overlay] *,.inventory-barcode-print-overlay,.inventory-barcode-print-overlay *,.received-barcode-print-preview,.received-barcode-print-preview *,[data-received-print-preview],[data-received-print-preview] *,.freight-received-print-ready,.freight-received-print-ready *,.receipt-thumb-zoom,.receipt-thumb-zoom *,.login-gate,.login-card,.company-announcement-board,.company-announcement-board *,.company-announcement-modal,.company-announcement-modal *,.company-announcement-modal-card,.reserved-shipping-card,.freight-card-print-page,[data-purchase-receipt-print-picker],[data-purchase-receipt-print-picker] *{display:none!important;visibility:hidden!important;opacity:0!important;background:transparent!important;box-shadow:none!important;border:0!important;border-radius:0!important;position:static!important;inset:auto!important;width:0!important;height:0!important;overflow:hidden!important;}',
       '.admin-shell,.login-gate,.admin-top-actions,.sidebar,.admin-section-outline,.inventory-barcode-print-overlay,.inventory-barcode-print-overlay *,[data-purchase-receipt-print-picker],[data-stock-docs],.receipt-thumb-zoom,.toast,[data-inventory-label-purpose-picker],iframe,.reserved-shipping-card,.reserved-shipping-candidate,.freight-fifo-share-card,.freight-card-print-page,.freight-fifo-stage,.freight-fifo-reserved-quick,.company-announcement-board,.company-announcement-modal,.company-announcement-item,.company-announcement-modal-card,.company-announcement-head,[data-company-announcement-board],.freight-received-print-ready{display:none!important;}',
-      '[data-received-print-sheet],.received-barcode-print-sheet{display:block!important;position:absolute!important;top:0!important;left:0!important;width:40mm!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;background:#fff!important;color:#000!important;visibility:visible!important;border-radius:0!important;break-before:avoid!important;page-break-before:avoid!important;}',
+      'html body [data-received-print-sheet],html body .received-barcode-print-sheet{display:block!important;position:absolute!important;top:0!important;left:0!important;right:auto!important;bottom:auto!important;inset:auto 0 auto 0!important;transform:none!important;z-index:1!important;width:40mm!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;background:#fff!important;color:#000!important;visibility:visible!important;border-radius:0!important;break-before:avoid!important;page-break-before:avoid!important;}',
       '[data-received-print-sheet] .lz-recv-sticker{box-sizing:border-box;width:40mm;height:30mm;max-height:30mm;margin:0;padding:.8mm 1mm .6mm;display:grid!important;grid-template-rows:13.8mm 10.6mm 2.8mm;gap:.3mm;overflow:hidden;border-radius:0!important;break-before:avoid;page-break-before:avoid;break-after:page;page-break-after:always;break-inside:avoid;page-break-inside:avoid;}',
       '[data-received-print-sheet] .lz-recv-sticker:first-child{break-before:avoid!important;page-break-before:avoid!important;margin-top:0!important;}',
       '[data-received-print-sheet] .lz-recv-sticker:last-child{break-after:auto;page-break-after:auto;}',
@@ -3547,14 +3548,8 @@
     var sheet = document.querySelector('[data-received-print-sheet]');
     if (!sheet) return;
     try {
-      sheet.style.setProperty('display', 'none', 'important');
-      sheet.style.setProperty('left', '-10000px', 'important');
-      sheet.style.setProperty('pointer-events', 'none', 'important');
-      sheet.style.removeProperty('visibility');
-      sheet.style.removeProperty('position');
-      sheet.style.removeProperty('top');
-      sheet.style.removeProperty('margin');
-      sheet.style.removeProperty('padding');
+      sheet.removeAttribute('style');
+      sheet.style.display = 'none';
     } catch (clearErr) {}
   }
 
@@ -3568,7 +3563,7 @@
   }
 
   function printReceivedBarcodeSheet(payloads) {
-    /* LZ_PRINT_QR_20260926: keep the sheet off-screen so QR stickers never cover 進貨單. */
+    /* LZ_PRINT_ONPAGE_20260926: screen CSS parks the sheet; do not set inline left:-10000 (it beats @media print). */
     kickReceivedQrcodeLib();
     var overlay = document.querySelector('[data-received-barcode-print-overlay]');
     if (overlay) {
@@ -3582,20 +3577,9 @@
     }
     sheet.innerHTML = (payloads || []).map(receivedBarcodeLabelHtml).join('');
     try {
-      sheet.style.setProperty('display', 'block', 'important');
-      sheet.style.setProperty('position', 'fixed', 'important');
-      sheet.style.setProperty('top', '0', 'important');
-      sheet.style.setProperty('left', '-10000px', 'important');
-      sheet.style.setProperty('width', '40mm', 'important');
-      sheet.style.setProperty('z-index', '-1', 'important');
-      sheet.style.setProperty('pointer-events', 'none', 'important');
-      sheet.style.setProperty('margin', '0', 'important');
-      sheet.style.setProperty('padding', '0', 'important');
-    } catch (styleErr) {
-      sheet.style.display = 'block';
-      sheet.style.position = 'fixed';
-      sheet.style.left = '-10000px';
-    }
+      sheet.removeAttribute('style');
+      sheet.classList.add('is-print-armed');
+    } catch (styleErr) {}
     document.body.classList.add('is-printing-received-barcodes', 'is-received-print-page');
     document.documentElement.classList.add('is-printing-received-barcodes', 'is-received-print-page');
     ensureReceivedPrintStyle();
