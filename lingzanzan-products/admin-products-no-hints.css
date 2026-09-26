@@ -1,0 +1,30 @@
+/* LZ_NO_HINTS_20260926: 功能下方解說拿掉，只留欄位與結果 */
+.product-section-nav span,
+.product-popup-save-bar small,
+.form-note,
+.field-hint,
+.product-auto-code-note,
+.product-official-barcode-preview > span,
+.product-storefront-control small,
+.product-storefront-toggle,
+.image-view-size-switch > span,
+.image-view-size-switch small,
+.product-cost-entry-head p,
+[data-product-cost-mode-note],
+[data-product-cost-receiving-note],
+[data-product-inventory-ownership-note],
+.product-category-outline-head span,
+.product-logistics-head span,
+.logic-note > span,
+.quick-price-tools > span,
+.quick-stockin-head span,
+.quick-stock-review-rule span,
+.product-color-main-picker-head span,
+.product-color-count-row > span,
+.product-name-similar-empty,
+[data-product-official-barcode-rule] {
+  display: none !important;
+}
+.product-main-preview:empty {
+  min-height: 120px;
+}
