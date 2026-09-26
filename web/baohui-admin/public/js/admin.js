@@ -10,7 +10,6 @@ const PAGES = [
   { id: "employeeSalary", label: "我的薪資月報", group: "人資" },
   { id: "task", label: "工作任務", group: "營運" },
   { id: "adminMemo", label: "備忘錄與每月事項", group: "行政" },
-  { id: "codexReport", label: "CODEX 回報", group: "行政" },
   { id: "rma", label: "原廠送修管理", group: "維修" },
   { id: "punishSystem", label: "獎懲制度", group: "人資" },
   { id: "salaryReports", label: "薪資報表", group: "人資" },
