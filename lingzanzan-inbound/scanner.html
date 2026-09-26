@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#dff7ee">
+  <style>html,body{background:#e7f8f2!important}body.scanner-pda-layout{background:linear-gradient(180deg,#dff7ee,#f7fcfa 48%,#e7f8f2)!important}</style>
+  <title>LINGZANZAN盤點系統</title>
+  <script>
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+      var apk = /(?:^|[?&])apk=1(?:&|$)/.test(location.search || '');
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        if (!apk && !regs.length) return;
+        regs.forEach(function (reg) {
+          if (apk || /lingzanzan-app-sw|scanner-sw/i.test(String(reg.active && reg.active.scriptURL || reg.installing && reg.installing.scriptURL || ''))) {
+            reg.unregister();
+          }
+        });
+      }).catch(function () {});
+      if (apk && window.caches && caches.keys) {
+        caches.keys().then(function (keys) {
+          keys.forEach(function (key) {
+            if (/lingzanzan-(app-shell|scanner)/.test(key)) caches.delete(key);
+          });
+        }).catch(function () {});
+      }
+    }());
+  </script>
+  <link rel="manifest" href="./scanner.webmanifest">
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="stylesheet" href="./assets/scanner-ygf-v59.css?v=20260926-dept-cat-1">
+</head>
+<body data-scanner-app class="scanner-pda-layout">
+      <header class="scan-app-head"><button type="button" class="scanner-nav-back" data-scanner-back aria-label="回上一頁">‹</button><div><small class="system-name">LINGZANZAN盤點系統</small><h1 data-scanner-screen-title>商品盤點</h1><b class="scanner-build-badge">版本 v153</b></div><nav class="scanner-install-actions" aria-label="盤點機安裝"><a class="scanner-apk-download" href="./scanner-apk-download.php" download>↓ YGF安裝檔</a><button type="button" data-install-app>網頁安裝</button></nav><span data-online>連線中</span></header>
+  <section class="operator-bar"><div><small>目前操作人</small><b data-operator>檢查登入狀態…</b></div><div><small>開始時間</small><b data-started-at>-</b></div><button type="button" data-scanner-logout hidden>登出</button></section>
+  <script>
+    (function () {
+      var target = document.querySelector('[data-operator]');
+      if (!target) return;
+      try {
+        var login = JSON.parse(localStorage.getItem('lingzanzan-v1-admin-login') || '{}');
+        if (login.until && Date.now() < Number(login.until || 0)) {
+          var label = login.name || login.account || (login.role === 'admin' ? '管理者' : '員工');
+          target.textContent = label + (login.role === 'admin' ? '（管理者）' : login.role === 'staff' ? '（員工）' : '');
+        } else {
+          target.textContent = '尚未登入';
+        }
+      } catch (error) {
+        target.textContent = '請重新登入';
+      }
+    }());
+  </script>
+  <section class="scanner-login-gate" data-scanner-login-gate hidden>
+    <div>
+      <small>SCANNER LOGIN</small>
+      <h2>登入後進入盤點機功能</h2>
+      <p>請使用有盤點機、盤點、調撥、臨時建檔或查庫存權限的員工帳號。</p>
+    </div>
+    <form class="scanner-login-form" data-scanner-login-form>
+      <label>帳號<input data-scanner-login-account type="text" autocomplete="username" placeholder="輸入員工帳號"></label>
+      <label>密碼<input data-scanner-login-password type="password" autocomplete="current-password" placeholder="輸入密碼"></label>
+      <button type="submit" class="primary">登入盤點機</button>
+      <small data-scanner-login-status>登入後會依權限開啟盤點、調撥、臨時建檔與查庫存。</small>
+    </form>
+    <button type="button" class="scanner-login-back" data-scanner-back>回上一頁</button>
+  </section>
+  <section class="scan-function-bar" data-scan-function-bar><button type="button" class="scan-tab-toggle" data-scan-tab-toggle aria-expanded="true"><span>目前功能</span><b data-current-tab-label>盤點</b><em>展開/收合</em></button><nav class="scan-tabs" data-scan-tabs aria-label="盤點功能"><button class="is-active" data-tab="stocktake">盤點</button><button data-tab="transfer">調撥</button><button data-tab="arrival">跨倉到貨配客</button><button data-tab="stockin">快速入庫</button><button data-tab="lookup">查庫存</button></nav></section>
+  <main>
+    <section class="scanner-stocktake-flow" data-stocktake-flow-guide><b>YGF 快速盤點順序</b><span>1 掃條碼</span><span>2 選產品／顏色／尺寸與數量</span><span>3 首次選倉位／層架</span><span>4 不同產品沿用同一位置</span><span>5 要換位置再按換倉／換層架</span><small data-stocktake-flow-status>尚未鎖定位置；第一次選好後，不同產品會沿用到你主動換倉架。</small></section>
+    <section class="warehouse-context">
+      <label data-scanner-department-label>盤點部門<select data-scanner-department><option value="clothing">服裝</option><option value="computer">寶輝／電腦</option></select></label>
+      <label data-stocktake-warehouse-label>盤點倉庫<select data-warehouse></select></label>
+      <label data-lookup-warehouse-label hidden>查詢倉庫<select data-lookup-warehouse><option value="all">全部倉庫</option></select></label>
+      <div class="transfer-warehouse-fields" data-transfer-warehouse-fields hidden>
+        <label class="transfer-department-route">調撥部門<select data-transfer-department-mode><option value="clothing">服裝部 → 服裝部（預設）</option><option value="computer">服裝部 → 電腦部（寶輝後台）</option></select></label>
+        <label>來源倉庫<select data-source-warehouse></select></label><span aria-hidden="true">→</span><label>目的倉庫<select data-target-warehouse></select></label>
+        <div class="transfer-computer-notice" data-transfer-computer-notice hidden><b>將串聯至寶輝後台／電腦倉</b><span>條碼、顏色、尺寸、照片、成本與數量會維持；每項商品只需選擇寶輝產品分類。</span></div>
+      </div>
+      <label data-arrival-warehouse-label hidden>實際收到貨物的倉庫<select data-arrival-warehouse></select></label>
+      <div class="session-id" data-stocktake-session-context><small>本次盤點單</small><b data-session-id>-</b></div><button type="button" data-start-stocktake data-stocktake-session-context>開始新盤點</button>
+    </section>
+    <section class="scan-controls">
+      <div class="scan-input-head"><b>條碼帶入</b><div class="scan-input-modes" aria-label="條碼輸入方式"><button type="button" data-scan-input-mode="hardware" class="is-active">條碼掃描</button><button type="button" data-scan-input-mode="manual">手打搜尋</button><button type="button" data-scan-input-mode="camera">相機掃碼</button></div></div>
+      <label class="scan-field scan-field-barcode" data-barcode-scan-field>條碼掃描<span>YGF 掃描專用；不需手打，按掃描槍後會自動查詢。</span><div class="scan-input-row scan-barcode-row"><input data-scan-input data-barcode-input readonly aria-readonly="true" autocomplete="off" inputmode="text" virtualkeyboardpolicy="manual" enterkeyhint="done" autocapitalize="characters" spellcheck="false" pattern="[A-Za-z0-9]*" autofocus placeholder="等待掃描槍輸入（不用手打）"><button type="button" data-scan-submit>查詢</button><button type="button" data-clear-scan-input>清除</button></div></label>
+      <label class="scan-field scan-field-manual" data-manual-scan-field>手打輸入搜尋<span>手動補打產品編號或條碼；中文、注音、符號會自動清除。</span><div class="scan-input-row scan-manual-row"><input data-manual-scan-input autocomplete="off" inputmode="latin" enterkeyhint="search" autocapitalize="characters" spellcheck="false" pattern="[A-Za-z0-9]*" placeholder="英文數字搜尋"><button type="button" data-manual-scan-submit>搜尋</button><button type="button" data-clear-scan-input>清除</button></div></label>
+      <div class="scan-echo" data-scan-echo><span>目前掃入</span><b data-last-scan-code>尚未掃描</b><em data-last-scan-status>等待掃描槍</em></div>
+      <p data-scan-message>掃到後會顯示商品圖片、顏色、尺寸、該倉庫存與目前有效成本。盤點機請按「開啟相機拍照」；快速入庫放圖會先縮小，避免當機。調撥：成功加入一聲、重複掃描兩聲、找不到產品三聲；掃完請按「儲存整張調撥單」。</p>
+      <div class="scanner-live-camera-entry"><button type="button" class="scanner-live-camera-action primary" data-live-camera-photo="current">開啟相機拍照</button><small>盤點機請用這個拍照，不要直接放原圖。</small></div>
+      <section class="camera-box" data-camera-box hidden>
+        <div id="scanner-camera-reader" class="camera-scan-reader" data-camera-reader hidden></div>
+        <video data-camera-video autoplay playsinline muted></video>
+        <div class="camera-line" aria-hidden="true"></div>
+        <p data-camera-status>正在開啟相機…</p>
+        <label class="camera-file-fallback">拍照辨識條碼<input type="file" accept="image/*" capture="environment" data-camera-file></label>
+        <button type="button" data-camera-close>關閉相機</button>
+      </section>
+    </section>
+    <section class="pending-panel" data-pending-panel hidden><h2>找不到完整條碼｜補齊後上傳照片自動加入批次</h2><p data-pending-summary>產品名稱會自動使用產品編號，原始條碼另外保存；確認倉庫、分類、顏色與成本後，上傳照片會直接加入本批。</p><div class="pending-grid"><label>原始掃描值<input data-pending-code readonly></label><label>產品名稱（自動使用產品編號）<input data-pending-title readonly></label><label>入庫倉<select data-pending-warehouse></select></label><label>貨架<select data-pending-shelf></select></label><label>層位<select data-pending-layer></select></label><label>數量<select data-pending-qty></select></label><label>分類<select data-pending-category><option value="">讀取分類中…</option></select></label><label>顏色<select data-pending-color></select></label><label>尺寸<select data-pending-size></select></label><label>單件成本 NT$<input data-pending-cost type="number" min="0" step="0.01" placeholder="儲存前必填"></label><label>拍照或上傳照片（完成後自動加入）<input data-pending-photo type="file" accept="image/*" capture="environment"></label><div class="pending-photo-paste" data-pending-photo-paste tabindex="0"><b>貼上照片</b><span>複製圖片後點這裡按 Ctrl+V；手機可用拍照上傳。</span><img data-pending-photo-preview alt="待入庫照片預覽" hidden></div></div><div class="pending-actions"><button type="button" class="primary" data-save-pending>未上傳照片時手動加入批次</button><button type="button" data-cancel-pending>取消</button></div></section>
+    <section class="cross-warehouse-choice" data-cross-warehouse-choice hidden><header><div><small>OTHER WAREHOUSE MATCH</small><h2>目前倉沒有庫存，但其他倉找到同編號</h2></div><strong data-cross-warehouse-code>-</strong></header><p data-cross-warehouse-summary></p><div data-cross-warehouse-stock></div><footer><button type="button" data-cross-warehouse-use-reference>帶入本次盤點（不改庫存）</button><button type="button" class="primary" data-cross-warehouse-transfer>可能忘記調撥：從其他倉調回</button><button type="button" data-cross-warehouse-cancel>都不要，繼續掃下一件</button></footer></section>
+    <section class="match-panel" data-match-panel hidden><h2>掃描圖片核對</h2><label data-match-color-picker hidden>條碼只對到 P 前產品，請選顏色／尺寸<select data-match-color-select></select></label><div class="match-location-status" data-match-location-status hidden><span><small>原本擺放位置</small><b data-match-current-location>尚未設定</b><em data-match-location-compare>掃描後會自動比對</em></span><button type="button" data-toggle-match-location-adjust>調整貨架位置</button></div><div data-match-first-location hidden><b data-match-location-editor-title>確認產品與盤點位置</b><span data-match-location-editor-help>確認產品後，在同一窗選擇倉庫、貨架、層位與這個位置的數量。</span><label class="match-location-warehouse">盤點倉庫<select data-match-location-warehouse></select></label><label>貨架<select data-match-shelf></select></label><label>層位<select data-match-layer></select></label><label>這個位置的數量<input type="number" min="0" step="1" value="1" data-match-location-qty></label><button type="button" data-save-match-location>確定產品＋位置＋數量</button></div><div class="match-grid" data-match-grid></div></section>
+    <section class="operation-panel" data-operation-panel hidden><div data-stocktake-fields><div class="stock-compare"><span>盤點前帳面</span><b data-before-stock>0</b><span>上次盤點</span><b data-last-counted-stock>—</b><span>本次差異</span><b data-stocktake-last-diff>—</b><span>帳面差異</span><b data-stocktake-book-diff>—</b><span>本次實盤</span></div><label>實際數量<input data-qty type="number" min="0" step="1" value="1"></label><button class="primary" data-confirm-stocktake>加入本次盤點單</button></div><div data-transfer-fields hidden><div class="transfer-auto-note"><b>掃描即加入</b><span>每掃一次自動增加 1 件，不需要再按確認。</span></div><label>單次掃描數量<input data-transfer-qty type="number" min="1" step="1" value="1"></label></div><div data-arrival-fields hidden><div class="transfer-auto-note"><b>到貨直接配客</b><span>來源倉在業務打單時已扣庫存；這裡只做目的倉到貨、找客戶、調撥紀錄與出貨準備，不會重複扣庫存。</span></div><label>本次到貨數量<input data-arrival-qty type="number" min="1" step="1" value="1"></label><button class="primary" type="button" data-confirm-arrival>確認到貨並配客</button><div data-arrival-result></div></div><div data-stockin-fields hidden><div class="stockin-warning"><b>掃描後先加入批次</b><span data-stockin-summary>選好下方預設分類、顏色與成本後，掃描會直接加入本次快速入庫批次。</span></div><label>每次掃描數量<select data-stockin-qty></select></label><label>本批預設分類<select data-stockin-default-category><option value="">讀取分類中…</option></select></label><label>本批預設顏色<select data-stockin-default-color></select></label><label>本批預設單件成本 NT$<input data-stockin-default-cost type="number" min="0" step="0.01" placeholder="留白則抓目前有效成本"></label><div class="stockin-location"><p class="stockin-location-help">入庫倉請用上方「入庫倉」。貨架／層位選好後會寫入後續掃描，並可套用本批已掃品項。</p><label>貨架（本批預設）<select data-stockin-shelf></select></label><label>層位（本批預設）<select data-stockin-layer></select></label><label>新增貨架<input data-stockin-new-shelf placeholder="例如 A架"></label><label>新增層位<input data-stockin-new-layer placeholder="例如 第三層"></label><button type="button" data-stockin-add-location>新增並套用上架位置</button><button type="button" data-stockin-apply-location>同倉架套用本批</button></div><div class="stockin-photo-box" data-stockin-photo-box tabindex="0"><div><b>本批入庫照片</b><span data-stockin-photo-status>盤點機請按「開啟相機拍照」。貼圖會先縮小，避免當機；下一筆掃到的商品會自動帶入這張照片。</span></div><button type="button" class="scanner-live-camera-action" data-live-camera-photo="stockin">開啟相機拍照</button><label>選擇照片<input data-stockin-photo type="file" accept="image/*"></label><button type="button" data-stockin-photo-clear>清除照片</button><img data-stockin-photo-preview alt="快速入庫照片預覽" hidden></div><div class="stockin-default-actions"><button type="button" data-stockin-apply-category>同分類套用本批</button><button type="button" data-stockin-apply-cost>同成本套用本批</button><button type="button" data-stockin-apply-location>同倉架套用本批</button></div></div></section>
+    <section class="transfer-draft-panel" data-transfer-draft-panel hidden>
+      <header><div><small>TRANSFER DRAFT</small><h2>本次調撥單</h2><p>掃到有效產品會直接加入這裡；重複掃描會累加數量。</p></div><strong data-transfer-draft-total>0 項／0 件</strong></header>
+      <div class="transfer-draft-list" data-transfer-draft-list><p class="empty">尚未掃描調撥產品</p></div>
+      <div class="transfer-save-bar">
+        <button type="button" data-clear-transfer-draft>清空本次調撥單</button>
+        <button type="button" class="primary transfer-save-button" data-save-transfer-draft disabled>儲存整張調撥單（0 件）</button>
+      </div>
+      <p class="transfer-save-help" data-transfer-save-help>中國→台灣：儲存後只建立在途調撥單，台灣倉不加庫。其他倉對倉仍是來源減、目的加。</p>
+    </section>
+    <section class="stockin-draft-panel initial-stock-setup-panel" data-stockin-draft-panel hidden>
+      <header><div><small>INITIAL INVENTORY SETUP</small><h2>首次庫存臨時建檔</h2><p>這是日常臨時入庫入口：只登記公司既有庫存、直接寫入數量；不列入報損或報益，一般盤點與待審草稿仍須核准。</p></div><strong data-stockin-draft-total>0 項／0 件／NT$0</strong></header>
+      <div class="stockin-draft-list" data-stockin-draft-list><p class="empty">尚未掃描臨時建檔商品</p></div>
+      <div class="stockin-save-bar">
+        <button type="button" data-clear-stockin-draft>清空本次清單</button>
+        <button type="button" class="primary stockin-save-button" data-save-stockin-draft disabled>確認臨時建檔入庫（0 件／NT$0）</button>
+        <button type="button" class="initial-stock-close-button" data-close-initial-stock-mode hidden>完成首次建檔並關閉入口</button>
+      </div>
+      <p class="stockin-save-help">可以先不指定貨架／層位。臨時入庫會增加庫存數量，但不建立報損或報益、也不列入損益。確認後直接寫入正式庫存，入口保持開放供日常使用。</p>
+    </section>
+    <section class="session-actions" data-session-actions><div><b>盤點完成後送主管比對</b><small>送出前不修改庫存；主管核准後才更新正式庫存。</small></div><button type="button" data-clear-current-stocktake>清除本次全部商品</button><button type="button" class="primary" data-finish-stocktake>完成盤點並送後台</button></section>
+    <section class="scanner-review scanner-staff-draft-folder" data-scanner-review data-stocktake-only>
+      <header><div><small>STAFF STOCKTAKE DRAFTS</small><h2>全體盤點草稿夾</h2><p>員工可先修正實盤數量與誤差原因；儲存只改草稿，不會改正式庫存。管理者統一核准後才生效。</p><p data-scanner-review-status>讀取中</p></div><button type="button" data-scanner-review-refresh>立即同步草稿</button></header>
+      <div data-scanner-review-list></div>
+    </section>
+    <div data-draft-list hidden></div>
+    <details class="own-sessions scanner-collapsible"><summary><span><small>後台盤點單</small><b>我的盤點單</b></span><em>展開</em></summary><div class="scanner-collapsible-body"><button type="button" data-refresh-sessions>重新整理</button><div data-own-sessions><p class="empty">讀取中</p></div></div></details>
+  </main>
+  <footer><button type="button" data-scanner-back>回上一頁</button><button type="button" data-scanner-login-focus>登入盤點機</button><span>正式資料由後台管理</span></footer>
+  <script src="./assets/vendor/qrcode-generator.min.js?v=1.4.4"></script>
+  <script src="./assets/scanner-ygf-v59.js?v=20260926-dept-cat-1"></script>
+  <script src="./assets/scanner-review.js?v=20260916-staff-draft-correction-3" defer></script>
+  <script src="./assets/image-upload-paste.js?v=20260911-fast-stocktake-photo" defer></script>
+</body>
+</html>
