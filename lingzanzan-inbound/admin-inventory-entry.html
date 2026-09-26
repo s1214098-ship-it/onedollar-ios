@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <script src="./asset-boot.php?v=20260924-confirm-click-1"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>LINGZANZAN - 廠商進貨單</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260923-print-overlay-1">
+  <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css" data-admin-navigation-style>
+  <link rel="lz-asset" data-lz-href="./assets/order-payments.css">
+  <link rel="lz-asset" data-lz-href="./assets/inventory-freight-entry.css?v=20260926-photo-views-1">
+</head>
+<body class="labels-ready">
+    <script>
+    var loginParams = new URLSearchParams(location.search);
+    var loginKey = 'lingzanzan-v1-admin-login';
+    if (loginParams.get('resetLogin') === '1') {
+      loginParams.delete('resetLogin');
+      var cleanLoginQuery = loginParams.toString();
+      history.replaceState(null, '', location.pathname + (cleanLoginQuery ? '?' + cleanLoginQuery : '') + location.hash);
+    }
+    if (loginParams.get('login') === 'sales') {
+      localStorage.removeItem(loginKey);
+      document.documentElement.setAttribute('data-sales-entry', 'true');
+    } else {
+      try {
+        var cachedLogin = JSON.parse(localStorage.getItem(loginKey) || '{}');
+        if (cachedLogin.version === 'password-login-v2' && cachedLogin.serverSession === true && ['admin', 'staff'].indexOf(cachedLogin.role) !== -1 && cachedLogin.until && Date.now() < cachedLogin.until) {
+          document.body.classList.add('is-admin-unlocked');
+        }
+      } catch (error) {}
+    }
+  </script>
+  <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>請輸入管理者或行政人員帳號與密碼登入。</span>
+      <input data-login-account type="text" placeholder="輸入管理者帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入管理者密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button>
+      <a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint>登入後同一台瀏覽器 24 小時內不用重複登入。</small>
+    </form>
+  </div>
+  <div class="admin-top-actions" hidden style="display:none">
+    <span class="login-identity" data-current-user hidden></span>
+    <a href="./">回首頁</a>
+    <button type="button" data-logout-admin>登出</button>
+  </div>
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+      <nav>
+        <a href="./admin.html">總覽</a>
+        <a href="./admin-security.html">管理者</a>
+        <a href="./admin-staff.html">員工管理</a>
+        <a href="./admin-members.html">會員管理</a>
+        <a href="./admin-sales.html">業務管理</a>
+        <a href="./admin-products.html">產品管理</a>
+        <a href="./admin-offline-products.html">下架產品</a>
+        <a href="./admin-style-columns.html">首頁區塊</a>
+        <a href="./admin-orders.html">訂單</a>
+        <a href="./admin-preorders.html" class="preorder-menu-link">預購打單</a>
+        <a href="./admin-purchase.html" class="purchase-menu-link">採購區</a>
+        <a href="./admin-suppliers.html">廠商管理</a>
+        <a href="./admin-freight.html">物流集運</a>
+        <a href="./admin-profit.html">營銷毛利</a>
+        <a href="./admin-live.html">直播打單</a>
+        <a href="./admin-inquiries.html">客戶詢問</a>
+        <a href="./admin-inventory.html">貨倉管理</a>
+        <a href="./admin-logistics.html">物流回報</a>
+        <a href="./admin-backup.html">備份還原</a>
+      </nav>
+    </aside>
+    <main>
+      <section class="panel" id="inventory-entry" data-inventory-entry-page data-clean-built="1">
+        <div class="panel-head">
+          <div>
+            <p>PURCHASE RECEIVING</p>
+            <h2>廠商進貨單</h2>
+            <span>上方可查歷史進貨單：點列看單、印條碼。下方完成單頭與品項後，一次建立正式進貨單並增加所選倉庫庫存。</span>
+          </div>
+          <div class="panel-actions">
+            <a class="ghost-button" href="./admin-purchase.html">返回採購區</a>
+            <a class="ghost-button" href="./admin-inventory.html">貨倉管理</a>
+            <button type="button" data-refresh-orders>重新整理</button>
+          </div>
+        </div>
+        <section class="inventory-freight-overview" data-inventory-freight-entry>
+          <div>
+            <p>FREIGHT TO RECEIVING</p>
+            <h3>正式進貨單／可選擇物流來源</h3>
+            <span>這裡只建立正式進貨單；物流單號是選填的來源資料，不會因產品建檔自動產生進貨草稿，也不要求一定要有客戶訂單。</span>
+          </div>
+          <strong data-inventory-freight-summary>正在讀取物流集運資料…</strong>
+        </section>
+        <section class="inventory-freight-global-search" data-inventory-freight-global-search>
+          <div class="inventory-freight-global-controls">
+            <label>物流單號／集運批次號
+              <input
+                list="inventory-freight-entry-options"
+                data-inventory-freight-global-input
+                autocomplete="off"
+                placeholder="輸入或掃描物流單號，例如 46533818464244">
+            </label>
+            <button type="button" class="primary-button" data-inventory-freight-global-submit>帶入物流單號／Muat nomor resi</button>
+          </div>
+          <div class="inventory-freight-global-result" data-inventory-freight-global-result>
+            輸入物流單號後，會列出同單號的商品、顏色、尺寸與數量；沒有客戶訂單時仍可作為公司現貨或樣品正式進貨。
+          </div>
+        </section>
+        <section class="stock-docs-panel" data-stock-docs id="stock-docs">
+          <!-- LZ_STOCK_DOCS_FOLD_20260924 -->
+          <details class="stock-docs-fold" data-stock-docs-fold>
+            <summary class="stock-docs-head">
+              <div>
+                <p>IN / OUT DOCUMENTS</p>
+                <h3>進出貨單</h3>
+                <span>已入庫清單預設收合。點列可看歷史單與印條碼，不是自用。</span>
+              </div>
+              <strong data-stock-docs-summary>讀取中…</strong>
+              <em class="stock-docs-fold-hint" data-stock-docs-fold-hint>點此展開查詢</em>
+            </summary>
+            <div class="stock-docs-body">
+          <div class="stock-docs-type" role="tablist" aria-label="單據種類">
+            <button type="button" class="is-active" data-stock-docs-type="in" aria-pressed="true">進貨單</button>
+            <button type="button" data-stock-docs-type="out" aria-pressed="false">出貨單</button>
+            <button type="button" data-stock-docs-type="all" aria-pressed="false">全部</button>
+          </div>
+          <div class="purchase-stats-controls stock-docs-controls">
+            <label>統計方式
+              <select data-stock-docs-date-mode>
+                <option value="day">單日</option>
+                <option value="range" selected>日期區間</option>
+                <option value="all">全部日期</option>
+              </select>
+            </label>
+            <label>開始日期<input type="date" data-stock-docs-date-from></label>
+            <label>結束日期<input type="date" data-stock-docs-date-to></label>
+            <div class="purchase-stats-quick stock-docs-quick">
+              <button type="button" data-stock-docs-quick="today">今天</button>
+              <button type="button" data-stock-docs-quick="yesterday">昨天</button>
+              <button type="button" data-stock-docs-quick="7days" class="is-active" aria-pressed="true">近 7 天</button>
+              <button type="button" data-stock-docs-quick="all">全部日期</button>
+            </div>
+          </div>
+          <label class="stock-docs-search">搜尋廠商／訂單／產品／物流（結果顯示訂單、購買日、品名；點列看單／印條碼）
+            <input type="search" data-stock-docs-query placeholder="例如 廣州、訂單號或品名；有輸入會跨全部日期">
+          </label>
+          <p class="stock-docs-search-note" data-stock-docs-search-note hidden></p>
+          <div class="stock-docs-list" data-stock-docs-list></div>
+          <div class="stock-docs-pager" data-stock-docs-pager></div>
+            </div>
+          </details>
+        </section>
+        <datalist id="inventory-freight-entry-options" data-inventory-freight-options></datalist>
+        <section class="purchase-receipt-builder" data-purchase-receipt-builder>
+          <header class="purchase-receipt-builder-head">
+            <div>
+              <p>PURCHASE RECEIPT／PENERIMAAN PEMBELIAN</p>
+              <h3>新增完整廠商進貨單</h3>
+              <span>像行政出貨單一樣填好單頭與進貨品項；按一次就會建立正式進貨單並增加倉庫數量。</span>
+            </div>
+            <strong data-purchase-receipt-status>新進貨單</strong>
+          </header>
+          <section class="purchase-receipt-complete" data-purchase-receipt-complete hidden>
+            <p>INBOUND COMPLETE／PENERIMAAN SELESAI</p>
+            <strong data-purchase-receipt-complete-title>進貨單已入庫完成</strong>
+            <span data-purchase-receipt-complete-meta>正式進貨單已成立並增加庫存。這是列印條碼頁。</span>
+          </section>
+          <div class="purchase-receipt-head-grid">
+            <input type="hidden" data-purchase-receipt-id>
+            <label>進貨單號／No. penerimaan<input data-purchase-receipt-no autocomplete="off"></label>
+            <label>進貨日期／Tanggal<input type="date" data-purchase-receipt-date></label>
+            <div class="purchase-receipt-keyword-field product-master-select-field">
+              <!-- LZ_VENDOR_PLAT_20260925 -->
+              <label>廠商／Pemasok<select data-purchase-receipt-supplier><option value="">請選擇已建檔廠商</option></select></label>
+              <a class="ghost-button" href="./admin-suppliers.html?kind=supplier">＋新增廠商</a>
+            </div>
+            <div class="purchase-receipt-keyword-field product-master-select-field">
+              <label>採購平台／Platform<select data-purchase-receipt-platform><option value="">請選擇已建檔平台</option></select></label>
+              <a class="ghost-button" href="./admin-suppliers.html?kind=platform">＋新增平台</a>
+            </div>
+            <label>來源採購單／No. pesanan<input data-purchase-receipt-source-order placeholder="有採購單號時帶入，沒有可留空"></label>
+            <label>入庫倉／Gudang<select data-purchase-receipt-warehouse><option value="TW">台灣倉／Gudang Taiwan</option><option value="CN">中國倉／Gudang China</option><option value="ID">印尼倉／Gudang Indonesia</option></select></label>
+            <label>經手人／Petugas<input data-purchase-receipt-operator placeholder="輸入行政或進貨經手人"></label>
+            <div class="purchase-receipt-freight-field">
+              <label>物流單號／集運批次／Nomor resi<input list="inventory-freight-entry-options" data-purchase-receipt-freight placeholder="輸入物流單號或批次號"></label>
+              <button type="button" class="ghost-button" data-purchase-receipt-apply-freight>帶入批次／Muat barang</button>
+            </div>
+            <label class="purchase-receipt-note-field">進貨備註／Catatan<input data-purchase-receipt-note placeholder="短少、破損、補件、發票或其他說明"></label>
+          </div>
+          <section class="purchase-receipt-item-entry">
+            <div class="purchase-receipt-item-entry-head">
+              <b>進貨項目／Item penerimaan</b>
+              <span>先搜產品編號，同一款顏色尺寸只列一列並顯示中國／台灣／印尼／預購倉現有庫存。勾選加入會進上方入庫倉。掃完整條碼會絕對比對（貼紙 OLAN75904P315 與資料庫 OLAN75P315904 同一碼），不必先填分類。色碼 904 會帶卡其色，不會帶圖片色。新產品才需要分類產生編號。公司條碼不再出現 NO-SIZE-TW 那種，改為編號色尺P成本；Ctrl+F5 後加新列或改成本會重算條碼。</span>
+            </div>
+            <div class="purchase-receipt-item-entry-fields">
+              <label>產品關鍵字／Produk<input type="search" data-purchase-receipt-sku-search autocomplete="off" placeholder="名稱、編號、SKU 或條碼"></label>
+              <div class="purchase-receipt-keyword-field purchase-receipt-category-field">
+                <label>產品分類／Kategori<select data-purchase-receipt-category><!-- LZ_CAT_SELECT_20260924 --><option value="">請選擇產品分類</option></select></label>
+              </div>
+              <label>產品編號／Kode produk<input data-purchase-receipt-product-code autocomplete="off" placeholder="選產品後帶入，或依分類產生"></label>
+              <label>產品條碼／Barcode<input data-purchase-receipt-product-barcode autocomplete="off" placeholder="可直接掃條碼，不必先填分類"></label>
+            </div>
+            <div class="purchase-receipt-item-entry-actions">
+              <p class="purchase-receipt-code-status" data-purchase-receipt-code-status>從選單選擇分類後，新產品可產生下一個編號；空白欄位不會展開全部資料。</p>
+              <div class="purchase-receipt-item-entry-buttons">
+                <button type="button" class="ghost-button" data-purchase-receipt-generate-code>產生下一號<span>Buat nomor</span></button>
+                <button type="button" class="primary-button" data-purchase-receipt-add-item>加入進貨項目<span>Tambah item</span></button>
+              </div>
+            </div>
+            <div class="purchase-receipt-product-suggest" data-purchase-receipt-product-suggest hidden></div>
+          </section>
+          <div class="purchase-receipt-lines" data-purchase-receipt-lines><p class="empty-state">尚未加入進貨項目。</p></div>
+          <div class="purchase-receipt-totals" data-purchase-receipt-totals><span>品項 <b>0</b></span><span>數量 <b>0</b></span><span>成本合計 <b>NT$0</b></span></div>
+          <section class="purchase-receipt-print-picker" data-purchase-receipt-print-picker hidden>
+            <header>
+              <div>
+                <p>PRINT BARCODES／CETAK BARCODE</p>
+                <b>進貨已完成，這是列印條碼頁</b>
+                <span>正式進貨單已入庫。勾選品項、改張數後再印；沒勾的不會輸出。右側「刪除」會從進貨單移除並扣回該 SKU 倉庫庫存，與列印勾選無關。</span>
+              </div>
+              <label class="purchase-receipt-print-all"><input type="checkbox" checked data-purchase-receipt-print-all><span>全選本次入庫</span></label>
+            </header>
+            <div class="purchase-receipt-print-list" data-purchase-receipt-print-list></div>
+            <div class="purchase-receipt-print-picker-actions">
+              <button type="button" class="ghost-button" data-purchase-receipt-print-dismiss>稍後再印</button>
+              <button type="button" class="primary-button" data-purchase-receipt-print-selected>列印勾選條碼<span>Cetak barcode</span></button>
+            </div>
+          </section>
+          <div class="purchase-receipt-complete-actions" data-purchase-receipt-complete-actions hidden>
+            <button type="button" class="ghost-button" data-purchase-receipt-print-again>繼續列印條碼</button>
+            <button type="button" class="ghost-button" data-purchase-receipt-new>再開一張新單</button>
+          </div>
+          <div class="purchase-receipt-actions" data-purchase-receipt-form-actions>
+            <button type="button" class="ghost-button" data-purchase-receipt-focus-search>回搜尋列</button>
+            <button type="button" class="ghost-button" data-purchase-receipt-clear>清空／Bersihkan</button>
+            <button type="button" class="ghost-button" data-purchase-receipt-print-last hidden>列印本次條碼／Cetak barcode</button>
+            <button type="button" class="primary-button" data-purchase-receipt-confirm onclick="if(window.LingzanzanInventoryFreightEntry&amp;&amp;window.LingzanzanInventoryFreightEntry.confirmStandalone){event.preventDefault();window.LingzanzanInventoryFreightEntry.confirmStandalone(this);}">建立正式進貨單並入庫／Buat dokumen & tambah stok</button>
+          </div>
+          <p class="purchase-receipt-message" data-purchase-receipt-message>先填廠商與進貨項目；送出後會同時建立正式進貨單與倉庫庫存。</p>
+          <button type="button" class="purchase-receipt-jump-search" data-purchase-receipt-focus-search>回搜尋列</button>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div class="toast" data-admin-toast hidden></div>
+  <script type="lz/asset" data-lz-src="./assets/admin-inventory-entry-core-20260823-supplemental-safe-add-1.js?v=20260923-print-overlay-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-labels.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-ui-rescue.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/order-payments.js?v=20260910-orders-etag-cache-1" defer></script>
+  <script src="./assets/vendor/qrcode-generator.min.js?v=20260924-thumb-hover-2"></script>
+  <script type="lz/asset" data-lz-src="./assets/vendor/qrcode-generator.min.js?v=20260924-thumb-hover-2" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/inventory-freight-entry-20260810.js?v=20260926-photo-views-1" defer></script>
+<script type="lz/asset" data-lz-src="./assets/submission-feedback.js" defer data-submission-feedback-script></script>
+<script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260902-agency-collection-1" defer></script>  <script type="lz/asset" data-lz-src="./assets/image-upload-paste.js" defer></script>
+</body>
+</html>
+
