@@ -1,0 +1,28 @@
+/* LZ_WORKLINE_PALETTE_20260926
+   建檔工作列是大張 button，不能套一般「選取＝整塊金黃」。
+   深色卡片 + 左側色條／編號／目前建檔模式膠囊。 */
+html body button.freight-workline-row,
+html body button.freight-workline-row.is-active {
+  background: #171318 !important;
+  color: #fff8ed !important;
+  -webkit-text-fill-color: #fff8ed !important;
+  border: 1px solid #3a3338 !important;
+  border-left: 6px solid var(--workline-accent, #35c2ae) !important;
+}
+html body button.freight-workline-row.is-pickup { --workline-accent: #e8b75b; }
+html body button.freight-workline-row.is-pinduoduo { --workline-accent: #35c2ae; }
+html body button.freight-workline-row.is-haohong { --workline-accent: #7eb6ff; }
+html body button.freight-workline-row.is-active {
+  background: #221b20 !important;
+  border-color: var(--workline-accent, #35c2ae) !important;
+}
+html body button.freight-workline-row .freight-workline-number {
+  background: var(--workline-accent, #35c2ae) !important;
+  color: #111014 !important;
+  -webkit-text-fill-color: #111014 !important;
+}
+html body button.freight-workline-row.is-active .freight-workline-open {
+  background: var(--workline-accent, #35c2ae) !important;
+  color: #111014 !important;
+  -webkit-text-fill-color: #111014 !important;
+}
