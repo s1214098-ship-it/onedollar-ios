@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>深藍只算一個顏色</title>
+  <style>
+    body { font-family: sans-serif; background: #15110e; color: #f3e6d4; padding: 24px; }
+    .pass { color: #7dffa0; } .fail { color: #ff8a8a; }
+  </style>
+</head>
+<body>
+  <h1>設立一個顏色只留一列</h1>
+  <pre id="log"></pre>
+  <script>
+    function canonicalChineseColorName(text) {
+      text = String(text || '').trim();
+      return ({ '深藍': '深藍色', '深藍色': '深藍色', '深藍(biru tua)': '深藍色' })[text] || text;
+    }
+    var names = ['深藍', '深藍色', '深藍(biru tua)'].map(canonicalChineseColorName);
+    var unique = names.filter(function (name, i) { return names.indexOf(name) === i; });
+    var log = document.getElementById('log');
+    var ok = unique.length === 1 && unique[0] === '深藍色';
+    log.textContent = (ok ? 'PASS ' : 'FAIL ') + names.join(' / ') + ' → ' + unique.join(',');
+    log.className = ok ? 'pass' : 'fail';
+  </script>
+</body>
+</html>
