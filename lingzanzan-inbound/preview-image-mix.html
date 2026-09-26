@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>進貨搜尋不要跨款圖</title>
+  <style>
+    body { font-family: sans-serif; background: #15110e; color: #f3e6d4; padding: 24px; }
+    .pass { color: #7dffa0; } .fail { color: #ff8a8a; }
+    code { background: #2a2218; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>OLAN66 搜尋列不再帶 K412 圖</h1>
+  <p>白色應顯示白色杯 <code>OLAN669200P414</code>，不是 <code>K4129200P414</code>。</p>
+  <p>藍色應顯示藍色杯，不再跟紫色共用同一張。</p>
+  <pre id="log"></pre>
+  <script>
+    function key(v){return String(v||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');}
+    function inboundBarcodeForeignToProduct(barcode, product) {
+      var compact = key(barcode);
+      var own = key(product.code);
+      if (!compact || !own) return false;
+      if (compact.indexOf(own) === 0) return false;
+      var title = key(product.title);
+      if (title && compact.indexOf(title) === 0) return false;
+      return true;
+    }
+    var cases = [
+      ['K4129200P414', {code:'OLAN66', title:'OLAN66'}, true],
+      ['OLAN669200P414', {code:'OLAN66', title:'OLAN66'}, false],
+      ['K38893003P180', {code:'TSH001', title:'K388'}, false]
+    ];
+    var log = document.getElementById('log');
+    var fail = 0;
+    cases.forEach(function (row) {
+      var got = inboundBarcodeForeignToProduct(row[0], row[1]);
+      var ok = got === row[2];
+      if (!ok) fail += 1;
+      log.textContent += (ok ? 'PASS ' : 'FAIL ') + row[0] + ' on ' + row[1].code + ' → ' + got + '\n';
+    });
+    log.className = fail ? 'fail' : 'pass';
+  </script>
+</body>
+</html>
