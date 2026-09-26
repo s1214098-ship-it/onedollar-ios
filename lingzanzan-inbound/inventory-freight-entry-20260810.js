@@ -792,6 +792,124 @@
     return suggestedCategoryForNewLine(line, product) || text(line.category);
   }
 
+  var INBOUND_CATEGORY_MEMORY_KEY = 'lingzanzan-v1-inbound-category-memory'; /* LZ_CAT_MEM_20260926 */
+  var INBOUND_SIZE_MEMORY_KEY = 'lingzanzan-v1-inbound-size-memory';
+
+  function readInboundFieldMemory(storageKey) {
+    try {
+      var raw = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      return {
+        last: text(raw && raw.last),
+        custom: uniqueTextRows(Array.isArray(raw && raw.custom) ? raw.custom : []).slice(0, 40)
+      };
+    } catch (error) {
+      return { last: '', custom: [] };
+    }
+  }
+
+  function writeInboundFieldMemory(storageKey, payload) {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({
+        last: text(payload && payload.last),
+        custom: uniqueTextRows(Array.isArray(payload && payload.custom) ? payload.custom : []).slice(0, 40)
+      }));
+    } catch (error) {}
+  }
+
+  function readInboundCategoryMemory() {
+    return readInboundFieldMemory(INBOUND_CATEGORY_MEMORY_KEY);
+  }
+
+  function rememberedInboundCategory() {
+    var last = text(readInboundCategoryMemory().last);
+    if (!last || last === '快速入庫待補' || last === '請選擇產品分類') return '';
+    return last;
+  }
+
+  function inboundKnownCategoryName(value) {
+    value = text(value);
+    if (!value) return false;
+    var found = false;
+    (state.categories || []).forEach(function (row) {
+      var name = typeof row === 'string' ? text(row) : text(row && (row.name || row.category || row.title || row.label));
+      if (name === value) found = true;
+    });
+    (state.products || []).forEach(function (product) {
+      if (text(product.category || product.categoryName || product.productCategory) === value) found = true;
+    });
+    return found;
+  }
+
+  function rememberInboundCategory(value) {
+    value = text(value);
+    if (!value || value === '快速入庫待補' || value === '請選擇產品分類' || value === '__custom__') return;
+    var mem = readInboundCategoryMemory();
+    mem.last = value;
+    if (!inboundKnownCategoryName(value)) mem.custom = uniqueTextRows([value].concat(mem.custom || []));
+    writeInboundFieldMemory(INBOUND_CATEGORY_MEMORY_KEY, mem);
+  }
+
+  function readInboundSizeMemory() {
+    return readInboundFieldMemory(INBOUND_SIZE_MEMORY_KEY);
+  }
+
+  function rememberInboundSize(value) {
+    value = text(value);
+    if (!value || value === '__custom__' || /^(nosize|均碼|free)$/i.test(key(value))) return;
+    var mem = readInboundSizeMemory();
+    mem.last = value;
+    mem.custom = uniqueTextRows([value].concat(mem.custom || []));
+    writeInboundFieldMemory(INBOUND_SIZE_MEMORY_KEY, mem);
+  }
+
+  function setInboundHeaderCategory(value) {
+    value = text(value);
+    if (value === '__custom__') value = '';
+    var input = document.querySelector('[data-purchase-receipt-category]');
+    var preset = document.querySelector('[data-purchase-receipt-category-preset]');
+    if (input) input.value = value;
+    if (preset) {
+      if (value) ensureSelectValue(preset, value);
+      else preset.value = '';
+    }
+    return value;
+  }
+
+  function syncCategoryPresetToValue(preset, value, addMissing) {
+    value = text(value);
+    if (!preset) return;
+    if (!value || value === '__custom__') {
+      preset.value = '';
+      return;
+    }
+    if (addMissing) {
+      ensureSelectValue(preset, value);
+      return;
+    }
+    var found = false;
+    for (var i = 0; i < preset.options.length; i += 1) {
+      if (text(preset.options[i].value) === value) { found = true; break; }
+    }
+    preset.value = found ? value : '';
+  }
+
+  function commitStandaloneLineCategory(host, value, options) {
+    options = options || {};
+    value = text(value);
+    if (value === '__custom__') value = '';
+    var input = host && host.querySelector('[data-standalone-line-category]');
+    var preset = host && host.querySelector('[data-standalone-line-category-preset]');
+    if (input && options.writeInput !== false) input.value = value;
+    syncCategoryPresetToValue(preset, value, !!options.addOption);
+    var line = state.standaloneLines.find(function (row) { return row.key === (host && host.getAttribute('data-purchase-receipt-line')); });
+    if (line) {
+      line.category = value;
+      if (options.manual !== false) line.categoryManual = true;
+    }
+    if (options.remember && value) rememberInboundCategory(value);
+    refreshStandaloneSizePicker(host);
+  }
+
   function normalizeProductCode(value) {
     return text(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
   }
@@ -1589,6 +1707,8 @@
     if (fromLine && fromLine !== '快速入庫待補') return fromLine;
     var selected = text(document.querySelector('[data-purchase-receipt-category]') && document.querySelector('[data-purchase-receipt-category]').value);
     if (selected && selected !== '快速入庫待補') return selected;
+    var remembered = rememberedInboundCategory();
+    if (remembered) return remembered;
     var names = standaloneCategoryRows();
     return names[0] || '';
   }
@@ -1607,16 +1727,22 @@
     }).map(function (product) {
       return product.category || product.categoryName || product.productCategory || '';
     });
-    return uniqueTextRows(fromState.concat(fromProducts)).filter(function (name) {
+    var rows = uniqueTextRows(fromState.concat(fromProducts)).filter(function (name) {
       if (!name || name === '請先選分類' || name === '快速入庫待補') return false;
       return dept === 'computer' ? inboundIsComputerCategory(name) : !inboundIsComputerCategory(name);
-    }).sort(function (a, b) {
+    });
+    (readInboundCategoryMemory().custom || []).forEach(function (name) {
+      name = text(name);
+      if (!name || rows.indexOf(name) !== -1 || name === '請先選分類' || name === '快速入庫待補') return;
+      if (dept === 'computer' ? inboundIsComputerCategory(name) : !inboundIsComputerCategory(name)) rows.push(name);
+    });
+    return rows.sort(function (a, b) {
       return a.localeCompare(b, 'zh-Hant');
     });
   }
 
   function standaloneCategoryOptionsHtml(current) {
-    /* LZ_CAT_SELECT_20260924: native select from products.json / admin category vocab. No invented names. */
+    /* LZ_CAT_MEM_20260926: existing categories + remembered custom names. Blank field sits beside this select. */
     current = text(current);
     var names = standaloneCategoryRows().slice();
     if (current && names.indexOf(current) === -1) names.unshift(current);
@@ -1761,7 +1887,13 @@
       .concat((state.receipts || []).map(function (row) { var doc = row.receivingDocument || row; return doc.purchasePlatform || ''; }).filter(function (name) { return !isLinkedPinduoduoVendorName(name); }));
     fillSelect('[data-purchase-receipt-supplier]', supplierNames, '請選擇已建檔廠商', uniquePurchaseNames);
     fillSelect('[data-purchase-receipt-platform]', platformNames, '請選擇已建檔平台', uniquePurchaseNames);
-    fillSelect('[data-purchase-receipt-category]', standaloneCategoryRows(), '請選擇產品分類');
+    var headerCat = document.querySelector('[data-purchase-receipt-category]');
+    var headerPreset = document.querySelector('[data-purchase-receipt-category-preset]');
+    if (headerPreset && headerCat && text(headerCat.value) && !text(headerPreset.value)) headerPreset.value = headerCat.value;
+    fillSelect('[data-purchase-receipt-category-preset]', standaloneCategoryRows(), '請選擇產品分類');
+    if (!headerPreset) fillSelect('[data-purchase-receipt-category]', standaloneCategoryRows(), '請選擇產品分類');
+    if (headerCat && !text(headerCat.value) && rememberedInboundCategory()) setInboundHeaderCategory(rememberedInboundCategory());
+    else if (headerCat && headerPreset) syncCategoryPresetToValue(headerPreset, headerCat.value, true);
   }
 
   function looksLikeBarcodeQuery(value) {
@@ -2306,16 +2438,7 @@
     }
     if (categoryInput) {
       var pickedCategory = productCategory(product);
-      if (pickedCategory) {
-        var hasOption = Array.prototype.some.call(categoryInput.options || [], function (option) { return option.value === pickedCategory; });
-        if (!hasOption) {
-          var extra = document.createElement('option');
-          extra.value = pickedCategory;
-          extra.textContent = pickedCategory;
-          categoryInput.appendChild(extra);
-        }
-        categoryInput.value = pickedCategory;
-      }
+      if (pickedCategory) setInboundHeaderCategory(pickedCategory);
     }
     if (codeInput) {
       codeInput.value = text(product.code || product.productLine || product.id);
@@ -2731,7 +2854,7 @@
     state.selectedStandaloneSku = null;
     if (!hadExisting && !clearGenerated) return;
     if (!options.keepSearch && searchInput) searchInput.value = '';
-    if (!options.keepCategory && categoryInput) categoryInput.value = '';
+    if (!options.keepCategory) setInboundHeaderCategory('');
     if ((hadExisting || clearGenerated) && codeInput) {
       codeInput.value = '';
       codeInput.dataset.receiptCodeSource = '';
@@ -2761,12 +2884,19 @@
       temporaryProduct = false;
       product = catalogProduct;
     }
+    var suggestedCat = suggestedCategoryForNewLine({ productCode: text(source.productCode) || productCodeForSku(sku) || text(source.productName), productId: (product && product.id) || sku.productId }, product) || text(productCategory(product) || source.category);
+    var categoryManual = false;
+    if (!suggestedCat) {
+      suggestedCat = rememberedInboundCategory();
+      if (suggestedCat) categoryManual = true;
+    }
     var line = {
       key: 'PRL-' + Date.now() + '-' + Math.random().toString(16).slice(2, 8),
       skuId: text(sku.id || sku.sku),
       productId: temporaryProduct ? text(catalogProduct && catalogProduct.id) : text((product && product.id) || sku.productId),
       productName: text(source.productName || product.title || product.name || source.productCode),
-      category: suggestedCategoryForNewLine({ productCode: text(source.productCode) || productCodeForSku(sku) || text(source.productName), productId: (product && product.id) || sku.productId }, product) || text(productCategory(product) || source.category),
+      category: suggestedCat,
+      categoryManual: categoryManual,
       productCode: text(source.productCode) || productCodeForSku(sku) || text(source.productName),
       barcode: '',
       barcodeAuto: true,
@@ -2849,7 +2979,7 @@
         '</div>',
         '<div class="purchase-receipt-line-fields">',
         '<label class="purchase-receipt-line-name">產品名稱<input value="' + escapeHtml(line.productName || line.productCode || '') + '" data-standalone-line-product-name><small>' + escapeHtml(nameHint) + '</small></label>',
-        '<label class="purchase-receipt-line-category">產品分類<select data-standalone-line-category>' + standaloneCategoryOptionsHtml(line.category || '') + '</select></label>',
+        '<label class="purchase-receipt-line-category">產品分類<div class="purchase-receipt-category-picker"><select data-standalone-line-category-preset>' + standaloneCategoryOptionsHtml(line.category || '') + '</select><input value="' + escapeHtml(line.category || '') + '" data-standalone-line-category placeholder="可手動輸入其他分類" autocomplete="off"></div></label>',
         '<label class="purchase-receipt-line-code">產品編號<input value="' + escapeHtml(line.productCode || '') + '" data-standalone-line-product-code></label>',
         '<label class="purchase-receipt-line-barcode">公司條碼<input value="' + escapeHtml(line.barcode || '') + '" data-standalone-line-barcode data-barcode-auto="' + (line.barcodeAuto ? '1' : '0') + '" data-barcode-manual="' + (line.barcodeManualEdited ? '1' : '0') + '"><small>' + escapeHtml(barcodeHint) + '</small></label>',
         '<label class="purchase-receipt-line-qty">實收數量<input type="number" min="1" step="1" value="' + Math.max(1, Number(line.qty || 1)) + '" data-standalone-line-qty></label>',
@@ -2870,16 +3000,21 @@
 
   function standaloneSizePresets(category) {
     var normalized = key(category);
+    var presets;
     if (/鞋|靴|sneaker|shoe/.test(normalized)) {
-      return Array.from({ length: 17 }, function (_, index) { return String(28 + index); });
+      presets = Array.from({ length: 17 }, function (_, index) { return String(28 + index); });
+    } else if (/行李箱|旅行箱|拉桿箱|登機箱|luggage|suitcase/.test(normalized)) {
+      presets = Array.from({ length: 9 }, function (_, index) { return String(20 + index * 2); });
+    } else if (/衣|褲|裙|外套|上衣|內衣|泳裝|服飾|tshirt|shirt|pants|dress|jacket/.test(normalized)) {
+      presets = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+    } else {
+      presets = ['NO SIZE'];
     }
-    if (/行李箱|旅行箱|拉桿箱|登機箱|luggage|suitcase/.test(normalized)) {
-      return Array.from({ length: 9 }, function (_, index) { return String(20 + index * 2); });
-    }
-    if (/衣|褲|裙|外套|上衣|內衣|泳裝|服飾|tshirt|shirt|pants|dress|jacket/.test(normalized)) {
-      return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
-    }
-    return ['NO SIZE'];
+    (readInboundSizeMemory().custom || []).forEach(function (size) {
+      size = text(size);
+      if (size && presets.indexOf(size) === -1) presets.push(size);
+    });
+    return presets;
   }
 
   function standaloneColorPresets() {
@@ -4155,6 +4290,7 @@
       '[data-purchase-receipt-product-barcode]': ''
     };
     Object.keys(values).forEach(function (selector) { var input = document.querySelector(selector); if (input) input.value = values[selector]; });
+    setInboundHeaderCategory('');
     state.selectedStandaloneSku = null;
     var codeInput = document.querySelector('[data-purchase-receipt-product-code]');
     if (codeInput) codeInput.dataset.receiptCodeSource = '';
@@ -4182,6 +4318,7 @@
       var input = document.querySelector(selector);
       if (input) input.value = '';
     });
+    setInboundHeaderCategory('');
     var codeInput = document.querySelector('[data-purchase-receipt-product-code]');
     if (codeInput) codeInput.dataset.receiptCodeSource = '';
     var suggest = document.querySelector('[data-purchase-receipt-product-suggest]');
@@ -4229,14 +4366,7 @@
     var productName = text(value);
     if (isQuickInbound() && !category) {
       category = quickInboundFallbackCategory();
-      var catInput = document.querySelector('[data-purchase-receipt-category]');
-      if (catInput && category) {
-        if (catInput.tagName === 'SELECT') {
-          var found = Array.prototype.some.call(catInput.options, function (opt) { return opt.value === category; });
-          if (!found) catInput.appendChild(new Option(category, category));
-        }
-        catInput.value = category;
-      }
+      if (category) setInboundHeaderCategory(category);
     }
     var typedCode = typedProductCodeFromScan(value);
     if (typedCode) productCode = typedCode;
@@ -4331,11 +4461,7 @@
     document.querySelectorAll('[data-purchase-receipt-line]').forEach(function (host) {
       var line = state.standaloneLines.find(function (row) { return row.key === host.getAttribute('data-purchase-receipt-line'); });
       if (!line) return;
-      var cat = host.querySelector('[data-standalone-line-category]');
-      if (cat) {
-        if (cat.tagName === 'SELECT') ensureCategoryOption(cat, line.category || '');
-        else cat.value = line.category || cat.value || '';
-      }
+      commitStandaloneLineCategory(host, line.category || '', { writeInput: true, addOption: true, manual: false });
       var code = host.querySelector('[data-standalone-line-product-code]'); if (code) code.value = line.productCode || '';
       var bar = host.querySelector('[data-standalone-line-barcode]'); if (bar) bar.value = line.barcode || '';
       if (line.color) applyStandaloneColorSplit(host, line.color);
@@ -5270,6 +5396,7 @@
     }
     if (event.target.matches('[data-purchase-receipt-category]')) {
       hideStandaloneReferenceSuggest('category');
+      syncCategoryPresetToValue(document.querySelector('[data-purchase-receipt-category-preset]'), event.target.value, false);
       clearStandaloneSelectedProduct({ keepCategory: true, clearGenerated: true });
       generateStandaloneProductCode(false);
       return;
@@ -5306,13 +5433,7 @@
       return;
     }
     if (event.target.matches('[data-standalone-line-category]')) {
-      var catHost = event.target.closest('[data-purchase-receipt-line]');
-      var catLine = state.standaloneLines.find(function (row) { return row.key === (catHost && catHost.getAttribute('data-purchase-receipt-line')); });
-      if (catLine) {
-        catLine.category = text(event.target.value);
-        catLine.categoryManual = true;
-      }
-      refreshStandaloneSizePicker(catHost);
+      commitStandaloneLineCategory(event.target.closest('[data-purchase-receipt-line]'), event.target.value, { writeInput: false, addOption: false, remember: false });
       return;
     }
     if (event.target.matches('[data-standalone-line-barcode]')) {
@@ -5359,25 +5480,52 @@
       var sizeField = sizeHost && sizeHost.querySelector('[data-standalone-line-size]');
       if (!sizeField) return;
       if (event.target.value === '__custom__') {
+        sizeField.value = '';
         sizeField.focus();
         sizeField.select();
       } else {
         sizeField.value = event.target.value;
+        rememberInboundSize(event.target.value);
         refreshAutomaticVariantBarcode(sizeHost);
       }
       return;
     }
-    if (event.target.matches('[data-standalone-line-category]')) {
-      var catChangeHost = event.target.closest('[data-purchase-receipt-line]');
-      var catChangeLine = state.standaloneLines.find(function (row) { return row.key === (catChangeHost && catChangeHost.getAttribute('data-purchase-receipt-line')); });
-      if (catChangeLine) {
-        catChangeLine.category = text(event.target.value);
-        catChangeLine.categoryManual = true;
+    if (event.target.matches('[data-standalone-line-category-preset]')) {
+      var catPresetHost = event.target.closest('[data-purchase-receipt-line]');
+      var pickedCat = text(event.target.value);
+      if (pickedCat === '__custom__') {
+        var catBlank = catPresetHost && catPresetHost.querySelector('[data-standalone-line-category]');
+        if (catBlank) { catBlank.value = ''; catBlank.focus(); }
+        return;
       }
-      refreshStandaloneSizePicker(catChangeHost);
+      commitStandaloneLineCategory(catPresetHost, pickedCat, { writeInput: true, addOption: true, remember: true });
+      return;
+    }
+    if (event.target.matches('[data-standalone-line-category]')) {
+      commitStandaloneLineCategory(event.target.closest('[data-purchase-receipt-line]'), event.target.value, { writeInput: false, addOption: true, remember: true });
+      return;
+    }
+    if (event.target.matches('[data-standalone-line-size]')) {
+      rememberInboundSize(event.target.value);
+      return;
+    }
+    if (event.target.matches('[data-purchase-receipt-category-preset]')) {
+      var headerPicked = text(event.target.value);
+      if (headerPicked === '__custom__') {
+        var headerBlank = document.querySelector('[data-purchase-receipt-category]');
+        if (headerBlank) { headerBlank.value = ''; headerBlank.focus(); }
+        return;
+      }
+      setInboundHeaderCategory(headerPicked);
+      if (headerPicked) rememberInboundCategory(headerPicked);
+      hideStandaloneReferenceSuggest('category');
+      clearStandaloneSelectedProduct({ keepCategory: true, clearGenerated: true });
+      generateStandaloneProductCode(false);
       return;
     }
     if (event.target.matches('[data-purchase-receipt-category]')) {
+      rememberInboundCategory(event.target.value);
+      syncCategoryPresetToValue(document.querySelector('[data-purchase-receipt-category-preset]'), event.target.value, true);
       hideStandaloneReferenceSuggest('category');
       clearStandaloneSelectedProduct({ keepCategory: true, clearGenerated: true });
       generateStandaloneProductCode(false);
@@ -5683,6 +5831,8 @@
       hideStandaloneReferenceSuggest(kind);
       if (kind === 'supplier') applyVendorLinkedPlatform();
       if (kind === 'category') {
+        rememberInboundCategory(value);
+        setInboundHeaderCategory(value);
         clearStandaloneSelectedProduct({ keepCategory: true, clearGenerated: true });
         generateStandaloneProductCode(false);
       }
