@@ -100,9 +100,10 @@ function oldWipeOnClothing(previousCategory) {
   return previousCategory;
 }
 
-function resolveWorkbench(item, product) {
+function resolveWorkbench(item, product, remembered) {
   var candidates = freightReceivingCategoryCandidates(item, {}, product);
   var clothingCategory = freightReceivingPreferredCategory('lingzanzan', item, {}, product, candidates[0] || '');
+  if (!clothingCategory && freightIsClothingCategoryName(remembered)) clothingCategory = remembered;
   var storedBusinessUnit = item.inventoryBusinessUnit === 'baohui_computer' ? 'baohui_computer' : 'lingzanzan';
   var originalBusinessUnit = clothingCategory ? 'lingzanzan' : storedBusinessUnit;
   return {
@@ -168,6 +169,14 @@ var trueComputer = resolveWorkbench(
 );
 assert('true computer stays computer', trueComputer.originalBusinessUnit, 'baohui_computer');
 assert('true computer no fake clothing', trueComputer.category, '');
+
+var remembered = resolveWorkbench(
+  { inventoryBusinessUnit: 'baohui_computer', category: '' },
+  {},
+  '短袖上衣'
+);
+assert('remembered 短袖上衣 grabbed', remembered.category, '短袖上衣');
+assert('remembered unit clothing', remembered.originalBusinessUnit, 'lingzanzan');
 
 if (failed) {
   console.error('failed', failed);

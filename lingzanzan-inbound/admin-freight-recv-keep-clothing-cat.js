@@ -1,8 +1,8 @@
 /* Live sidecar excerpt patched into assets/admin.js
  * Marker: LZ_RECV_KEEP_CLOTHING_CAT_20260926
- * 已選服裝時自動帶入服裝分類，不被 3C／生活用品誤判成電腦分類而清空。
+ * 已選服裝時自動帶入並記住服裝分類，不每次從空白下拉重選。
  */
-  // LZ_RECV_KEEP_CLOTHING_CAT_20260926: 已選服裝就帶入服裝分類；生活用品／3C 周邊不再被當成電腦分類清掉。
+  // LZ_RECV_KEEP_CLOTHING_CAT_20260926: 已選服裝就帶入並記住服裝分類；生活用品／3C 周邊不再被當成電腦分類清掉。
   function freightIsClothingCategoryName(value) {
     var raw = String(value || '').replace(/\s+/g, ' ').trim();
     if (!raw || /^(null|undefined)$/i.test(raw) || /^請(?:先)?選/.test(raw)) return false;
@@ -90,5 +90,55 @@
       if (alias) return alias;
     }
     return '';
+  }
+
+  function freightReceivingRememberedUnit() {
+    try {
+      var raw = String(localStorage.getItem('lingzanzan-freight-receiving-unit') || '').trim();
+      if (raw === 'baohui_computer' || raw === 'lingzanzan') return raw;
+    } catch (error) {}
+    try {
+      var scanner = String(localStorage.getItem('lingzanzan-scanner-department-v1') || '').trim();
+      if (scanner === 'computer') return 'baohui_computer';
+      if (scanner === 'clothing') return 'lingzanzan';
+    } catch (error) {}
+    return 'lingzanzan';
+  }
+
+  function freightReceivingRememberedCategory(unit) {
+    var key = unit === 'baohui_computer'
+      ? 'lingzanzan-freight-receiving-computer-category'
+      : 'lingzanzan-freight-receiving-clothing-category';
+    try {
+      var stored = String(localStorage.getItem(key) || '').trim();
+      if (stored) return stored;
+    } catch (error) {}
+    if (unit === 'baohui_computer') return '';
+    try {
+      var inbound = JSON.parse(localStorage.getItem('lingzanzan-v1-inbound-category-memory') || '{}');
+      return String(inbound && inbound.last || '').trim();
+    } catch (error) {}
+    return '';
+  }
+
+  function rememberFreightReceivingChoice(unit, category) {
+    try {
+      if (unit === 'baohui_computer' || unit === 'lingzanzan') {
+        localStorage.setItem('lingzanzan-freight-receiving-unit', unit);
+      }
+      var cat = String(category || '').trim();
+      if (!cat) return;
+      var key = unit === 'baohui_computer'
+        ? 'lingzanzan-freight-receiving-computer-category'
+        : 'lingzanzan-freight-receiving-clothing-category';
+      localStorage.setItem(key, cat);
+      if (unit !== 'baohui_computer') {
+        var inbound = {};
+        try { inbound = JSON.parse(localStorage.getItem('lingzanzan-v1-inbound-category-memory') || '{}') || {}; } catch (error) { inbound = {}; }
+        inbound.last = cat;
+        if (!Array.isArray(inbound.custom)) inbound.custom = [];
+        localStorage.setItem('lingzanzan-v1-inbound-category-memory', JSON.stringify(inbound));
+      }
+    } catch (error) {}
   }
 
