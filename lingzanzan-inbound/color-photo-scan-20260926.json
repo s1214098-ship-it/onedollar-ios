@@ -1,0 +1,976 @@
+{
+  "scannedProducts": 554,
+  "scannedSkus": 1515,
+  "colorCards": 789,
+  "filesOnDiskBroken": 0,
+  "noPhotoLabelButFileExists": {
+    "products": 89,
+    "cards": 96,
+    "rows": [
+      {
+        "code": "ADIDAS93BIG",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/adidas93big-correct-20260904.png"
+          }
+        ]
+      },
+      {
+        "code": "BA2",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-d894cb643a9edc39a478a2e1cf03d9e66c036905.webp"
+          }
+        ]
+      },
+      {
+        "code": "BA53",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-da0ff18ea49ac09bfa20ed2384e0c0cf36454069.jpg"
+          }
+        ]
+      },
+      {
+        "code": "BA7",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-65804f75371be72eeb08b4f4f0f0da4572bc0364.webp"
+          }
+        ]
+      },
+      {
+        "code": "BOT001",
+        "colors": [
+          {
+            "color": "黑色(HITEM)",
+            "image": "./data/image-assets/medium/img-b4d8c48a3dd75aae2cf500080e3d9e2d98d5722b.jpg"
+          }
+        ]
+      },
+      {
+        "code": "BOW004",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./freight-tracking-api.php?image_asset=7e8d1aa02bddf9a339a58a001091121b022102d3&ext=jpg"
+          }
+        ]
+      },
+      {
+        "code": "BOW007",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./freight-tracking-api.php?image_asset=e113fdf399cb54181bec5e9a0d0f401cc6dd485c&ext=jpg"
+          }
+        ]
+      },
+      {
+        "code": "BP10",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./uploads/generated/img-b7754a56b132fbf9ef1a29377be98e09d66840d0.jpg"
+          }
+        ]
+      },
+      {
+        "code": "C142",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-449870b4ee399746e56d36d65a9da31d4551efa5.jpg"
+          }
+        ]
+      },
+      {
+        "code": "C163",
+        "colors": [
+          {
+            "color": "藍色(BIRU)",
+            "image": "./data/image-assets/medium/img-b43e05fbe15b6dbfc4a5df799e199f6a915bef3b.webp"
+          }
+        ]
+      },
+      {
+        "code": "CK95BIG",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/ck95big-blue-20260904.png"
+          }
+        ]
+      },
+      {
+        "code": "COS001",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-cd86fb393f12e6be41e04e2a55bf4635e4062089.webp"
+          }
+        ]
+      },
+      {
+        "code": "ELE003",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-d19356d73c0dd09ee312af741f0f5f89cdacb221.webp"
+          }
+        ]
+      },
+      {
+        "code": "ELE009",
+        "colors": [
+          {
+            "color": "銀色",
+            "image": "./data/image-assets/medium/img-d3ac10b2eb36ce58a6568463d51d44cff0134d5c.webp"
+          }
+        ]
+      },
+      {
+        "code": "ELE012",
+        "colors": [
+          {
+            "color": "銀色",
+            "image": "./data/image-assets/medium/img-438f7cbc432b45f30c315a43bffd20185cb1e01b.webp"
+          }
+        ]
+      },
+      {
+        "code": "ELE013",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-6bbc1e92598ac0d1c582efc1cc5fb851bf7c486f.webp"
+          }
+        ]
+      },
+      {
+        "code": "ELE016",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-9ab6714a3a05eef4a45214dc1b27f02d6726ef64.webp"
+          }
+        ]
+      },
+      {
+        "code": "GB13",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-d046d7d522c666bcfaf354e3e0167ee4439b3030.webp"
+          }
+        ]
+      },
+      {
+        "code": "GB2",
+        "colors": [
+          {
+            "color": "棕色",
+            "image": "./uploads/generated/img-7d5195a86aee16ce35dc7c6c2f96b9c72545b8ed.jpg"
+          }
+        ]
+      },
+      {
+        "code": "GB8",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-456da294cdd235ba2c25a0d2e45c4884e68bb280.jpg"
+          }
+        ]
+      },
+      {
+        "code": "GOO004",
+        "colors": [
+          {
+            "color": "橘色",
+            "image": "./data/image-assets/medium/img-b227f23f0d0d88f7e220b3d4f2f0cbf90c838ae3.webp"
+          }
+        ]
+      },
+      {
+        "code": "GOO015",
+        "colors": [
+          {
+            "color": "銀色",
+            "image": "./data/image-assets/medium/img-49a54ea8c970bf58a2c3408c39adb06d87bc7a4b.webp"
+          }
+        ]
+      },
+      {
+        "code": "GOO029",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-5ace28ba36b1c0b756fd9af6450c825201db7a78.webp"
+          }
+        ]
+      },
+      {
+        "code": "JA322",
+        "colors": [
+          {
+            "color": "深灰",
+            "image": "./data/image-assets/medium/img-3631dd63c66ede51d760f0b57c912ae848a175d0.webp"
+          }
+        ]
+      },
+      {
+        "code": "JA332",
+        "colors": [
+          {
+            "color": "深灰",
+            "image": "./image-asset-api.php?path=medium%2Fimg-6da315bc2e3f68c669548ec60f34cac420a076a2.webp"
+          }
+        ]
+      },
+      {
+        "code": "JA336",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-917ee880e33d0b7170631fd94f5967a5e03644dd.webp"
+          }
+        ]
+      },
+      {
+        "code": "JU2",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-a821c947b91129baa3648c5df5967c7ede4c0c8a.webp"
+          }
+        ]
+      },
+      {
+        "code": "K335",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-f6c72454c81616b4f367837fbd4f7d7a174af1f4.jpg"
+          }
+        ]
+      },
+      {
+        "code": "K340",
+        "colors": [
+          {
+            "color": "藍色(BIRU)",
+            "image": "./data/image-assets/medium/img-9b1e9493a7f46f0d2597b2cf7f97651fdefd8b72.jpg"
+          }
+        ]
+      },
+      {
+        "code": "K344",
+        "colors": [
+          {
+            "color": "淺綠色",
+            "image": "./data/image-assets/medium/img-9284ffbb10f149a8f50701811ff4df21ddff080b.jpg"
+          }
+        ]
+      },
+      {
+        "code": "K354",
+        "colors": [
+          {
+            "color": "黑色(女孩)",
+            "image": "./data/image-assets/medium/img-53539b0fb30dfcb338cf8430841cb335c45ea760.jpg"
+          }
+        ]
+      },
+      {
+        "code": "K366",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-72aaa04a3ca2f57d31b241f3dd4d6114b2085bf2.webp"
+          }
+        ]
+      },
+      {
+        "code": "K379",
+        "colors": [
+          {
+            "color": "白色(PUTI)",
+            "image": "./assets/brand-logo.png"
+          }
+        ]
+      },
+      {
+        "code": "K381",
+        "colors": [
+          {
+            "color": "白色(短板)",
+            "image": "./uploads/generated/img-a3a784f928d488c7e3133ba2810700e795be4381.jpg"
+          }
+        ]
+      },
+      {
+        "code": "K399",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./uploads/generated/img-6830eb740196118e3cb0f313ae0f3a79ea8acf56.jpg"
+          },
+          {
+            "color": "圖片色",
+            "image": "./freight-tracking-api.php?image_asset=6a129e684ecf72a5758c1f285894f96e78e75611&ext=jpg"
+          }
+        ]
+      },
+      {
+        "code": "K411",
+        "colors": [
+          {
+            "color": "白底+橘圖",
+            "image": "./data/image-assets/medium/img-7d621c1e8262e5762f6d9a219fa5bd13c08f84c4.webp"
+          }
+        ]
+      },
+      {
+        "code": "LEN160",
+        "colors": [
+          {
+            "color": "黑色(HITEM)",
+            "image": "./data/image-assets/medium/img-6508bd066a472fcd6d0d6faf58578b7dc02ad6cb.webp"
+          }
+        ]
+      },
+      {
+        "code": "LIFE003",
+        "colors": [
+          {
+            "color": "深灰",
+            "image": "./data/image-assets/medium/img-ccf28d19b17b3ffc0a6b14c5da130db8a6303c5a.webp"
+          }
+        ]
+      },
+      {
+        "code": "LIFE008",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-b95b631e097703f922a420cd43aa61f690f9c4b4.webp"
+          }
+        ]
+      },
+      {
+        "code": "LIFE014",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-0e8acf843c1c00e9165d010930d86fa0c749aa1c.webp"
+          }
+        ]
+      },
+      {
+        "code": "LIFE030",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-df66351e68cfc1e838b8481d16c040d63cf1d548.webp"
+          }
+        ]
+      },
+      {
+        "code": "LIFE035",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-840fbf180d47e176bdc8f3b68cd08fecbfd04ccc.webp"
+          }
+        ]
+      },
+      {
+        "code": "LIFE037",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-15a0e1cba544011df8a2c488549c681dd316d825.webp"
+          }
+        ]
+      },
+      {
+        "code": "LIFE041",
+        "colors": [
+          {
+            "color": "橘色",
+            "image": "./data/image-assets/medium/img-dc713bcaeeec5ffb47de47b97ce25aaded9d7dc1.webp"
+          },
+          {
+            "color": "紫色(UNGU)",
+            "image": "./data/image-assets/medium/img-5fcb773b7255ea16a1300ffb4611a8d9dae13cb5.webp"
+          },
+          {
+            "color": "淺綠色",
+            "image": "./data/image-assets/medium/img-c2c7ed0e25f1e2a746755f020b94dbd946aa0db6.webp"
+          }
+        ]
+      },
+      {
+        "code": "LIFE043",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-ba596605edec539c1b47b9d8b1d96979fa2d284f.webp"
+          }
+        ]
+      },
+      {
+        "code": "LIFE045",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-566824655ccf811466e488af43b650f682721c23.webp"
+          }
+        ]
+      },
+      {
+        "code": "NB001",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-c3ce13926cb92c378f0b5f3979852f9f14164132.webp"
+          }
+        ]
+      },
+      {
+        "code": "NB003",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-ec2b8cf0b1a84e9f4c3621d94e7ef6670a495489.webp"
+          }
+        ]
+      },
+      {
+        "code": "NTTRE01",
+        "colors": [
+          {
+            "color": "咖色(cokelat)",
+            "image": "./data/image-assets/medium/img-3b0bf1b8a42db03616d6e095e7d3c504e3b485d2.webp"
+          }
+        ]
+      },
+      {
+        "code": "OLAN70",
+        "colors": [
+          {
+            "color": "粉紅(PINK)",
+            "image": "./uploads/generated/img-1dd3d79a02b9ea858d8291cd34f51cab13d6e1fb.jpg"
+          },
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-d3f8d700808d72777a913604b674bc2acf8cbb39.jpg"
+          },
+          {
+            "color": "白粉(PUTI PINK)",
+            "image": "./data/image-assets/medium/img-e370d78e9c2dac8aea6cae1e1c06c665af3edf9c.webp"
+          },
+          {
+            "color": "白藍(PUTI BIRU)",
+            "image": "./data/image-assets/medium/img-c8e5ee3af76418d3274156cf5d46e25ef95559ad.webp"
+          }
+        ]
+      },
+      {
+        "code": "OLAN73",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-70891e09f3f08497f0684d1a6e73747f301edffd.jpg"
+          }
+        ]
+      },
+      {
+        "code": "OLAN79",
+        "colors": [
+          {
+            "color": "紅色(MERAL)",
+            "image": "./uploads/generated/img-abb957926a7a1059133d67f4eae54857fa8653b4.jpg"
+          }
+        ]
+      },
+      {
+        "code": "OLAN88",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-8aa77cb7165ebd4f2ce872aeffba0f35a45562b0.webp"
+          }
+        ]
+      },
+      {
+        "code": "P10",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-af53d5297a697b539c24cc03dcbc0fbdb61801da.webp"
+          }
+        ]
+      },
+      {
+        "code": "PAK32",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-bb10bdcfc42aed7ddec02182d8b9e1de16954bd8.jpg"
+          }
+        ]
+      },
+      {
+        "code": "PAK33",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-1f208b227b6c6cbefceea33705e87beb74a8431a.jpg"
+          }
+        ]
+      },
+      {
+        "code": "PAK41",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-292e42c7eeec31367d2991428c87afc3bb0c90ff.jpg"
+          }
+        ]
+      },
+      {
+        "code": "PAK42",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./freight-tracking-api.php?image_asset=4c453432fab1bf19869deeb05a48c2694511033d&ext=jpg"
+          }
+        ]
+      },
+      {
+        "code": "PAK43",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./freight-tracking-api.php?image_asset=1ee1195a06383242b8ad9d17bc1fafc3328b2c20&ext=jpg"
+          }
+        ]
+      },
+      {
+        "code": "PAK44",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-865ca9d4f9e9e97bd9733a1cb447f7ee36029b29.webp"
+          }
+        ]
+      },
+      {
+        "code": "PAK45",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./freight-tracking-api.php?image_asset=b7e7b387b31690feaec5bb608e1b1edeb2053076&ext=jpg"
+          }
+        ]
+      },
+      {
+        "code": "PAN001",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-aabb737906c79cba74298da96bdced3d401587a6.webp"
+          }
+        ]
+      },
+      {
+        "code": "PH1",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-b9ba6d0fb06ffa8d3009a05a1b09fdfb20df88c9.webp"
+          }
+        ]
+      },
+      {
+        "code": "PH2",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-d6d4cfe02ddc52589f312c6af3caaa12dcc7455d.webp"
+          }
+        ]
+      },
+      {
+        "code": "PH3",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-b757b39c64b63aeb9c92674828fea4716b12c7ed.webp"
+          }
+        ]
+      },
+      {
+        "code": "PI36",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-59f33db708e5dbb5eab63fe015c04333b9a8908d.jpg"
+          }
+        ]
+      },
+      {
+        "code": "PU07",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-f98b565a8bae36e2cfc9f4a5e7e541b0204289be.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE154",
+        "colors": [
+          {
+            "color": "藍色(BIRU)",
+            "image": "./data/image-assets/medium/img-a69b3c788d8ed2bacb927c0144cedfdf44a15d0f.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE166",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-881d56dba9a3aa2dc6d9fb7afc7e23d8ce11cf51.jpg"
+          }
+        ]
+      },
+      {
+        "code": "SE176",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-8cc3f1fff9d06b639b1443f2e701e0e3e6152267.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE179",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-7cf0d766a0643dd17e8351bbe12458f2c060656b.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE193",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-6786a2cbba5443a802774e1d8c45fd895641dd62.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE196",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-829302fa42ab348c0d00be3f9f7054c97e5ed582.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE202",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-1bad58faa73af73f24b68bd6ad8462cf8b5c8f88.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE206",
+        "colors": [
+          {
+            "color": "深灰",
+            "image": "./data/image-assets/medium/img-7f84180ee5b947983c75a091bf4edb05626f9b8f.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE209",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-436bc5dee0fb7c8ee0eaad722139c20139627ac3.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE216",
+        "colors": [
+          {
+            "color": "銀色",
+            "image": "./data/image-assets/medium/img-167eac66bffe6619e55226de24daad45625b0001.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE229",
+        "colors": [
+          {
+            "color": "紅色+黑色",
+            "image": "./data/image-assets/medium/img-91c555cbd018407489288986685e5451ff64e999.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE269",
+        "colors": [
+          {
+            "color": "銀色",
+            "image": "./data/image-assets/medium/img-6322fcc3e6e3c8ec1abf7d6f19867a4de87c8b11.webp"
+          }
+        ]
+      },
+      {
+        "code": "SE280",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-761ca41b3e5191fec95e8d07666623cc6b51c8ba.webp"
+          }
+        ]
+      },
+      {
+        "code": "SET002",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-9da543d8f9aa2b1e9fe200bae651d5e214ca6664.webp"
+          }
+        ]
+      },
+      {
+        "code": "SET003",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-5ef9452d9ab0e3e962440b45ac211f5460886d3c.webp"
+          },
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-bfc900fb90ed21efd302218cdb97623c6c90e392.webp"
+          }
+        ]
+      },
+      {
+        "code": "SY41",
+        "colors": [
+          {
+            "color": "黑(無盒)",
+            "image": "./data/image-assets/medium/img-6dc6ff6e74f1219470664a1e0ac533b23b53a86a.jpg"
+          }
+        ]
+      },
+      {
+        "code": "TO8",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-f386af26e4a7925d37ac529e80a4c288512e639c.webp"
+          }
+        ]
+      },
+      {
+        "code": "TOY001",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-f3c5c72331f0c5bf3b4a63204e6ac2275cc0f09b.webp"
+          }
+        ]
+      },
+      {
+        "code": "TSH001",
+        "colors": [
+          {
+            "color": "白綠(PUTI HIGAU)",
+            "image": "./data/image-assets/medium/img-0ba0c379a9b1fb58b10fd1fb2d8a9f109c4be50a.webp"
+          }
+        ]
+      },
+      {
+        "code": "TSH005",
+        "colors": [
+          {
+            "color": "深藍(biru tua)",
+            "image": "./data/image-assets/medium/img-e58d54bcd5ca3217151fcb1a0133d760609879c2.webp"
+          }
+        ]
+      },
+      {
+        "code": "UND001",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-4db94a0459c755531599eb04aa6b92adf07b4224.webp"
+          }
+        ]
+      },
+      {
+        "code": "YP1",
+        "colors": [
+          {
+            "color": "圖片色",
+            "image": "./data/image-assets/medium/img-dc9398871ed8f8a0166472f98562ab0e4a1fec42.webp"
+          }
+        ]
+      }
+    ]
+  },
+  "trulyNoColorPhoto": {
+    "products": 19,
+    "cards": 24,
+    "rows": [
+      {
+        "code": "C167",
+        "colors": [
+          "白色(PUTI)"
+        ]
+      },
+      {
+        "code": "ELE005",
+        "colors": [
+          "紫色(UNGU)"
+        ]
+      },
+      {
+        "code": "ELE007",
+        "colors": [
+          "白色(PUTI)"
+        ]
+      },
+      {
+        "code": "ELE008",
+        "colors": [
+          "粉紅(PINK)"
+        ]
+      },
+      {
+        "code": "GOO010",
+        "colors": [
+          "黑色(HITEM)"
+        ]
+      },
+      {
+        "code": "GOO012",
+        "colors": [
+          "黑色(HITEM)"
+        ]
+      },
+      {
+        "code": "GOO016",
+        "colors": [
+          "黑色(HITEM)"
+        ]
+      },
+      {
+        "code": "K382",
+        "colors": [
+          "白色(PUTI)"
+        ]
+      },
+      {
+        "code": "LIFE005",
+        "colors": [
+          "藍色(BIRU)"
+        ]
+      },
+      {
+        "code": "OLAN72",
+        "colors": [
+          "藍色(BIRU)",
+          "深藍(biru tua)",
+          "紅色(MERAL)",
+          "黃色(KUR)"
+        ]
+      },
+      {
+        "code": "OLAN75",
+        "colors": [
+          "黑色(HITEM)"
+        ]
+      },
+      {
+        "code": "OLAN79",
+        "colors": [
+          "圖片色",
+          "咖色(cokelat)"
+        ]
+      },
+      {
+        "code": "POWL7",
+        "colors": [
+          "待補顏色"
+        ]
+      },
+      {
+        "code": "POWL8",
+        "colors": [
+          "待補顏色"
+        ]
+      },
+      {
+        "code": "SE167",
+        "colors": [
+          "白色(PUTI)"
+        ]
+      },
+      {
+        "code": "SE177",
+        "colors": [
+          "咖色(cokelat)",
+          "紅色(MERAL)"
+        ]
+      },
+      {
+        "code": "SET003",
+        "colors": [
+          "水藍"
+        ]
+      },
+      {
+        "code": "SET004",
+        "colors": [
+          "白色(PUTI)"
+        ]
+      },
+      {
+        "code": "WS001",
+        "colors": [
+          "白色(PUTI)"
+        ]
+      }
+    ]
+  },
+  "gb2Brown": {
+    "code": "GB2",
+    "title": "泰國MERGE 1T 26高質感單肩",
+    "color": "棕色",
+    "oldShown": false,
+    "newShown": true,
+    "oldImage": "",
+    "newImage": "./uploads/generated/img-7d5195a86aee16ce35dc7c6c2f96b9c72545b8ed.jpg",
+    "file": "ok"
+  }
+}

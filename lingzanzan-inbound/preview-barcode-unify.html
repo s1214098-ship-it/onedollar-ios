@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>貨艙／寶輝條碼統一進貨格式</title>
+  <style>
+    body { font-family: sans-serif; background: #15110e; color: #f3e6d4; padding: 24px; }
+    .pass { color: #7dffa0; }
+    .fail { color: #ff8a8a; }
+    code { background: #2a2218; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>列印條碼改跟進貨一樣</h1>
+  <p>進貨：<code>SE1629205P500</code>　舊貨艙：<code>SE162C92S05P500</code></p>
+  <pre id="log"></pre>
+  <script>
+    function normalizeScanCode(value) {
+      return String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+    }
+    function padLabelSizeCode(sizeCode) {
+      var normalizedSize = normalizeScanCode(sizeCode) || '00';
+      if (normalizedSize === 'NOSIZE' || normalizedSize === 'NO-SIZE') normalizedSize = '00';
+      if (/^\d$/.test(normalizedSize)) normalizedSize = '0' + normalizedSize;
+      return normalizedSize;
+    }
+    function composeLatestLabelBarcode(productCode, cost, colorCode, sizeCode) {
+      var base = normalizeScanCode(productCode);
+      var normalizedCost = String(Math.max(0, Math.round(Number(cost || 0))));
+      var normalizedColor = normalizeScanCode(colorCode);
+      var normalizedSize = padLabelSizeCode(sizeCode);
+      if (!base || normalizedCost === '0' || !normalizedColor) return '';
+      return base + normalizedColor + normalizedSize + 'P' + normalizedCost;
+    }
+    var cases = [
+      ['SE162', 500, '92', '05', 'SE1629205P500'],
+      ['SE162', 500, '92', '5', 'SE1629205P500'],
+      ['SE162', 500, '92', '00', 'SE1629200P500'],
+      ['SE162', 500, '92', '03', 'SE1629203P500']
+    ];
+    var log = document.getElementById('log');
+    var failed = 0;
+    cases.forEach(function (row) {
+      var got = composeLatestLabelBarcode(row[0], row[1], row[2], row[3]);
+      var ok = got === row[4];
+      if (!ok) failed += 1;
+      log.textContent += (ok ? 'PASS ' : 'FAIL ') + row[0] + ' ' + row[2] + '/' + row[3] + ' → ' + got + (ok ? '' : ' expected ' + row[4]) + '\n';
+    });
+    var cs = composeLatestLabelBarcode('SE162', 500, '92', '05').indexOf('C92S') === -1;
+    if (!cs) failed += 1;
+    log.textContent += (cs ? 'PASS ' : 'FAIL ') + 'no C/S tokens\n';
+    log.className = failed ? 'fail' : 'pass';
+  </script>
+</body>
+</html>

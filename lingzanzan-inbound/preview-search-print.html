@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>搜尋列旁列印條碼</title>
+  <link rel="stylesheet" href="./inventory-freight-entry.css">
+  <style>
+    body { font-family: sans-serif; background: #15110e; color: #f3e6d4; padding: 24px; }
+    .pass { color: #7dffa0; }
+    .fail { color: #ff8a8a; }
+  </style>
+</head>
+<body>
+  <h1>搜尋結果旁的列印條碼</h1>
+  <div class="purchase-receipt-builder" data-purchase-receipt-builder>
+    <div class="purchase-receipt-product-suggest" data-purchase-receipt-product-suggest>
+      <div class="purchase-receipt-suggest-toolbar">
+        <small>搜尋後同一款顏色尺寸只列一列。</small>
+        <div class="purchase-receipt-suggest-toolbar-actions">
+          <label class="purchase-receipt-suggest-all"><input type="checkbox" checked><span>全選目前結果</span></label>
+          <button type="button" class="ghost-button" data-purchase-receipt-print-checked>列印勾選條碼</button>
+          <button type="button" class="primary-button" data-purchase-receipt-add-checked>加入已勾選<span>Tambah ukuran</span></button>
+        </div>
+      </div>
+      <div class="purchase-receipt-suggest-list">
+        <article class="purchase-receipt-suggest-row">
+          <label class="purchase-receipt-suggest-check"><input type="checkbox" checked><span></span></label>
+          <span class="purchase-receipt-suggest-thumb is-empty"><b>SE</b></span>
+          <b>SE162</b>
+          <span>3296(ALO)套裝</span>
+          <em>SE1629203P500</em>
+          <small>白色(PUTI)</small>
+          <strong>M</strong>
+          <div class="purchase-receipt-suggest-whs"><label class="purchase-receipt-suggest-wh"><small>台灣倉</small><input value="0" readonly></label></div>
+          <button type="button" class="ghost-button purchase-receipt-suggest-print">列印</button>
+        </article>
+      </div>
+    </div>
+  </div>
+  <pre id="log"></pre>
+  <script>
+    function ok(cond, name, bag) { bag.push({ name: name, pass: !!cond }); }
+    var tests = [];
+    var printChecked = document.querySelector('[data-purchase-receipt-print-checked]');
+    var rowPrint = document.querySelector('.purchase-receipt-suggest-print');
+    var add = document.querySelector('[data-purchase-receipt-add-checked]');
+    ok(!!printChecked, 'toolbar has 列印勾選條碼', tests);
+    ok(!!rowPrint && rowPrint.textContent.trim() === '列印', 'row has 列印', tests);
+    ok(!!add, '加入已勾選 still there', tests);
+    ok(printChecked && getComputedStyle(printChecked).backgroundColor.replace(/\s/g,'') !== getComputedStyle(add).backgroundColor.replace(/\s/g,''), 'print button color differs from add', tests);
+    var failed = tests.filter(function (t) { return !t.pass; });
+    document.getElementById('log').textContent = tests.map(function (t) { return (t.pass ? 'PASS' : 'FAIL') + ' ' + t.name; }).join('\n') + '\n\n' + (failed.length ? failed.length + ' FAILED' : 'ALL PASS');
+    document.getElementById('log').className = failed.length ? 'fail' : 'pass';
+  </script>
+</body>
+</html>
