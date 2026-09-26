@@ -236,6 +236,123 @@
     return `<span class="badge bg-warning text-dark">${label}待查核</span>`;
   }
 
+  const BATCH_COLLAPSE_KEY = "baohui.customsDutyBatchCollapsed";
+  const STAT_COLLAPSE_KEY = "baohui.customsDutyStatCollapsed";
+
+  function batchPendingCount(list) {
+    return (list || []).filter(function (g) {
+      return g && num(g.diff) !== 0 && !g.resolved;
+    }).length;
+  }
+
+  function statGapCount(list) {
+    const monthMap = {};
+    (list || []).forEach(function (g) {
+      const name = (g && g.logisticsText) || "未填物流";
+      monthMap[name] = num(monthMap[name]) + num(g && g.diff);
+    });
+    const names = Object.keys(monthMap);
+    return {
+      total: names.length,
+      pending: names.filter(function (name) { return num(monthMap[name]) !== 0; }).length,
+    };
+  }
+
+  function collapsedPref(key, defaultCollapsed) {
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved === "1") return true;
+      if (saved === "0") return false;
+    } catch (e) {}
+    return !!defaultCollapsed;
+  }
+
+  function ensureBatchCollapseStyles() {
+    if (document.getElementById("cdBatchCollapseStyle")) return;
+    const style = document.createElement("style");
+    style.id = "cdBatchCollapseStyle";
+    style.textContent =
+      ".cd-batch-toggle{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto;border:0;background:transparent;padding:4px 0;cursor:pointer;text-align:left;color:inherit}" +
+      ".cd-batch-toggle h5,.cd-batch-toggle h6{margin:0;min-width:0}" +
+      ".cd-batch-toggle:before{content:\"▾\";color:#0f766e;font-weight:900;flex:0 0 auto;line-height:1}" +
+      ".form-card.is-collapsed .cd-batch-toggle:before{content:\"▸\"}" +
+      ".cd-batch-meta{color:#64748b;font-size:13px;font-weight:700;white-space:nowrap}" +
+      ".form-card.is-collapsed .cd-batch-body{display:none}" +
+      ".form-card.is-collapsed .cd-batch-head .small.text-muted{display:none}";
+    document.head.appendChild(style);
+  }
+
+  function wireCollapseCard(card, opts) {
+    ensureBatchCollapseStyles();
+    if (!card) return;
+    const tableWrap = card.querySelector(".table-responsive");
+    if (tableWrap) tableWrap.classList.add("cd-batch-body");
+    const header = card.querySelector(".d-flex");
+    if (header) header.classList.add("cd-batch-head");
+    const title = header && header.querySelector(opts.titleTag || "h5, h6");
+    const key = opts.key;
+    let toggle = card.querySelector("[data-cd-collapse-toggle=\"" + key + "\"]");
+    if (!toggle && title) {
+      toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "cd-batch-toggle";
+      toggle.setAttribute("data-cd-collapse-toggle", key);
+      if (opts.legacyAttr) toggle.setAttribute(opts.legacyAttr, "1");
+      toggle.setAttribute("aria-expanded", "true");
+      title.replaceWith(toggle);
+      toggle.appendChild(title);
+      const meta = document.createElement("span");
+      meta.className = "cd-batch-meta";
+      meta.setAttribute("data-cd-collapse-meta", key);
+      toggle.appendChild(meta);
+      toggle.addEventListener("click", function () {
+        const next = !card.classList.contains("is-collapsed");
+        card.classList.toggle("is-collapsed", next);
+        toggle.setAttribute("aria-expanded", next ? "false" : "true");
+        try { localStorage.setItem(key, next ? "1" : "0"); } catch (e) {}
+      });
+    }
+    const meta = card.querySelector("[data-cd-collapse-meta=\"" + key + "\"]");
+    if (meta) meta.textContent = opts.meta || "";
+    const collapsed = collapsedPref(key, opts.defaultCollapsed);
+    card.classList.toggle("is-collapsed", collapsed);
+    if (toggle) toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  }
+
+  function ensureBatchCollapse(list) {
+    const body = document.getElementById("customsDutyBatchTable");
+    if (!body) return;
+    const pending = batchPendingCount(list);
+    const total = (list || []).length;
+    wireCollapseCard(body.closest(".form-card"), {
+      key: BATCH_COLLAPSE_KEY,
+      titleTag: "h5",
+      legacyAttr: "data-cd-batch-toggle",
+      defaultCollapsed: pending === 0,
+      meta: total
+        ? (pending ? (total + " 筆，" + pending + " 筆待查核") : (total + " 筆，剛好對上"))
+        : "沒有資料",
+    });
+  }
+
+  function ensureStatCollapse(list) {
+    const box = document.getElementById("customsDutySummary");
+    if (!box) return;
+    const title = Array.prototype.find.call(box.querySelectorAll("h6"), function (el) {
+      return String(el.textContent || "").indexOf("快遞收費統計") !== -1;
+    });
+    if (!title) return;
+    const gap = statGapCount(list);
+    wireCollapseCard(title.closest(".form-card"), {
+      key: STAT_COLLAPSE_KEY,
+      titleTag: "h6",
+      defaultCollapsed: gap.pending === 0,
+      meta: gap.total
+        ? (gap.pending ? (gap.total + " 筆，" + gap.pending + " 筆有差額") : (gap.total + " 筆，剛好對上"))
+        : "沒有資料",
+    });
+  }
+
   const origBatch = window.renderCustomsDutyBatchTable;
   window.renderCustomsDutyBatchTable = function (rows) {
     if (typeof origBatch === "function") origBatch(rows);
@@ -259,6 +376,7 @@
       if (g.diff > 0) tr.classList.add("table-warning");
       if (g.diff < 0) tr.classList.add("table-danger");
     });
+    ensureBatchCollapse(list);
   };
 
   function enhanceDetailTable() {
@@ -318,6 +436,8 @@
       if (t.includes("異常未完成")) el.textContent = "差額待查核";
       if (t.includes("系統應收")) el.textContent = "關貿收費合計";
     });
+    const list = typeof cdBuildGroups === "function" ? cdBuildGroups(rows) : [];
+    ensureStatCollapse(list);
   };
 
   function patchFilters() {
@@ -382,5 +502,9 @@
     productCost: productCost,
     kind: verifyKind,
     label: verifyLabel,
+    batchPending: batchPendingCount,
+    statGap: statGapCount,
+    batchCollapseKey: BATCH_COLLAPSE_KEY,
+    statCollapseKey: STAT_COLLAPSE_KEY,
   };
 })();
