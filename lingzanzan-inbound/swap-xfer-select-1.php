@@ -30,7 +30,7 @@ try {
   echo 'jsMarker=' . (strpos($js, 'LZ_XFER_SELECT_20260926') !== false ? 'yes' : 'no') . "\n";
   echo 'jsConflict=' . (strpos($js, 'lookupHasProductConflict') !== false ? 'yes' : 'no') . "\n";
   echo 'cssPhoto=' . (strpos($css, 'match-card-photo') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlBust=' . (strpos($html, '20260926-xfer-select-1') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlBust=' . (strpos($html, '20260926-xfer-select-2') !== false ? 'yes' : 'no') . "\n";
   echo "ok\n";
 } catch (Exception $e) {
   http_response_code(500);

@@ -1344,6 +1344,13 @@ function stockinCode128Svg(value) {
     var switchedNote = '';
     // LZ_XFER_SELECT_20260926: tapping a size card whose stock is in another
     // warehouse should still add. Use the warehouse that actually has stock.
+    if (row && stockOf(row) <= 0) {
+      var wantedKey = matchVariantKey(row);
+      var stockedAlt = (allMatches || []).find(function (candidate) {
+        return candidate && stockOf(candidate) > 0 && matchVariantKey(candidate) === wantedKey;
+      });
+      if (stockedAlt) row = stockedAlt;
+    }
     if (row && !sameWarehouse(row.warehouse, from) && stockOf(row) > 0 && transferMode() !== 'computer') {
       var oldFrom = from;
       from = String(row.warehouse || '');
@@ -2438,6 +2445,12 @@ function stockinCode128Svg(value) {
       if (id) ids[id] = true;
     });
     return Object.keys(ids).length > 1;
+  }
+  function matchVariantKey(row) {
+    var color = String((row && row.color) || '').toUpperCase();
+    color = color.replace(/[（(][^）)]+[）)]/g, '').replace(/\s+/g, '');
+    color = ({'黑色':'BLACK','HITEM':'BLACK','HITAM':'BLACK','白色':'WHITE','PUTI':'WHITE','PUTIH':'WHITE','咖色':'BROWN','咖啡色':'BROWN','COKELAT':'BROWN','紅色':'RED','MERAL':'RED','MERAH':'RED','藍色':'BLUE','BIRU':'BLUE','綠色':'GREEN','HIGAU':'GREEN','HIJAU':'GREEN','深藍':'NAVY','深藍色':'NAVY'}[color] || color);
+    return [String((row && (row.productId || row.productCode)) || ''), color, stockinCanonicalSize(row && row.size)].join('|');
   }
   function sameWarehouseRows(rows, wh) {
     return rows.filter(function (row) { return sameWarehouse(row.warehouse, wh); });
