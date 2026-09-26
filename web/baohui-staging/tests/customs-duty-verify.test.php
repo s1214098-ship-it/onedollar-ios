@@ -80,6 +80,35 @@ $overpay = verify_fee(90, 0, 100);
 expect($overpay === -10, 'courier above 關貿 is negative');
 expect($overpay < 0, 'negative gap is 我多給');
 
+expect(str_contains($js, 'baohui.customsDutyBatchCollapsed'), 'remembers collapse in localStorage');
+expect(str_contains($js, 'data-cd-batch-toggle'), 'adds a collapse toggle on the batch card');
+expect(str_contains($js, 'is-collapsed'), 'collapsed card hides the table');
+expect(str_contains($js, '筆待查核'), 'collapsed header still shows pending count');
+expect(str_contains($js, 'return pending === 0'), 'defaults to collapsed when nothing is pending');
+
+function batch_pending(array $groups): int
+{
+    $n = 0;
+    foreach ($groups as $g) {
+        $diff = (int)($g['diff'] ?? 0);
+        $resolved = !empty($g['resolved']);
+        if ($diff !== 0 && !$resolved) {
+            $n++;
+        }
+    }
+    return $n;
+}
+
+$shot = [
+    ['diff' => 0, 'resolved' => false],
+    ['diff' => 0, 'resolved' => false],
+    ['diff' => 40, 'resolved' => false],
+    ['diff' => -40, 'resolved' => false],
+];
+expect(batch_pending($shot) === 2, 'screenshot has 2 pending rows so table stays open by default');
+expect(batch_pending([['diff' => 0], ['diff' => 0]]) === 0, 'all 剛好 defaults to collapsed');
+expect(batch_pending([['diff' => 40, 'resolved' => true]]) === 0, 'resolved gaps do not keep the table forced open');
+
 if ($failed > 0) {
     fwrite(STDERR, $failed . " assertion(s) failed\n");
     exit(1);

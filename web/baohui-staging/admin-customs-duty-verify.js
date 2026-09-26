@@ -236,6 +236,84 @@
     return `<span class="badge bg-warning text-dark">${label}待查核</span>`;
   }
 
+  const BATCH_COLLAPSE_KEY = "baohui.customsDutyBatchCollapsed";
+
+  function batchPendingCount(list) {
+    return (list || []).filter(function (g) {
+      return g && num(g.diff) !== 0 && !g.resolved;
+    }).length;
+  }
+
+  function batchCollapsedPref(pending) {
+    try {
+      const saved = localStorage.getItem(BATCH_COLLAPSE_KEY);
+      if (saved === "1") return true;
+      if (saved === "0") return false;
+    } catch (e) {}
+    return pending === 0;
+  }
+
+  function ensureBatchCollapseStyles() {
+    if (document.getElementById("cdBatchCollapseStyle")) return;
+    const style = document.createElement("style");
+    style.id = "cdBatchCollapseStyle";
+    style.textContent =
+      ".cd-batch-toggle{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto;border:0;background:transparent;padding:4px 0;cursor:pointer;text-align:left;color:inherit}" +
+      ".cd-batch-toggle h5{margin:0;min-width:0}" +
+      ".cd-batch-toggle:before{content:\"▾\";color:#0f766e;font-weight:900;flex:0 0 auto;line-height:1}" +
+      ".form-card.is-collapsed .cd-batch-toggle:before{content:\"▸\"}" +
+      ".cd-batch-meta{color:#64748b;font-size:13px;font-weight:700;white-space:nowrap}" +
+      ".form-card.is-collapsed .cd-batch-body{display:none}" +
+      ".form-card.is-collapsed .cd-batch-head .small.text-muted{display:none}";
+    document.head.appendChild(style);
+  }
+
+  function ensureBatchCollapse(list) {
+    ensureBatchCollapseStyles();
+    const body = document.getElementById("customsDutyBatchTable");
+    if (!body) return;
+    const card = body.closest(".form-card");
+    if (!card) return;
+    const tableWrap = body.closest(".table-responsive");
+    if (tableWrap && !tableWrap.classList.contains("cd-batch-body")) {
+      tableWrap.classList.add("cd-batch-body");
+    }
+    const header = card.querySelector(".d-flex");
+    if (header) header.classList.add("cd-batch-head");
+    const title = header && header.querySelector("h5");
+    let toggle = card.querySelector("[data-cd-batch-toggle]");
+    if (!toggle && title) {
+      toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "cd-batch-toggle";
+      toggle.setAttribute("data-cd-batch-toggle", "1");
+      toggle.setAttribute("aria-expanded", "true");
+      title.replaceWith(toggle);
+      toggle.appendChild(title);
+      const meta = document.createElement("span");
+      meta.className = "cd-batch-meta";
+      meta.setAttribute("data-cd-batch-meta", "1");
+      toggle.appendChild(meta);
+      toggle.addEventListener("click", function () {
+        const next = !card.classList.contains("is-collapsed");
+        card.classList.toggle("is-collapsed", next);
+        toggle.setAttribute("aria-expanded", next ? "false" : "true");
+        try { localStorage.setItem(BATCH_COLLAPSE_KEY, next ? "1" : "0"); } catch (e) {}
+      });
+    }
+    const pending = batchPendingCount(list);
+    const total = (list || []).length;
+    const meta = card.querySelector("[data-cd-batch-meta]");
+    if (meta) {
+      meta.textContent = total
+        ? (pending ? (total + " 筆，" + pending + " 筆待查核") : (total + " 筆，剛好對上"))
+        : "沒有資料";
+    }
+    const collapsed = batchCollapsedPref(pending);
+    card.classList.toggle("is-collapsed", collapsed);
+    if (toggle) toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  }
+
   const origBatch = window.renderCustomsDutyBatchTable;
   window.renderCustomsDutyBatchTable = function (rows) {
     if (typeof origBatch === "function") origBatch(rows);
@@ -259,6 +337,7 @@
       if (g.diff > 0) tr.classList.add("table-warning");
       if (g.diff < 0) tr.classList.add("table-danger");
     });
+    ensureBatchCollapse(list);
   };
 
   function enhanceDetailTable() {
@@ -382,5 +461,7 @@
     productCost: productCost,
     kind: verifyKind,
     label: verifyLabel,
+    batchPending: batchPendingCount,
+    batchCollapseKey: BATCH_COLLAPSE_KEY,
   };
 })();
