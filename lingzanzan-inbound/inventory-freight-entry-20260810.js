@@ -2422,6 +2422,40 @@
     return printed || stored;
   }
 
+  function suggestSkuPrintLine(sku) {
+    /* LZ_SEARCH_PRINT_20260926: search row → print payload using inbound concat barcode. */
+    sku = receiptSkuForInbound(sku) || sku || {};
+    var product = productById(sku.productId) || productByCode(sku.productCode || sku.productId) || {};
+    var stored = text(sku.receiptGroupBarcode || sku.companyBarcode || sku.barcode || sku.officialBarcode || sku.legacyBarcode || sku.id || sku.sku);
+    if (!stored || stored === '未建條碼') return null;
+    var color = inboundSuggestColor(sku, product, stored);
+    var size = text(sku.sizeName || sku.size) || 'NO SIZE';
+    var line = {
+      skuId: text(sku.id || sku.sku),
+      productId: text(sku.productId || product.id),
+      productName: text(product.title || product.name || productCodeForSku(sku)),
+      productCode: text(sku.receiptGroupProductCode || product.productLine || product.code || productCodeForSku(sku)),
+      color: color,
+      colorName: color,
+      size: size,
+      qty: 1,
+      barcode: stored,
+      companyBarcode: stored
+    };
+    line.barcode = inboundDisplayBarcode(sku, product) || canonicalInboundBarcode(line, sku, product, stored) || stored;
+    line.companyBarcode = line.barcode;
+    return line.barcode ? line : null;
+  }
+
+  function printStandaloneSuggestBarcodes(skus) {
+    var lines = (skus || []).map(suggestSkuPrintLine).filter(Boolean);
+    if (!lines.length) {
+      standaloneMessage('勾選的列沒有可列印條碼。', 'error');
+      return false;
+    }
+    return openReceivedBarcodePrint(lines, { emptyMessage: '勾選的列沒有可列印條碼。' });
+  }
+
   function inboundPrintAliasesFromStored(raw) {
     /* LZ_RECV_SCAN_20260924: stored mid-P OLAN75P315904 → print OLAN75904P315 */
     var compact = text(raw).replace(/\s+/g, '').toUpperCase();
@@ -2948,12 +2982,14 @@
         '<small>' + escapeHtml(color) + '</small>' +
         '<strong>' + escapeHtml(size) + '</strong>' +
         '<div class="purchase-receipt-suggest-whs" data-purchase-receipt-wh-stocks>' + stockHtml + '</div>' +
+        '<button type="button" class="ghost-button purchase-receipt-suggest-print" data-purchase-receipt-sku-print="' + index + '">列印</button>' +
         '</article>';
     }).join('');
     host.innerHTML = '<div class="purchase-receipt-suggest-toolbar">' +
       '<small>搜尋後同一款顏色尺寸只列一列，顯示中國／台灣／印尼／預購倉現有庫存。勾選加入會進上方入庫倉，每筆預設 1 件。滑鼠移上縮圖可放大。</small>' +
       '<div class="purchase-receipt-suggest-toolbar-actions">' +
       '<label class="purchase-receipt-suggest-all"><input type="checkbox" data-purchase-receipt-sku-check-all><span>全選目前結果</span></label>' +
+      '<button type="button" class="ghost-button" data-purchase-receipt-print-checked>列印勾選條碼</button>' +
       '<button type="button" class="primary-button" data-purchase-receipt-add-checked>加入已勾選<span>Tambah ukuran</span></button>' +
       '</div></div><div class="purchase-receipt-suggest-list">' + rows + '</div>';
     host.hidden = false;
@@ -4018,7 +4054,7 @@
   function openReceivedBarcodePrint(lines, options) {
     var payloads = receivedBarcodePrintPayloads(lines);
     if (!payloads.length) {
-      standaloneMessage('目前沒有可列印的本次進貨條碼。', 'error');
+      standaloneMessage((options && options.emptyMessage) || '目前沒有可列印的本次進貨條碼。', 'error');
       return false;
     }
     try {
@@ -6109,6 +6145,31 @@
       addStandaloneSkuRecords(checkedStandaloneSkus());
       return;
     }
+    var printChecked = event.target.closest('[data-purchase-receipt-print-checked]');
+    if (printChecked) {
+      event.preventDefault();
+      event.stopPropagation();
+      var chosen = checkedStandaloneSkus();
+      if (!chosen.length) {
+        standaloneMessage('請先勾選要列印的列。', 'error');
+        return;
+      }
+      printStandaloneSuggestBarcodes(chosen);
+      return;
+    }
+    var printOne = event.target.closest('[data-purchase-receipt-sku-print]');
+    if (printOne) {
+      event.preventDefault();
+      event.stopPropagation();
+      var host = document.querySelector('[data-purchase-receipt-product-suggest]');
+      var sku = host && Array.isArray(host._matches) ? host._matches[Number(printOne.getAttribute('data-purchase-receipt-sku-print'))] : null;
+      if (!sku) {
+        standaloneMessage('找不到這一列的條碼。', 'error');
+        return;
+      }
+      printStandaloneSuggestBarcodes([sku]);
+      return;
+    }
     var thumbZoom = receiptThumbZoomTarget(event.target);
     if (thumbZoom) {
       event.preventDefault();
@@ -6133,6 +6194,7 @@
     var standaloneSkuPick = event.target.closest('[data-purchase-receipt-sku-pick]');
     if (standaloneSkuPick) {
       if (event.target.closest('[data-purchase-receipt-sku-check]')) return;
+      if (event.target.closest('[data-purchase-receipt-sku-print]')) return;
       if (event.target.closest('[data-receipt-thumb-zoom]')) return;
       if (event.target.closest('[data-receipt-wh]')) return;
       event.preventDefault();
