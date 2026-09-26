@@ -23,8 +23,10 @@ expect(str_contains($js, 'facebook-daily-progress.php'), 'loads lightweight prog
 expect(str_contains($js, 'openOneDollarModule'), 'opens full 當日日報');
 expect(str_contains($js, 'refreshDashboard'), 'hooks dashboard refresh');
 expect(str_contains($js, 'leaveDashboardCard'), 'places card after 員工請假表');
-expect(str_contains($js, '>圖<'), 'adds a 圖 thumbnail column');
+expect(str_contains($js, 'fb-daily-product'), 'puts thumbnail on the product cell');
+expect(str_contains($js, 'align-items:flex-start'), 'thumbnail sits top-left of the product');
 expect(str_contains($js, 'fb-daily-thumb'), 'renders product thumbnails');
+expect(str_contains($js, 'function money'), 'formats bid amount');
 
 $endpoint = (string)file_get_contents($root . DIRECTORY_SEPARATOR . 'one-dollar-auction' . DIRECTORY_SEPARATOR . 'facebook-daily-progress.php');
 expect(str_contains($endpoint, 'facebook_daily_progress_payload'), 'endpoint uses compact payload');
