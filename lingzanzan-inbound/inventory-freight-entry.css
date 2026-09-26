@@ -1134,7 +1134,26 @@
 .inventory-barcode-print-overlay .received-barcode-print-preview .variant-grid span{display:block;margin:0;padding:0;font-size:5.1pt;font-weight:950;line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inventory-barcode-print-overlay .received-barcode-print-preview .brand-note{display:flex;align-items:center;justify-content:center;height:2.8mm;font-size:4.3pt;font-weight:900;text-align:center;border:0;letter-spacing:.04em;line-height:1;overflow:hidden}
 
-.received-barcode-print-sheet{display:none;height:auto;min-height:0}
+.received-barcode-print-sheet,
+[data-received-print-sheet]{
+  display:block;
+  position:fixed!important;
+  left:-10000px!important;
+  top:0!important;
+  z-index:-1!important;
+  pointer-events:none!important;
+  width:40mm;
+  height:auto;
+  min-height:0;
+}
+[data-received-print-sheet] .qr-area-main,
+[data-received-print-sheet] .qr-svg{
+  width:12.2mm!important;
+  height:12.2mm!important;
+  max-width:12.2mm!important;
+  max-height:12.2mm!important;
+  overflow:hidden!important;
+}
 @media print{
   [data-received-barcode-print-overlay],
   [data-received-barcode-print-overlay] *,

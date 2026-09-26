@@ -26,7 +26,7 @@ try {
   $html = file_get_contents($root . '/admin-inventory-entry.html') ?: '';
   echo 'jsMark=' . (strpos($js, 'LZ_QUICK_INBOUND_20260926') !== false ? 'yes' : 'no') . "\n";
   echo 'cssMark=' . (strpos($css, 'LZ_QUICK_INBOUND_KEEP_CAT_COLOR_20260926') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlMark=' . (strpos($html, 'quick-inb-4') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlMark=' . (strpos($html, 'quick-inb-5') !== false ? 'yes' : 'no') . "\n";
   echo 'oldBarcode=' . (strpos($js, 'LZ_OLD_BARCODE_PCOST_20260926') !== false ? 'yes' : 'no') . "\n";
   echo "ok\n";
 } catch (Exception $e) {

@@ -3405,28 +3405,32 @@
     document.head.appendChild(script);
   }
 
+  function hideReceivedPrintSheetOnScreen() {
+    var sheet = document.querySelector('[data-received-print-sheet]');
+    if (!sheet) return;
+    try {
+      sheet.style.setProperty('display', 'none', 'important');
+      sheet.style.setProperty('left', '-10000px', 'important');
+      sheet.style.setProperty('pointer-events', 'none', 'important');
+      sheet.style.removeProperty('visibility');
+      sheet.style.removeProperty('position');
+      sheet.style.removeProperty('top');
+      sheet.style.removeProperty('margin');
+      sheet.style.removeProperty('padding');
+    } catch (clearErr) {}
+  }
+
   function clearReceivedPrintMode() {
     /* LZ_PRINT_QR_20260924_5: only when overlay closes — never on afterprint (Chrome fires that when the dialog opens). */
     document.body.classList.remove('is-printing-received-barcodes', 'is-received-print-page');
     document.documentElement.classList.remove('is-printing-received-barcodes', 'is-received-print-page');
-    var sheet = document.querySelector('[data-received-print-sheet]');
-    if (sheet) {
-      try {
-        sheet.style.removeProperty('display');
-        sheet.style.removeProperty('visibility');
-        sheet.style.removeProperty('position');
-        sheet.style.removeProperty('top');
-        sheet.style.removeProperty('left');
-        sheet.style.removeProperty('margin');
-        sheet.style.removeProperty('padding');
-      } catch (clearErr) {}
-    }
+    hideReceivedPrintSheetOnScreen();
     var style = document.getElementById('lz-received-print-style');
     if (style) style.textContent = '';
   }
 
   function printReceivedBarcodeSheet(payloads) {
-    /* LZ_PRINT_QR_20260924_7: never unhide overlay while Chrome print dialog is open. */
+    /* LZ_PRINT_QR_20260926: keep the sheet off-screen so QR stickers never cover 進貨單. */
     kickReceivedQrcodeLib();
     var overlay = document.querySelector('[data-received-barcode-print-overlay]');
     if (overlay) {
@@ -3441,18 +3445,18 @@
     sheet.innerHTML = (payloads || []).map(receivedBarcodeLabelHtml).join('');
     try {
       sheet.style.setProperty('display', 'block', 'important');
-      sheet.style.setProperty('visibility', 'visible', 'important');
-      sheet.style.setProperty('position', 'absolute', 'important');
+      sheet.style.setProperty('position', 'fixed', 'important');
       sheet.style.setProperty('top', '0', 'important');
-      sheet.style.setProperty('left', '0', 'important');
+      sheet.style.setProperty('left', '-10000px', 'important');
+      sheet.style.setProperty('width', '40mm', 'important');
+      sheet.style.setProperty('z-index', '-1', 'important');
+      sheet.style.setProperty('pointer-events', 'none', 'important');
       sheet.style.setProperty('margin', '0', 'important');
       sheet.style.setProperty('padding', '0', 'important');
     } catch (styleErr) {
       sheet.style.display = 'block';
-      sheet.style.visibility = 'visible';
-      sheet.style.position = 'absolute';
-      sheet.style.top = '0';
-      sheet.style.left = '0';
+      sheet.style.position = 'fixed';
+      sheet.style.left = '-10000px';
     }
     document.body.classList.add('is-printing-received-barcodes', 'is-received-print-page');
     document.documentElement.classList.add('is-printing-received-barcodes', 'is-received-print-page');
@@ -3477,6 +3481,7 @@
   function revealReceivedBarcodeOverlay(overlay) {
     if (!overlay || !overlay.isConnected) return;
     if (window.matchMedia && window.matchMedia('print').matches) return;
+    hideReceivedPrintSheetOnScreen();
     overlay.removeAttribute('data-print-hidden');
     overlay.hidden = false;
     overlay.style.removeProperty('display');
