@@ -180,9 +180,9 @@
 .purchase-receipt-line-photo{grid-column:12!important;grid-row:1}
 .purchase-receipt-line-actions{grid-column:11!important;grid-row:1;display:grid;gap:7px;align-self:stretch}
 .purchase-receipt-line-actions button{min-height:40px;white-space:nowrap}
-.purchase-receipt-size-picker,.purchase-receipt-category-picker{display:grid;grid-template-columns:minmax(82px,.8fr) minmax(95px,1fr);gap:6px}.purchase-receipt-size-picker select,.purchase-receipt-size-picker input,.purchase-receipt-category-picker select,.purchase-receipt-category-picker input{width:100%;min-width:0}
+.purchase-receipt-size-picker,.purchase-receipt-category-picker,.purchase-receipt-color-zh-picker{display:grid;grid-template-columns:minmax(82px,.8fr) minmax(95px,1fr);gap:6px}.purchase-receipt-size-picker select,.purchase-receipt-size-picker input,.purchase-receipt-category-picker select,.purchase-receipt-category-picker input,.purchase-receipt-color-zh-picker select,.purchase-receipt-color-zh-picker input{width:100%;min-width:0}
 .purchase-receipt-color-picker{display:grid;grid-template-columns:minmax(120px,1fr) minmax(120px,1fr);gap:6px}.purchase-receipt-color-picker select,.purchase-receipt-color-picker input{width:100%;min-width:0}
-.purchase-receipt-color-split{align-items:end;height:auto!important}
+.purchase-receipt-color-split{align-items:end;height:auto!important;grid-template-columns:minmax(180px,1.45fr) minmax(110px,.85fr)} /* LZ_COLOR_MEM_20260926 */
 .purchase-receipt-color-legend{display:block;margin:0 0 6px;color:#f1c96f;font-size:12px;font-weight:800}
 .purchase-receipt-color-zh-field,.purchase-receipt-color-id-field{display:grid;gap:4px;color:#f1c96f;font-size:12px;font-weight:800;letter-spacing:.04em}
 .purchase-receipt-color-zh-field b,.purchase-receipt-color-id-field b{color:#f1c96f;font-size:12px}
@@ -399,7 +399,7 @@
   .purchase-receipt-line-actions,
   .purchase-receipt-line-photo{grid-column:1/-1!important;grid-row:auto}
   .purchase-receipt-line-actions{grid-template-columns:1fr 1fr}
-  .purchase-receipt-size-picker,.purchase-receipt-category-picker{grid-template-columns:1fr}
+  .purchase-receipt-size-picker,.purchase-receipt-category-picker,.purchase-receipt-color-zh-picker{grid-template-columns:1fr}
   .purchase-receipt-color-picker{grid-template-columns:1fr}
 }
 
@@ -811,7 +811,8 @@
 }
 [data-purchase-receipt-builder] .purchase-receipt-color-picker,
 [data-purchase-receipt-builder] .purchase-receipt-size-picker,
-[data-purchase-receipt-builder] .purchase-receipt-category-picker{
+[data-purchase-receipt-builder] .purchase-receipt-category-picker,
+[data-purchase-receipt-builder] .purchase-receipt-color-zh-picker{
   display:grid;
   grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);
   gap:6px;
@@ -830,6 +831,7 @@
   height:auto!important;
   min-height:72px;
   align-items:end;
+  grid-template-columns:minmax(0,1.45fr) minmax(0,.8fr);
 }
 [data-purchase-receipt-builder] .purchase-receipt-color-split span{
   display:grid;
@@ -844,7 +846,9 @@
 [data-purchase-receipt-builder] .purchase-receipt-size-picker select,
 [data-purchase-receipt-builder] .purchase-receipt-size-picker input,
 [data-purchase-receipt-builder] .purchase-receipt-category-picker select,
-[data-purchase-receipt-builder] .purchase-receipt-category-picker input{
+[data-purchase-receipt-builder] .purchase-receipt-category-picker input,
+[data-purchase-receipt-builder] .purchase-receipt-color-zh-picker select,
+[data-purchase-receipt-builder] .purchase-receipt-color-zh-picker input{
   height:40px;
   min-height:40px;
 }
@@ -1691,10 +1695,13 @@ button.purchase-receipt-line-thumb:focus-visible{
   display:none!important;
 }
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-fields{
-  grid-template-columns:minmax(160px,1.2fr) minmax(220px,1.2fr) minmax(240px,1.5fr) minmax(160px,.95fr) 88px 108px!important;
+  grid-template-columns:minmax(150px,1.1fr) minmax(210px,1.15fr) minmax(320px,1.9fr) minmax(170px,1fr) 88px 108px!important;
   grid-template-areas:
     "name category color size qty cost"
     "actions actions actions actions actions actions";
+}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-color-zh-picker{
+  grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);
 }
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-name{grid-area:name;grid-column:auto!important}
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-category{grid-area:category;grid-column:auto!important;display:grid!important}

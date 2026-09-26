@@ -794,6 +794,7 @@
 
   var INBOUND_CATEGORY_MEMORY_KEY = 'lingzanzan-v1-inbound-category-memory'; /* LZ_CAT_MEM_20260926 */
   var INBOUND_SIZE_MEMORY_KEY = 'lingzanzan-v1-inbound-size-memory';
+  var INBOUND_COLOR_MEMORY_KEY = 'lingzanzan-v1-inbound-color-memory'; /* LZ_COLOR_MEM_20260926 */
 
   function readInboundFieldMemory(storageKey) {
     try {
@@ -860,6 +861,48 @@
     mem.last = value;
     mem.custom = uniqueTextRows([value].concat(mem.custom || []));
     writeInboundFieldMemory(INBOUND_SIZE_MEMORY_KEY, mem);
+  }
+
+  function rememberedInboundSize() {
+    var last = text(readInboundSizeMemory().last);
+    if (!last || last === '__custom__' || /^(nosize|均碼|free)$/i.test(key(last))) return '';
+    return last;
+  }
+
+  function readInboundColorMemory() {
+    return readInboundFieldMemory(INBOUND_COLOR_MEMORY_KEY);
+  }
+
+  function rememberedInboundColor() {
+    var last = text(readInboundColorMemory().last);
+    if (!last || last === '__custom__' || last === '選擇現有顏色' || receivedIsPlaceholderColor(last)) return '';
+    return last;
+  }
+
+  function rememberInboundColor(value) {
+    value = text(inboundColorParts(value).zh || value);
+    if (!value || value === '__custom__' || value === '選擇現有顏色' || receivedIsPlaceholderColor(value)) return;
+    var mem = readInboundColorMemory();
+    mem.last = value;
+    var known = inboundColorZhPresets(false);
+    if (known.indexOf(value) === -1) mem.custom = uniqueTextRows([value].concat(mem.custom || []));
+    writeInboundFieldMemory(INBOUND_COLOR_MEMORY_KEY, mem);
+  }
+
+  function inboundColorZhPresets(includeCustom) {
+    var names = uniqueTextRows((standaloneColorPresets() || []).map(function (color) {
+      return inboundColorParts(color).zh;
+    })).filter(function (name) { return name && !receivedIsPlaceholderColor(name); });
+    ['紫色', '黑色', '白色', '紅色', '黃色', '綠色', '藍色', '粉紅', '灰色', '咖色', '卡其色', '深藍', '淺藍', '白粉', '白藍', '白綠', '白黑', '白紅', '棕色', '淺灰'].forEach(function (name) {
+      if (names.indexOf(name) === -1) names.push(name);
+    });
+    if (includeCustom !== false) {
+      (readInboundColorMemory().custom || []).forEach(function (name) {
+        name = text(inboundColorParts(name).zh || name);
+        if (name && names.indexOf(name) === -1 && !receivedIsPlaceholderColor(name)) names.push(name);
+      });
+    }
+    return names.sort(function (a, b) { return a.localeCompare(b, 'zh-Hant'); });
   }
 
   function setInboundHeaderCategory(value) {
@@ -1220,23 +1263,24 @@
   }
 
   function standaloneColorDatalistHtml() {
-    var names = uniqueTextRows((standaloneColorPresets() || []).map(function (color) {
-      return inboundColorParts(color).zh;
-    })).filter(Boolean);
-    ['紫色', '黑色', '白色', '紅色', '黃色', '綠色', '藍色', '粉紅', '灰色', '咖色', '卡其色', '深藍', '淺藍', '白粉', '白藍', '白綠', '白黑', '白紅', '棕色', '淺灰'].forEach(function (name) {
-      if (names.indexOf(name) === -1) names.push(name);
-    });
-    return '<datalist id="purchase-receipt-color-zh-list">' + names.map(function (name) {
-      var parts = inboundColorParts(name);
-      return '<option value="' + escapeHtml(name) + '">' + escapeHtml(parts.id ? name + ' → ' + parts.id : name) + '</option>';
-    }).join('') + '</datalist>';
+    return '';
+  }
+
+  function standaloneColorZhOptionsHtml(current) {
+    /* LZ_COLOR_MEM_20260926: existing colours in a real select; blank field beside it remembers last/custom. */
+    current = text(inboundColorParts(current).zh || current);
+    var names = inboundColorZhPresets();
+    if (current && names.indexOf(current) === -1) names.unshift(current);
+    return '<option value="">選擇現有顏色</option>' + names.map(function (name) {
+      return '<option value="' + escapeHtml(name) + '"' + (name === current ? ' selected' : '') + '>' + escapeHtml(name) + '</option>';
+    }).join('') + '<option value="__custom__">自訂顏色…</option>';
   }
 
   function standaloneColorSplitHtml(current) {
     var parts = inboundColorParts(current);
     return [
       '<div class="purchase-receipt-color-picker purchase-receipt-color-split" data-color-split="1">',
-      '<span class="purchase-receipt-color-zh-field"><b>中文顏色</b><input list="purchase-receipt-color-zh-list" value="' + escapeHtml(parts.zh) + '" data-standalone-line-color-zh placeholder="小姐打中文，例如深藍" autocomplete="off"></span>',
+      '<span class="purchase-receipt-color-zh-field"><b>中文顏色</b><div class="purchase-receipt-color-zh-picker"><select data-standalone-line-color-preset>' + standaloneColorZhOptionsHtml(parts.zh) + '</select><input value="' + escapeHtml(parts.zh) + '" data-standalone-line-color-zh placeholder="可手動輸入其他顏色" autocomplete="off"></div></span>',
       '<span class="purchase-receipt-color-id-field"><b>印尼文顏色</b><input value="' + escapeHtml(parts.id) + '" data-standalone-line-color-id placeholder="自動翻譯，例如 biru tua" autocomplete="off"></span>',
       '<input type="hidden" value="' + escapeHtml(parts.joined || current || '') + '" data-standalone-line-color>',
       '</div>'
@@ -1249,9 +1293,24 @@
     var zhField = host.querySelector('[data-standalone-line-color-zh]');
     var idField = host.querySelector('[data-standalone-line-color-id]');
     var hidden = host.querySelector('[data-standalone-line-color]');
+    var preset = host.querySelector('[data-standalone-line-color-preset]');
     if (zhField && document.activeElement !== zhField) zhField.value = parts.zh;
     if (idField && document.activeElement !== idField) idField.value = parts.id;
     if (hidden) hidden.value = parts.joined || joined || '';
+    if (preset && document.activeElement !== preset) {
+      var zh = text(parts.zh);
+      var found = false;
+      for (var i = 0; i < preset.options.length; i += 1) {
+        if (text(preset.options[i].value) === zh) { found = true; break; }
+      }
+      if (zh && !found) {
+        var opt = document.createElement('option');
+        opt.value = zh;
+        opt.textContent = zh;
+        preset.appendChild(opt);
+      }
+      preset.value = zh || '';
+    }
     return parts.joined || joined || '';
   }
 
@@ -2903,7 +2962,7 @@
       barcodeManualEdited: false,
       legacyBarcode: text(source.taiwanBarcode || source.sampleBarcode || sku.companyBarcode || sku.barcode || sku.legacyBarcode || sku.id || sku.sku),
       color: sanitizeInboundColorValue(source.colorName || source.color || sku.colorName || sku.color, { productCode: text(source.productCode) || productCodeForSku(sku) || text(source.productName), barcode: text(source.taiwanBarcode || source.sampleBarcode || sku.companyBarcode || sku.barcode), skuId: text(sku.id || sku.sku), productId: text((product && product.id) || sku.productId) }, sku, product, text(source.taiwanBarcode || source.sampleBarcode || sku.companyBarcode || sku.barcode)),
-      size: text(source.sizeName || source.size || sku.sizeName || sku.size) || 'NO SIZE',
+      size: text(source.sizeName || source.size || sku.sizeName || sku.size) || rememberedInboundSize() || 'NO SIZE',
       qty: qty,
       unitCostTwd: Math.max(0, Number(cost || 0)),
       arrivalImage: '',
@@ -2912,6 +2971,10 @@
       productImage: firstProductImage(product, sku, source),
       sourceTrackingNo: text(source.trackingNo || source.haohongTrackingNo)
     };
+    if (!text(line.color) || receivedIsPlaceholderColor(line.color)) {
+      var lastColor = rememberedInboundColor();
+      if (lastColor) line.color = inboundColorJoined(lastColor, '') || lastColor;
+    }
     if (line.productImage) line.arrivalViews.front = line.productImage;
     line.barcode = canonicalInboundBarcode(line, sku, product, line.legacyBarcode);
     return line;
@@ -3028,10 +3091,7 @@
   }
 
   function standaloneColorOptionsHtml(current) {
-    current = text(current);
-    var options = standaloneColorPresets();
-    if (current && options.indexOf(current) === -1) options.unshift(current);
-    return '<option value="">選擇現有顏色</option>' + options.map(function (color) { return '<option value="' + escapeHtml(color) + '"' + (color === current ? ' selected' : '') + '>' + escapeHtml(color) + '</option>'; }).join('') + '<option value="__custom__">新增其他顏色…</option>';
+    return standaloneColorZhOptionsHtml(current);
   }
 
   function standaloneSizeOptionsHtml(category, current) {
@@ -3050,10 +3110,6 @@
     if (!picker || !sizeInput) return;
     var presets = standaloneSizePresets(category);
     var current = text(sizeInput.value);
-    if (presets.length > 1 && presets.indexOf(current) === -1 && !/^(nosize|均碼|free)$/i.test(key(current))) {
-      current = '';
-      sizeInput.value = '';
-    }
     picker.innerHTML = standaloneSizeOptionsHtml(category, current);
   }
 
@@ -5464,18 +5520,16 @@
     }
     if (event.target.matches('[data-standalone-line-color-preset]')) {
       var colorHost = event.target.closest('[data-purchase-receipt-line]');
-      var colorField = colorHost && colorHost.querySelector('[data-standalone-line-color]');
-      if (!colorField) return;
-      if (event.target.value === '__custom__') {
-        colorField.focus();
-        colorField.select();
-      } else {
-        var picked = sanitizeInboundColorValue(event.target.value, state.standaloneLines.find(function (row) { return row.key === (colorHost && colorHost.getAttribute('data-purchase-receipt-line')); }) || {}, null, null, colorHost && colorHost.querySelector('[data-standalone-line-barcode]') && colorHost.querySelector('[data-standalone-line-barcode]').value);
-        colorField.value = picked || event.target.value;
-        if (receivedIsPlaceholderColor(event.target.value) && !picked) colorField.value = '';
-        applyStandaloneColorSplit(colorHost, colorField.value);
-        refreshAutomaticVariantBarcode(colorHost);
+      var pickedZh = text(event.target.value);
+      if (pickedZh === '__custom__') {
+        var blankZh = colorHost && colorHost.querySelector('[data-standalone-line-color-zh]');
+        if (blankZh) { blankZh.value = ''; blankZh.focus(); }
+        return;
       }
+      var joined = inboundColorJoined(pickedZh, '');
+      applyStandaloneColorSplit(colorHost, joined || pickedZh);
+      rememberInboundColor(pickedZh);
+      refreshAutomaticVariantBarcode(colorHost);
       return;
     }
     if (event.target.matches('[data-standalone-line-size-preset]')) {
@@ -5510,6 +5564,16 @@
     }
     if (event.target.matches('[data-standalone-line-size]')) {
       rememberInboundSize(event.target.value);
+      var typedSizeHost = event.target.closest('[data-purchase-receipt-line]');
+      var typedSizePicker = typedSizeHost && typedSizeHost.querySelector('[data-standalone-line-size-preset]');
+      if (typedSizePicker) ensureSelectValue(typedSizePicker, event.target.value);
+      return;
+    }
+    if (event.target.matches('[data-standalone-line-color-zh]')) {
+      rememberInboundColor(event.target.value);
+      var colorChangeHost = event.target.closest('[data-purchase-receipt-line]');
+      applyStandaloneColorSplit(colorChangeHost, inboundColorJoined(event.target.value, text(colorChangeHost && colorChangeHost.querySelector('[data-standalone-line-color-id]') && colorChangeHost.querySelector('[data-standalone-line-color-id]').value)));
+      refreshAutomaticVariantBarcode(colorChangeHost);
       return;
     }
     if (event.target.matches('[data-purchase-receipt-category-preset]')) {
