@@ -1406,6 +1406,8 @@ button.purchase-receipt-line-thumb:focus-visible{
 /* LZ_RECV_DEL_20260924 */
 [data-purchase-receipt-builder] .purchase-receipt-print-row [data-purchase-receipt-delete-line]{
   justify-self:end;
+  position:relative;
+  z-index:5;
   width:auto!important;
   min-width:64px;
   min-height:36px!important;
@@ -1419,6 +1421,7 @@ button.purchase-receipt-line-thumb:focus-visible{
   font-size:13px;
   font-weight:800;
   white-space:nowrap;
+  pointer-events:auto;
 }
 [data-purchase-receipt-builder] .purchase-receipt-print-row [data-purchase-receipt-delete-line]:disabled{
   opacity:.55;
@@ -1430,6 +1433,57 @@ button.purchase-receipt-line-thumb:focus-visible{
     justify-self:start;
     width:auto!important;
   }
+}
+
+/* LZ_RECV_DEL_20260926: in-page delete confirm; never use native alert click-through onto 列印勾選 */
+.inbound-confirm-overlay{
+  position:fixed;
+  inset:0;
+  z-index:2147483000;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:rgba(8,7,10,.78);
+}
+.inbound-confirm-overlay>section{
+  width:min(520px,100%);
+  display:grid;
+  gap:16px;
+  padding:20px;
+  border:1px solid rgba(255,140,154,.55);
+  border-radius:18px;
+  background:#2a151a;
+  color:#fffaf4;
+  box-shadow:0 22px 60px rgba(0,0,0,.45);
+}
+.inbound-confirm-overlay p{
+  margin:0;
+  font-size:16px;
+  font-weight:700;
+  line-height:1.55;
+}
+.inbound-confirm-overlay footer{
+  display:flex;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.inbound-confirm-overlay footer button{
+  min-height:44px;
+  padding:0 16px;
+  border-radius:10px;
+  font-weight:800;
+  cursor:pointer;
+}
+.inbound-confirm-overlay [data-inbound-confirm-no]{
+  background:#2a2430;
+  color:#fffaf4;
+  border:1px solid #4a4250;
+}
+.inbound-confirm-overlay [data-inbound-confirm-yes]{
+  background:#7a1824!important;
+  color:#fff!important;
+  border:1px solid #a33a46!important;
 }
 
 /* LZ_JUMP_SEARCH_20260925: stay on the current inbound line; jump back to search. */

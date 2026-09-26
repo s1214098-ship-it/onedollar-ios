@@ -50,8 +50,12 @@
       credentials: 'same-origin',
       body: body
     }).then(function (response) {
-      return response.json().then(function (result) {
-        if (!response.ok || !result.ok) throw new Error(result.error || '儲存失敗');
+      return response.text().then(function (raw) {
+        var result = null;
+        try { result = raw ? JSON.parse(raw) : null; } catch (error) { result = null; }
+        if (!response.ok || !result || result.ok === false) {
+          throw new Error((result && (result.error || result.message)) || ('HTTP ' + response.status));
+        }
         return result;
       });
     });
@@ -1163,9 +1167,9 @@
         return rowName || named[family] || rowName;
       }
     }
-    var fallback = named[family] || receiptChineseColor(sku.colorName || sku.color) || text(sku.colorName || sku.color) || '未填顏色';
+    var fallback = named[family] || receiptChineseColor(sku.colorName || sku.color) || text(sku.colorName || sku.color);
     if (receivedIsPlaceholderColor(fallback)) {
-      return receivedColorNameFromCode(text(sku.colorCode || sku.colorNo) || String(family || '').replace(/^c:/, '')) || named[family] || '未填顏色';
+      return receivedColorNameFromCode(text(sku.colorCode || sku.colorNo) || String(family || '').replace(/^c:/, '')) || named[family] || '';
     }
     return fallback;
   }
@@ -3138,9 +3142,9 @@
   }
 
   function receivedIsPlaceholderColor(value) {
-    /* LZ_PRINT_QR_20260924_6: 圖片色 is catalog 907 / PICS COLOR, not a real colour.
-       Also treat 顏色圖片 photo-label leftovers as placeholders. */
-    return /圖片色|pics\s*color|picscolor|顏色圖片/.test(key(value));
+    /* LZ_PRINT_QR_20260924_6 / LZ_RECV_DEL_20260926: 圖片色 is catalog 907.
+       「未填顏色」 is a sentinel, never a real colour and never a filled field. */
+    return /圖片色|pics\s*color|picscolor|顏色圖片|未填顏色|未選顏色|未選擇顏色|請選擇顏色|^未填$|^-$|^nocolor$|^none$/.test(key(value));
   }
 
   function receivedPrintColorName(line, sku, product, barcode) {
@@ -3189,7 +3193,10 @@
     var barcode = receivedLineBarcode(line, sku);
     var shown = receivedPrintColorName(line, sku, product, barcode);
     if (shown && shown !== '-' && !receivedIsPlaceholderColor(shown)) return shown;
-    return sanitizeInboundColorValue(line.color || line.colorName, line, sku, product, barcode) || text(line.color || line.colorName || '');
+    var sanitized = sanitizeInboundColorValue(line.color || line.colorName, line, sku, product, barcode);
+    if (sanitized && !receivedIsPlaceholderColor(sanitized)) return sanitized;
+    var raw = text(line.color || line.colorName || '');
+    return raw && !receivedIsPlaceholderColor(raw) ? raw : '';
   }
 
   function receivedParseConcatBarcode(raw, line, sku, product) {
@@ -3813,7 +3820,7 @@
         '<em>' + escapeHtml(barcode) + '</em>' +
         '<small>' + escapeHtml((colorLabel || '') + '／' + (line.size || line.sizeName || 'NO SIZE')) + '</small>' +
         '<input type="number" min="1" max="99" step="1" value="' + qty + '" data-purchase-receipt-print-qty="' + index + '" aria-label="列印張數">' +
-        '<button type="button" class="danger-button" data-purchase-receipt-delete-line="' + sourceIndex + '" data-delete-sku="' + escapeHtml(line.skuId || line.sku || '') + '" data-delete-barcode="' + escapeHtml(barcode) + '" data-delete-color="' + escapeHtml(colorLabel || line.color || line.colorName || '') + '" data-delete-size="' + escapeHtml(line.size || line.sizeName || '') + '">刪除</button>' +
+        '<button type="button" class="danger-button" data-purchase-receipt-delete-line="' + sourceIndex + '" data-delete-sku="' + escapeHtml(line.skuId || line.sku || '') + '" data-delete-barcode="' + escapeHtml(barcode) + '" data-delete-product-code="' + escapeHtml(line.productCode || '') + '" data-delete-color="' + escapeHtml((colorLabel && !receivedIsPlaceholderColor(colorLabel) ? colorLabel : '') || (receivedIsPlaceholderColor(line.color || line.colorName) ? '' : (line.color || line.colorName || ''))) + '" data-delete-size="' + escapeHtml(line.size || line.sizeName || '') + '">刪除</button>' +
         '</div>';
     }).join('');
     var selectAll = picker.querySelector('[data-purchase-receipt-print-all]');
@@ -5307,6 +5314,55 @@
     return text((state.lastReceivedSummary && state.lastReceivedSummary.documentId) || (document.querySelector('[data-purchase-receipt-id]') && document.querySelector('[data-purchase-receipt-id]').value));
   }
 
+  function currentReceivedReceiptNo() {
+    return text((state.lastReceivedSummary && state.lastReceivedSummary.receiptNo) || (document.querySelector('[data-purchase-receipt-no]') && document.querySelector('[data-purchase-receipt-no]').value));
+  }
+
+  var ignorePrintSelectedUntil = 0;
+
+  function inboundConfirmDialog(message, yesLabel) {
+    /* LZ_RECV_DEL_20260926: in-page confirm. Native window.confirm() leaks a click onto 列印勾選. */
+    return new Promise(function (resolve) {
+      var existing = document.querySelector('[data-inbound-confirm]');
+      if (existing) existing.remove();
+      ignorePrintSelectedUntil = Date.now() + 8000;
+      var overlay = document.createElement('div');
+      overlay.className = 'inbound-confirm-overlay';
+      overlay.setAttribute('data-inbound-confirm', '');
+      overlay.innerHTML = '<section role="dialog" aria-modal="true">' +
+        '<p>' + escapeHtml(message) + '</p>' +
+        '<footer>' +
+        '<button type="button" data-inbound-confirm-no>取消</button>' +
+        '<button type="button" class="danger-button" data-inbound-confirm-yes>' + escapeHtml(yesLabel || '確定刪除') + '</button>' +
+        '</footer></section>';
+      var done = false;
+      function finish(ok) {
+        if (done) return;
+        done = true;
+        ignorePrintSelectedUntil = Date.now() + 1500;
+        try { overlay.remove(); } catch (error) {}
+        resolve(!!ok);
+      }
+      overlay.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+        var node = eventTargetEl(event) || event.target;
+        if (node && node.closest && node.closest('[data-inbound-confirm-yes]')) { finish(true); return; }
+        if (node && node.closest && node.closest('[data-inbound-confirm-no]')) { finish(false); return; }
+        if (event.target === overlay) finish(false);
+      }, true);
+      document.addEventListener('keydown', function onKey(event) {
+        if (event.key !== 'Escape') return;
+        document.removeEventListener('keydown', onKey, true);
+        finish(false);
+      }, true);
+      document.body.appendChild(overlay);
+      var yes = overlay.querySelector('[data-inbound-confirm-yes]');
+      if (yes) try { yes.focus(); } catch (error) {}
+    });
+  }
+
   function applyDeletedReceiptResult(result) {
     var receipt = result && result.receipt || null;
     if (receipt) {
@@ -5336,8 +5392,9 @@
   }
 
   function deleteReceivedReceiptLine(button) {
-    /* LZ_RECV_DEL_20260924: delete inbound SKU from a received/history/print page. Never print or re-inbound. */
+    /* LZ_RECV_DEL_20260926: delete inbound SKU from a received/history/print page. Never print or re-inbound. */
     if (!button || button.disabled) return;
+    ignorePrintSelectedUntil = Date.now() + 8000;
     var sourceIndex = Number(button.getAttribute('data-purchase-receipt-delete-line'));
     var lines = state.lastReceivedPrintLines || [];
     var line = lines[sourceIndex] || (state.lastReceivedPrintRows || [])[sourceIndex] || null;
@@ -5346,46 +5403,61 @@
       return;
     }
     var documentId = currentReceivedDocumentId();
-    if (!documentId) {
+    var receiptNo = currentReceivedReceiptNo();
+    if (!documentId && !receiptNo) {
       standaloneMessage('找不到進貨單號，無法刪除。請重新看單後再試。', 'error');
       return;
     }
-    var label = [line.productCode || '', line.productName || '', line.color || line.colorName || '', line.size || line.sizeName || ''].filter(Boolean).join('／');
+    var label = [line.productCode || '', line.productName || '', receivedLineDisplayColor(line) || line.color || line.colorName || '', line.size || line.sizeName || ''].filter(Boolean).join('／');
     var remaining = lines.length;
     var isLast = remaining <= 1;
-    var ok = window.confirm(isLast
+    var prompt = isLast
       ? ('這是這張進貨單的最後一項「' + label + '」。刪除後整張進貨單會作廢，並把已入庫數量從該 SKU 倉庫扣回。若庫存已賣掉、不夠扣回，系統會停止刪除。確定作廢整張進貨單？')
-      : ('確定從這張已入庫進貨單刪除「' + label + '」？會把該品項的入庫數量從倉庫庫存扣回。若庫存已賣掉、不夠扣回，系統會停止刪除，品項會留在單上。列印勾選不會被這步影響。'));
-    if (!ok) return;
-    if (isLast) {
-      var okVoid = window.confirm('請再確認：這會作廢整張進貨單並扣回庫存。確定刪除最後一項？');
-      if (!okVoid) return;
+      : ('確定從這張已入庫進貨單刪除「' + label + '」？會把該品項的入庫數量從倉庫庫存扣回。若庫存已賣掉、不夠扣回，系統會停止刪除，品項會留在單上。這步只刪品項，不會列印。');
+
+    function postDelete() {
+      var original = button.textContent;
+      button.disabled = true;
+      button.textContent = '刪除中…';
+      var storedColor = text(line.color || line.colorName || '');
+      postJson({
+        action: 'delete-purchase-receipt-line',
+        documentId: documentId || receiptNo,
+        receiptNo: receiptNo,
+        lineIndex: sourceIndex,
+        skuId: text(button.getAttribute('data-delete-sku') || line.skuId || line.sku || ''),
+        productCode: text(button.getAttribute('data-delete-product-code') || line.productCode || ''),
+        barcode: text(button.getAttribute('data-delete-barcode') || receivedLineBarcode(line)),
+        color: receivedIsPlaceholderColor(storedColor) ? '' : storedColor,
+        size: text(button.getAttribute('data-delete-size') || line.size || line.sizeName || ''),
+        confirmVoid: !!isLast,
+        receivedBy: currentOperatorName()
+      }).then(function (result) {
+        applyDeletedReceiptResult(result || {});
+      }).catch(function (error) {
+        standaloneMessage('刪除失敗：' + (error && error.message || error) + '。品項仍留在進貨單上。', 'error');
+        button.disabled = false;
+        button.textContent = original || '刪除';
+      });
     }
-    var original = button.textContent;
-    button.disabled = true;
-    button.textContent = '刪除中…';
-    postJson({
-      action: 'delete-purchase-receipt-line',
-      documentId: documentId,
-      lineIndex: sourceIndex,
-      skuId: text(button.getAttribute('data-delete-sku') || line.skuId || line.sku || ''),
-      barcode: text(button.getAttribute('data-delete-barcode') || receivedLineBarcode(line)),
-      color: text(button.getAttribute('data-delete-color') || line.color || line.colorName || ''),
-      size: text(button.getAttribute('data-delete-size') || line.size || line.sizeName || ''),
-      confirmVoid: !!isLast,
-      receivedBy: currentOperatorName()
-    }).then(function (result) {
-      applyDeletedReceiptResult(result || {});
-    }).catch(function (error) {
-      standaloneMessage('刪除失敗：' + (error && error.message || error) + '。品項仍留在進貨單上。', 'error');
-      button.disabled = false;
-      button.textContent = original || '刪除';
+
+    inboundConfirmDialog(prompt, isLast ? '確定作廢整張單' : '確定刪除').then(function (ok) {
+      if (!ok) return;
+      if (!isLast) {
+        postDelete();
+        return;
+      }
+      inboundConfirmDialog('請再確認：這會作廢整張進貨單並扣回庫存。確定刪除最後一項？', '確定作廢').then(function (okVoid) {
+        if (okVoid) postDelete();
+      });
     });
   }
 
   function handleReceivedLineDeleteClick(event) {
-    var button = event.target.closest('[data-purchase-receipt-delete-line]');
+    var node = eventTargetEl(event) || event.target;
+    var button = node && node.closest ? node.closest('[data-purchase-receipt-delete-line]') : null;
     if (!button) return false;
+    ignorePrintSelectedUntil = Date.now() + 8000;
     event.preventDefault();
     event.stopPropagation();
     if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
@@ -5394,8 +5466,18 @@
   }
 
   function handleReceivedPrintSelectedClick(event) {
-    var printSelected = event.target.closest('[data-purchase-receipt-print-selected]');
+    var node = eventTargetEl(event) || event.target;
+    if (node && node.closest && (node.closest('[data-purchase-receipt-delete-line]') || node.closest('[data-inbound-confirm]'))) {
+      return node.closest('[data-purchase-receipt-delete-line]') ? true : false;
+    }
+    var printSelected = node && node.closest ? node.closest('[data-purchase-receipt-print-selected]') : null;
     if (!printSelected) return false;
+    if (Date.now() < ignorePrintSelectedUntil || document.querySelector('[data-inbound-confirm]')) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+      return true;
+    }
     event.preventDefault();
     event.stopPropagation();
     var chosen = selectedReceivedPrintLines();

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>進貨刪除點擊隔離預覽</title>
+  <link rel="stylesheet" href="./inventory-freight-entry.css">
+  <style>
+    body{margin:0;background:#121015;color:#fffaf4;font:16px/1.45 sans-serif;padding:24px}
+    .ok{color:#82e7c5}
+    .bad{color:#ff8c9a}
+  </style>
+</head>
+<body>
+  <p id="log">尚未點擊</p>
+  <section class="purchase-receipt-print-picker" data-purchase-receipt-print-picker data-purchase-receipt-builder>
+    <div class="purchase-receipt-print-list" data-purchase-receipt-print-list>
+      <div class="purchase-receipt-print-row">
+        <input type="checkbox" checked>
+        <span><b>SET003</b> 測試款</span>
+        <em>SET00390703P570</em>
+        <small>未填顏色／M</small>
+        <input type="number" value="1">
+        <button type="button" class="danger-button" data-purchase-receipt-delete-line="0">刪除</button>
+      </div>
+    </div>
+    <div class="purchase-receipt-print-picker-actions">
+      <button type="button" class="primary-button" data-purchase-receipt-print-selected>列印勾選條碼</button>
+    </div>
+  </section>
+  <script>
+    var log = document.getElementById('log');
+    var printed = 0;
+    var deleted = 0;
+    window.openReceivedBarcodePrint = function () { printed += 1; log.textContent = '誤開列印 ' + printed; log.className = 'bad'; return true; };
+    window.inboundConfirmDialog = function () { return Promise.resolve(false); };
+    function eventTargetEl(event) {
+      var node = event && event.target;
+      if (!node) return null;
+      if (node.nodeType === 3 || !node.closest) node = node.parentElement || node.parentNode;
+      return node && node.closest ? node : null;
+    }
+    var ignorePrintSelectedUntil = 0;
+    function handleReceivedLineDeleteClick(event) {
+      var node = eventTargetEl(event) || event.target;
+      var button = node && node.closest ? node.closest('[data-purchase-receipt-delete-line]') : null;
+      if (!button) return false;
+      ignorePrintSelectedUntil = Date.now() + 8000;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+      deleted += 1;
+      log.textContent = '刪除已攔截，未開列印';
+      log.className = 'ok';
+      return true;
+    }
+    function handleReceivedPrintSelectedClick(event) {
+      var node = eventTargetEl(event) || event.target;
+      if (node && node.closest && node.closest('[data-purchase-receipt-delete-line]')) return true;
+      var printSelected = node && node.closest ? node.closest('[data-purchase-receipt-print-selected]') : null;
+      if (!printSelected) return false;
+      if (Date.now() < ignorePrintSelectedUntil) {
+        event.preventDefault();
+        log.textContent = '列印已被刪除點擊擋住';
+        log.className = 'ok';
+        return true;
+      }
+      printed += 1;
+      log.textContent = '列印勾選（預期只有按列印才會到這）';
+      return true;
+    }
+    document.addEventListener('click', handleReceivedLineDeleteClick, true);
+    document.addEventListener('click', handleReceivedPrintSelectedClick, true);
+  </script>
+</body>
+</html>

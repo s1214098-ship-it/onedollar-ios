@@ -1838,6 +1838,92 @@ function receipt_is_placeholder_inbound_color(string $color): bool {
     return preg_match('/^(未填|未選)/u', $key) === 1;
 }
 
+function purchase_receipt_line_barcode_set(array $line): array {
+    $out = [];
+    $values = [
+        $line['barcode'] ?? '',
+        $line['companyBarcode'] ?? '',
+        $line['officialBarcode'] ?? '',
+        $line['labelBarcode'] ?? '',
+        $line['legacyBarcode'] ?? '',
+        $line['stableBarcode'] ?? '',
+    ];
+    if (is_array($line['barcodeAliases'] ?? null)) $values = array_merge($values, $line['barcodeAliases']);
+    if (is_array($line['linkedBarcodes'] ?? null)) $values = array_merge($values, $line['linkedBarcodes']);
+    foreach ($values as $value) {
+        $text = strtoupper(receipt_text($value));
+        if ($text !== '') $out[$text] = true;
+    }
+    return $out;
+}
+
+function purchase_receipt_color_loose_same(string $a, string $b): bool {
+    $a = trim($a);
+    $b = trim($b);
+    if ($a === '' || $b === '' || receipt_is_placeholder_inbound_color($a) || receipt_is_placeholder_inbound_color($b)) return true;
+    $norm = static function (string $value): string {
+        $value = function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+        $value = preg_replace('/\s+/u', '', $value) ?? $value;
+        $value = preg_replace('/[（(].*$/u', '', $value) ?? $value;
+        $value = preg_replace('/色$/u', '', $value) ?? $value;
+        return $value;
+    };
+    $na = $norm($a);
+    $nb = $norm($b);
+    if ($na === $nb) return true;
+    $la = function_exists('mb_strtolower') ? mb_strtolower($a, 'UTF-8') : strtolower($a);
+    $lb = function_exists('mb_strtolower') ? mb_strtolower($b, 'UTF-8') : strtolower($b);
+    if ($na !== '' && $nb !== '' && (mb_strpos($la, $nb) !== false || mb_strpos($lb, $na) !== false)) return true;
+    return false;
+}
+
+function purchase_receipt_find_delete_line_index(array $lines, int $requestedIndex, string $matchSkuId, string $matchBarcode, string $matchColor, string $matchSize, string $matchProductCode = ''): int {
+    // LZ_RECV_DEL_20260926: barcode + index win. Display colour like 咖色(cokelat) vs 未填顏色 must not 404.
+    $matchBarcode = strtoupper(trim($matchBarcode));
+    $matchProductCode = receipt_normalize_product_code($matchProductCode);
+    $barcodeHits = [];
+    foreach ($lines as $candidateIndex => $candidate) {
+        if (!is_array($candidate)) continue;
+        $set = purchase_receipt_line_barcode_set($candidate);
+        if ($matchBarcode !== '' && isset($set[$matchBarcode])) $barcodeHits[] = (int)$candidateIndex;
+    }
+    if ($requestedIndex >= 0 && $requestedIndex < count($lines) && is_array($lines[$requestedIndex])) {
+        $set = purchase_receipt_line_barcode_set($lines[$requestedIndex]);
+        if ($matchBarcode !== '' && isset($set[$matchBarcode])) return $requestedIndex;
+        if ($matchBarcode === '') {
+            $candidateSku = receipt_first_text([$lines[$requestedIndex]['skuId'] ?? '', $lines[$requestedIndex]['sku'] ?? '']);
+            $candidateCode = receipt_normalize_product_code($lines[$requestedIndex]['productCode'] ?? '');
+            if ($matchSkuId !== '' && $candidateSku === $matchSkuId) return $requestedIndex;
+            if ($matchProductCode !== '' && $candidateCode === $matchProductCode) return $requestedIndex;
+        }
+    }
+    if (count($barcodeHits) === 1) return $barcodeHits[0];
+    if (count($barcodeHits) > 1) {
+        foreach ($barcodeHits as $hit) {
+            $candidate = $lines[$hit];
+            $candidateSize = receipt_text($candidate['size'] ?? $candidate['sizeName'] ?? '');
+            $candidateColor = receipt_text($candidate['color'] ?? $candidate['colorName'] ?? '');
+            $sizeOk = $matchSize === '' || mb_strtolower($candidateSize, 'UTF-8') === mb_strtolower($matchSize, 'UTF-8');
+            if ($sizeOk && purchase_receipt_color_loose_same($matchColor, $candidateColor)) return $hit;
+        }
+        return $barcodeHits[0];
+    }
+    foreach ($lines as $candidateIndex => $candidate) {
+        if (!is_array($candidate)) continue;
+        $candidateSku = receipt_first_text([$candidate['skuId'] ?? '', $candidate['sku'] ?? '']);
+        $candidateColor = receipt_text($candidate['color'] ?? $candidate['colorName'] ?? '');
+        $candidateSize = receipt_text($candidate['size'] ?? $candidate['sizeName'] ?? '');
+        $candidateCode = receipt_normalize_product_code($candidate['productCode'] ?? '');
+        $skuOk = $matchSkuId === '' || $candidateSku === $matchSkuId;
+        $codeOk = $matchProductCode === '' || $candidateCode === '' || $candidateCode === $matchProductCode;
+        $sizeOk = $matchSize === '' || $candidateSize === '' || mb_strtolower($candidateSize, 'UTF-8') === mb_strtolower($matchSize, 'UTF-8');
+        if ($skuOk && $codeOk && purchase_receipt_color_loose_same($matchColor, $candidateColor) && $sizeOk && ($matchSkuId !== '' || $matchProductCode !== '')) {
+            return (int)$candidateIndex;
+        }
+    }
+    return -1;
+}
+
 function receipt_find_product_by_id(array $products, string $productId): ?array {
     $productId = receipt_text($productId);
     if ($productId === '' || stripos($productId, 'freight-') === 0) return null;
@@ -2762,6 +2848,7 @@ function apply_preorder_receipt_inventory(array $inquiry, array $payload, string
         $skus[$targetIndex]['size'] = $size;
         $skus[$targetIndex]['sizeName'] = $size;
         if ($productCode !== '') $skus[$targetIndex]['productCode'] = $productCode;
+        $inboundKeptBarcode = strtoupper(receipt_text($barcode));
         if (function_exists('lz_barcode_compose')) {
             $composeColor = receipt_first_text([
                 $skus[$targetIndex]['colorCode'] ?? '',
@@ -2772,6 +2859,18 @@ function apply_preorder_receipt_inventory(array $inquiry, array $payload, string
             $composeCost = $fixedBarcodeCost !== null && $fixedBarcodeCost > 0 ? $fixedBarcodeCost : $unitCost;
             $canonicalBarcode = lz_barcode_compose($productCode, $composeColor, $size, $composeCost);
             if ($canonicalBarcode !== '') {
+                $keepInbound = function_exists('lz_barcode_is_unified') && $inboundKeptBarcode !== '' && lz_barcode_is_unified($inboundKeptBarcode);
+                if ($keepInbound) {
+                    if ($canonicalBarcode !== $inboundKeptBarcode) {
+                        $existingAliases[] = $canonicalBarcode;
+                        $skus[$targetIndex]['barcodeAliases'] = array_values(array_unique(array_filter($existingAliases)));
+                    }
+                    $barcode = $inboundKeptBarcode;
+                    $skus[$targetIndex]['barcode'] = $inboundKeptBarcode;
+                    $skus[$targetIndex]['companyBarcode'] = $inboundKeptBarcode;
+                    $skus[$targetIndex]['officialBarcode'] = $inboundKeptBarcode;
+                    $skus[$targetIndex]['labelBarcode'] = $inboundKeptBarcode;
+                } else {
                 if (strtoupper((string)$barcode) !== $canonicalBarcode) {
                     $existingAliases[] = $barcode;
                     if ($stableBarcode !== '') $existingAliases[] = $stableBarcode;
@@ -2785,6 +2884,7 @@ function apply_preorder_receipt_inventory(array $inquiry, array $payload, string
                 $skus[$targetIndex]['companyBarcode'] = $canonicalBarcode;
                 $skus[$targetIndex]['officialBarcode'] = $canonicalBarcode;
                 $skus[$targetIndex]['labelBarcode'] = $canonicalBarcode;
+                }
                 if ($composeColor !== '') {
                     $skus[$targetIndex]['colorCode'] = $composeColor;
                     $skus[$targetIndex]['colorNo'] = $composeColor;
@@ -9252,7 +9352,7 @@ if ($action === 'delete-purchase-receipt-line') {
     ignore_user_abort(true);
     @set_time_limit(180);
     $operatorName = receipt_first_text([$payload['receivedBy'] ?? '', $payload['operatorName'] ?? '', '管理者']);
-    $documentId = receipt_text($payload['documentId'] ?? '');
+    $documentId = receipt_text($payload['documentId'] ?? $payload['receiptNo'] ?? '');
     $requestedIndex = array_key_exists('lineIndex', $payload) && is_numeric($payload['lineIndex']) ? (int)$payload['lineIndex'] : -1;
     $confirmVoid = !empty($payload['confirmVoid']);
     if ($documentId === '') respond(['ok' => false, 'error' => '缺少進貨單號，無法刪除品項'], 400);
@@ -9261,12 +9361,14 @@ if ($action === 'delete-purchase-receipt-line') {
     $receiptsFileLock = acquire_purchase_receipts_file_lock($purchaseReceiptsFile);
     $rows = read_json($purchaseReceiptsFile);
     $index = -1;
+    $wantedNo = receipt_text($payload['receiptNo'] ?? '');
     foreach ($rows as $rowIndex => $row) {
         if (!is_array($row)) continue;
         $rowId = receipt_text($row['id'] ?? '');
         $rowDoc = is_array($row['receivingDocument'] ?? null) ? $row['receivingDocument'] : [];
         $rowNo = receipt_first_text([$rowDoc['documentNo'] ?? '', $row['documentNo'] ?? '']);
-        if ($rowId === $documentId || ($rowNo !== '' && $rowNo === $documentId)) {
+        $rowOp = receipt_text($row['operationId'] ?? $row['inventoryOperationId'] ?? '');
+        if ($rowId === $documentId || ($rowNo !== '' && ($rowNo === $documentId || ($wantedNo !== '' && $rowNo === $wantedNo))) || ($rowOp !== '' && $rowOp === $documentId)) {
             $index = (int)$rowIndex;
             $documentId = $rowId !== '' ? $rowId : $documentId;
             break;
@@ -9289,36 +9391,8 @@ if ($action === 'delete-purchase-receipt-line') {
     $matchBarcode = strtoupper(receipt_text($payload['barcode'] ?? ''));
     $matchColor = receipt_text($payload['color'] ?? $payload['colorName'] ?? '');
     $matchSize = receipt_text($payload['size'] ?? $payload['sizeName'] ?? '');
-    $lineIndex = -1;
-    if ($requestedIndex >= 0 && $requestedIndex < count($lines) && is_array($lines[$requestedIndex])) {
-        $candidate = $lines[$requestedIndex];
-        $candidateSku = receipt_first_text([$candidate['skuId'] ?? '', $candidate['sku'] ?? '']);
-        $candidateBarcode = strtoupper(receipt_first_text([$candidate['barcode'] ?? '', $candidate['companyBarcode'] ?? '']));
-        $candidateColor = receipt_text($candidate['color'] ?? $candidate['colorName'] ?? '');
-        $candidateSize = receipt_text($candidate['size'] ?? $candidate['sizeName'] ?? '');
-        $skuOk = $matchSkuId === '' || $candidateSku === '' || $candidateSku === $matchSkuId;
-        $barcodeOk = $matchBarcode === '' || $candidateBarcode === '' || $candidateBarcode === $matchBarcode;
-        $colorOk = $matchColor === '' || $candidateColor === '' || mb_strtolower($candidateColor, 'UTF-8') === mb_strtolower($matchColor, 'UTF-8');
-        $sizeOk = $matchSize === '' || $candidateSize === '' || mb_strtolower($candidateSize, 'UTF-8') === mb_strtolower($matchSize, 'UTF-8');
-        if ($skuOk && $barcodeOk && $colorOk && $sizeOk) $lineIndex = $requestedIndex;
-    }
-    if ($lineIndex < 0) {
-        foreach ($lines as $candidateIndex => $candidate) {
-            if (!is_array($candidate)) continue;
-            $candidateSku = receipt_first_text([$candidate['skuId'] ?? '', $candidate['sku'] ?? '']);
-            $candidateBarcode = strtoupper(receipt_first_text([$candidate['barcode'] ?? '', $candidate['companyBarcode'] ?? '']));
-            $candidateColor = receipt_text($candidate['color'] ?? $candidate['colorName'] ?? '');
-            $candidateSize = receipt_text($candidate['size'] ?? $candidate['sizeName'] ?? '');
-            $skuOk = $matchSkuId === '' || $candidateSku === $matchSkuId;
-            $barcodeOk = $matchBarcode === '' || $candidateBarcode === $matchBarcode;
-            $colorOk = $matchColor === '' || mb_strtolower($candidateColor, 'UTF-8') === mb_strtolower($matchColor, 'UTF-8');
-            $sizeOk = $matchSize === '' || mb_strtolower($candidateSize, 'UTF-8') === mb_strtolower($matchSize, 'UTF-8');
-            if ($skuOk && $barcodeOk && $colorOk && $sizeOk) {
-                $lineIndex = (int)$candidateIndex;
-                break;
-            }
-        }
-    }
+    $matchProductCode = receipt_text($payload['productCode'] ?? '');
+    $lineIndex = purchase_receipt_find_delete_line_index($lines, $requestedIndex, $matchSkuId, $matchBarcode, $matchColor, $matchSize, $matchProductCode);
     if ($lineIndex < 0 || !is_array($lines[$lineIndex] ?? null)) {
         respond(['ok' => false, 'error' => '找不到要刪除的進貨品項，品項仍留在單上'], 404);
     }
