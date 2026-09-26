@@ -1423,6 +1423,54 @@
     } catch (error) {}
     return 'clothing';
   }
+
+  var QUICK_INBOUND_KEY = 'lingzanzan-quick-inbound-v1'; /* LZ_QUICK_INBOUND_20260926 */
+  var QUICK_INBOUND_HINT_ON = '掃條碼或搜名稱後按加入／Enter；列上改顏色、尺碼、數量，並直接貼該色圖。分類與公司條碼在背景自動帶入。';
+  var QUICK_INBOUND_HINT_OFF = '先搜產品編號，同一款顏色尺寸只列一列並顯示中國／台灣／印尼／預購倉現有庫存。勾選加入會進上方入庫倉。掃完整條碼會絕對比對，不必先填分類。新產品才需要分類產生編號。';
+
+  function isQuickInbound() {
+    try {
+      var stored = localStorage.getItem(QUICK_INBOUND_KEY);
+      if (stored === '0') return false;
+    } catch (error) {}
+    return true;
+  }
+
+  function setQuickInbound(on) {
+    try { localStorage.setItem(QUICK_INBOUND_KEY, on ? '1' : '0'); } catch (error) {}
+    applyQuickInboundMode();
+    standaloneMessage(on
+      ? '已開啟快速入庫：掃碼加入後只改顏色、尺碼、數量並貼圖。'
+      : '已切回完整建檔欄位。', 'ok');
+    if (on) focusPurchaseReceiptSearch();
+  }
+
+  function applyQuickInboundMode() {
+    var on = isQuickInbound();
+    if (root) root.classList.toggle('is-quick-inbound', on);
+    document.body.classList.toggle('is-quick-inbound', on);
+    var builder = document.querySelector('[data-purchase-receipt-builder]');
+    if (builder) builder.classList.toggle('is-quick-inbound', on);
+    document.querySelectorAll('[data-quick-inbound-toggle]').forEach(function (btn) {
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.classList.toggle('is-active', on);
+      btn.classList.toggle('primary-button', on);
+      btn.classList.toggle('ghost-button', !on);
+    });
+    var hint = document.querySelector('[data-quick-inbound-hint]');
+    if (hint) hint.textContent = on ? QUICK_INBOUND_HINT_ON : QUICK_INBOUND_HINT_OFF;
+  }
+
+  function quickInboundFallbackCategory() {
+    var last = state.standaloneLines[state.standaloneLines.length - 1];
+    var fromLine = text(last && last.category);
+    if (fromLine && fromLine !== '快速入庫待補') return fromLine;
+    var selected = text(document.querySelector('[data-purchase-receipt-category]') && document.querySelector('[data-purchase-receipt-category]').value);
+    if (selected && selected !== '快速入庫待補') return selected;
+    var names = standaloneCategoryRows();
+    return names[0] || '';
+  }
+
   function standaloneCategoryRows() {
     /* LZ_DEPT_CAT_20260926: 服裝登入只出服裝分類，電腦／寶輝只出電腦分類。 */
     var fromState = (state.categories || []).map(function (row) {
@@ -2575,7 +2623,7 @@
         '<div class="purchase-receipt-line-fields">',
         '<label class="purchase-receipt-line-name">產品名稱<input value="' + escapeHtml(line.productName || line.productCode || '') + '" data-standalone-line-product-name><small>' + escapeHtml(nameHint) + '</small></label>',
         '<label class="purchase-receipt-line-category">產品分類<select data-standalone-line-category>' + standaloneCategoryOptionsHtml(line.category || '') + '</select></label>',
-        '<label>產品編號<input value="' + escapeHtml(line.productCode || '') + '" data-standalone-line-product-code></label>',
+        '<label class="purchase-receipt-line-code">產品編號<input value="' + escapeHtml(line.productCode || '') + '" data-standalone-line-product-code></label>',
         '<label class="purchase-receipt-line-barcode">公司條碼<input value="' + escapeHtml(line.barcode || '') + '" data-standalone-line-barcode data-barcode-auto="' + (line.barcodeAuto ? '1' : '0') + '" data-barcode-manual="' + (line.barcodeManualEdited ? '1' : '0') + '"><small>' + escapeHtml(barcodeHint) + '</small></label>',
         '<label class="purchase-receipt-line-qty">實收數量<input type="number" min="1" step="1" value="' + Math.max(1, Number(line.qty || 1)) + '" data-standalone-line-qty></label>',
         '<label class="purchase-receipt-line-cost">單件成本<input type="number" min="0" step="1" value="' + Math.max(0, Number(line.unitCostTwd || 0)) + '" data-standalone-line-cost></label>',
@@ -3878,6 +3926,17 @@
     var productCode = text(document.querySelector('[data-purchase-receipt-product-code]') && document.querySelector('[data-purchase-receipt-product-code]').value);
     var barcode = text(document.querySelector('[data-purchase-receipt-product-barcode]') && document.querySelector('[data-purchase-receipt-product-barcode]').value);
     var productName = text(value);
+    if (isQuickInbound() && !category) {
+      category = quickInboundFallbackCategory();
+      var catInput = document.querySelector('[data-purchase-receipt-category]');
+      if (catInput && category) {
+        if (catInput.tagName === 'SELECT') {
+          var found = Array.prototype.some.call(catInput.options, function (opt) { return opt.value === category; });
+          if (!found) catInput.appendChild(new Option(category, category));
+        }
+        catInput.value = category;
+      }
+    }
     if (selectedSku) {
       var product = productById(selectedSku.productId) || {};
       category = productCategory(product) || category;
@@ -5368,6 +5427,12 @@
       addStandaloneSku(text(document.querySelector('[data-purchase-receipt-sku-search]') && document.querySelector('[data-purchase-receipt-sku-search]').value));
       return;
     }
+    var quickToggle = event.target.closest('[data-quick-inbound-toggle]');
+    if (quickToggle) {
+      event.preventDefault();
+      setQuickInbound(!isQuickInbound());
+      return;
+    }
     var standaloneVariant = event.target.closest('[data-purchase-receipt-add-variant]');
     if (standaloneVariant) {
       event.preventDefault();
@@ -5578,6 +5643,7 @@
 
   if (!peekStandaloneDraft()) resetStandaloneReceipt();
   bindStockDocsControls();
+  applyQuickInboundMode();
 
   function applyInboundCatalog(payload) {
     payload = payload || {};

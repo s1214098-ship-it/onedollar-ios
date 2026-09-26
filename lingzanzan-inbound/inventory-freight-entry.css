@@ -1540,3 +1540,67 @@ button.purchase-receipt-line-thumb:focus-visible{
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
+
+/* LZ_QUICK_INBOUND_20260926 */
+[data-quick-inbound-toggle].is-active{
+  background:#f4cf76!important;
+  color:#181118!important;
+  border-color:#e8b75b!important;
+}
+[data-inventory-entry-page] .purchase-receipt-item-entry-title{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px 14px;
+}
+[data-inventory-entry-page] .purchase-receipt-item-entry-title b{
+  flex:1 1 auto;
+}
+[data-inventory-entry-page].is-quick-inbound .inventory-freight-overview,
+[data-inventory-entry-page].is-quick-inbound .inventory-freight-global-search,
+[data-inventory-entry-page].is-quick-inbound .stock-docs-panel,
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-head-grid > label:has([data-purchase-receipt-source-order]),
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-head-grid > label:has([data-purchase-receipt-operator]),
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-note-field,
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-category-field,
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-item-entry-fields > label:has([data-purchase-receipt-product-code]),
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-item-entry-fields > label:has([data-purchase-receipt-product-barcode]),
+[data-inventory-entry-page].is-quick-inbound [data-purchase-receipt-generate-code]{
+  display:none!important;
+}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-item-entry-fields{
+  grid-template-columns:minmax(0,1fr)!important;
+}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-category,
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-code,
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-barcode,
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-color-legend,
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-color-id-field,
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-actions [data-purchase-receipt-focus-search]{
+  display:none!important;
+}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-fields{
+  grid-template-columns:minmax(180px,1.4fr) minmax(140px,1fr) minmax(150px,1fr) 88px 100px!important;
+}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-name,
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-color,
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-size{
+  grid-column:auto!important;
+}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-color-split{
+  min-height:0!important;
+  height:40px!important;
+  grid-template-columns:1fr!important;
+}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-photo{
+  min-width:196px;
+}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-jump-search{
+  display:none!important;
+}
+@media(max-width:760px){
+  [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-fields{
+    grid-template-columns:1fr!important;
+  }
+}
+
