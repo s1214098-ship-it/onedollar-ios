@@ -851,6 +851,16 @@
     var category = text(document.querySelector('[data-purchase-receipt-category]') && document.querySelector('[data-purchase-receipt-category]').value);
     var input = document.querySelector('[data-purchase-receipt-product-code]');
     if (!input) return '';
+    var search = text(document.querySelector('[data-purchase-receipt-sku-search]') && document.querySelector('[data-purchase-receipt-sku-search]').value);
+    var typed = typedProductCodeFromScan(search);
+    if (typed && !force) {
+      if (!input.value || input.dataset.receiptCodeSource === 'auto') {
+        input.value = typed;
+        input.dataset.receiptCodeSource = 'typed';
+        setStandaloneCodeStatus('使用已輸入的產品編號 ' + typed + '，不會依分類發明下一號。', 'ok');
+      }
+      return input.value || typed;
+    }
     if (!force && input.value && input.dataset.receiptCodeSource !== 'auto') return input.value;
     var result = standaloneCategoryNextProductCode(category);
     if (!result.code) {
@@ -1649,6 +1659,30 @@
     return /^[A-Za-z0-9\-_]+$/.test(compact) && /[A-Za-z]/.test(compact) && /\d/.test(compact);
   }
 
+  function peelProductCodeBeforeP(compact) {
+    var mid = String(compact || '').toUpperCase().match(/^([A-Z]{1,12}\d{1,8})P\d+$/);
+    return mid ? mid[1] : '';
+  }
+
+  function typedProductCodeFromScan(value) {
+    /* LZ_TYPED_CODE_20260926: EO7 / EO7P923 用打的貨號，禁止分類發明 UND002. */
+    var compact = text(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!compact) return '';
+    if (/^[A-Z]{1,12}\d{1,8}$/.test(compact) && compact.length <= 14) return compact;
+    var legacy = parseLegacyPCostColorBarcode(compact);
+    if (legacy && legacy.base) return normalizeProductCode(legacy.base);
+    var concat = null;
+    try { concat = receivedParseConcatBarcode(compact, {}, {}, {}); } catch (error) { concat = null; }
+    if (concat && concat.base && String(concat.base).length < compact.length) return normalizeProductCode(concat.base);
+    return peelProductCodeBeforeP(compact);
+  }
+
+  function standaloneNameFromTypedScan(value, productCode) {
+    var raw = text(value);
+    if (/[\u4e00-\u9fff]/.test(raw)) return raw;
+    return text(productCode) || raw;
+  }
+
   function uniqueBarcodeKeys(values) {
     var seen = {};
     var out = [];
@@ -1947,6 +1981,13 @@
     var liveCat = liveCategoryForLine(line, product);
     if (liveCat) line.category = liveCat;
     if (!line.productCode) line.productCode = text((product && (product.code || product.productLine)) || sku.productCode || line.productName);
+    var typedFromLine = typedProductCodeFromScan(line.productName) || typedProductCodeFromScan(line.legacyBarcode);
+    var currentCode = normalizeProductCode(line.productCode);
+    var catalogOwnsCurrent = !!(product && product.id && !product.temporaryFreightProduct && normalizeProductCode(product.code || product.productLine) === currentCode);
+    if (typedFromLine && currentCode && currentCode !== typedFromLine && /^[A-Z]{2,4}\d{3}$/.test(currentCode) && !catalogOwnsCurrent) {
+      line.productCode = typedFromLine;
+      if (!/[\u4e00-\u9fff]/.test(text(line.productName))) line.productName = typedFromLine;
+    }
     var colorVisible = text(line.color || line.colorName);
     if (receivedIsPlaceholderColor(colorVisible) && text(line.colorName) && !receivedIsPlaceholderColor(line.colorName)) colorVisible = text(line.colorName);
     if (receivedIsPlaceholderColor(colorVisible) && text(line.color) && !receivedIsPlaceholderColor(line.color)) colorVisible = text(line.color);
@@ -2172,9 +2213,11 @@
 
   function inboundProductCodeQuery(value) {
     var compact = text(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (/^[A-Z]{2,8}\d{1,5}$/.test(compact)) return compact;
+    if (/^[A-Z]{1,8}\d{1,5}$/.test(compact)) return compact;
     var parsed = parseLegacyPCostColorBarcode(compact);
-    if (parsed && parsed.base && /^[A-Z]{2,8}\d{1,5}$/.test(parsed.base)) return parsed.base;
+    if (parsed && parsed.base && /^[A-Z]{1,8}\d{1,5}$/.test(parsed.base)) return parsed.base;
+    var peeled = peelProductCodeBeforeP(compact);
+    if (peeled && /^[A-Z]{1,8}\d{1,5}$/.test(peeled)) return peeled;
     return '';
   }
 
@@ -2474,8 +2517,11 @@
       if (!finalMatches.length) {
         host._matches = [];
         var parsedOldSuggest = parseLegacyPCostColorBarcode(query);
-        if (isQuickInbound() && parsedOldSuggest && parsedOldSuggest.base) {
-          host.innerHTML = '<p>舊條碼：成本 NT$' + escapeHtml(parsedOldSuggest.cost) + (parsedOldSuggest.colorName ? '、' + escapeHtml(parsedOldSuggest.colorName) : '，顏色請在列上填') + '。按加入即可帶入，不必等對到庫存。</p>';
+        var typedSuggest = typedProductCodeFromScan(query);
+        if (parsedOldSuggest && parsedOldSuggest.base) {
+          host.innerHTML = '<p>舊條碼：成本 NT$' + escapeHtml(parsedOldSuggest.cost) + (parsedOldSuggest.colorName ? '、' + escapeHtml(parsedOldSuggest.colorName) : '，顏色請在列上填') + '。按加入即可帶入貨號 ' + escapeHtml(parsedOldSuggest.base) + '，不必等對到庫存。</p>';
+        } else if (typedSuggest) {
+          host.innerHTML = '<p>查無現有庫存。按加入會用產品編號 <b>' + escapeHtml(typedSuggest) + '</b> 建檔，不會依分類發明下一號。</p>';
         } else {
           host.innerHTML = looksLikeBarcodeQuery(query)
             ? '<p>查無相符產品；已用完整條碼絕對比對（含貼紙 P 在後與資料庫 P 在中間的同一碼）。請確認貼紙與庫存編號。</p>'
@@ -4005,6 +4051,8 @@
         catInput.value = category;
       }
     }
+    var typedCode = typedProductCodeFromScan(value);
+    if (typedCode) productCode = typedCode;
     if (selectedSku) {
       var product = productById(selectedSku.productId) || {};
       category = productCategory(product) || category;
@@ -4015,34 +4063,45 @@
       addStandaloneSkuRecord(selectedSku, { productName: productName || productCode, category: category, productCode: productCode, sampleBarcode: barcode, taiwanBarcode: barcode });
       return;
     }
+    var parsedOld = parseLegacyPCostColorBarcode(value);
+    if (parsedOld && parsedOld.base) {
+      addStandaloneSkuRecord({}, {
+        productName: parsedOld.base,
+        productCode: parsedOld.base,
+        category: category || quickInboundFallbackCategory(),
+        sampleBarcode: text(value),
+        taiwanBarcode: text(value),
+        colorName: parsedOld.colorName || '',
+        color: parsedOld.colorName || '',
+        sizeName: parsedOld.sizeName,
+        size: parsedOld.sizeName,
+        unitCostTwd: Number(parsedOld.cost || 0),
+        existingTwdCost: Number(parsedOld.cost || 0),
+        fixedTwdCost: true
+      });
+      standaloneMessage(parsedOld.colorName
+        ? ('舊條碼已帶入成本 NT$' + parsedOld.cost + '、' + parsedOld.colorName + '。顏色不對直接改。')
+        : ('舊條碼已帶入成本 NT$' + parsedOld.cost + '；顏色認不出來，請在列上填。'), 'ok');
+      return;
+    }
+    if (typedCode) {
+      addStandaloneSkuRecord({}, {
+        productName: standaloneNameFromTypedScan(value, typedCode),
+        productCode: typedCode,
+        category: category || quickInboundFallbackCategory(),
+        sampleBarcode: text(value),
+        taiwanBarcode: text(value)
+      });
+      standaloneMessage('已用產品編號 ' + typedCode + ' 加入；不會依分類發明下一號。顏色認不出來就在列上填。', 'ok');
+      return;
+    }
     if (looksLikeBarcodeQuery(value)) {
-      var parsedOld = parseLegacyPCostColorBarcode(value);
-      if (isQuickInbound() && parsedOld && parsedOld.base) {
-        addStandaloneSkuRecord({}, {
-          productName: parsedOld.base,
-          productCode: parsedOld.base,
-          category: category || quickInboundFallbackCategory(),
-          sampleBarcode: text(value),
-          taiwanBarcode: text(value),
-          colorName: parsedOld.colorName || '',
-          color: parsedOld.colorName || '',
-          sizeName: parsedOld.sizeName,
-          size: parsedOld.sizeName,
-          unitCostTwd: Number(parsedOld.cost || 0),
-          existingTwdCost: Number(parsedOld.cost || 0),
-          fixedTwdCost: true
-        });
-        standaloneMessage(parsedOld.colorName
-          ? ('舊條碼已帶入成本 NT$' + parsedOld.cost + '、' + parsedOld.colorName + '。顏色不對直接改。')
-          : ('舊條碼已帶入成本 NT$' + parsedOld.cost + '；顏色認不出來，請在列上填。'), 'ok');
-        return;
-      }
       standaloneMessage('掃到的完整條碼沒有對到現有產品；不會要求先填分類。請改搜產品編號，或先輸入分類再建立新品。', 'error');
       renderStandaloneSkuSuggest(value);
       return;
     }
     if (productCode || barcode) {
-      addStandaloneSkuRecord(selectedSku || {}, { productName: productName || productCode, category: category, productCode: productCode, sampleBarcode: barcode, taiwanBarcode: barcode });
+      addStandaloneSkuRecord(selectedSku || {}, { productName: standaloneNameFromTypedScan(productName, productCode) || productName || productCode, category: category, productCode: productCode, sampleBarcode: barcode, taiwanBarcode: barcode });
       return;
     }
     if (!category) { standaloneMessage('請先選擇產品分類；分類會決定產品編號的第一個字首與流水號。', 'error'); document.querySelector('[data-purchase-receipt-category]')?.focus(); return; }
