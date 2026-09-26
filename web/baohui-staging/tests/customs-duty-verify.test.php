@@ -84,7 +84,10 @@ expect(str_contains($js, 'baohui.customsDutyBatchCollapsed'), 'remembers collaps
 expect(str_contains($js, 'data-cd-batch-toggle'), 'adds a collapse toggle on the batch card');
 expect(str_contains($js, 'is-collapsed'), 'collapsed card hides the table');
 expect(str_contains($js, '筆待查核'), 'collapsed header still shows pending count');
-expect(str_contains($js, 'return pending === 0'), 'defaults to collapsed when nothing is pending');
+expect(str_contains($js, 'defaultCollapsed: pending === 0'), 'defaults to collapsed when nothing is pending');
+expect(str_contains($js, 'baohui.customsDutyStatCollapsed'), 'remembers 快遞收費統計 collapse');
+expect(str_contains($js, 'ensureStatCollapse'), 'wires collapse onto 快遞收費統計');
+expect(str_contains($js, '筆有差額'), 'collapsed 統計 header shows gap count');
 
 function batch_pending(array $groups): int
 {
@@ -108,6 +111,36 @@ $shot = [
 expect(batch_pending($shot) === 2, 'screenshot has 2 pending rows so table stays open by default');
 expect(batch_pending([['diff' => 0], ['diff' => 0]]) === 0, 'all 剛好 defaults to collapsed');
 expect(batch_pending([['diff' => 40, 'resolved' => true]]) === 0, 'resolved gaps do not keep the table forced open');
+
+function stat_gap(array $groups): array
+{
+    $month = [];
+    foreach ($groups as $g) {
+        $name = (string)($g['logisticsText'] ?? '未填物流');
+        $month[$name] = (int)($month[$name] ?? 0) + (int)($g['diff'] ?? 0);
+    }
+    $pending = 0;
+    foreach ($month as $diff) {
+        if ($diff !== 0) {
+            $pending++;
+        }
+    }
+    return ['total' => count($month), 'pending' => $pending];
+}
+
+$statShot = [
+    ['logisticsText' => '2026-07-27 | 新竹收費', 'diff' => -6232],
+    ['logisticsText' => '2026-08-04 | 新竹收費', 'diff' => 3],
+    ['logisticsText' => '2026-07-28 | 宅急便收費', 'diff' => -2532],
+    ['logisticsText' => '2026-08-24 | 新竹收費', 'diff' => 1],
+    ['logisticsText' => '2026-09-16 | 宅急便收費', 'diff' => 0],
+    ['logisticsText' => '2026-07-28 | 新竹收費', 'diff' => -1048],
+    ['logisticsText' => '2026-08-15 | 宅急便收費', 'diff' => 0],
+    ['logisticsText' => '2026-09-24 | 宅急便收費', 'diff' => 0],
+];
+$gap = stat_gap($statShot);
+expect($gap['total'] === 8, '統計 groups by 日期/物流 line');
+expect($gap['pending'] === 5, 'screenshot 統計 has 5 non-zero diffs so stays open until clicked');
 
 if ($failed > 0) {
     fwrite(STDERR, $failed . " assertion(s) failed\n");
