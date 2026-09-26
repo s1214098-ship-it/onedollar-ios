@@ -1615,8 +1615,15 @@ button.purchase-receipt-line-thumb:focus-visible{
 [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-photo{
   min-width:196px;
 }
-[data-inventory-entry-page].is-quick-inbound .purchase-receipt-jump-search{
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-jump-search,
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-code-status{
   display:none!important;
+}
+[data-inventory-entry-page].is-quick-inbound .purchase-receipt-product-suggest p{
+  margin:0;
+  padding:8px 12px;
+  font-size:13px;
+  line-height:1.4;
 }
 @media(max-width:760px){
   [data-inventory-entry-page].is-quick-inbound .purchase-receipt-line-fields{

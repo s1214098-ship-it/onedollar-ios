@@ -1668,6 +1668,51 @@
     return '';
   }
 
+  function knownLegacyColorPrefix(rest) {
+    /* Prefer listed 3-digit colours, then 2-digit 91–99. Do not swallow size as 963. */
+    rest = String(rest || '');
+    var known3 = ['952', '932', '931', '930', '929', '928', '924', '923', '922', '912', '910', '907', '904', '902'];
+    var i;
+    for (i = 0; i < known3.length; i += 1) {
+      if (rest.indexOf(known3[i]) === 0) return known3[i];
+    }
+    if (/^(91|92|93|94|95|96|98|99)/.test(rest)) return rest.slice(0, 2);
+    return '';
+  }
+
+  function decodeReceiptSizeFromCode(sizeCode) {
+    var raw = String(sizeCode || '').replace(/^0(?=\d)/, '');
+    if (!raw || raw === '0') return 'NO SIZE';
+    var map = { '1': 'XS', '2': 'S', '3': 'M', '4': 'L', '5': 'XL', '6': '2XL', '7': '3XL', '8': '4XL' };
+    if (map[raw]) return map[raw];
+    if (/^\d{1,2}$/.test(String(sizeCode)) && String(sizeCode) !== '00') return String(Number(sizeCode));
+    return 'NO SIZE';
+  }
+
+  function parseLegacyPCostColorBarcode(raw) {
+    /* LZ_OLD_BARCODE_PCOST_20260926: 舊條碼 {編號}P{成本}{色碼}{尺碼}. 成本是 P 後面到 9（色碼開頭）之前. */
+    var compact = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var mid = compact.match(/^([A-Z][A-Z0-9]*)P(\d+)$/);
+    if (!mid) return null;
+    var digits = mid[2];
+    var nineAt = digits.search(/9/);
+    if (nineAt < 1) return null;
+    var cost = digits.slice(0, nineAt).replace(/^0+(?=\d)/, '');
+    var rest = digits.slice(nineAt);
+    var colorCode = knownLegacyColorPrefix(rest);
+    var sizeRaw = colorCode ? rest.slice(colorCode.length) : '';
+    if (!cost) return null;
+    return {
+      base: mid[1],
+      cost: cost,
+      colorCode: colorCode,
+      sizeCode: padReceiptSizeCode(sizeRaw || '00'),
+      sizeName: decodeReceiptSizeFromCode(sizeRaw || '00'),
+      colorName: receivedColorNameFromCode(colorCode) || '',
+      raw: compact
+    };
+  }
+
   function padReceiptSizeCode(value) {
     var raw = text(value).toUpperCase().replace(/[\s_\-]/g, '');
     if (!raw || raw === '00' || raw === 'NOSIZE') return '00';
@@ -2127,8 +2172,10 @@
 
   function inboundProductCodeQuery(value) {
     var compact = text(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (!/^[A-Z]{2,8}\d{1,5}$/.test(compact)) return '';
-    return compact;
+    if (/^[A-Z]{2,8}\d{1,5}$/.test(compact)) return compact;
+    var parsed = parseLegacyPCostColorBarcode(compact);
+    if (parsed && parsed.base && /^[A-Z]{2,8}\d{1,5}$/.test(parsed.base)) return parsed.base;
+    return '';
   }
 
   function skuMatchesProductCodeFast(sku, code) {
@@ -2426,9 +2473,14 @@
       var finalMatches = again.length ? again : (remote || []);
       if (!finalMatches.length) {
         host._matches = [];
-        host.innerHTML = looksLikeBarcodeQuery(query)
-          ? '<p>查無相符產品；已用完整條碼絕對比對（含貼紙 P 在後與資料庫 P 在中間的同一碼）。請確認貼紙與庫存編號。</p>'
-          : '<p>查無相符產品；可改用完整產品編號、SKU 或條碼搜尋。</p>';
+        var parsedOldSuggest = parseLegacyPCostColorBarcode(query);
+        if (isQuickInbound() && parsedOldSuggest && parsedOldSuggest.base) {
+          host.innerHTML = '<p>舊條碼：成本 NT$' + escapeHtml(parsedOldSuggest.cost) + (parsedOldSuggest.colorName ? '、' + escapeHtml(parsedOldSuggest.colorName) : '，顏色請在列上填') + '。按加入即可帶入，不必等對到庫存。</p>';
+        } else {
+          host.innerHTML = looksLikeBarcodeQuery(query)
+            ? '<p>查無相符產品；已用完整條碼絕對比對（含貼紙 P 在後與資料庫 P 在中間的同一碼）。請確認貼紙與庫存編號。</p>'
+            : '<p>查無相符產品；可改用完整產品編號、SKU 或條碼搜尋。</p>';
+        }
         host.hidden = false;
         return;
       }
@@ -2536,6 +2588,8 @@
       fixedTwdCost: !!source.fixedTwdCost
     }), batch || null).companyInternalCost;
     if (!cost) cost = Number(sku.cost || 0);
+    var scannedCost = Math.max(0, Number(source.unitCostTwd || source.existingTwdCost || 0));
+    if (scannedCost > 0) cost = scannedCost;
     var temporaryProduct = !!(product.temporaryFreightProduct || sku.temporaryFreightSku || /^freight-(?:photo|search):/i.test(text(sku.productId)));
     var catalogProduct = productByCode(source.productCode || product.code || product.productLine || product.id) || productById(sku.productId);
     if (temporaryProduct && catalogProduct && !catalogProduct.temporaryFreightProduct) {
@@ -3040,6 +3094,15 @@
     }
     var mid = code.match(/^([A-Z]+\d*)P(\d+)$/);
     if (!mid) return null;
+    var legacy = parseLegacyPCostColorBarcode(code);
+    if (legacy && legacy.cost) {
+      return {
+        base: productCode || legacy.base,
+        colorCode: legacy.colorCode || skuColor || '',
+        sizeCode: legacy.sizeCode || '',
+        cost: legacy.cost
+      };
+    }
     var base = mid[1];
     var digits = mid[2];
     var colorCode = '';
@@ -3948,6 +4011,27 @@
       return;
     }
     if (looksLikeBarcodeQuery(value)) {
+      var parsedOld = parseLegacyPCostColorBarcode(value);
+      if (isQuickInbound() && parsedOld && parsedOld.base) {
+        addStandaloneSkuRecord({}, {
+          productName: parsedOld.base,
+          productCode: parsedOld.base,
+          category: category || quickInboundFallbackCategory(),
+          sampleBarcode: text(value),
+          taiwanBarcode: text(value),
+          colorName: parsedOld.colorName || '',
+          color: parsedOld.colorName || '',
+          sizeName: parsedOld.sizeName,
+          size: parsedOld.sizeName,
+          unitCostTwd: Number(parsedOld.cost || 0),
+          existingTwdCost: Number(parsedOld.cost || 0),
+          fixedTwdCost: true
+        });
+        standaloneMessage(parsedOld.colorName
+          ? ('舊條碼已帶入成本 NT$' + parsedOld.cost + '、' + parsedOld.colorName + '。顏色不對直接改。')
+          : ('舊條碼已帶入成本 NT$' + parsedOld.cost + '；顏色認不出來，請在列上填。'), 'ok');
+        return;
+      }
       standaloneMessage('掃到的完整條碼沒有對到現有產品；不會要求先填分類。請改搜產品編號，或先輸入分類再建立新品。', 'error');
       renderStandaloneSkuSuggest(value);
       return;
