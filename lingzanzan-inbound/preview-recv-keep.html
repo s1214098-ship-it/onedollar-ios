@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>入庫關閉預覽</title>
+  <style>
+    body { font-family: sans-serif; background:#1b161c; color:#fff8ed; padding:24px; }
+    .form { background:#241c24; padding:16px; border-radius:12px; margin-bottom:16px; }
+    .freight-received-print-ready { position:fixed; inset:0; z-index:2147483646; display:grid; place-items:center; background:rgba(15,12,17,.78); }
+    .freight-received-print-ready > section { width:min(520px,92vw); background:#f4fff9; color:#163c2f; border-radius:20px; padding:24px; }
+    .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+    button { min-height:40px; padding:0 16px; border-radius:999px; border:0; font-weight:800; cursor:pointer; }
+    [data-freight-print-ready-close] { background:#17352c; color:#e9f8f2; }
+    .fifo { margin-top:12px; }
+  </style>
+</head>
+<body>
+  <div class="form">
+    <p>產品 <b>NB012</b> 數量 <input data-freight-qty value="3" style="width:48px"></p>
+    <p>工作台搜尋 <input data-freight-workbench-search value="NB012"></p>
+    <p class="fifo">FIFO 符合 <b data-fifo-count>30</b> 位</p>
+  </div>
+  <div class="freight-received-print-ready" data-freight-received-print-ready>
+    <section>
+      <small>INTERNAL USE DEDUCTED</small>
+      <h3>公司自用已扣庫存</h3>
+      <p>台灣寶輝倉 本次已正式驗收 1 件。</p>
+      <div class="actions">
+        <button type="button">立即列印本次條碼</button>
+        <button type="button" data-freight-print-ready-close onclick="window.lzDismissFreightReceivedOverlay&&window.lzDismissFreightReceivedOverlay(event);return false;">關閉</button>
+      </div>
+    </section>
+  </div>
+  <script>
+    function setFreightFifoProductScope() {
+      document.querySelector('[data-fifo-count]').textContent = '30';
+    }
+    function closeInventoryBarcodePrintOverlay() {}
+    window.lzDismissFreightReceivedOverlay = function (event) {
+      if (event) { event.preventDefault(); event.stopPropagation(); }
+      document.querySelectorAll('[data-freight-received-print-ready]').forEach(function (node) {
+        node.style.display = 'none';
+        node.setAttribute('hidden', '');
+      });
+      setFreightFifoProductScope([], '');
+      return false;
+    };
+    document.addEventListener('pointerdown', function (event) {
+      var t = event.target && event.target.closest && event.target.closest('[data-freight-print-ready-close]');
+      if (t) window.lzDismissFreightReceivedOverlay(event);
+    }, true);
+  </script>
+</body>
+</html>

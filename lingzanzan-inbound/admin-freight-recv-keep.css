@@ -1,0 +1,16 @@
+/* LZ_RECV_KEEP_FORM_20260927
+   入庫完成層必須高過 FIFO 調整層與殘留列印層，關閉才點得到。 */
+.freight-received-print-ready {
+  z-index: 2147483646 !important;
+  pointer-events: auto !important;
+}
+.freight-received-print-ready > section,
+.freight-received-print-ready .freight-received-print-actions,
+.freight-received-print-ready [data-freight-print-ready-close] {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 8;
+}
+.freight-received-other-stock[hidden] {
+  display: none !important;
+}
