@@ -1,0 +1,18 @@
+/* Live sidecar excerpt patched into assets/admin.css + admin-black-buttons.css
+ * Marker: LZ_SIZE_STEP_20260927 / LZ_RECV_CLOSE_KEEP_20260927
+ */
+.freight-received-print-ready {
+  z-index: 11040 !important;
+  pointer-events: auto !important;
+}
+.freight-received-other-stock[hidden] {
+  display: none !important;
+}
+.inventory-label-purpose-picker { z-index: 11020; }
+.inventory-barcode-print-overlay { z-index: 11060; }
+.freight-size-matrix-cell > span {
+  display: grid;
+  grid-template-columns: 32px minmax(36px,1fr) 32px;
+  align-items: center;
+  gap: 6px;
+}
