@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>列印倉庫位置預覽</title>
+  <link rel="stylesheet" href="./admin-print-wh-pick.css">
+  <style>
+    body { margin: 24px; background: #171319; color: #fffaf4; font-family: sans-serif; }
+    .inventory-print-selector-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+  </style>
+</head>
+<body>
+  <div class="inventory-print-selector-tools">
+    <div class="inventory-print-warehouse-pick" role="group" aria-label="列印倉庫位置">
+      <small>列印倉庫位置</small>
+      <button type="button" class="inventory-print-warehouse-btn" data-inventory-print-warehouse="TW">台灣倉</button>
+      <button type="button" class="inventory-print-warehouse-btn is-active" data-inventory-print-warehouse="CN">中國倉</button>
+      <button type="button" class="inventory-print-warehouse-btn" data-inventory-print-warehouse="ID">印尼倉</button>
+      <em>跟現在庫存在哪無關，貨還在中國倉也能先印台灣倉標。</em>
+    </div>
+  </div>
+  <script>
+    document.querySelectorAll('[data-inventory-print-warehouse]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('[data-inventory-print-warehouse]').forEach(function (other) {
+          other.classList.toggle('is-active', other === btn);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
