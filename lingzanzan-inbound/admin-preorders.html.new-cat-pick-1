@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <script src="./asset-boot.php"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>LINGZANZAN 預購打單</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260927-cat-pick-1">
+  <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css" data-admin-navigation-style>
+  <link rel="lz-asset" data-lz-href="./assets/member-risk-v2.css?v=20260822-blacklist-ui-1" data-member-risk-style>
+  <link rel="lz-asset" data-lz-href="./assets/order-payments.css">
+  <link rel="lz-asset" data-lz-href="./assets/preorder-enhancements.css?v=20260922-preorder-layout-1">
+  <link rel="lz-asset" data-lz-href="./assets/preorder-recent-picker.css">
+  <link rel="lz-asset" data-lz-href="./assets/warehouse-balance-visibility.css">
+  <link rel="lz-asset" data-lz-href="./assets/preorder-form-contrast.css?v=20260922-preorder-layout-1">
+  <link rel="lz-asset" data-lz-href="./assets/myship-daily-report.css?v=20260925-daily-ops-1">
+</head>
+<body class="labels-ready">
+  <script>
+    (function () {
+      var key = 'lingzanzan-v1-admin-login';
+      var params = new URLSearchParams(location.search);
+      if (params.get('resetLogin') === '1') localStorage.removeItem(key);
+      if (params.get('login') === 'sales') {
+        localStorage.removeItem(key);
+        document.documentElement.setAttribute('data-sales-entry', 'true');
+        return;
+      }
+      try {
+        var cached = JSON.parse(localStorage.getItem(key) || '{}');
+        if (cached.version === 'password-login-v2' && cached.until && Date.now() < cached.until && cached.role !== 'sales') {
+          document.body.classList.add('is-admin-unlocked');
+        }
+      } catch (error) {}
+    }());
+  </script>
+
+  <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="LINGZANZAN">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>請輸入管理者或行政人員帳號與密碼登入。</span>
+      <input data-login-account type="text" placeholder="輸入管理者帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入管理者密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button>
+      <a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint>登入後同一台瀏覽器 24 小時內不用重複登入。</small>
+    </form>
+  </div>
+
+  <div class="admin-top-actions" hidden>
+    <span data-current-user hidden></span>
+    <a href="./">回首頁</a>
+    <button type="button" data-logout-admin>登出</button>
+  </div>
+
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+      <nav>
+        <a href="./admin.html">總覽</a>
+        <a href="./admin-security.html">管理者</a>
+        <a href="./admin-staff.html">員工管理</a>
+        <a href="./admin-members.html">會員管理</a>
+        <a href="./admin-sales.html">業務管理</a>
+        <a href="./admin-products.html">產品管理</a>
+        <a href="./admin-orders.html">現貨打單</a>
+        <a class="preorder-menu-link is-active" href="./admin-preorders.html">預購打單</a>
+        <a href="./admin-preorder-waiting.html">預購等待區</a>
+        <a class="purchase-menu-link" href="./admin-purchase.html">採購區</a>
+        <a href="./admin-live.html">直播打單</a>
+        <a href="./admin-inventory.html">貨倉管理</a>
+        <a href="./admin-logistics.html">物流回報</a>
+        <a href="./admin-freight.html">物流集運</a>
+        <a href="./admin-profit.html">營銷毛利</a>
+        <a href="./admin-backup.html">備份還原</a>
+      </nav>
+    </aside>
+
+    <main class="admin-main" data-preorders-page>
+      <header class="admin-hero">
+        <div>
+          <p>PREORDER WORKFLOW</p>
+          <h1>預購打單</h1>
+          <span>本頁專門建立客戶預購；採購改成「已下單」後，請到獨立的預購等待區追蹤物流、到貨與待出貨。</span>
+        </div>
+        <a href="./admin.html">回管理者首頁</a>
+      </header>
+
+      <section class="panel preorder-warehouse-stat-panel" aria-labelledby="preorder-warehouse-stat-title">
+        <div class="preorder-freight-balance" data-preorder-freight-balance aria-live="polite">
+          <p class="empty-state">正在讀取預購倉需求、提撥與欠客提醒…</p>
+        </div>
+      </section>
+
+      <section class="panel" data-manual-preorder-panel>
+        <div class="panel-head">
+          <div>
+            <small>PREORDER PURCHASE</small>
+            <h2>建立預購訂單</h2>
+          </div>
+          <div class="segmented-actions">
+            <button type="button" data-preorder-view="form">建立預購</button>
+            <button type="button" class="ghost-button" data-preorder-view="list">管理／刪除預購單</button>
+            <a class="ghost-button" href="./admin-order-tracking.html#preorder">訂單列表／進度</a>
+            <a class="ghost-button" href="./admin-preorder-waiting.html">前往預購等待區</a>
+          </div>
+        </div>
+
+        <form data-manual-preorder-form class="manual-preorder-form" novalidate>
+          <div class="manual-preorder-edit-banner" data-manual-preorder-edit-banner hidden>
+            <div><strong>正在續加商品</strong><span>原訂單與舊商品會完整保留。</span></div>
+            <button type="button" data-manual-preorder-edit-cancel>取消續加</button>
+          </div>
+          <label class="preorder-field preorder-field-destination">採購倉 / 最終目的地
+            <select name="warehouse" data-manual-preorder-warehouse>
+              <option value="採購倉 → 台灣">採購倉 → 台灣</option>
+              <option value="採購倉 → 印尼">採購倉 → 印尼</option>
+              <option value="採購倉 → 中國倉">採購倉 → 中國倉</option>
+            </select>
+          </label>
+          <label class="preorder-field preorder-field-sales">負責業務（必選）
+            <select name="sales" data-admin-order-sales required>
+              <option value="">請先選這張單是哪位業務</option>
+              <option value="lingzanzan">LINGZANZAN（公司）</option>
+              <option value="any">ANY（業務）</option>
+            </select>
+          </label>
+          <label class="preorder-field">客戶姓名
+            <input name="customerName" required data-manual-customer-name placeholder="輸入客戶姓名">
+          </label>
+          <label class="preorder-field">電話
+            <input name="customerPhone" data-manual-customer-phone placeholder="電話號碼 / WhatsApp">
+          </label>
+          <div class="preorder-field preorder-field-photo" data-manual-customer-photo-dropzone tabindex="0" aria-label="客戶圖片拖放或貼上區">
+            <span>客戶圖片／截圖</span>
+            <small>把圖片直接拖到這裡，或複製圖片後在此按 ⌘V／Ctrl+V</small>
+            <label class="preorder-customer-photo-pick">選擇圖片
+              <input name="customerImage" type="file" accept="image/*" data-manual-customer-photo>
+            </label>
+            <div class="preorder-customer-photo-tools">
+              <button type="button" data-manual-customer-photo-paste>貼上截圖</button>
+              <button type="button" data-manual-customer-photo-scissors>✂ 剪刀截圖</button>
+            </div>
+            <div class="preorder-customer-photo-preview" data-manual-customer-photo-preview hidden></div>
+          </div>
+          <label class="preorder-field preorder-field-address">收件地址 / 超商資料
+            <input name="address" data-manual-customer-address placeholder="預購可稍後補；出貨前再確認地址或門市">
+          </label>
+          <label class="preorder-field">配送方式
+            <select name="deliveryType" data-manual-preorder-delivery data-fee>
+              <option value="超商取貨 NT$70">超商取貨 NT$70</option>
+              <option value="住家宅配 NT$100">住家宅配 NT$100</option>
+              <option value="自取 / 不收運費">自取 / 不收運費</option>
+            </select>
+          </label>
+          <label class="preorder-field">運費
+            <input name="shippingFee" type="number" min="0" step="1" value="70" data-manual-preorder-shipping>
+          </label>
+          <small class="preorder-linked-shipping-hint" data-manual-linked-shipping-hint hidden></small>
+          <label class="preorder-field preorder-field-note">備註
+            <input name="note" placeholder="例如：預購、指定日期">
+          </label>
+          <div class="order-customer-save-bar" data-order-customer-save-bar="admin-preorder">
+            <div><strong>先儲存客戶資料</strong><small>新開打單頁保持空白；需要接續時再手動帶入已存客戶。</small></div>
+            <button type="button" class="primary-button" data-order-customer-save>儲存客戶資料</button>
+            <button type="button" class="ghost-button" data-order-customer-load>帶入已存客戶</button>
+            <button type="button" class="ghost-button" data-order-customer-clear>清除已存客戶</button>
+            <output data-order-customer-save-status>尚未儲存</output>
+          </div>
+
+          <div class="manual-preorder-product">
+            <div class="manual-preorder-source-rule" role="status">
+              <strong>預購打單預設由台灣倉出貨</strong>
+              <span>先匹配並保留台灣倉現貨，不足數量才進預購倉等待到貨；只有你手動改選目的地，才會改由其他倉庫出貨。轉正式時會扣除預購到貨配額與所選實體倉的匹配庫存，不會重複扣庫。</span>
+            </div>
+            <label class="preorder-product-search-field">搜尋品牌／產品（台灣／中國／印尼／預購倉）
+              <input data-manual-preorder-search placeholder="輸入品牌、產品編號、名稱或條碼" autocomplete="off">
+            </label>
+            <button type="button" class="ghost-button" data-manual-preorder-show-warehouse>查看預購倉商品</button>
+            <button type="button" class="image-search-button preorder-image-search-button" data-admin-image-search data-admin-image-target="manual-preorder">用圖片找產品</button>
+            <div class="manual-preorder-suggest" data-manual-preorder-suggest></div>
+            <section class="preorder-recent-picker is-collapsed" data-preorder-recent-picker>
+              <div class="preorder-recent-head">
+                <div><h3>近期產品／照片分類</h3><p>不記得編號時再展開；預設最近 7 天、最新建檔優先。</p></div>
+                <div class="preorder-recent-head-actions"><strong data-preorder-recent-count>讀取中…</strong><button type="button" data-preorder-recent-toggle aria-expanded="false">展開瀏覽</button></div>
+              </div>
+              <div class="preorder-recent-toolbar">
+                <div class="preorder-recent-period" role="group" aria-label="建檔日期">
+                  <button type="button" data-preorder-recent-days="1">今天</button>
+                  <button type="button" class="is-active" data-preorder-recent-days="7">最近 7 天</button>
+                  <button type="button" data-preorder-recent-days="0">全部</button>
+                </div>
+                <button type="button" class="preorder-category-open" data-preorder-category-open><span>瀏覽產品分類</span><small>照片選單</small></button>
+                <select data-preorder-recent-category hidden aria-hidden="true"><option value="">全部分類</option></select>
+                <label>排序<select data-preorder-recent-sort><option value="newest">最新建檔優先</option><option value="oldest">最早建檔優先</option></select></label>
+              </div>
+              <div class="preorder-recent-grid" data-preorder-recent-grid>
+                <p class="preorder-recent-empty">正在整理物流集運近期產品…</p>
+              </div>
+              <aside class="preorder-category-modal" data-preorder-category-modal aria-hidden="true">
+                <div class="preorder-category-panel">
+                  <header><div><h3>依產品分類瀏覽</h3><p>看照片選分類，再從近期產品中直接點選。</p></div><button type="button" data-preorder-category-close aria-label="關閉分類">×</button></header>
+                  <div class="preorder-category-grid" data-preorder-category-grid></div>
+                </div>
+              </aside>
+            </section>
+            <section class="preorder-product-pool-panel" aria-label="預購倉產品區">
+              <div class="panel-head">
+                <div>
+                  <p>PREORDER WAREHOUSE</p>
+                  <h3>預購倉產品區</h3>
+                  <span>正式預購商品與豪鴻已有名稱、照片的暫存商品都會顯示在這裡。</span>
+                </div>
+                <strong data-preorder-product-count>讀取中…</strong>
+              </div>
+              <div class="preorder-product-pool" data-preorder-product-pool>
+                <p class="empty-state">正在同步預購倉產品…</p>
+              </div>
+            </section>
+            <div class="preorder-spec-row">
+              <label class="preorder-product-color-field">顏色
+                <select data-preorder-color-select>
+                  <option value="">請選擇顏色</option>
+                  <option value="__custom__">其他／直接輸入</option>
+                </select>
+                <input name="manualColor" data-manual-preorder-color placeholder="也可直接輸入顏色" hidden>
+              </label>
+              <label class="preorder-product-size-field">尺寸
+                <select data-preorder-size-select>
+                  <option value="">請選擇尺寸</option>
+                  <option value="__custom__">其他／直接輸入</option>
+                </select>
+                <input name="manualSize" data-manual-preorder-size placeholder="也可直接輸入尺寸" hidden>
+              </label>
+              <label class="preorder-product-qty-field">數量
+                <span class="preorder-qty-stepper">
+                  <button type="button" data-manual-preorder-qty-minus aria-label="數量減一">−</button>
+                  <input data-manual-preorder-qty type="number" min="1" step="1" value="1">
+                  <button type="button" data-manual-preorder-qty-plus aria-label="數量加一">＋</button>
+                </span>
+                <small data-manual-preorder-qty-limit>選擇產品後顯示可用上限</small>
+              </label>
+              <label class="preorder-product-price-field">客戶單價
+                <input data-manual-preorder-price type="number" min="0" step="1" placeholder="輸入客戶確認價格">
+              </label>
+              <input type="hidden" data-manual-preorder-sku>
+            </div>
+            <label class="preorder-product-photo-field"><span>產品圖片（尚未建檔時上傳）</span><input name="preorderProductImage" type="file" accept="image/*" capture="environment"><span class="preorder-photo-preview" data-preorder-photo-preview>拍照或上傳產品照片</span></label>
+          </div>
+
+          <div data-manual-preorder-selected>尚未選擇產品。</div>
+          <div class="form-actions">
+            <button type="button" class="primary-button" data-manual-preorder-add>加入產品</button>
+            <button type="button" class="ghost-button" data-manual-preorder-clear>清空</button>
+          </div>
+          <div data-manual-preorder-lines></div>
+          <section class="order-entry-total-summary" aria-label="預購訂單金額合計">
+            <span>商品小計 <b data-manual-preorder-products-subtotal>NT$0</b></span>
+            <span>運費 <b data-manual-preorder-shipping-total>NT$70</b></span>
+            <strong>訂單合計 <b class="manual-preorder-total" data-manual-preorder-total data-manual-preorder-grand-total>NT$70</b></strong>
+          </section>
+          <section class="admin-shipment-payment manual-preorder-payment" data-manual-preorder-payment data-payment-status="unpaid">
+            <div class="admin-shipment-payment-head">
+              <b>預購訂金／預收款</b>
+              <span>建單時直接保存到財務；尚未出貨的尾款只列待收，不列客戶欠款。</span>
+            </div>
+            <div class="admin-shipment-payment-grid">
+              <label>本次預購總額
+                <input type="number" readonly data-manual-preorder-payment-total value="0">
+              </label>
+              <label>已收訂金
+                <input type="number" min="0" step="1" data-manual-preorder-payment-deposit value="0">
+              </label>
+              <label>本次收款
+                <input type="number" min="0" step="1" data-manual-preorder-payment-event value="0">
+              </label>
+              <label>本次收款地區
+                <select data-manual-preorder-collection-region>
+                  <option value="TW">台灣收款</option>
+                  <option value="ID">印尼收款</option>
+                </select>
+              </label>
+              <label>印尼收款協助<select data-order-entry-indonesia-mode><option value="">不指定</option><option value="sales_goods">業務自己的貨款</option><option value="company_deposit">公司貨款－印尼業務代收</option></select></label>
+              <label>印尼收款幣別<select data-order-entry-indonesia-currency><option value="TWD">台幣 TWD</option><option value="IDR">印尼盾 IDR</option></select></label>
+              <label>印尼業務實際代收金額<input type="number" min="0" step="1" value="0" data-order-entry-indonesia-original></label>
+              <label>換算匯率（1台幣＝印尼盾）<input type="number" min="1" step="0.01" value="500" data-order-entry-indonesia-rate></label>
+              <label>印尼收款狀態<select data-order-entry-indonesia-status><option value="pending">尚未確認收到</option><option value="received">已收款成功</option></select></label>
+              <label>台灣向客戶代收運費<input type="number" value="0" readonly data-order-entry-indonesia-taiwan-cod></label>
+              <label>退還客戶金額<input type="number" value="0" readonly data-order-entry-indonesia-customer-refund></label>
+              <label>超商實際運費成本<input type="number" value="0" readonly data-order-entry-indonesia-actual-shipping></label>
+              <div class="admin-shipment-indonesia-shipping-rule" data-order-entry-indonesia-rule>上方超商運費維持 NT$70；選擇印尼代收後，這裡會顯示代收100、退客戶100與實際運費分攤。</div>
+              <label>累計已收
+                <input type="number" readonly data-manual-preorder-payment-received value="0">
+              </label>
+              <label>收款日期
+                <input type="date" data-manual-preorder-payment-date>
+              </label>
+              <label>未出貨待收尾款
+                <input type="number" readonly data-manual-preorder-payment-balance value="0">
+              </label>
+              <label>付款狀態
+                <select data-manual-preorder-payment-status disabled>
+                  <option value="unpaid">未收訂金</option>
+                  <option value="partial">部分預收</option>
+                  <option value="paid">預購款已收清</option>
+                </select>
+              </label>
+              <label class="admin-shipment-payment-note">收款備註
+                <input data-manual-preorder-payment-note placeholder="例如：訂金轉帳、現金、尚未收款">
+              </label>
+              <fieldset class="order-entry-reseller" data-order-entry-reseller><legend>RESELLER／下線代收</legend><label>銷售類型<select data-order-reseller-mode><option value="">一般客戶</option><option value="reseller">RESELLER／下線客戶</option></select></label><label>下線姓名／代號<input data-order-reseller-name placeholder="例如：ANY 的下線姓名"></label><label>下線電話<input data-order-reseller-phone inputmode="tel" placeholder="可選填"></label><label>公司結算售價<input type="number" min="0" step="1" value="0" data-order-reseller-base></label><label>客戶實際商品付款<input type="number" min="0" step="1" value="0" data-order-reseller-customer></label><label>下線價差<input type="number" value="0" readonly data-order-reseller-margin></label><label>業務已先付下線<select data-order-reseller-advanced><option value="yes">是，結算時返還業務</option><option value="no">否，公司先保留代收款</option></select></label><label>代墊日期<input type="date" data-order-reseller-advanced-at></label><label class="order-entry-reseller-note">下線備註<input data-order-reseller-note placeholder="付款方式、證明或特殊說明"></label><p data-order-reseller-summary>一般客戶訂單，不產生下線代收款。</p></fieldset>
+            </div>
+            <p data-manual-preorder-payment-summary>尚未收款；未出貨尾款不列為欠款。</p>
+          </section>
+          <button type="submit" class="primary-button manual-preorder-submit">送出預購訂單</button>
+          <output class="manual-preorder-submit-status" data-manual-preorder-submit-status aria-live="polite">尚未送出</output>
+        </form>
+
+        <section data-preorder-list-panel hidden>
+          <div class="logic-note"><b>預購單管理／刪除</b>：名單改由伺服器分頁查詢，每次只載入 10 筆，搜尋時會自動取消上一個尚未完成的請求。誤建的單可直接按「刪除預購」；已下單後的物流、到貨與待出貨進度仍請到「預購等待區」處理。</div>
+          <div class="panel-head">
+            <div>
+              <small>PREORDER CUSTOMER LIST</small>
+              <h2>預購客人表</h2>
+              <span>可先搜尋客戶、業務或狀態，再列印目前篩選到的全部預購客戶與商品明細。</span>
+            </div>
+            <button type="button" class="primary-button" data-print-admin-preorder-customer-list>列印目前預購客人表</button>
+          </div>
+          <section class="preorder-admin-delete-summary" data-preorder-admin-delete-summary aria-live="polite"></section>
+          <section class="preorder-merge-shipment-toolbar" aria-label="預購多單合併出貨">
+            <div>
+              <b>同一客戶多張預購單合併出貨</b>
+              <span>勾選同一支電話、已到貨且准許出貨的預購單；系統會逐張扣除正確倉庫庫存，再合併成同一批當天出貨，運費只計一次。</span>
+            </div>
+            <div class="preorder-merge-shipment-actions">
+              <button type="button" class="ghost-button" data-preorder-select-visible>勾選本頁</button>
+              <button type="button" class="ghost-button" data-preorder-clear-shipment-selection>清除勾選</button>
+              <button type="button" class="primary-button" data-preorder-merge-shipment disabled>產生一張合併單／傳客戶</button>
+            </div>
+            <output data-preorder-merge-shipment-status aria-live="polite">尚未勾選；請在每張預購單左上角勾選。</output>
+          </section>
+          <div class="filter-row preorder-admin-delete-filters">
+            <label class="preorder-fifo-search-field">快速配貨搜尋｜編號／完整條碼／客戶名稱
+              <input data-order-search placeholder="產品、條碼、客戶、物流單號或備註" autocomplete="off" enterkeyhint="search">
+            </label>
+            <label>業務／建立人
+              <select data-order-sales-filter>
+                <option value="all">全部業務</option>
+              </select>
+            </label>
+            <label>顯示狀態
+              <select data-order-status-filter>
+                <option value="all">全部未完成預購</option>
+                <option value="not_ordered">待下單</option>
+                <option value="ordered">已下單</option>
+                <option value="arrived">物流運送中</option>
+                <option value="received">已到貨入庫</option>
+              </select>
+            </label>
+            <div class="preorder-fifo-order-note"><b>配貨順序：最早訂單優先</b><span>依建立時間由舊到新排列（FIFO），請從第 1 順位開始配貨。</span></div>
+            <button type="button" class="ghost-button" data-preorder-search-reset>清除搜尋</button>
+            <button type="button" class="ghost-button" data-refresh-orders>重新整理</button>
+          </div>
+          <div class="preorder-fifo-search-status" data-preorder-fifo-search-status aria-live="polite"></div>
+          <div class="preorder-pager-host preorder-pager-host-top" data-preorder-pager-host aria-live="polite"></div>
+          <div data-preorder-list></div>
+          <div class="preorder-pager-host preorder-pager-host-bottom" data-preorder-pager-host aria-live="polite"></div>
+        </section>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="toast" data-admin-toast hidden></div>
+  <link rel="lz-asset" data-lz-href="./assets/address-helper.css">
+  <link rel="lz-asset" data-lz-href="./assets/preorder-allocation.css">
+  <link rel="lz-asset" data-lz-href="./assets/order-customer-lookup.css?v=20260904-member-row-layout-2">
+<script type="lz/asset" data-lz-src="./assets/admin.js?v=20260927-cat-pick-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/order-customer-lookup.js?v=20260830-phone-min5-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260902-agency-collection-1" defer data-navigation-only></script>
+  <script>
+    (function () {
+      var loaded = false;
+      var sources = [
+        './assets/admin-labels.js?v=20260730-local313-brand-product-search-1',
+        './assets/preorder-enhancements.js?v=20260922-preorder-layout-1',
+        './assets/preorder-allocation.js?v=20260715-logistics-fifo-1',
+        './assets/preorder-recent-picker.js?v=20260813-site-performance-3',
+        './assets/admin-ui-rescue.js?v=20260718-preorder-waiting-flow-2',
+        './assets/order-payments.js?v=20260910-orders-etag-cache-1',
+        './assets/member-risk-v2.js?v=20260924-bl-return-1',
+        './assets/submission-feedback.js?v=20260814-customer-pick-freeze-fix-3',
+        './assets/address-helper.js?v=20260821-addr-hang-1',
+        './assets/managed-image-recovery.js?v=20260814-dom-performance-1'
+      ];
+
+      function loadEnhancements() {
+        if (loaded) return;
+        loaded = true;
+
+        function loadNext(index) {
+          if (index >= sources.length) return;
+          var script = document.createElement('script');
+          script.src = sources[index];
+          script.defer = true;
+          script.onload = script.onerror = function () {
+            window.setTimeout(function () {
+              loadNext(index + 1);
+            }, 2200);
+          };
+          document.body.appendChild(script);
+        }
+
+        loadNext(0);
+      }
+
+      function loadOnNonFormAction(event) {
+        if (event.target && event.target.closest && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+        window.removeEventListener('pointerdown', loadOnNonFormAction);
+        loadEnhancements();
+      }
+      window.addEventListener('pointerdown', loadOnNonFormAction, { passive: true });
+      window.setTimeout(loadEnhancements, 120000);
+    }());
+  </script>
+  <link rel="lz-asset" data-lz-href="./assets/myship-workbench.css?v=20260925-myship-daily-1">
+  <script type="lz/asset" data-lz-src="./assets/myship-workbench.js?v=20260925-myship-daily-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/return-event-entry.js?v=20260909-inline5" defer></script>
+  <link rel="stylesheet" href="./assets/preorder-entry-layout.css?v=20260922-preorder-layout-1">
+  <script defer src="./assets/preorder-stock-lookup.js?v=20260922-preorder-layout-1"></script>
+  <script>
+    (function () {
+      function applyCustomField(select, input) {
+        if (!select || !input) return;
+        var custom = select.value === '__custom__';
+        var host = select.closest('label');
+        input.hidden = !custom;
+        if (host) host.classList.toggle('is-custom', custom);
+        if (!custom && select.value) input.value = select.value;
+      }
+      function bind(select, input) {
+        if (!select || !input) return;
+        select.addEventListener('change', function () { applyCustomField(select, input); });
+        applyCustomField(select, input);
+      }
+      function init() {
+        var form = document.querySelector('[data-manual-preorder-form]');
+        if (!form) return;
+        var colorSelect = form.querySelector('[data-preorder-color-select]');
+        var sizeSelect = form.querySelector('[data-preorder-size-select]');
+        var colorInput = form.querySelector('[data-manual-preorder-color]');
+        var sizeInput = form.querySelector('[data-manual-preorder-size]');
+        bind(colorSelect, colorInput);
+        bind(sizeSelect, sizeInput);
+        var selected = document.querySelector('[data-manual-preorder-selected]');
+        function refresh() {
+          applyCustomField(colorSelect, colorInput);
+          applyCustomField(sizeSelect, sizeInput);
+        }
+        if (selected && window.MutationObserver) {
+          new MutationObserver(refresh).observe(selected, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+        }
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+      else init();
+    }());
+  </script>
+  <script type="lz/asset" data-lz-src="./assets/myship-daily-report.js?v=20260925-daily-ops-1" defer></script>
+</body>
+</html>

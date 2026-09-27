@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <script src="./asset-boot.php"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>LINGZANZAN - 業務管理</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260927-cat-pick-1">
+  <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css" data-admin-navigation-style>
+</head>
+<body>
+    <script>
+    var loginParams = new URLSearchParams(location.search);
+    var loginKey = 'lingzanzan-v1-admin-login';
+    if (loginParams.get('resetLogin') === '1') {
+      localStorage.removeItem(loginKey);
+    }
+    if (loginParams.get('login') === 'sales') {
+      localStorage.removeItem(loginKey);
+      document.documentElement.setAttribute('data-sales-entry', 'true');
+    } else {
+      try {
+        var cachedLogin = JSON.parse(localStorage.getItem(loginKey) || '{}');
+        if (cachedLogin.version === 'password-login-v2' && cachedLogin.serverSession === true && ['admin', 'staff'].indexOf(cachedLogin.role) !== -1 && cachedLogin.until && Date.now() < cachedLogin.until) {
+          document.body.classList.add('is-admin-unlocked');
+        }
+      } catch (error) {}
+    }
+  </script>
+    <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>請輸入管理者或員工帳號密碼，登入後可管理會員、商品、訂單、庫存與物流。</span>
+      <input data-login-account type="text" placeholder="輸入管理員帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入管理員密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button>
+      <a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint>登入一次後，24 小時內同一台瀏覽器不用重複輸入密碼。</small>
+    </form>
+  </div>
+  <div class="admin-top-actions" hidden style="display:none">
+    <span class="login-identity" data-current-user hidden></span>
+    <a href="./">回首頁</a>
+    <button type="button" data-logout-admin>登出</button>
+  </div>
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+            <nav>
+        <a href="./admin.html">總覽</a>
+        <a href="./admin-security.html">管理者</a>
+        <a href="./admin-staff.html">員工管理</a>
+        <a href="./admin-members.html">會員管理</a>
+        <a href="./admin-sales.html">業務管理</a>
+        <a href="./admin-products.html">產品管理</a>
+        <a href="./admin-offline-products.html">下架產品</a>
+        <a href="./admin-style-columns.html">首頁區塊</a>
+        <a href="./admin-orders.html">訂單</a>
+        <a href="./admin-preorders.html" class="preorder-menu-link">預購打單</a>
+        <a href="./admin-purchase.html" class="purchase-menu-link">採購區</a>
+        <a href="./admin-suppliers.html">廠商管理</a>
+        <a href="./admin-freight.html">物流集運</a>
+        <a href="./admin-live.html">直播打單</a>
+        <a href="./admin-inquiries.html">客戶詢問</a>
+        <a href="./admin-inventory.html">貨倉管理</a>
+        <a href="./admin-logistics.html">物流回報</a>
+        <a href="./admin-profit.html" class="profit-menu-link" data-profit-menu-link="true">營銷毛利</a>
+        <a href="./admin-backup.html">備份還原</a>
+      </nav>
+    </aside>
+
+    <main>
+<section class="panel" id="sales">
+        <div class="panel-head">
+          <div>
+            <p>SALES</p>
+            <h2>業務管理</h2>
+          </div>
+          <button type="button" data-add-sales-customer>新增業務</button>
+        </div>
+        <div class="form-grid">
+          <label>業務姓名<input data-sales-name placeholder="張琳琳 / ANY"></label>
+          <label>業務電話<input data-sales-phone placeholder="手機號碼"></label>
+          <label>登入帳號<input data-sales-account placeholder="業務登入帳號"></label>
+          <label>登入密碼<input data-sales-password type="password" placeholder="業務登入密碼"></label>
+        </div>
+        <div class="sales-actions">
+          <a class="cart-link" href="./?staffCart=1" target="_blank">開啟業務前台購物車</a>
+          <button type="button" data-demo-action="業務帳號可登入自己的工作台，管理開放的訂單與打單功能。">測試業務登入</button>
+        </div>
+        <div class="logic-note">
+          業務資料用於業務登入、訂單歸屬、業績查詢與權限控管。請確認帳號、電話與開放功能正確。
+        </div>
+        <div class="list-summary" data-sales-summary></div>
+        <div class="admin-list compact-list" data-sales-list></div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" data-admin-toast hidden></div>
+  <script type="lz/asset" data-lz-src="./assets/admin.js?v=20260927-cat-pick-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-labels.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-ui-rescue.js" defer></script>
+<script type="lz/asset" data-lz-src="./assets/submission-feedback.js" defer data-submission-feedback-script></script>
+<script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260902-agency-collection-1" defer></script></body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

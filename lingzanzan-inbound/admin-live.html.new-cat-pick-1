@@ -1,0 +1,155 @@
+﻿<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <script src="./asset-boot.php"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>LINGZANZAN - 直播打單</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+<link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260927-cat-pick-1">
+  <link rel="lz-asset" data-lz-href="./assets/order-payments.css?v=20260924-live-pay-1">
+  <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css" data-admin-navigation-style>
+  <link rel="lz-asset" data-lz-href="./assets/member-risk-v2.css" data-member-risk-style>
+  <link rel="lz-asset" data-lz-href="./assets/admin-sales-mobile-preview.css">
+  <link rel="lz-asset" data-lz-href="./assets/myship-daily-report.css?v=20260925-daily-ops-1">
+</head>
+<body class="labels-ready">
+  <script>
+    var loginParams = new URLSearchParams(location.search);
+    var loginKey = 'lingzanzan-v1-admin-login';
+    if (loginParams.get('resetLogin') === '1') localStorage.removeItem(loginKey);
+    try {
+      var cachedLogin = JSON.parse(localStorage.getItem(loginKey) || '{}');
+      if (cachedLogin.version === 'password-login-v2' && cachedLogin.serverSession === true && ['admin', 'staff'].indexOf(cachedLogin.role) !== -1 && cachedLogin.until && Date.now() < cachedLogin.until) document.body.classList.add('is-admin-unlocked');
+    } catch (error) {}
+  </script>
+  <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="LINGZANZAN">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>請輸入管理者或員工帳號密碼。</span>
+      <input data-login-account type="text" placeholder="帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button><a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint></small>
+    </form>
+  </div>
+  <div class="admin-top-actions" hidden style="display:none"><span class="login-identity" data-current-user hidden></span><a href="./">回首頁</a><button type="button" data-logout-admin>登出</button></div>
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+      <nav>
+        <a href="./admin.html">總覽</a><a href="./admin-security.html">管理者</a><a href="./admin-staff.html">員工管理</a><a href="./admin-members.html">會員管理</a><a href="./admin-sales.html">業務管理</a><a href="./admin-products.html">產品管理</a><a href="./admin-style-columns.html">首頁區塊</a><a href="./admin-orders.html">現貨打單</a><a href="./admin-preorders.html">預購打單</a><a href="./admin-purchase.html">採購區</a><a href="./admin-suppliers.html">廠商管理</a><a href="./admin-freight.html">物流集運</a><a href="./admin-live.html" class="is-active">直播打單</a><a href="./admin-inquiries.html">客戶詢問</a><a href="./admin-inventory.html">貨倉管理</a><a href="./admin-logistics.html">物流回報</a><a href="./admin-profit.html">營銷毛利</a><a href="./admin-backup.html">備份還原</a>
+      </nav>
+    </aside>
+    <main>
+      <section class="panel" id="live-orders" data-clean-built="1" data-lz-live-pay="20260924-live-pay-1">
+        <div class="panel-head"><div><p>LIVE ORDERS</p><h2>直播打單</h2><span>每掃描一筆商品會加入下方明細，條碼欄自動清空並聚焦，接著可連續掃下一筆。</span></div><div class="panel-actions"><a class="ghost-button" href="./admin-order-tracking.html#live">訂單列表／進度</a><button type="button" data-demo-action="列印目前直播明細">列印／傳送明細</button></div></div>
+        <div class="logic-note">配送方式只在整張訂單計算一次；輸入地址後會依關鍵字自動判斷超商、郵局或住家宅配。</div>
+        <div class="form-grid live-form">
+          <label>打單日期<input data-live-date type="text" readonly></label>
+          <label>負責業務（必選）<select name="sales" data-admin-order-sales required><option value="">請先選這張單是哪位業務</option><option value="lingzanzan">LINGZANZAN（公司）</option><option value="any">ANY（業務）</option></select></label>
+          <label>直播場次<select data-live-session><option>上午場</option><option>下午場</option><option>晚上場</option><option>加開場</option></select></label>
+          <label>客戶姓名<input data-live-customer-name data-live-customer-query autocomplete="off" placeholder="輸入姓名，也可輸入電話搜尋"></label>
+          <label>客戶電話<input data-live-customer-phone data-live-customer-query autocomplete="off" inputmode="tel" placeholder="輸入電話，也可輸入姓名搜尋"></label>
+          <input type="hidden" data-live-customer-combo>
+          <div class="customer-shipping-addresses live-customer-shipping">
+            <p class="customer-shipping-choice-hint">這次選超商，下次帶入也是超商；要改住家才會換成住家出貨。兩個地址都會記住。</p>
+            <div class="customer-shipping-choice">
+              <article class="customer-shipping-option is-store is-selected">
+                <label class="customer-shipping-option-pick"><input type="radio" name="live-customer-address-primary" data-customer-address-primary value="store" checked><span><b>超商出貨 NT$70</b><small>7-11 / 全家</small></span></label>
+                <div class="customer-store-address-row"><input data-customer-store-address placeholder="輸入店號，例如 275233"><button type="button" class="ghost-button customer-store-search-button" data-address-store-search>查詢門市</button></div>
+                <small>輸入 4～6 碼店號後按「查詢門市」</small>
+              </article>
+              <article class="customer-shipping-option is-home">
+                <label class="customer-shipping-option-pick"><input type="radio" name="live-customer-address-primary" data-customer-address-primary value="home"><span><b>住家出貨 NT$100</b><small>HCT／大榮／郵局</small></span></label>
+                <div class="customer-home-address-row"><input data-customer-home-address placeholder="住家地址，或 HCT新竹／大榮 KTJ／POST 郵局"></div>
+                <small>輸入住家地址，系統會帶郵遞區號</small>
+              </article>
+            </div>
+            <input type="hidden" data-live-customer-address value="">
+          </div>
+          <label>配送方式<select data-live-delivery><option value="store">超商取貨 NT$70</option><option value="post">郵局寄送 NT$100</option><option value="home">住家宅配 NT$100</option></select></label>
+          <label>物流公司／Kurir<select data-live-carrier><option value="">請選擇物流公司</option><option value="7-11">7-11</option><option value="全家">全家</option><option value="POST 郵局">POST 郵局</option><option value="HCT 新竹">HCT 新竹</option><option value="KTJ 大榮">KTJ 大榮</option><option value="黑貓宅急便">黑貓宅急便</option><option value="便利帶">便利帶</option><option value="住家宅配">住家宅配</option><option value="印尼業務自行出貨">印尼業務自行出貨</option><option value="自取／不需物流">自取／不需物流</option></select></label>
+          <label class="live-ship-mode-select">出貨模式<select data-live-ship-mode><option value="direct_taiwan">台灣現貨立即出</option><option value="merge_taiwan">先出台灣，外倉到貨後補出</option><option value="china_to_taiwan">中國倉到台灣再出</option><option value="china_to_indonesia">中國倉到印尼再出</option><option value="merge_china">台灣＋中國到齊再出</option><option value="merge_indonesia">台灣＋印尼到齊再出</option></select></label>
+          <div class="live-ship-mode-panel" data-live-ship-mode-buttons aria-label="出貨模式"><button type="button" class="live-ship-mode-button" data-live-ship-pick="direct_taiwan"><b>台灣現貨</b><span>立即出貨</span></button><button type="button" class="live-ship-mode-button" data-live-ship-pick="merge_taiwan"><b>台灣先出</b><span>外倉後補</span></button><button type="button" class="live-ship-mode-button" data-live-ship-pick="china_to_taiwan"><b>中國到台灣</b><span>到台再出</span></button><button type="button" class="live-ship-mode-button" data-live-ship-pick="china_to_indonesia"><b>中國到印尼</b><span>中國出庫、印尼驗收</span></button><button type="button" class="live-ship-mode-button" data-live-ship-pick="merge_china"><b>台灣＋中國</b><span>到齊再出</span></button></div>
+          <label>轉入訂單類型／Jenis pesanan<select data-live-order-target><option value="ready">現貨訂單（立即扣現貨）／Stok siap</option><option value="preorder">預購訂單（未出貨、不列欠款）／Preorder</option></select></label>
+          <label>訂單備註<input data-live-note placeholder="例如：第二場直播一起結單"></label>
+          <div class="live-customer-suggest" data-live-customer-suggest hidden></div>
+        </div>
+        <div class="admin-shipment-customer-photo admin-live-customer-photo" data-admin-live-customer-dropzone tabindex="0" aria-label="直播打單客戶圖片，可選檔、貼上或拖入圖片">
+          <label>客戶圖片／截圖
+            <input type="file" accept="image/*" data-admin-live-customer-image>
+          </label>
+          <div data-admin-live-customer-preview><span>尚未帶入圖片</span></div>
+          <div class="admin-shipment-customer-photo-actions">
+            <button type="button" class="primary-button" data-admin-live-customer-paste>直接貼上圖片</button>
+            <button type="button" class="ghost-button" data-admin-live-customer-remove disabled>移除圖片</button>
+          </div>
+          <small>電腦先複製圖片後按「直接貼上圖片」；也可在此區按 Ctrl／⌘＋V、拖入圖片或從檔案選擇。</small>
+        </div>
+        <div class="order-customer-save-bar" data-order-customer-save-bar="admin-live">
+          <div><strong>先儲存客戶資料</strong><small>新開打單頁保持空白；需要接續時再手動帶入已存客戶。</small></div>
+          <button type="button" class="primary-button" data-order-customer-save>儲存客戶資料</button>
+          <button type="button" class="ghost-button" data-order-customer-load>帶入已存客戶</button>
+          <button type="button" class="ghost-button" data-order-customer-clear>清除已存客戶</button>
+          <output data-order-customer-save-status>尚未儲存</output>
+        </div>
+        <section class="admin-live-product-lines" data-admin-live-product-lines>
+          <div class="panel-subhead"><div><p>PRODUCT LINES</p><h3>商品明細</h3><span class="live-scan-help">上方固定為連續掃描列；刷到商品後會留在下方，游標自動回到條碼欄。</span><span class="live-scan-help" data-live-warehouse-lock-status>尚未鎖定作業倉；第一筆商品會自動判斷，也可先手動選倉。</span></div><div class="live-scan-summary" data-live-scan-summary>尚未加入商品</div></div>
+          <div class="live-line-table" data-live-lines>
+            <div class="live-line-head"><span>條碼／編號</span><span>商品</span><span>顏色</span><span>尺寸</span><span>數量</span><span>售價</span><span>倉庫</span><span>圖片</span></div>
+            <div class="live-line-row live-scan-row" data-live-line data-live-scanner="1"><input placeholder="掃描條碼後按 Enter" autocomplete="off" inputmode="none" data-live-code aria-label="連續掃描產品條碼"><input placeholder="掃描後自動帶入" data-live-title readonly><select data-live-color disabled><option value="">顏色</option></select><select data-live-size disabled><option value="">尺寸</option></select><input type="number" min="1" value="1" data-live-qty readonly><input type="number" min="0" placeholder="售價" data-live-price readonly><select data-live-warehouse aria-label="先選出貨倉庫"><option>台灣倉</option><option>印尼倉</option><option>中國倉</option></select><span class="live-thumb admin-live-thumb" data-live-thumb><small>等待掃描</small></span></div>
+          </div>
+          <div class="live-product-suggest" data-live-suggest hidden></div>
+          <aside class="live-picker-modal" data-live-picker aria-hidden="true"><div class="live-picker-panel"><button type="button" data-live-picker-close>關閉</button><div data-live-picker-body></div></div></aside>
+        </section>
+        <section class="admin-shipment-payment admin-live-payment" data-admin-live-payment data-payment-status="unpaid">
+          <div class="admin-shipment-payment-head"><b>直播訂單收款／Pembayaran live</b><span>訂金與付款證明會跟著直播單轉入現貨或預購，並同步財務。／Uang muka dan bukti bayar ikut saat pesanan dipindahkan.</span></div>
+          <div class="admin-shipment-payment-grid">
+            <label>訂單總額／Total<input type="number" value="0" readonly data-admin-live-payment-total></label>
+            <label>已收訂金／Uang muka<input type="number" min="0" step="1" value="0" data-admin-live-payment-deposit></label>
+            <label>本次收款／Pembayaran<input type="number" min="0" step="1" value="0" data-admin-live-payment-event></label>
+            <label>累計已收／Diterima<input type="number" value="0" readonly data-admin-live-payment-received></label>
+            <label>尚欠／Sisa<input type="number" value="0" readonly data-admin-live-payment-balance></label>
+            <label>收款日期／Tanggal bayar<input type="date" data-admin-live-payment-date></label>
+            <label>付款狀態／Status<select data-admin-live-payment-status disabled><option value="unpaid">未收款／Belum bayar</option><option value="partial">部分收款／Sebagian</option><option value="paid">已收清／Lunas</option></select></label>
+            <label>印尼收款協助<select data-order-entry-indonesia-mode><option value="">不指定</option><option value="sales_goods">業務自己的貨款</option><option value="company_deposit">公司貨款－印尼業務代收</option></select></label>
+            <label>印尼收款幣別<select data-order-entry-indonesia-currency><option value="TWD">台幣 TWD</option><option value="IDR">印尼盾 IDR</option></select></label>
+            <label>印尼業務實際代收金額<input type="number" min="0" step="1" value="0" data-order-entry-indonesia-original></label>
+            <label>換算匯率（1台幣＝印尼盾）<input type="number" min="1" step="0.01" value="500" data-order-entry-indonesia-rate></label>
+            <label>印尼收款狀態<select data-order-entry-indonesia-status><option value="pending">尚未確認收到</option><option value="received">已收款成功</option></select></label>
+            <label>台灣向客戶代收運費<input type="number" value="0" readonly data-order-entry-indonesia-taiwan-cod></label>
+            <label>退還客戶金額<input type="number" value="0" readonly data-order-entry-indonesia-customer-refund></label>
+            <label>超商實際運費成本<input type="number" value="0" readonly data-order-entry-indonesia-actual-shipping></label>
+            <div class="admin-shipment-indonesia-shipping-rule" data-order-entry-indonesia-rule>上方超商運費維持 NT$70；選擇印尼代收後，這裡會顯示代收100、退客戶100與實際運費分攤。</div>
+            <label class="admin-live-payment-proof">付款證明／Bukti pembayaran<input type="file" accept="image/*" capture="environment" data-admin-live-payment-proof><span data-admin-live-payment-proof-preview>尚未上傳／Belum ada gambar</span></label>
+            <label class="admin-shipment-payment-note">收款備註／Catatan<input data-admin-live-payment-note placeholder="例如：轉帳、現金、待對帳／Transfer atau tunai"></label>
+            <fieldset class="order-entry-reseller" data-order-entry-reseller><legend>RESELLER／下線代收</legend><label>銷售類型<select data-order-reseller-mode><option value="">一般客戶</option><option value="reseller">RESELLER／下線客戶</option></select></label><label>下線姓名／代號<input data-order-reseller-name placeholder="例如：ANY 的下線姓名"></label><label>下線電話<input data-order-reseller-phone inputmode="tel" placeholder="可選填"></label><label>公司結算售價<input type="number" min="0" step="1" value="0" data-order-reseller-base></label><label>客戶實際商品付款<input type="number" min="0" step="1" value="0" data-order-reseller-customer></label><label>下線價差<input type="number" value="0" readonly data-order-reseller-margin></label><label>業務已先付下線<select data-order-reseller-advanced><option value="yes">是，結算時返還業務</option><option value="no">否，公司先保留代收款</option></select></label><label>代墊日期<input type="date" data-order-reseller-advanced-at></label><label class="order-entry-reseller-note">下線備註<input data-order-reseller-note placeholder="付款方式、證明或特殊說明"></label><p data-order-reseller-summary>一般客戶訂單，不產生下線代收款。</p></fieldset>
+          </div>
+          <p data-admin-live-payment-summary>尚未收款／Belum dibayar。</p>
+        </section>
+        <div class="live-submit-row"><button type="button" data-admin-live-save-draft>存為草稿</button><button type="button" data-admin-live-submit>直接送出訂單</button><button type="button" data-admin-live-print>列印／傳送明細</button></div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" data-admin-toast hidden></div>
+  <link rel="lz-asset" data-lz-href="./assets/address-helper.css">
+  <link rel="lz-asset" data-lz-href="./assets/order-customer-lookup.css">
+<script type="lz/asset" data-lz-src="./assets/admin.js?v=20260927-cat-pick-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-labels.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/member-risk-v2.js?v=20260924-bl-return-1" data-member-risk-script></script>
+<script type="lz/asset" data-lz-src="./assets/order-customer-lookup.js?v=20260830-phone-min5-1" defer></script>
+<script type="lz/asset" data-lz-src="./assets/submission-feedback.js" defer data-submission-feedback-script></script>
+<script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260902-agency-collection-1" defer></script>
+<script type="lz/asset" data-lz-src="./assets/admin-sales-mobile-preview.js" defer></script>
+<script type="lz/asset" data-lz-src="./assets/address-helper.js" defer></script>
+<link rel="lz-asset" data-lz-href="./assets/myship-workbench.css?v=20260925-myship-daily-1">
+<script type="lz/asset" data-lz-src="./assets/myship-workbench.js?v=20260925-myship-daily-1" defer></script>
+<script type="lz/asset" data-lz-src="./assets/return-event-entry.js?v=20260909-inline5" defer></script>  <script type="lz/asset" data-lz-src="./assets/myship-daily-report.js?v=20260925-daily-ops-1" defer></script>
+</body>
+</html>
+
+
+

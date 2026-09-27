@@ -1,0 +1,555 @@
+﻿<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <script src="./asset-boot.php"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>LINGZANZAN - 現貨打單</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260927-cat-pick-1">
+  <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css" data-admin-navigation-style>
+  <link rel="lz-asset" data-lz-href="./assets/member-risk-v2.css?v=20260822-blacklist-ui-1" data-member-risk-style>
+  <link rel="lz-asset" data-lz-href="./assets/order-payments.css?v=20260828-indonesia-collection-1">
+  <link rel="lz-asset" data-lz-href="./assets/myship-daily-report.css?v=20260925-daily-ops-1">
+</head>
+<body class="labels-ready">
+    <script>
+    var loginParams = new URLSearchParams(location.search);
+    var loginKey = 'lingzanzan-v1-admin-login';
+    if (loginParams.get('resetLogin') === '1') {
+      localStorage.removeItem(loginKey);
+    }
+    if (loginParams.get('login') === 'sales') {
+      localStorage.removeItem(loginKey);
+      document.documentElement.setAttribute('data-sales-entry', 'true');
+    } else {
+      try {
+        var cachedLogin = JSON.parse(localStorage.getItem(loginKey) || '{}');
+        if (cachedLogin.version === 'password-login-v2' && cachedLogin.serverSession === true && ['admin', 'staff'].indexOf(cachedLogin.role) !== -1 && cachedLogin.until && Date.now() < cachedLogin.until) {
+          document.body.classList.add('is-admin-unlocked');
+        }
+      } catch (error) {}
+    }
+  </script>
+    <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>請輸入管理者或員工帳號密碼，登入後可管理會員、商品、訂單、庫存與物流。</span>
+      <input data-login-account type="text" placeholder="輸入管理員帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入管理員密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button>
+      <a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint>登入一次後，24 小時內同一台瀏覽器不用重複輸入密碼。</small>
+    </form>
+  </div>
+  <div class="admin-top-actions" hidden style="display:none">
+    <span class="login-identity" data-current-user hidden></span>
+    <a href="./">回首頁</a>
+    <button type="button" data-logout-admin>登出</button>
+  </div>
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+            <nav>
+        <a href="./admin.html">總覽</a>
+        <a href="./admin-security.html">管理者</a>
+        <a href="./admin-staff.html">員工管理</a>
+        <a href="./admin-members.html">會員管理</a>
+        <a href="./admin-sales.html">業務管理</a>
+        <a href="./admin-products.html">產品管理</a>
+        <a href="./admin-offline-products.html">下架產品</a>
+        <a href="./admin-style-columns.html">首頁區塊</a>
+        <a href="./admin-orders.html">現貨打單</a>
+        <a href="./admin-preorders.html" class="preorder-menu-link">預購打單</a>
+        <a href="./admin-purchase.html" class="purchase-menu-link">採購區</a>
+        <a href="./admin-suppliers.html">廠商管理</a>
+        <a href="./admin-freight.html">物流集運</a>
+        <a href="./admin-live.html">直播打單</a>
+        <a href="./admin-inquiries.html">客戶詢問</a>
+        <a href="./admin-inventory.html">貨倉管理</a>
+        <a href="./admin-logistics.html">物流回報</a>
+        <a href="./admin-profit.html" class="profit-menu-link" data-profit-menu-link="true">營銷毛利</a>
+        <a href="./admin-backup.html">備份還原</a>
+      </nav>
+    </aside>
+    <main>
+      <section class="panel" id="orders" data-clean-built="1">
+        <div class="panel-head">
+          <div>
+            <p>ORDERS</p>
+            <h2>現貨打單</h2>
+          </div>
+          <div class="panel-actions">
+            <a class="ghost-button" href="./admin-order-tracking.html#ready">訂單列表／進度</a>
+            <a class="primary-button" href="./admin-preorders.html">預購打單</a>
+            <button type="button" data-refresh-orders>重新讀取訂單</button>
+          </div>
+        </div>
+        <div class="logic-note">客人送出快速下單或購物車後，系統會建立訂單；物流公司、單號、配送狀況、物流備註與本次進度都在每筆訂單內保存。</div>
+        <div class="logic-note admin-orders-load-panel">
+          <button type="button" class="ghost-button" data-admin-orders-load>載入訂單列表</button>
+          <span>捲到訂單列表時會自動載入；也可按左側按鈕立即載入。搜尋會由伺服器最多回傳 10 筆，不必等待完整訂單下載。</span>
+        </div>
+        <section class="admin-shipment-reply-inbox" data-admin-shipment-reply-inbox aria-live="polite">
+          <header>
+            <div>
+              <p>SALES READY-TO-SHIP REPLIES</p>
+              <h3>業務可出貨回覆收件匣</h3>
+              <span>業務確認可以出貨後，最新回覆會排在最前面；小姐可直接比對客戶、商品、數量、金額與倉別。</span>
+            </div>
+            <div class="panel-actions">
+              <strong data-admin-shipment-reply-count>尚未展開</strong>
+              <button type="button" class="ghost-button" data-admin-shipment-reply-toggle aria-expanded="false">展開業務回覆</button>
+            </div>
+          </header>
+          <label class="admin-shipment-reply-search" hidden>
+            <input type="search" data-admin-shipment-reply-search placeholder="輸入客戶姓名、電話、訂單編號或業務姓名">
+          </label>
+          <div class="admin-shipment-reply-list" data-admin-shipment-reply-list hidden>
+          </div>
+        </section>
+        <section class="admin-shipment-panel admin-only" data-admin-shipment-panel>
+          <div class="admin-shipment-head">
+            <div>
+              <b>行政出貨單</b>
+              <span>管理者 / 行政專用。建立後可轉成現貨訂單並扣庫存，不開放業務端打單。</span>
+            </div>
+            <strong data-admin-shipment-total>NT$0</strong>
+          </div>
+          <form data-admin-shipment-form>
+            <div class="admin-shipment-grid">
+              <label>客戶姓名
+                <input name="name" data-admin-shipment-name placeholder="輸入客戶姓名">
+              </label>
+              <label>電話
+                <input name="phone" data-admin-shipment-phone placeholder="09 開頭電話">
+              </label>
+              <label>地址 / 超商資料
+                <input name="address" data-admin-shipment-address placeholder="宅配地址或超商資料">
+              </label>
+              <div class="admin-shipment-customer-photo" data-admin-shipment-customer-dropzone tabindex="0" aria-label="行政出貨單客戶圖片，可選檔、貼上或拖入圖片">
+                <label>客戶上傳圖片
+                  <input type="file" name="customerImage" accept="image/*" data-admin-shipment-customer-image>
+                </label>
+                <div data-admin-shipment-customer-preview><span>客戶圖片</span></div>
+                <div class="admin-shipment-customer-photo-actions">
+                  <button type="button" class="primary-button" data-admin-shipment-customer-paste>貼上截圖</button>
+                  <button type="button" class="ghost-button" data-admin-shipment-customer-remove disabled>移除圖片</button>
+                </div>
+                <small>可按「貼上截圖」、在此區按 Ctrl/⌘+V，或直接拖入圖片。</small>
+              </div>
+              <label>配送方式
+                <select name="deliveryType" data-admin-shipment-delivery>
+                  <option value="home" data-fee="100" data-cost="100">住家宅配 NT$100</option>
+                  <option value="store" data-fee="70" data-cost="45">超商取貨 NT$70</option>
+                  <option value="post" data-fee="100" data-cost="110">郵局寄送 NT$100</option>
+                  <option value="post_no_collection" data-fee="0" data-cost="110">郵局補寄／不向客戶收款（單號後補）</option>
+                  <option value="self" data-fee="0" data-cost="0">自取 / 不收運費</option>
+                </select>
+              </label>
+              <label>運費
+                <input type="number" min="0" name="shippingFee" data-admin-shipment-fee value="100">
+              </label>
+              <label>運費收取
+                <select name="shippingFeeMode" data-admin-shipment-fee-mode>
+                  <option value="standard">正常收運費</option>
+                  <option value="free">免運</option>
+                </select>
+              </label>
+              <label>物流公司
+                <select name="shippingCarrier" data-admin-shipment-carrier><option value="">請選擇物流公司</option><option value="7-11">7-11</option><option value="全家">全家</option><option value="POST 郵局">POST 郵局</option><option value="HCT 新竹">HCT 新竹</option><option value="KTJ 大榮">KTJ 大榮</option><option value="黑貓宅急便">黑貓宅急便</option><option value="便利帶">便利帶</option><option value="住家宅配">住家宅配</option><option value="印尼業務自行出貨">印尼業務自行出貨</option><option value="自取／不需物流">自取／不需物流</option></select>
+              </label>
+              <label>出貨模式
+                <select name="shipMode" data-admin-shipment-ship-mode>
+                  <option value="taiwan_ship">台灣現貨出貨</option>
+                  <option value="china_to_taiwan">中國到台灣再出</option>
+                  <option value="china_taiwan">中國 + 台灣合併</option>
+                  <option value="collection_only">單純收款／不出貨</option>
+                </select>
+                <small data-admin-shipment-collection-mode-note>預設為出貨單；只有選「單純收款」才不要求商品、庫存與物流。</small>
+              </label>
+              <label data-admin-shipment-collection-only-amount-wrap hidden>單純收款金額
+                <input type="number" min="0" step="1" value="0" name="collectionOnlyAmount" data-admin-shipment-collection-only-amount>
+                <small>只建立收款／欠款紀錄，不扣庫存、不建立物流。</small>
+              </label>
+              <label>本次出貨決定
+                <select name="shipDecision" data-admin-shipment-decision>
+                  <option value="ship_now">台灣單先出貨</option>
+                  <option value="wait_merge_china">等中國倉到齊合併出貨</option>
+                  <option value="wait_merge_indonesia">等印尼倉到齊合併出貨</option>
+                </select>
+              </label>
+              <label>出貨倉
+                <select name="warehouse" data-admin-shipment-warehouse>
+                  <option value="">第一筆商品自動判斷</option>
+                  <option value="台灣倉">台灣倉</option>
+                  <option value="中國倉">中國倉</option>
+                  <option value="印尼倉">印尼倉</option>
+                </select>
+                <small data-admin-order-warehouse-lock-status>尚未鎖定作業倉；第一筆商品會自動判斷，也可先手動選倉。</small>
+              </label>
+              <label class="admin-shipment-sales-field">業務訂單 / 抽成歸屬
+                <select name="shipmentSales" data-admin-shipment-sales required>
+                  <option value="">請先選負責業務</option>
+                  <option value="lingzanzan" selected>LINGZANZAN（公司）</option>
+                  <option value="any">ANY（業務）</option>
+                </select>
+                <small>這張出貨單的收款、物流與毛利統計會歸到選定業務帳；預設 LINGZANZAN。</small>
+              </label>
+              <div class="order-customer-save-bar" data-order-customer-save-bar="admin-shipment">
+                <div><strong>先儲存客戶資料</strong><small>新開打單頁保持空白；需要接續時再手動帶入已存客戶。</small></div>
+                <button type="button" class="primary-button" data-order-customer-save>儲存客戶資料</button>
+                <button type="button" class="ghost-button" data-order-customer-load>帶入已存客戶</button>
+                <button type="button" class="ghost-button" data-order-customer-clear>清除已存客戶</button>
+                <output data-order-customer-save-status>尚未儲存</output>
+              </div>
+              <label>行政人員
+                <input name="staff" data-admin-shipment-staff placeholder="系統會帶目前登入者">
+              </label>
+              <label class="admin-shipment-purpose-field">出貨用途
+                <select name="orderPurpose" data-admin-shipment-purpose class="admin-shipment-purpose-select" aria-label="出貨用途">
+                  <option value="customer_sale">一般客戶銷售</option>
+                  <option value="internal_use">公司自用</option>
+                  <option value="gift">客戶贈品</option>
+                  <option value="exchange">換貨出貨</option>
+                  <option value="compensation">賠償補寄</option>
+                </select>
+                <span class="admin-shipment-purpose-buttons" role="group" aria-label="選擇出貨用途">
+                  <button type="button" data-admin-shipment-purpose-pick="customer_sale">一般客戶銷售</button>
+                  <button type="button" data-admin-shipment-purpose-pick="internal_use">公司自用</button>
+                  <button type="button" data-admin-shipment-purpose-pick="gift">客戶贈品</button>
+                  <button type="button" data-admin-shipment-purpose-pick="exchange">換貨</button>
+                  <button type="button" data-admin-shipment-purpose-pick="compensation">賠償補寄</button>
+                </span>
+                <small data-admin-shipment-purpose-note>一般銷售：計入營收、毛利、欠款與業務抽成。</small>
+              </label>
+              <section class="admin-shipment-compensation" data-admin-shipment-compensation hidden>
+                <header><div><b>賠償補寄／退換貨串聯</b><small>不收回損壞品；補寄商品照常扣庫存，成本依責任比例分攤。</small></div><strong data-compensation-link-state>尚未連結原訂單</strong></header>
+                <p class="compensation-flow-note is-wide"><b>本區只做免費賠償補寄：</b>客戶不付款，每次預設只補 1 件。若要退回商品並退款，請回原訂單辦理退貨退款，不會在這裡混在一起。</p>
+                <label class="is-wide">上方客戶最近一個月的訂單（自動串聯）
+                  <input type="search" data-compensation-order-search placeholder="系統依上方姓名／電話自動查詢；只有找不到時才需手動搜尋">
+                </label>
+                <div class="compensation-order-results is-wide" data-compensation-order-results><p>選好上方客戶後，系統會自動列出最近一個月的歷史訂單。</p></div>
+                <input type="hidden" name="compensationOriginalOrderId" data-compensation-original-order-id>
+                <input type="hidden" name="compensationOriginalItem" data-compensation-original-item>
+                <label>故障／毀損原因<select name="compensationReason" data-compensation-reason><option value="">請選擇</option><option value="damaged">產品毀損</option><option value="malfunction">產品故障</option><option value="wrong_item">出錯商品</option><option value="missing_parts">缺件</option><option value="other">其他</option></select></label>
+                <label>責任類型<select name="compensationResponsibility" data-compensation-responsibility><option value="">請選擇</option><option value="packing">人為／包裝問題</option><option value="carrier">快遞物流造成</option><option value="product">產品本身問題</option><option value="customer">客戶使用造成</option><option value="pending">待查明</option></select></label>
+                <label>原包裝人<input name="compensationPacker" data-compensation-packer placeholder="選填；查明後可補"></label>
+                <label>公司負擔比例 %<input type="number" min="0" max="100" value="70" name="compensationCompanyRate" data-compensation-company-rate></label>
+                <label>業務負擔比例 %<input type="number" min="0" max="100" value="30" name="compensationSalesRate" data-compensation-sales-rate readonly></label>
+                <label class="is-wide">原因與處理經過<textarea rows="3" name="compensationDescription" data-compensation-description placeholder="請說明如何造成、包裝狀況、客戶回報及處理方式"></textarea></label>
+                <output class="is-wide" data-compensation-cost-summary>加入補寄商品後會顯示公司與業務應負擔成本。</output>
+              </section>
+            </div>
+            <section class="admin-shipment-merge-alert" data-admin-shipment-merge-alert hidden></section>
+            <div class="admin-shipment-product-row">
+              <label class="admin-shipment-search-field">產品關鍵字 / SKU / 條碼
+                <input data-admin-shipment-search placeholder="輸入產品編號、條碼、顏色、尺寸">
+                <input type="hidden" data-admin-shipment-sku>
+              </label>
+              <input type="hidden" min="1" value="1" data-admin-shipment-qty>
+              <input type="hidden" min="0" value="0" data-admin-shipment-price>
+            </div>
+            <div class="admin-shipment-selected" data-admin-shipment-selected>尚未選商品。</div>
+            <div class="admin-shipment-suggest" data-admin-shipment-suggest hidden></div>
+            <div class="admin-shipment-lines" data-admin-shipment-lines></div>
+            <section class="order-entry-total-summary" aria-label="現貨訂單金額合計">
+              <span>商品小計 <b data-admin-shipment-products-subtotal>NT$0</b></span>
+              <span>運費 <b data-admin-shipment-shipping-total>NT$100</b></span>
+              <strong>訂單合計 <b data-admin-shipment-grand-total>NT$100</b></strong>
+            </section>
+            <div class="admin-shipment-margin" data-admin-shipment-margin></div>
+            <section class="admin-shipment-payment" data-admin-shipment-payment data-payment-status="unpaid">
+              <div class="admin-shipment-payment-head">
+                <b>本次出貨收款</b>
+                <span>建立出貨單時直接記錄收款；系統自動計算尚欠金額並帶到財務。</span>
+              </div>
+              <div class="admin-shipment-payment-grid">
+                <label>本次出貨總額
+                  <input type="number" readonly data-admin-shipment-payment-total value="0">
+                </label>
+                <label>已收訂金
+                  <input type="number" min="0" step="1" name="depositAmount" data-admin-shipment-payment-deposit value="0">
+                </label>
+                <label>本次收款
+                  <input type="number" min="0" step="1" name="paymentEventAmount" data-admin-shipment-payment-event value="0">
+                </label>
+                <label>印尼收款協助
+                  <select name="indonesiaCollectionMode" data-admin-shipment-indonesia-collection-mode>
+                    <option value="">不指定</option>
+                    <option value="sales_goods">業務自己的貨款</option>
+                    <option value="company_deposit">公司貨款－印尼業務代收（從毛利扣）</option>
+                  </select>
+                </label>
+                <label>印尼收款幣別
+                  <select name="indonesiaCollectionCurrency" data-admin-shipment-indonesia-currency><option value="TWD">台幣 TWD</option><option value="IDR">印尼盾 IDR</option></select>
+                </label>
+                <label>印尼業務實際代收金額
+                  <input type="number" min="0" step="1" name="indonesiaCollectionOriginalAmount" data-admin-shipment-indonesia-original-amount value="0">
+                </label>
+                <label>換算匯率（1台幣＝印尼盾）
+                  <input type="number" min="1" step="0.01" name="indonesiaCollectionRate" data-admin-shipment-indonesia-rate value="500">
+                </label>
+                <label>換算台幣入帳
+                  <input type="number" readonly name="indonesiaCollectionAmount" data-admin-shipment-indonesia-amount value="0">
+                </label>
+                <label>印尼收款狀態
+                  <select name="indonesiaCollectionStatus" data-admin-shipment-indonesia-status>
+                    <option value="pending">尚未確認收到</option>
+                    <option value="received">已收款成功</option>
+                  </select>
+                </label>
+                <label>台灣向客戶代收運費
+                  <input type="number" value="0" readonly name="indonesiaTaiwanCodCharge">
+                </label>
+                <label>退還客戶金額
+                  <input type="number" value="0" readonly name="indonesiaCustomerShippingRefund">
+                </label>
+                <label>超商實際運費成本
+                  <input type="number" value="0" readonly name="indonesiaActualShippingCost">
+                </label>
+                <div class="admin-shipment-indonesia-shipping-rule" data-admin-shipment-indonesia-shipping-rule>
+                  上方超商運費維持系統辨識的 NT$70。印尼代收情境只在此另列「台灣代收 NT$100／退客戶 NT$100」及 NT$70 實際運費的公司、業務負擔。
+                </div>
+                <label>累計已收
+                  <input type="number" readonly name="paymentReceived" data-admin-shipment-payment-received value="0">
+                </label>
+                <label>收款日期
+                  <input type="date" name="paymentDate" data-admin-shipment-payment-date>
+                </label>
+                <label>尚欠
+                  <input type="number" readonly data-admin-shipment-payment-balance value="0">
+                </label>
+                <label>付款狀態
+                  <select name="paymentStatus" data-admin-shipment-payment-status-select disabled>
+                    <option value="unpaid">未收款</option>
+                    <option value="partial">部分收款</option>
+                    <option value="paid">已收清</option>
+                  </select>
+                </label>
+                <label class="admin-shipment-payment-note">收款備註
+                  <input name="paymentNote" data-admin-shipment-payment-note placeholder="例如：現金、轉帳、尚未付款">
+                </label>
+                <fieldset class="order-entry-reseller" data-order-entry-reseller><legend>RESELLER／下線代收</legend><label>銷售類型<select data-order-reseller-mode><option value="">一般客戶</option><option value="reseller">RESELLER／下線客戶</option></select></label><label>下線姓名／代號<input data-order-reseller-name placeholder="例如：ANY 的下線姓名"></label><label>下線電話<input data-order-reseller-phone inputmode="tel" placeholder="可選填"></label><label>公司結算售價<input type="number" min="0" step="1" value="0" data-order-reseller-base></label><label>客戶實際商品付款<input type="number" min="0" step="1" value="0" data-order-reseller-customer></label><label>下線價差<input type="number" value="0" readonly data-order-reseller-margin></label><label>業務已先付下線<select data-order-reseller-advanced><option value="yes">是，結算時返還業務</option><option value="no">否，公司先保留代收款</option></select></label><label>代墊日期<input type="date" data-order-reseller-advanced-at></label><label class="order-entry-reseller-note">下線備註<input data-order-reseller-note placeholder="付款方式、證明或特殊說明"></label><p data-order-reseller-summary>一般客戶訂單，不產生下線代收款。</p></fieldset>
+              </div>
+              <p data-admin-shipment-payment-status>本次尚未收款，整筆金額會列為出貨欠款。</p>
+            </section>
+            <div class="admin-shipment-actions">
+              <button type="submit" class="primary-button">建立出貨單並轉現貨訂單</button>
+              <button type="button" class="ghost-button" data-admin-shipment-clear>清空出貨單</button>
+            </div>
+            <p class="logic-note" data-admin-shipment-save-status>尚未送出。</p>
+          </form>
+        </section>
+        <div class="filter-row">
+          <label>搜尋姓名／電話／地址／訂單／商品／物流單號／備註
+            <input type="search" data-order-search placeholder="輸入姓名、電話、地址、訂單號、產品、物流單號或備註">
+          </label>
+          <label>物流單號
+            <select data-order-tracking-filter>
+              <option value="all">全部物流狀態</option>
+              <option value="missing">未帶入物流單號</option>
+              <option value="filled">已帶入物流單號</option>
+            </select>
+          </label>
+          <label>來源倉
+            <select data-order-source-warehouse-filter>
+              <option value="all">全部來源倉</option>
+              <option value="TW">台灣倉</option>
+              <option value="CN">中國倉</option>
+              <option value="ID">印尼倉</option>
+            </select>
+          </label>
+          <label>目的倉
+            <select data-order-destination-warehouse-filter>
+              <option value="all">全部目的倉</option>
+              <option value="TW">台灣倉</option>
+              <option value="CN">中國倉</option>
+              <option value="ID">印尼倉</option>
+              <option value="CUSTOMER">直接交付客戶</option>
+            </select>
+          </label>
+          <label>跨倉進度
+            <select data-order-route-status-filter>
+              <option value="all">全部進度</option>
+              <option value="pending">待處理</option>
+              <option value="source_outbound">來源倉已出庫</option>
+              <option value="in_transit">跨倉運送中</option>
+              <option value="destination_received">目的倉已驗收</option>
+              <option value="ready_for_customer">待交付客戶</option>
+              <option value="completed">出貨完成</option>
+              <option value="returned">退回／取消</option>
+            </select>
+          </label>
+          <label>銷售窗口
+            <select data-order-sales-filter>
+              <option value="all">全部窗口</option>
+              <option value="LINGZANZAN">LINGZANZAN</option>
+              <option value="ANY">ANY</option>
+            </select>
+          </label>
+          <label>訂單狀態
+            <select data-order-status-filter>
+              <option value="all">全部狀態</option>
+              <option value="new">新訂單</option>
+              <option value="confirming">接單確認中</option>
+              <option value="accepted">已接單</option>
+              <option value="shipped">已出貨</option>
+              <option value="delivered">已完成配送</option>
+              <option value="returned">已退回公司</option>
+            </select>
+          </label>
+        </div>
+        <section class="order-customer-history" data-order-customer-history hidden aria-live="polite"></section>
+        <input type="hidden" data-order-type-filter value="normal">
+        <div class="logic-note">直播訂單獨立處理；一般現貨訂單與預購完成轉出貨後的訂單，統一進入「現貨訂單」。未完成排前面，已完成配送移至成功紀錄；每區每頁固定 10 筆，可搜尋姓名、電話、地址、訂單與商品，並可單獨篩選未填物流單號。印尼倉 → 中國倉只做庫存調撥，不能建立成客戶出貨模式；中國倉驗收入庫後，再從中國倉出貨給客戶。</div>
+        <section class="shipment-receivable-panel" data-shipment-receivable-panel>
+          <div class="shipment-receivable-head">
+            <div>
+              <p>ACCOUNTS RECEIVABLE</p>
+              <h3>已出貨未收款統計</h3>
+              <span>訂單一進入出貨中、配送中或已完成，就把尚未收到的款項列在這裡；完成出貨後也不會消失。</span>
+            </div>
+            <button type="button" class="ghost-button" data-toggle-shipment-receivables aria-expanded="false">展開收款統計</button>
+          </div>
+          <div data-shipment-receivable-content hidden>
+          <div class="shipment-receivable-kpis" data-shipment-receivable-kpis>
+            <article><span>應收總額</span><strong>尚未展開</strong></article>
+          </div>
+          <div class="shipment-receivable-tools">
+            <label>搜尋客戶／電話／訂單／物流單號
+              <input type="search" data-shipment-receivable-search placeholder="輸入關鍵字">
+            </label>
+            <label>印尼收款
+              <select data-shipment-receivable-indonesia-filter>
+                <option value="all">全部印尼收款</option>
+                <option value="sales_goods">業務自己的貨款</option>
+                <option value="company_deposit">公司貨款－印尼業務代收（從毛利扣）</option>
+                <option value="received">已收款成功</option>
+                <option value="pending">尚未確認收到</option>
+              </select>
+            </label>
+          </div>
+          <div class="shipment-receivable-list" data-shipment-receivable-list>
+            <p class="muted">按上方「展開收款統計」後才讀取資料。</p>
+          </div>
+          </div>
+        </section>
+        <div class="admin-list order-list order-split-list" data-admin-orders>
+          <section class="order-work-section" data-order-section="live">
+            <div class="order-section-head">
+              <div><b>直播訂單</b><span>直播打單送出後的正式訂單集中在這裡處理。</span></div>
+              <label>出貨模式
+                <select data-order-section-ship-filter="live">
+                  <option value="all">全部出貨模式</option>
+                  <option value="CN>TW">中國倉 → 台灣倉</option>
+                  <option value="CN>ID">中國倉 → 印尼倉</option>
+                  <option value="ID>TW">印尼倉 → 台灣倉</option>
+                  <option value="TW>CN">台灣倉 → 中國倉</option>
+                  <option value="TW>ID">台灣倉 → 印尼倉</option>
+                </select>
+              </label>
+            </div>
+            <div data-order-section-list="live"></div>
+          </section>
+          <section class="order-work-section" data-order-section="preorder-converted" hidden aria-hidden="true">
+            <div class="order-section-head">
+              <div><b>預購轉正式訂單</b><span>從預購訂單轉進正式訂單後，集中在這裡處理。</span></div>
+              <label>出貨模式
+                <select data-order-section-ship-filter="preorder-converted">
+                  <option value="all">全部出貨模式</option>
+                  <option value="CN>TW">中國倉 → 台灣倉</option>
+                  <option value="CN>ID">中國倉 → 印尼倉</option>
+                  <option value="ID>TW">印尼倉 → 台灣倉</option>
+                  <option value="TW>CN">台灣倉 → 中國倉</option>
+                  <option value="TW>ID">台灣倉 → 印尼倉</option>
+                </select>
+              </label>
+            </div>
+            <div data-order-section-list="preorder-converted"></div>
+          </section>
+          <section class="order-work-section" data-order-section="ready">
+            <div class="order-section-head">
+              <div><b>現貨訂單</b><span>客戶現貨訂單、行政出貨與預購轉出貨都集中在這裡；訂單卡仍保留原始預購來源。</span></div>
+              <label>出貨模式
+                <select data-order-section-ship-filter="ready">
+                  <option value="all">全部出貨模式</option>
+                  <option value="CN>TW">中國倉 → 台灣倉</option>
+                  <option value="CN>ID">中國倉 → 印尼倉</option>
+                  <option value="ID>TW">印尼倉 → 台灣倉</option>
+                  <option value="TW>CN">台灣倉 → 中國倉</option>
+                  <option value="TW>ID">台灣倉 → 印尼倉</option>
+                </select>
+              </label>
+            </div>
+            <div data-order-section-list="ready"></div>
+          </section>
+          <section class="order-work-section order-completed-history-section" data-order-section="completed" hidden>
+            <div class="order-section-head">
+              <div>
+                <b>出貨成功追蹤紀錄</b>
+                <span>客戶已收到的訂單集中保存在這裡，不再占用目前出貨作業。</span>
+              </div>
+              <em data-order-section-count></em>
+            </div>
+            <div class="order-completed-history-list" data-order-completed-list></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" data-admin-toast hidden></div>
+  <link rel="lz-asset" data-lz-href="./assets/address-helper.css">
+  <link rel="lz-asset" data-lz-href="./assets/order-customer-lookup.css">
+<script type="lz/asset" data-lz-src="./assets/admin.js?v=20260927-cat-pick-1" defer></script>
+<script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260902-delivery-links-1" defer data-navigation-only></script>
+<script type="lz/asset" data-lz-src="./assets/order-customer-lookup.js?v=20260830-phone-min5-1" defer></script>
+  <script>
+    // 現貨首屏先只啟動核心訂單功能；其餘裝飾模組等第一次操作後再載入，
+    // 避免多個 DOM 掃描器同時處理訂單卡造成瀏覽器停止回應。
+    (function () {
+      var loaded = false;
+      var sources = [
+        './assets/order-audit-link.js?v=20260901-profit-order-audit-retry-1',
+        './assets/admin-labels.js?v=20260730-local313-brand-product-search-1',
+        './assets/admin-ui-rescue.js?v=20260718-preorder-waiting-flow-2',
+        './assets/order-payments.js?v=20260910-orders-etag-cache-1',
+        './assets/member-risk-v2.js?v=20260924-bl-return-1',
+        './assets/submission-feedback.js?v=20260815-admin-orders-write-feedback-settle-2',
+        './assets/address-helper.js?v=20260821-addr-hang-1'
+      ];
+      function loadEnhancements() {
+        if (loaded) return;
+        loaded = true;
+        function loadNext(index) {
+          if (index >= sources.length) return;
+          var script = document.createElement('script');
+          script.src = sources[index];
+          script.defer = true;
+          script.onload = script.onerror = function () {
+            window.setTimeout(function () { loadNext(index + 1); }, 2500);
+          };
+          document.body.appendChild(script);
+        }
+        loadNext(0);
+      }
+      function loadOnNonFormAction(event) {
+        if (event.target && event.target.closest && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+        document.removeEventListener('pointerdown', loadOnNonFormAction);
+        loadEnhancements();
+      }
+      document.addEventListener('pointerdown', loadOnNonFormAction, { passive: true });
+      // 毛利報表帶 auditOrder 進來時必須立即啟動查核模組；不能等使用者
+      // 再點一下頁面或等候 120 秒，否則搜尋框與訂單區會保持空白。
+      if (new URLSearchParams(window.location.search).get('auditOrder')) loadEnhancements();
+      window.setTimeout(loadEnhancements, 120000);
+    }());
+  </script>
+  <link rel="lz-asset" data-lz-href="./assets/myship-workbench.css?v=20260925-myship-daily-1">
+  <script type="lz/asset" data-lz-src="./assets/myship-workbench.js?v=20260925-myship-daily-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/return-event-entry.js?v=20260909-inline5" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/myship-daily-report.js?v=20260925-daily-ops-1" defer></script>
+</body>
+</html>

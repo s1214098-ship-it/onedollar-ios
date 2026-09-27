@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <script src="./asset-boot.php"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <title>LINGZANZAN - 缺貨待補／客戶欠貨清單</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260927-cat-pick-1">
+  <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css" data-admin-navigation-style>
+  <link rel="lz-asset" data-lz-href="./assets/admin-order-tracking.css?v=20260822-blacklist-ui-1">
+  <link rel="lz-asset" data-lz-href="./assets/warehouse-balance-visibility.css">
+</head>
+<body class="labels-ready">
+  <script>
+    var loginParams = new URLSearchParams(location.search);
+    var loginKey = 'lingzanzan-v1-admin-login';
+    if (loginParams.get('resetLogin') === '1') localStorage.removeItem(loginKey);
+    try {
+      var cachedLogin = JSON.parse(localStorage.getItem(loginKey) || '{}');
+      if (cachedLogin.version === 'password-login-v2' && cachedLogin.serverSession === true && ['admin', 'staff'].indexOf(cachedLogin.role) !== -1 && cachedLogin.until && Date.now() < cachedLogin.until) document.body.classList.add('is-admin-unlocked');
+    } catch (error) {}
+  </script>
+  <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>登入後查詢缺貨待補、欠貨客戶、承辦署名與四倉尚欠。</span>
+      <input data-login-account type="text" placeholder="輸入管理員帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入管理員密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button>
+      <a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint>登入一次後，24 小時內同一台瀏覽器不用重複輸入密碼。</small>
+    </form>
+  </div>
+  <div class="admin-top-actions" hidden style="display:none">
+    <span class="login-identity" data-current-user hidden></span>
+    <a href="./">回首頁</a>
+    <button type="button" data-logout-admin>登出</button>
+  </div>
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+      <nav>
+        <a href="./admin.html">總覽</a>
+        <a href="./admin-orders.html">現貨打單</a>
+        <a href="./admin-preorders.html">預購打單</a>
+        <a href="./admin-order-tracking.html">訂單列表／進度</a>
+        <a href="./admin-preorder-demand.html" class="is-active" aria-current="page">缺貨待補／欠貨客戶</a>
+      </nav>
+    </aside>
+    <main>
+      <section class="panel order-tracking-page" data-order-demand-page>
+        <div class="panel-head order-tracking-title">
+          <div>
+            <p>BACKORDER &amp; REPLENISHMENT</p>
+            <h2>缺貨待補／欠貨客戶／承辦署名</h2>
+            <span>資料直接使用張張後台的未完成預購、四倉庫存與集運提撥；按「開始統計」後逐筆核對並署名。</span>
+          </div>
+          <a class="ghost-button" href="./admin-order-tracking.html">回訂單追蹤</a>
+        </div>
+        <section class="order-demand-summary" data-order-demand-summary aria-live="polite">
+          <header>
+            <div>
+              <p>ON-DEMAND CALCULATION</p>
+              <h3>先看欠誰、欠哪款，再確認補貨</h3>
+              <span data-order-demand-scope>統計會比對未完成客戶需求、預購台灣、預購中國、台灣正式倉與印尼正式倉。</span>
+            </div>
+            <button type="button" class="primary-button" data-order-demand-toggle aria-expanded="false">開始統計</button>
+            <label data-order-demand-controls hidden>搜尋產品／客戶／電話／訂單
+              <input type="search" data-order-demand-query placeholder="例如：OLAN66、紫色、客戶姓名或電話">
+            </label>
+          </header>
+          <div class="order-demand-overview" data-order-demand-overview hidden></div>
+          <div class="order-demand-grid" data-order-demand-grid hidden></div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div class="toast" data-admin-toast hidden></div>
+  <script type="lz/asset" data-lz-src="./assets/admin.js?v=20260927-cat-pick-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-labels.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-ui-rescue.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/submission-feedback.js" defer data-submission-feedback-script></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260902-agency-collection-1" defer></script>
+</body>
+</html>
+
+
+
