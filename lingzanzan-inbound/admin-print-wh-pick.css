@@ -1,0 +1,32 @@
+.inventory-print-warehouse-pick {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(239, 191, 91, 0.5);
+  border-radius: 12px;
+  background: #241c20;
+}
+.inventory-print-warehouse-pick small { color: #f0c75e; font-weight: 900; }
+.inventory-print-warehouse-btn {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: #1b161d;
+  color: #fffaf3;
+  font-weight: 800;
+  cursor: pointer;
+}
+.inventory-print-warehouse-btn.is-active {
+  border-color: #5cdecd;
+  background: #1e3a36;
+  color: #9ff4e7;
+}
+.inventory-print-warehouse-pick em {
+  width: 100%;
+  font-style: normal;
+  color: #d7cfd8;
+  font-size: 12px;
+}
