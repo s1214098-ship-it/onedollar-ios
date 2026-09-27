@@ -1,0 +1,6 @@
+/* LZ_PROD_COLOR_HIST_20260927: 商品建檔顏色＝歷史選單 + 空白欄 */
+.color-add-row .product-color-zh-picker {
+  display: grid;
+  grid-template-columns: minmax(110px, .9fr) minmax(120px, 1fr);
+  gap: 6px;
+}
