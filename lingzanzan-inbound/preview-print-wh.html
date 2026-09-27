@@ -3,21 +3,22 @@
 <head>
   <meta charset="utf-8">
   <title>列印倉庫位置預覽</title>
-  <link rel="stylesheet" href="./admin-print-wh-pick.css">
   <style>
     body { margin: 24px; background: #171319; color: #fffaf4; font-family: sans-serif; }
-    .inventory-print-selector-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+    .inventory-print-warehouse-pick{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 12px;border:1px solid rgba(239,191,91,.65);border-radius:14px;background:#2a2018}
+    .inventory-print-warehouse-pick strong{color:#f0c75e;font-size:15px;font-weight:900}
+    .inventory-print-warehouse-btn{min-height:44px;padding:8px 16px;border:1px solid rgba(255,255,255,.2);border-radius:12px;background:#1b161d;color:#fffaf3;font-size:16px;font-weight:900;cursor:pointer}
+    .inventory-print-warehouse-btn.is-active{border-color:#5cdecd;background:#1e3a36;color:#9ff4e7;box-shadow:inset 0 0 0 1px #5cdecd}
+    .inventory-print-warehouse-pick em{width:100%;font-style:normal;color:#ffe7b3;font-size:13px}
   </style>
 </head>
 <body>
-  <div class="inventory-print-selector-tools">
-    <div class="inventory-print-warehouse-pick" role="group" aria-label="列印倉庫位置">
-      <small>列印倉庫位置</small>
-      <button type="button" class="inventory-print-warehouse-btn" data-inventory-print-warehouse="TW">台灣倉</button>
-      <button type="button" class="inventory-print-warehouse-btn is-active" data-inventory-print-warehouse="CN">中國倉</button>
-      <button type="button" class="inventory-print-warehouse-btn" data-inventory-print-warehouse="ID">印尼倉</button>
-      <em>跟現在庫存在哪無關，貨還在中國倉也能先印台灣倉標。</em>
-    </div>
+  <div class="inventory-print-warehouse-pick" role="group" aria-label="列印倉庫位置">
+    <strong>列印倉庫位置</strong>
+    <button type="button" class="inventory-print-warehouse-btn" data-inventory-print-warehouse="TW">台灣倉</button>
+    <button type="button" class="inventory-print-warehouse-btn is-active" data-inventory-print-warehouse="CN">中國倉</button>
+    <button type="button" class="inventory-print-warehouse-btn" data-inventory-print-warehouse="ID">印尼倉</button>
+    <em>選哪個倉，標籤就印那個倉的條碼位置。貨還在中國倉也能先印台灣倉。</em>
   </div>
   <script>
     document.querySelectorAll('[data-inventory-print-warehouse]').forEach(function (btn) {

@@ -42,6 +42,11 @@ assert('china stock can still print taiwan location', inventoryStampPrintWarehou
 
 assert('named china maps to CN', inventoryPrintWarehouseCode('中國東莞倉'), 'CN');
 assert('blank falls back to TW', inventoryStampPrintWarehouse({}, '').warehouse, '台灣倉');
+assert('label can keep taiwan location text', (function () {
+  var payload = inventoryStampPrintWarehouse({ barcode: 'SE2599104P206' }, 'TW');
+  payload.locationText = 'A架 · 第一層';
+  return payload.warehouse + ' · ' + payload.locationText;
+})(), '台灣倉 · A架 · 第一層');
 
 if (failed) process.exit(1);
 console.log('all passed');
