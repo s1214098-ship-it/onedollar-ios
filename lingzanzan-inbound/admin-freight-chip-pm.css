@@ -1,0 +1,5 @@
+/* LZ_RECV_CHIP_PM_20260927: 數量只顯示 ＋／－；配色格淺色一格一格。 */
+.freight-qty-combined-box { grid-template-columns: 42px minmax(64px,1fr) 42px; }
+.freight-qty-add-one::before { content: "＋"; }
+.freight-qty-add-one.is-minus::before { content: "－"; }
+.freight-receiving-color-chip { background: #fffaf2; width: 118px; }
