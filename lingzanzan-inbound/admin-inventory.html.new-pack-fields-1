@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <script src="./asset-boot.php?v=20260927-cat-pick-1"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>LINGZANZAN - 貨倉管理</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260927-pack-fields-1">
+  <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css?v=20260907-inventory-mobile-layout-1" data-admin-navigation-style>
+  <style>
+    /* Inventory page safety net: keep cached desktop navigation from squeezing
+       the content into a narrow column on phones and split-screen windows. */
+    @media (max-width: 1360px) {
+      body.is-admin-unlocked .admin-shell {
+        display: block !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 12px 48px !important;
+      }
+      body.is-admin-unlocked .admin-shell > main {
+        display: block !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin: 14px 0 0 !important;
+        padding: 0 0 48px 52px !important;
+      }
+      body.is-admin-unlocked .sidebar {
+        position: fixed !important;
+        inset: 0 auto 0 0 !important;
+        z-index: 120 !important;
+        width: min(86vw, 340px) !important;
+        min-width: min(86vw, 340px) !important;
+        max-width: min(86vw, 340px) !important;
+        height: 100dvh !important;
+        overflow: hidden !important;
+        transform: translateX(-105%) !important;
+      }
+      body.is-admin-unlocked.mobile-admin-menu-open .sidebar {
+        transform: translateX(0) !important;
+      }
+    }
+    @media (max-width: 560px) {
+      body.is-admin-unlocked .admin-shell { padding-inline: 8px !important; }
+      body.is-admin-unlocked .admin-shell > main { padding-left: 44px !important; }
+    }
+  </style>
+  <link rel="lz-asset" data-lz-href="./assets/warehouse-balance-visibility.css">
+  <style>
+    .inventory-warehouse-stock-summary {
+      display: block;
+      margin-top: 0.3rem;
+      color: #78ddd0;
+      font-size: 0.82rem;
+      font-style: normal;
+      font-weight: 800;
+      line-height: 1.4;
+    }
+    .inventory-filter-narrow-banner {
+      display: grid;
+      gap: 0.55rem;
+      margin: 0.4rem 0 0.8rem;
+      padding: 0.95rem 1rem;
+      border: 1px solid #f4c65a;
+      border-radius: 14px;
+      background: #3a2c14;
+      color: #fff8ee;
+    }
+    .inventory-filter-narrow-banner b { color: #ffd05b; font-size: 1.02rem; }
+    .inventory-filter-narrow-banner span { color: #f3e6c8; line-height: 1.45; }
+    .inventory-filter-narrow-banner button { justify-self: start; }
+    /* LZ_CN_PREFIX_PICK_20260924 */
+    .inventory-barcode-overview-actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .inventory-prefix-picker-overlay{
+      position:fixed;inset:0;z-index:10055;display:grid;place-items:center;
+      padding:16px;background:rgba(8,7,10,.86);
+    }
+    .inventory-prefix-picker-overlay>section{
+      width:min(760px,100%);max-height:calc(100dvh - 24px);display:grid;
+      grid-template-rows:auto auto minmax(220px,1fr) auto;gap:12px;box-sizing:border-box;
+      padding:16px;border:1px solid rgba(92,222,205,.55);border-radius:20px;background:#17131b;color:#fff;
+      overflow:hidden;
+    }
+    .inventory-prefix-picker-overlay header,.inventory-prefix-picker-overlay footer{
+      display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    }
+    .inventory-prefix-picker-overlay header small{color:#79e3d3;font-weight:900;letter-spacing:.08em}
+    .inventory-prefix-picker-overlay h3{margin:4px 0 0;font-size:22px}
+    .inventory-prefix-picker-overlay p{margin:6px 0 0;color:#d7cfd8}
+    .inventory-prefix-note{margin:0;padding:10px 12px;border-radius:12px;background:#241e27;color:#f3e6c8;line-height:1.45}
+    .inventory-prefix-body{min-height:0;overflow:auto;display:grid;gap:10px}
+    .inventory-prefix-color-btn{
+      display:grid;grid-template-columns:52px minmax(0,1fr);gap:8px;align-items:center;
+      width:100%;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px;
+      background:#241e27;color:#fff;text-align:left;cursor:pointer;
+    }
+    .inventory-prefix-color-btn.is-active{border-color:#5cdecd;box-shadow:inset 3px 0 0 #52d7c3}
+    .inventory-prefix-color-btn img{width:52px;height:52px;object-fit:cover;border-radius:8px;background:#111}
+    .inventory-prefix-color:not(.is-active) .inventory-prefix-sizes{display:none}
+    .inventory-prefix-sizes{display:grid;gap:7px;padding:4px 0 8px}
+    .inventory-prefix-size-row{
+      display:grid;grid-template-columns:minmax(70px,.5fr) minmax(0,1.4fr) minmax(140px,1fr) 110px;
+      gap:8px;align-items:center;margin:0;border:1px solid rgba(255,255,255,.12);
+      border-radius:12px;padding:8px 10px;background:#1d1822;
+    }
+    .inventory-prefix-size-row b{color:#fffaf3}
+    .inventory-prefix-size-row small,.inventory-prefix-size-row em{color:#bfb5c1;font-size:12px;font-style:normal}
+    .inventory-prefix-size-row input{width:72px;min-height:36px}
+    @media(max-width:760px){
+      .inventory-prefix-picker-overlay{padding:8px}
+      .inventory-prefix-size-row{grid-template-columns:1fr}
+      .inventory-prefix-picker-overlay footer button{width:100%}
+    }
+    /* LZ_PRINT_STAY_20260924: keep label preview on this page even if admin.css is stale. */
+    .inventory-barcode-print-overlay{
+      position:fixed;inset:0;z-index:10050;display:grid;place-items:center;
+      padding:16px;background:rgba(8,7,10,.86);
+    }
+    .inventory-barcode-print-overlay>section{
+      width:min(720px,100%);max-height:calc(100dvh - 24px);display:grid;
+      grid-template-rows:auto minmax(240px,1fr) auto;gap:12px;box-sizing:border-box;
+      padding:16px;border:1px solid rgba(239,191,91,.55);border-radius:20px;background:#17131b;color:#fff;
+    }
+    .inventory-barcode-print-overlay header,.inventory-barcode-print-overlay footer{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    }
+    .inventory-barcode-print-overlay header small{color:#efbf5b;font-weight:900;letter-spacing:.08em}
+    .inventory-barcode-print-overlay h3{margin:4px 0 0;font-size:20px}
+    .inventory-barcode-print-overlay iframe{
+      width:100%;min-height:280px;height:min(58dvh,520px);border:1px solid #3d3342;border-radius:12px;background:#fff;
+    }
+    .inventory-barcode-print-overlay footer button{min-height:44px}
+    @media(max-width:760px){
+      .inventory-barcode-print-overlay{padding:8px}
+      .inventory-barcode-print-overlay>section{padding:12px;border-radius:14px}
+      .inventory-barcode-print-overlay iframe{min-height:220px;height:46dvh}
+      .inventory-barcode-print-overlay footer button{width:100%}
+    }
+    .inventory-print-warehouse-pick{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 12px;border:1px solid rgba(239,191,91,.65);border-radius:14px;background:#2a2018}
+    .inventory-print-warehouse-pick strong{color:#f0c75e;font-size:15px;font-weight:900}
+    .inventory-print-warehouse-btn{min-height:44px;padding:8px 16px;border:1px solid rgba(255,255,255,.2);border-radius:12px;background:#1b161d;color:#fffaf3;font-size:16px;font-weight:900;cursor:pointer}
+    .inventory-print-warehouse-btn.is-active{border-color:#5cdecd;background:#1e3a36;color:#9ff4e7;box-shadow:inset 0 0 0 1px #5cdecd}
+    .inventory-print-warehouse-pick em{width:100%;font-style:normal;color:#ffe7b3;font-size:13px}
+/* LZ_CAT_PICK_20260927 */
+    .catalog-category-picker-search-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .catalog-category-picker-open {
+      min-height: 48px;
+      padding: 0 14px;
+      white-space: nowrap;
+      font-weight: 900;
+      border-color: rgba(244, 198, 90, .72) !important;
+      background: #2a2018 !important;
+      color: #ffe7b3 !important;
+      -webkit-text-fill-color: #ffe7b3 !important;
+    }
+    .catalog-category-picker-open:hover,
+    .catalog-category-picker-open:focus-visible {
+      border-color: #f4c65a !important;
+      background: #3a2c14 !important;
+    }
+    .freight-fifo-priority-controls .catalog-category-picker-open,
+    .freight-existing-product-search-actions .catalog-category-picker-open {
+      align-self: end;
+    }
+    .catalog-category-picker-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10070;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: rgba(8, 7, 10, .86);
+    }
+    .catalog-category-picker-overlay > section {
+      width: min(920px, 100%);
+      max-height: calc(100dvh - 24px);
+      display: grid;
+      grid-template-rows: auto auto auto auto minmax(220px, 1fr) auto;
+      gap: 10px;
+      box-sizing: border-box;
+      padding: 16px;
+      border: 1px solid rgba(244, 198, 90, .55);
+      border-radius: 20px;
+      background: #17131b;
+      color: #fff;
+      overflow: hidden;
+    }
+    .catalog-category-picker-overlay header,
+    .catalog-category-picker-overlay footer {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .catalog-category-picker-overlay header small {
+      color: #f4c65a;
+      font-weight: 900;
+      letter-spacing: .08em;
+    }
+    .catalog-category-picker-overlay h3 { margin: 4px 0 0; font-size: 22px; }
+    .catalog-category-picker-overlay p { margin: 6px 0 0; color: #d7cfd8; }
+    .catalog-category-picker-filters {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .catalog-category-picker-filters button {
+      min-height: 44px;
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 10px;
+      background: #27212a;
+      color: #f8eee1;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .catalog-category-picker-filters button.is-active {
+      border-color: #f4bd4d;
+      background: #f4bd4d;
+      color: #211719;
+    }
+    .catalog-category-picker-search {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      color: #ffe7b3;
+      font-weight: 800;
+    }
+    .catalog-category-picker-search input {
+      min-height: 44px;
+      border: 1px solid rgba(244, 198, 90, .45);
+      border-radius: 10px;
+      background: #1b1712;
+      color: #fff8ee;
+      font-weight: 800;
+    }
+    .catalog-category-picker-note {
+      margin: 0;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #241e27;
+      color: #f3e6c8;
+      line-height: 1.45;
+    }
+    .catalog-category-picker-body {
+      min-height: 0;
+      overflow: auto;
+    }
+    .catalog-category-picker-cats,
+    .catalog-category-picker-products {
+      display: grid;
+      gap: 8px;
+    }
+    .catalog-category-picker-cats {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+    .catalog-category-picker-cat {
+      display: grid;
+      gap: 4px;
+      min-height: 64px;
+      padding: 10px 12px;
+      border: 1px solid rgba(80, 216, 186, .4);
+      border-radius: 12px;
+      background: #17302d;
+      color: #fff8ed;
+      text-align: left;
+      cursor: pointer;
+      font-weight: 900;
+    }
+    .catalog-category-picker-cat small {
+      color: #9ff4e7;
+      font-weight: 800;
+    }
+    .catalog-category-picker-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .catalog-category-picker-card {
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid rgba(255, 255, 255, .14);
+      border-radius: 12px;
+      background: #241e27;
+    }
+    .catalog-category-picker-card img,
+    .catalog-category-picker-card .is-no-image {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: #111;
+      display: grid;
+      place-items: center;
+      color: #bfb5c1;
+      font-size: 12px;
+    }
+    .catalog-category-picker-card b { color: #fffaf3; display: block; }
+    .catalog-category-picker-card em,
+    .catalog-category-picker-card small {
+      display: block;
+      color: #d7cfd8;
+      font-style: normal;
+      font-size: 13px;
+    }
+    .catalog-category-picker-card .primary-button { min-height: 42px; }
+    .catalog-category-picker-empty {
+      margin: 0;
+      padding: 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .05);
+      color: #ffc4ca;
+    }
+    @media (max-width: 760px) {
+      .catalog-category-picker-overlay { padding: 8px; }
+      .catalog-category-picker-overlay > section { padding: 12px; border-radius: 14px; }
+      .catalog-category-picker-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .catalog-category-picker-card { grid-template-columns: 52px minmax(0, 1fr); }
+      .catalog-category-picker-card .primary-button { grid-column: 1 / -1; width: 100%; }
+    }
+    
+    .inventory-delete-empty-product {
+      border-color: #ff7a7a !important;
+      background: #5b1f2a !important;
+      color: #fff !important;
+      font-weight: 900;
+    }
+    .inventory-zero-stock-action {
+      display: grid;
+      gap: 0.45rem;
+      margin-top: 0.35rem;
+      padding: 0.85rem;
+      border: 1px solid rgba(255, 122, 122, 0.55);
+      border-radius: 12px;
+      background: rgba(91, 31, 42, 0.28);
+    }
+    body.is-admin-unlocked details.inventory-stock-editor .inventory-zero-stock-action button {
+      border-color: #ff7a7a !important;
+      background: #5b1f2a !important;
+      color: #fff !important;
+      font-weight: 900;
+    }
+    .inventory-zero-stock-action small { color: #ffd9df !important; }
+    .inventory-location-list {
+      display: flex;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 8px 10px;
+    }
+    .inventory-location-list .inventory-shelf-field {
+      display: grid;
+      gap: 4px;
+      min-width: 148px;
+      color: #ffe7b3;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .inventory-location-list .inventory-shelf-field select {
+      min-height: 36px;
+      border: 1px solid rgba(244, 198, 90, 0.55);
+      border-radius: 10px;
+      background: #1b1712;
+      color: #fff8ee;
+      font-weight: 800;
+    }
+    .inventory-location-list [data-inventory-save-shelf] {
+      min-height: 36px;
+      font-weight: 900;
+    }
+    .inventory-shelf-hint {
+      flex-basis: 100%;
+      color: #d7efe9;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body class="labels-ready">
+  <script>
+    var loginParams = new URLSearchParams(location.search);
+    var loginKey = 'lingzanzan-v1-admin-login';
+    if (loginParams.get('resetLogin') === '1') {
+      loginParams.delete('resetLogin');
+      var cleanLoginQuery = loginParams.toString();
+      history.replaceState(null, '', location.pathname + (cleanLoginQuery ? '?' + cleanLoginQuery : '') + location.hash);
+    }
+    if (loginParams.get('login') === 'sales') {
+      localStorage.removeItem(loginKey);
+      document.documentElement.setAttribute('data-sales-entry', 'true');
+    } else {
+      try {
+        var cachedLogin = JSON.parse(localStorage.getItem(loginKey) || '{}');
+        if (cachedLogin.version === 'password-login-v2' && cachedLogin.until && Date.now() < cachedLogin.until) {
+          document.body.classList.add('is-admin-unlocked');
+        }
+      } catch (error) {}
+    }
+  </script>
+  <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>請輸入管理者或員工帳號密碼，登入後可管理會員、商品、訂單、庫存與物流。</span>
+      <input data-login-account type="text" placeholder="輸入管理員帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入管理員密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button>
+      <a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint>登入一次後，24 小時內同一台瀏覽器不用重複輸入密碼。</small>
+    </form>
+  </div>
+  <div class="admin-top-actions" hidden style="display:none">
+    <span class="login-identity" data-current-user hidden></span>
+    <a href="./">回首頁</a>
+    <button type="button" data-logout-admin>登出</button>
+  </div>
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+      <nav>
+        <a href="./admin.html">總覽</a>
+        <a href="./admin-security.html">管理者</a>
+        <a href="./admin-staff.html">員工管理</a>
+        <a href="./admin-members.html">會員管理</a>
+        <a href="./admin-sales.html">業務管理</a>
+        <a href="./admin-products.html">產品管理</a>
+        <a href="./admin-offline-products.html">下架產品</a>
+        <a href="./admin-style-columns.html">首頁區塊</a>
+        <a href="./admin-orders.html">訂單</a>
+        <a href="./admin-preorders.html" class="preorder-menu-link">預購打單</a>
+        <a href="./admin-purchase.html" class="purchase-menu-link">採購區</a>
+        <a href="./admin-suppliers.html">廠商管理</a>
+        <a href="./admin-freight.html">物流集運</a>
+        <a href="./admin-live.html">直播打單</a>
+        <a href="./admin-inquiries.html">客戶詢問</a>
+        <a href="./admin-inventory.html">貨倉管理</a>
+        <a href="./admin-logistics.html">物流回報</a>
+        <a href="./admin-profit.html" class="profit-menu-link" data-profit-menu-link="true">營銷毛利</a>
+        <a href="./admin-backup.html">備份還原</a>
+      </nav>
+    </aside>
+    <main>
+      <section class="panel" id="inventory" data-clean-built="1">
+        <div class="panel-head">
+          <div>
+            <p>INVENTORY</p>
+            <h2>貨倉管理</h2>
+          </div>
+        </div>
+        <section class="inventory-preorder-warehouse preorder-warehouse-stat-panel" aria-labelledby="preorder-warehouse-stat-title">
+          <div class="preorder-freight-balance" data-preorder-freight-balance aria-live="polite">
+            <p class="empty-state">正在讀取預購倉需求、物流預報、提撥與欠客提醒…</p>
+          </div>
+        </section>
+        <section class="inventory-location-setup" data-inventory-location-setup>
+          <div class="inventory-location-head">
+            <div>
+              <span>WAREHOUSE SETTINGS</span>
+              <h3>倉位、貨架與顏色模板</h3>
+              <p>貨倉、貨架與層位只在此由管理者建立；盤點機與快速入庫只能選用既有位置，不會自行增加艙位。</p>
+            </div>
+            <a class="ghost-button" href="./scanner.html">開啟／安裝盤點機 APP</a>
+          </div>
+          <div class="inventory-location-form">
+            <label>新增貨倉<input data-warehouse-name placeholder="例如：退貨倉"></label>
+            <label>新增貨架<input data-shelf-name placeholder="例如：A架、直播室"></label>
+            <label>新增層位<input data-layer-name placeholder="例如：第六層"></label>
+            <label>新增預設位置<input data-default-shelf placeholder="例如：台灣倉 / A架 / 第一層"></label>
+            <button type="button" data-save-warehouse>儲存位置設定</button>
+          </div>
+          <div class="inventory-location-groups">
+            <section><h4>貨倉</h4><div data-inventory-warehouse-list></div></section>
+            <section><h4>貨架</h4><div data-inventory-shelf-list></div></section>
+            <section><h4>層位</h4><div data-inventory-layer-list></div></section>
+            <section><h4>預設位置</h4><div data-inventory-default-location-list></div></section>
+          </div>
+          <div class="inventory-color-template">
+            <div>
+              <h4>顏色色碼表</h4>
+              <p>掃描與快速入庫會依這份色碼判定顏色；可補登新的顏色模板。</p>
+            </div>
+            <div class="inventory-color-template-form">
+              <input data-inventory-color-code placeholder="色碼，例如 933">
+              <input data-inventory-color-name placeholder="顏色名稱，例如 黑白">
+              <button type="button" data-inventory-save-color-template>新增色碼</button>
+            </div>
+            <div data-inventory-color-template-list></div>
+          </div>
+          <section class="scanner-review" data-scanner-review>
+            <header><div><small>STOCKTAKE DRAFT / SUPERVISOR APPROVAL</small><h3>盤點草稿夾／主管核准</h3><p>員工可先修正實盤數量與誤差備註；儲存草稿不會修改正式庫存，只有管理者核准才會一次帶入。</p><p data-scanner-review-status>讀取中</p></div><button type="button" data-scanner-review-refresh>立即同步盤點紀錄</button></header>
+            <div data-scanner-review-list></div>
+          </section>
+        </section>
+        <section class="quick-stockin-panel admin-only" data-quick-stockin-panel>
+          <header class="quick-stockin-head">
+            <div>
+              <small>QUICK STOCK-IN</small>
+              <h3>產品快速入倉</h3>
+              <p>從下方產品按「快速入倉」會自動帶入；同一商品可分別放入不同倉庫、貨架與層位，每個位置獨立計數。先加入 NAS 草稿，再確認寫入共同庫存。</p>
+            </div>
+            <strong data-quick-stockin-status>等待選擇產品</strong>
+          </header>
+          <div class="quick-stockin-grid">
+            <label>產品條碼／產品編號<input data-quick-stockin-scan autocomplete="off" placeholder="按產品卡快速帶入，或掃描條碼"></label>
+            <label>入倉數量<input data-quick-stockin-qty type="number" min="1" step="1" value="1"></label>
+            <label>入倉貨倉<select data-quick-stockin-warehouse></select></label>
+            <label>貨架<select data-quick-stockin-shelf></select></label>
+            <label>層位<select data-quick-stockin-layer></select></label>
+            <label>顏色圖片／到貨照<input data-quick-stockin-image type="file" accept="image/*"></label>
+          </div>
+          <div class="quick-stockin-preview" data-quick-stockin-preview>選擇產品後會顯示即將入倉的規格與位置。</div>
+          <div class="quick-stockin-actions">
+            <button type="button" class="primary-button" data-quick-stockin-save>加入本輪入倉清單</button>
+            <button type="button" class="primary-button" data-quick-stockin-commit>確認寫入共同庫存</button>
+            <button type="button" class="ghost-button" data-quick-stockin-clear>清空本輪清單</button>
+          </div>
+          <div class="quick-stockin-log" data-quick-stockin-log></div>
+        </section>
+        <div class="inventory-business-switch" data-inventory-business-switch role="group" aria-label="庫存部門快速切換">
+          <button type="button" class="is-active" data-inventory-business-button="lingzanzan" aria-pressed="true">服裝部庫存</button>
+          <button type="button" data-inventory-business-button="baohui_computer" aria-pressed="false">電腦部庫存</button>
+          <button type="button" data-inventory-business-button="unassigned" aria-pressed="false">未設定部門</button>
+          <button type="button" data-inventory-business-button="all" aria-pressed="false">全部庫存</button>
+        </div>
+        <div class="member-tools inventory-tools">
+          <label>搜尋品牌 / 產品名稱 / 編號 / SKU / 顏色 / 尺寸 / 倉位
+            <span class="catalog-category-picker-search-row">
+              <input data-inventory-search placeholder="輸入商品、SKU、顏色、倉位、客戶姓名、電話或訂單編號" autocomplete="off">
+              <button type="button" class="ghost-button catalog-category-picker-open" data-catalog-category-picker="inventory">分類找產品</button>
+            </span>
+          </label>
+          <label class="inventory-business-select">部門
+            <select data-inventory-business-filter>
+              <option value="lingzanzan" selected>服裝 / LINGZANZAN</option>
+              <option value="baohui_computer">電腦部門</option>
+              <option value="unassigned">未設定部門</option>
+              <option value="all">全部部門</option>
+            </select>
+          </label>
+          <label>貨倉
+            <select data-inventory-warehouse-filter>
+              <option value="all">全部貨倉</option>
+            </select>
+            <div class="inventory-location-filter-chips" data-inventory-warehouse-filter-chips></div>
+          </label>
+          <details class="inventory-position-filter">
+            <summary>位置篩選</summary>
+            <div class="inventory-position-filter-body">
+              <label>艙位 / 貨架
+                <select data-inventory-shelf-filter>
+                  <option value="all">全部貨架</option>
+                </select>
+                <div class="inventory-location-filter-chips" data-inventory-shelf-filter-chips></div>
+              </label>
+              <label>層位
+                <select data-inventory-layer-filter>
+                  <option value="all">全部層位</option>
+                </select>
+                <div class="inventory-location-filter-chips" data-inventory-layer-filter-chips></div>
+              </label>
+            </div>
+          </details>
+          <fieldset class="inventory-stock-filter">
+            <legend>庫存狀態</legend>
+            <label><input type="checkbox" data-inventory-stock-filter="stocked">有庫存</label>
+            <label><input type="checkbox" data-inventory-stock-filter="empty">無庫存</label>
+          </fieldset>
+          <label>價格排序
+            <select data-inventory-price-sort>
+              <option value="default">預設排序</option>
+              <option value="price-desc">售價高到低</option>
+              <option value="price-asc">售價低到高</option>
+              <option value="cost-desc">成本高到低</option>
+              <option value="cost-asc">成本低到高</option>
+            </select>
+          </label>
+        </div>
+        <div class="inventory-count-check-toolbar" data-inventory-count-check-toolbar>
+          <span data-inventory-count-check-summary>正在統計目前篩選的庫存數量…</span>
+          <button type="button" class="primary-button" data-inventory-print-count-check>列印數量核對</button>
+        </div>
+        <div class="inventory-legacy-hint" data-inventory-legacy-hint></div>
+        <div class="inventory-list" data-inventory-lines></div>
+        <div class="product-pager" data-inventory-pager></div>
+        <section class="company-self-use" id="company-self-use" data-company-self-use>
+          <header>
+            <div><small>INTERNAL USE / SALES GIFT</small><h3>公司自用／業務贈品領用</h3><p>任何倉別都能使用。贈品會扣正式庫存，最新進貨成本由公司負擔 70%、業務負擔 30%，並永久保留紀錄。</p></div>
+            <button type="button" class="ghost-button" data-self-use-history-toggle>查看領用紀錄</button>
+          </header>
+          <div class="company-self-use-form">
+            <label>領用類型 / Jenis
+              <select data-self-use-disposition>
+                <option value="company_use">公司自用（公司 100%）</option>
+                <option value="sales_gift">業務贈品（公司 70%／業務 30%）</option>
+              </select>
+            </label>
+            <label data-self-use-sales-field hidden>負責業務 / Sales
+              <input data-self-use-sales-owner value="張張" placeholder="輸入負責業務姓名">
+            </label>
+            <label>領用倉別
+              <select data-self-use-warehouse>
+                <option value="TW">台灣倉</option>
+                <option value="CN">中國倉</option>
+                <option value="ID">印尼倉</option>
+              </select>
+            </label>
+            <label class="self-use-search-field">搜尋產品／條碼／SKU
+              <input data-self-use-search placeholder="輸入產品編號、名稱、公司條碼、顏色或尺寸" autocomplete="off">
+              <div class="self-use-search-results" data-self-use-results hidden></div>
+            </label>
+            <label>領用數量<input data-self-use-quantity type="number" min="1" step="1" value="1"></label>
+            <label>領用／贈送日<input data-self-use-date type="date"></label>
+            <label>用途／原因<input data-self-use-reason value="公司自用" placeholder="例如：門市展示、辦公使用"></label>
+            <label class="self-use-note-field">備註<input data-self-use-note placeholder="可填客戶、使用部門、領用人或其他說明"></label>
+          </div>
+          <div class="self-use-selected" data-self-use-selected>尚未選擇產品。</div>
+          <div class="self-use-cost-preview" data-self-use-preview><span>選擇產品後會顯示可用庫存與最新進貨成本。</span></div>
+          <label class="self-use-confirm-check"><input type="checkbox" data-self-use-confirmed> 我已核對產品、規格、倉別、數量與成本分攤</label>
+          <div class="self-use-actions"><button type="button" class="primary-button" data-self-use-commit disabled>確認領用並扣庫存</button><span data-self-use-status></span></div>
+          <div class="self-use-history" data-self-use-history hidden></div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div class="toast" data-admin-toast hidden></div>
+  <script>
+    document.body.setAttribute('data-inventory-inline-ready', 'true');
+    window.addEventListener('error', function (event) {
+      if (!event || !event.filename || event.filename.indexOf('admin-inventory') === -1) return;
+      document.body.setAttribute('data-inventory-script-error', String(event.message || 'script error'));
+    });
+  </script>
+  <script type="lz/asset" data-lz-src="./assets/admin-labels.js" defer></script>
+  <script src="./inventory-catalog-bootstrap.php?v=20260926-color-photo-scan-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/vendor/qrcode-generator.min.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-inventory-color-auto-10.js?v=20260927-cat-pick-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/company-self-use.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/scanner-review.js?v=20260916-staff-draft-correction-3" defer></script>
+  <script src="./assets/submission-feedback.js?v=20260727-local146-numeric-barcode-phone-1" data-submission-feedback-script defer></script>
+<script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260902-agency-collection-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-ui-rescue.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/inventory-preorder-warehouse.js?v=20260917-metric-drilldown-1" defer></script>
+</body>
+</html>
+
+
+
+
