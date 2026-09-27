@@ -1,0 +1,12 @@
+/* LZ_RECV_COLOR_FIRST_20260927: 配色格橫排一格一格，尺寸要看得見。 */
+.freight-receiving-color-chips { display:flex; flex-wrap:wrap; gap:8px; }
+.freight-receiving-color-chip {
+  display:grid;
+  grid-template-rows:72px auto auto;
+  width:112px;
+  padding:6px;
+  border:1px solid #d7cbd9;
+  border-radius:12px;
+  background:#fff;
+  color:#2d2430;
+}
