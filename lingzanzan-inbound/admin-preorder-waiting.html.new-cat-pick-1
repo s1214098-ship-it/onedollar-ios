@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <script src="./asset-boot.php"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>LINGZANZAN - 預購等待區</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260927-cat-pick-1">
+  <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css" data-admin-navigation-style>
+  <link rel="lz-asset" data-lz-href="./assets/order-payments.css">
+  <link rel="lz-asset" data-lz-href="./assets/preorder-allocation.css">
+  <link rel="lz-asset" data-lz-href="./assets/preorder-line-share.css">
+</head>
+<body class="labels-ready">
+  <script>
+    (function () {
+      var key = 'lingzanzan-v1-admin-login';
+      var params = new URLSearchParams(location.search);
+      if (params.get('resetLogin') === '1') localStorage.removeItem(key);
+      if (params.get('login') === 'sales') {
+        localStorage.removeItem(key);
+        document.documentElement.setAttribute('data-sales-entry', 'true');
+        return;
+      }
+      try {
+        var cached = JSON.parse(localStorage.getItem(key) || '{}');
+        if (cached.version === 'password-login-v2' && cached.until && Date.now() < cached.until && cached.role !== 'sales') {
+          document.body.classList.add('is-admin-unlocked');
+        }
+      } catch (error) {}
+    }());
+  </script>
+
+  <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="LINGZANZAN">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>請輸入管理者或行政人員帳號與密碼登入。</span>
+      <input data-login-account type="text" placeholder="輸入管理者帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入管理者密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button>
+      <a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint>登入後同一台瀏覽器 24 小時內不用重複登入。</small>
+    </form>
+  </div>
+
+  <div class="admin-top-actions" hidden>
+    <span data-current-user hidden></span>
+    <a href="./">回首頁</a>
+    <button type="button" data-logout-admin>登出</button>
+  </div>
+
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+      <nav>
+        <a href="./admin.html">總覽</a>
+        <a href="./admin-security.html">管理者</a>
+        <a href="./admin-staff.html">員工管理</a>
+        <a href="./admin-members.html">會員管理</a>
+        <a href="./admin-sales.html">業務管理</a>
+        <a href="./admin-products.html">產品管理</a>
+        <a href="./admin-orders.html">現貨打單</a>
+        <a href="./admin-preorders.html">預購打單</a>
+        <a class="is-active" href="./admin-preorder-waiting.html">預購等待區</a>
+        <a href="./admin-live.html">直播打單</a>
+        <a href="./admin-purchase.html">採購區</a>
+        <a href="./admin-freight.html">物流集運</a>
+        <a href="./admin-inventory.html">貨倉管理</a>
+        <a href="./admin-profit.html">營銷毛利</a>
+      </nav>
+    </aside>
+
+    <main class="admin-main" data-preorders-page data-preorder-waiting-page>
+      <header class="admin-hero preorder-waiting-hero">
+        <div>
+          <p>PREORDER WAITING</p>
+          <h1>預購等待區</h1>
+          <span>已下單的預購會從採購區移到這裡，集中追蹤物流、到貨入庫、累計其他商品與待出貨狀態。</span>
+        </div>
+        <div class="preorder-waiting-hero-actions">
+          <a class="ghost-button" href="./admin-preorders.html">新增預購單</a>
+          <a class="ghost-button" href="./admin-purchase.html">回採購區</a>
+          <button type="button" data-refresh-orders>重新整理</button>
+        </div>
+      </header>
+
+      <section class="panel preorder-waiting-panel" data-preorder-list-panel>
+        <div class="preorder-waiting-rule" role="note">
+          <b>狀態與實際出貨分開管理</b>
+          <span>物流運送中只是採購貨件的進度，不會先扣台灣現貨，也不會把未出貨尾款列為客戶欠款。到貨入庫後預設為「累計訂單／等待其他預購商品」，確認商品已齊後才可按「准許出貨」並轉成現貨出貨單。</span>
+        </div>
+
+        <section class="preorder-waiting-summary" data-preorder-waiting-summary aria-live="polite">
+          <article class="is-total"><span>預購等待總數</span><strong>0</strong><small>0 位客戶／0 件商品</small></article>
+          <article><span>已下單</span><strong>0</strong><small>等待進貨物流</small></article>
+          <article><span>物流運送中</span><strong>0</strong><small>未入庫，不扣現貨</small></article>
+          <article class="is-waiting"><span>累計訂單</span><strong>0</strong><small>已入庫，暫不出貨</small></article>
+          <article class="is-ready"><span>准許出貨</span><strong>0</strong><small>商品已齊，可轉現貨單</small></article>
+          <article class="is-overdue"><span>超過 12 天</span><strong>0</strong><small>需優先確認物流或累計原因</small></article>
+        </section>
+
+        <div class="preorder-waiting-flow" aria-label="預購等待流程">
+          <span><i>1</i><b>已下單</b><small>離開採購區</small></span>
+          <span><i>2</i><b>物流運送</b><small>追蹤進貨貨件</small></span>
+          <span><i>3</i><b>已入庫／累計等待</b><small>等待其他預購商品</small></span>
+          <span><i>4</i><b>商品已齊／准許出貨</b><small>才轉現貨出貨單</small></span>
+        </div>
+
+        <section class="preorder-freight-balance preorder-waiting-allocation" data-preorder-allocation aria-live="polite">
+          <p class="empty-state">正在依客戶下單日期、產品編號、顏色與尺寸建立配貨順序與缺貨名單…</p>
+        </section>
+
+        <div class="filter-row preorder-waiting-filters">
+          <label>搜尋預購／客戶／電話／SKU
+            <input data-order-search placeholder="輸入預購單號、客戶、電話、物流單號、商品或 SKU" autocomplete="off">
+          </label>
+          <label class="sales-filter-buttons">業務
+            <input type="hidden" data-order-sales-filter value="all">
+            <span class="segmented-filter" data-order-sales-filter-buttons>
+              <button type="button" class="is-active" data-order-sales-choice="all">全部</button>
+              <button type="button" data-order-sales-choice="LINGZANZAN">LINGZANZAN</button>
+              <button type="button" data-order-sales-choice="ANY">ANY</button>
+            </span>
+          </label>
+          <label>等待狀態
+            <select data-order-status-filter>
+              <option value="all">全部等待中</option>
+              <option value="ordered">已下單／進入預購等待</option>
+              <option value="arrived">物流運送中</option>
+              <option value="waiting_other_items">累計訂單／等待其他預購商品</option>
+              <option value="ready_to_ship">商品已齊／准許出貨</option>
+            </select>
+          </label>
+        </div>
+
+        <input type="hidden" data-order-type-filter value="preorder">
+        <div class="preorder-pager-host" data-preorder-pager-host></div>
+        <div class="admin-list order-list preorder-waiting-list" data-admin-orders>
+          <div class="empty">正在讀取預購等待資料…</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" data-admin-toast hidden></div>
+  <script type="lz/asset" data-lz-src="./assets/admin-labels.js"></script>
+<script type="lz/asset" data-lz-src="./assets/admin.js?v=20260927-cat-pick-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-ui-rescue.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/order-payments.js?v=20260910-orders-etag-cache-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/preorder-allocation.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/preorder-line-share.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/submission-feedback.js" defer data-submission-feedback-script></script>
+<script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260902-agency-collection-1" defer></script>
+</body>
+</html>
+
+
+
+
+
+
+

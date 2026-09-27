@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <script src="./asset-boot.php"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <title>LINGZANZAN - 預約排單／寄庫</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+  <link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260927-cat-pick-1">
+  <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css" data-admin-navigation-style>
+</head>
+<body class="labels-ready">
+  <script>
+    var loginKey='lingzanzan-v1-admin-login';
+    try {
+      var cachedLogin=JSON.parse(localStorage.getItem(loginKey)||'{}');
+      if(cachedLogin.version==='password-login-v2'&&cachedLogin.serverSession===true&&['admin','staff'].indexOf(cachedLogin.role)!==-1&&cachedLogin.until&&Date.now()<cachedLogin.until)document.body.classList.add('is-admin-unlocked');
+    } catch(error){}
+  </script>
+  <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="">
+      <p>ADMIN LOGIN</p><h1>管理者登入</h1>
+      <span>登入後處理預約排單與寄庫提醒。</span>
+      <input data-login-account type="text" placeholder="輸入管理員帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入管理員密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button><a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint>登入一次後，24 小時內不用重複輸入。</small>
+    </form>
+  </div>
+  <div class="admin-top-actions" hidden style="display:none">
+    <span class="login-identity" data-current-user hidden></span><a href="./">回首頁</a><button type="button" data-logout-admin>登出</button>
+  </div>
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+      <nav>
+        <a href="./admin.html">總覽</a>
+        <a href="./admin-order-tracking.html">訂單列表／進度</a>
+        <a href="./admin-reserved-shipping.html" class="is-active" aria-current="page">預約排單／寄庫</a>
+      </nav>
+    </aside>
+    <main>
+      <section class="panel reserved-shipping-page" data-reserved-shipping-page>
+        <header class="reserved-shipping-title">
+          <div><p>RESERVED SHIPPING WORKBENCH</p><h1>現貨預約排單／寄庫工作台</h1><span>現貨出貨單可指定未來出貨日期；日期到會列為今日待辦，客戶中途加買會醒目提醒並可合單一起出。</span></div>
+          <a href="./admin-order-tracking.html">回訂單追蹤</a>
+        </header>
+        <section class="reserved-shipping-metrics" data-reserved-metrics aria-live="polite"></section>
+        <section class="reserved-shipping-filter">
+          <label>搜尋日期／人名／電話／訂單／商品／備註<input type="search" data-reserved-query placeholder="輸入日期（YYYY-MM-DD）、姓名、電話或訂單編號"></label>
+          <label>排單狀態<select data-reserved-filter><option value="all">全部預約</option><option value="today">今天要出貨</option><option value="overdue">已逾期</option><option value="upcoming">未來日期</option><option value="changed">客戶有新增商品</option><option value="hold">寄庫名單</option></select></label>
+          <div><button type="button" data-reserved-quick="today">今天要出</button><button type="button" data-reserved-quick="overdue">已逾期</button><button type="button" data-reserved-quick="upcoming">未來排程</button><button type="button" data-reserved-quick="changed">有新增商品</button><button type="button" data-reserved-quick="hold">寄庫</button><button type="button" data-reserved-quick="all">全部</button></div>
+        </section>
+        <section class="reserved-shipping-current">
+          <header><div><p>SHIPPING CALENDAR</p><h2>已預約排單</h2><span>依指定日期由近到遠排列；紅色逾期、黃色今天、綠色未來。</span></div></header>
+          <div class="reserved-shipping-list" data-reserved-list><p>正在讀取…</p></div>
+        </section>
+        <section class="reserved-shipping-hold">
+          <header><div><p>HOLD LIST</p><h2>寄庫名單</h2><span>先不出貨的單在這裡。搜電話、姓名，或直接打「寄庫」。今天要出／逾期只篩上面預約排單，不會把寄庫藏起來。</span></div><div class="reserved-shipping-title-actions"><button type="button" class="ghost-button" data-reserved-print="hold">列印寄庫清單給業務</button></div></header>
+          <div class="reserved-shipping-list" data-reserved-hold-list><p>正在讀取…</p></div>
+        </section>
+        <section class="reserved-shipping-add">
+          <header><div><p>ADD RESERVATION</p><h2>加入新的預約排單</h2><span>上方搜尋會同步篩選這裡；先選日期與備註，再加入排單。</span></div></header>
+          <div class="reserved-shipping-candidates" data-reserved-candidates><p>正在讀取未出貨訂單…</p></div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div class="toast" data-admin-toast hidden></div>
+  <script type="lz/asset" data-lz-src="./assets/admin.js?v=20260927-cat-pick-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260902-agency-collection-1" defer></script>
+</body>
+</html>
+
+
