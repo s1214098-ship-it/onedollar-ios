@@ -1806,3 +1806,16 @@ html body .own-session-lines {
   display: flex !important;
   flex-direction: column !important;
 }
+
+
+/* LZ_YGF_QTY_NO_LOC_20260927 倉位確定鈕不可被 footer 蓋住，也不必先選貨架。 */
+html body.is-match-picker-open [data-save-match-location],
+html body [data-match-first-location]:not([hidden]) [data-save-match-location] {
+  position: relative !important;
+  z-index: 40 !important;
+  pointer-events: auto !important;
+  min-height: 52px !important;
+}
+html body [data-match-first-location]:not([hidden]) {
+  padding-bottom: 88px !important;
+}

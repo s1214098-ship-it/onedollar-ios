@@ -3,6 +3,7 @@
   /* LZ_YGF_PICK_DEL_20260927: match cards stay tappable with 確定帶入; old stocktake sheets can be deleted. */
   /* LZ_YGF_XFER_STAY_20260927: keep 調撥 tab after reload; ignore rescan while picker open; 確定帶入 uses the tapped card. */
   /* LZ_YGF_SCAN_NEWEST_20260927: newest scan first on 調撥/盤點; match cards handle touch as well as click. */
+  /* LZ_YGF_QTY_NO_LOC_20260927: 確定帶入加入本次盤點數量，倉位可空白；倉位確定也走 touch。 */
 
   var input = document.querySelector('[data-scan-input]');
   var manualInput = document.querySelector('[data-manual-scan-input]');
@@ -676,7 +677,8 @@
     return Date.parse(value || '') || 0;
   }
   function syncMatchPickerChrome() {
-    var open = !!(matchPanel && !matchPanel.hidden && matchGrid && !matchGrid.hidden);
+    var locationOpen = !!document.querySelector('[data-match-first-location]:not([hidden])');
+    var open = !!(matchPanel && !matchPanel.hidden && ((matchGrid && !matchGrid.hidden) || locationOpen));
     document.body.classList.toggle('is-match-picker-open', open);
     if (open) {
       if (input) try { input.blur(); } catch (error) {}
@@ -2692,7 +2694,7 @@ function stockinCode128Svg(value) {
     if (locationCompare) locationCompare.textContent = hasLocation ? '已帶入原本擺放位置；若現場不同請按調整。' : '尚無位置資料，快速入庫前必須設定。';
     if (editorTitle) editorTitle.textContent = hasLocation ? '調整貨架位置' : '第一次倉位紀錄';
     if (editorHelp) editorHelp.textContent = hasLocation ? '請依現場實際位置重新選擇，儲存後同步後台。' : '未換倉位前會沿用這次設定。';
-    if (firstLocation) firstLocation.hidden = currentTab !== 'stocktake' || hasLocation;
+    if (firstLocation) firstLocation.hidden = currentTab !== 'stocktake' || hasLocation || options.skipLocation === true;
     fillLocationSelect(matchShelf, stockinShelves, row.shelf || '', '請選貨架');
     fillLocationSelect(matchLayer, stockinLayers, row.layer || '', '請選層位');
     syncNoSpaceLocations();
@@ -2735,41 +2737,31 @@ function stockinCode128Svg(value) {
     if (currentTab === 'stocktake') {
       currentStocktakeScanCode = String(row.scannedBarcode || row.barcode || row.skuId || '').trim();
       stocktakeLiveCounts[currentStocktakeScanCode] = Math.max(1, Number(stocktakeLiveCounts[currentStocktakeScanCode] || 0));
-      choose(row, index, true);
+      choose(row, index, true, {skipLocation: true});
       if (input) input.blur();
       if (manualInput) manualInput.blur();
-      var canReuseSharedLocation = canReuseStocktakeSharedLocation();
-      if (canReuseSharedLocation) {
+      if (canReuseStocktakeSharedLocation()) {
         row.shelf = stocktakeSharedLocation.shelf;
         row.layer = stocktakeSharedLocation.layer;
-        stocktakeFlowLock = {
-          barcode: currentStocktakeScanCode,
-          skuId: String(row.skuId || ''),
-          shelf: stocktakeSharedLocation.shelf,
-          layer: stocktakeSharedLocation.layer
-        };
-        var reusedQty = document.querySelector('[data-qty]');
-        if (reusedQty) reusedQty.value = String(Math.max(1, Number(stocktakeLiveCounts[currentStocktakeScanCode] || 1)));
-        if (matchPanel) matchPanel.hidden = true;
-        if (matchGrid) matchGrid.hidden = true;
-        renderStocktakeFastRows();
-        stocktakeFlowStatus('已選定 ' + (row.productCode || '') + '／' + (row.color || '') + '／' + (row.size || 'NO SIZE') + '，並沿用 ' + stocktakeSharedLocation.shelf + '／' + stocktakeSharedLocation.layer + '；可直接掃下一個產品。');
-        setMessage('已確定帶入 ' + (row.productCode || '') + '／' + (row.color || '') + '，位置沿用 ' + stocktakeSharedLocation.shelf + '／' + stocktakeSharedLocation.layer + '。', 'ok');
-        readyForNextScan();
-        return;
       }
-      var selectedLocationEditor = document.querySelector('[data-match-first-location]');
-      if (selectedLocationEditor) selectedLocationEditor.hidden = false;
-      var selectedLocationQty = document.querySelector('[data-match-location-qty]');
-      if (selectedLocationQty) selectedLocationQty.value = String(Math.max(1, Number(stocktakeLiveCounts[currentStocktakeScanCode] || 1)));
-      if (matchPanel) matchPanel.hidden = false;
+      stocktakeFlowLock = {
+        barcode: currentStocktakeScanCode,
+        skuId: String(row.skuId || ''),
+        shelf: String(row.shelf || (stocktakeSharedLocation && stocktakeSharedLocation.shelf) || ''),
+        layer: String(row.layer || (stocktakeSharedLocation && stocktakeSharedLocation.layer) || '')
+      };
+      var broughtQty = document.querySelector('[data-qty]');
+      var broughtCount = Math.max(1, Number(stocktakeLiveCounts[currentStocktakeScanCode] || 1));
+      if (broughtQty) broughtQty.value = String(broughtCount);
+      var locEditor = document.querySelector('[data-match-first-location]');
+      if (locEditor) locEditor.hidden = true;
+      if (matchPanel) matchPanel.hidden = true;
       if (matchGrid) matchGrid.hidden = true;
-      var selectedMatchTitle = matchPanel ? matchPanel.querySelector('h2') : null;
-      if (selectedMatchTitle) selectedMatchTitle.textContent = '商品已確認｜選擇貨架與層位';
-      stocktakeFlowStatus('已選定 ' + (row.productCode || '') + '／' + (row.color || '') + '／' + (row.size || 'NO SIZE') + '；請選貨架與層位後按確定。');
-      setTimeout(function () {
-        if (selectedLocationEditor) selectedLocationEditor.scrollIntoView({block:'center'});
-      }, 80);
+      renderStocktakeFastRows();
+      syncMatchPickerChrome();
+      stocktakeFlowStatus('已加入本次盤點 ' + (row.productCode || '') + '／' + (row.color || '') + '／' + (row.size || 'NO SIZE') + '，數量 ' + broughtCount + '。倉位可之後再補。');
+      setMessage('已加入本次盤點數量 ' + broughtCount + ' 件；不必先選貨架。要補倉位再按「更正本筆位置」。', 'ok');
+      readyForNextScan();
       return;
     }
     choose(row, index, true);
@@ -3774,16 +3766,8 @@ function stockinCode128Svg(value) {
       body.imageData = stocktakePhotoData();
       body.imageRole = scannerPhotoRole('stocktake');
       var stocktakeLocation = selectedStocktakeLocation();
-      if (!stocktakeLocation.shelf || !stocktakeLocation.layer) {
-        stocktakeAutoSubmitting = false;
-        beep(2);
-        setMessage('兩聲：請先選擇這件商品的倉位與層架；同條碼後續連刷會自動沿用。', 'error');
-        var stocktakeLocationEditor = document.querySelector('[data-match-first-location]');
-        if (stocktakeLocationEditor) stocktakeLocationEditor.hidden = false;
-        return;
-      }
-      body.shelf = stocktakeLocation.shelf;
-      body.layer = stocktakeLocation.layer;
+      body.shelf = stocktakeLocation.shelf || '';
+      body.layer = stocktakeLocation.layer || '';
       if (stocktakeAutoSubmitting) {
         setMessage('這件盤點資料正在儲存，請勿重複送出。', 'error');
         return;
@@ -4235,6 +4219,18 @@ function stockinCode128Svg(value) {
   var lastMatchPickAt = 0;
   function handleMatchPickFromEvent(event) {
     if (!event || !event.target || !event.target.closest) return false;
+    var saveLocation = event.target.closest('[data-save-match-location]');
+    if (saveLocation) {
+      if (event.type !== 'click') {
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopPropagation) event.stopPropagation();
+        if (Date.now() - lastMatchPickAt < 450) return true;
+        lastMatchPickAt = Date.now();
+        saveLocation.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
+        return true;
+      }
+      return false;
+    }
     var confirmPick = event.target.closest('[data-match-confirm]');
     var selectPick = event.target.closest('[data-match-select]');
     var matchCard = (!confirmPick && !selectPick) ? event.target.closest('[data-match-index]') : null;
@@ -4385,6 +4381,9 @@ function stockinCode128Svg(value) {
       return;
     }
     if (target.matches('[data-save-match-location]')) {
+      if (window._lzStocktakeLocLock) return;
+      window._lzStocktakeLocLock = true;
+      setTimeout(function () { window._lzStocktakeLocLock = false; }, 800);
       if (currentTab !== 'stocktake') { setMessage('此按鈕只用於盤點。調撥請設定來源倉、目的倉與調撥數量後加入調撥單。','error'); return; }
       // A unique displayed match can be confirmed directly from the location form.
       if (!selected && allMatches.length === 1) {
@@ -4397,8 +4396,7 @@ function stockinCode128Svg(value) {
       var matchWarehouse = String((document.querySelector('[data-match-location-warehouse]') || {}).value || '').trim();
       var matchLocationQty = Math.max(0, Number((document.querySelector('[data-match-location-qty]') || {}).value || 0));
       if (!matchWarehouse) { beep(2); setMessage('兩聲：請先選擇盤點倉庫。','error'); return; }
-      if (!matchShelf || !matchLayer) { beep(2); setMessage('兩聲：第一次紀錄請同時選擇貨架與層位。','error'); return; }
-      if (currentTab === 'stocktake' && matchLocationQty < 1) { beep(2); setMessage('兩聲：請輸入這個倉架目前至少 1 件；若尚未開始放貨，請先掃第一件。','error'); return; }
+      if (currentTab === 'stocktake' && matchLocationQty < 1) { beep(2); setMessage('兩聲：請輸入本次盤點數量至少 1 件。','error'); return; }
       if (warehouse && warehouse.value !== matchWarehouse) { warehouse.value = matchWarehouse; warehouse.dispatchEvent(new Event('change')); }
       if (warehouse.value !== matchWarehouse) { setMessage('已取消切換倉庫，本筆尚未確認。','error'); return; }
       currentStocktakeScanCode = String(currentStocktakeScanCode || selected.scannedBarcode || selected.barcode || selected.skuId || '');
@@ -4425,8 +4423,8 @@ function stockinCode128Svg(value) {
         }
         else if (stocktakeFlowLock.skuId === String(selected.skuId || '')) { stocktakeFlowLock.shelf = matchShelf; stocktakeFlowLock.layer = matchLayer; }
         var box = document.querySelector('[data-match-first-location]'); if (box) box.hidden = true;
-        beep(1); setMessage('一聲：產品與位置已確認為 ' + matchShelf + '／' + matchLayer + '，目前 ' + matchLocationQty + ' 件；下一刷同條碼會變 ' + (matchLocationQty + 1) + '。','ok');
-        stocktakeFlowStatus('產品與位置已確認：' + matchShelf + '／' + matchLayer + '，目前 ' + matchLocationQty + ' 件。同編號若還放在別處，按「同產品另放一處（新增）」會另開第二筆，不覆蓋本筆。');
+        beep(1); setMessage('一聲：已加入本次盤點數量 ' + matchLocationQty + ' 件' + (matchShelf && matchLayer ? '，倉位 ' + matchShelf + '／' + matchLayer : '（倉位可之後再補）') + '。','ok');
+        stocktakeFlowStatus('已加入本次盤點數量 ' + matchLocationQty + ' 件' + (matchShelf && matchLayer ? '，倉位 ' + matchShelf + '／' + matchLayer : '') + '。');
         renderMatches(allMatches);
         choose(selected, Math.max(0, allMatches.indexOf(selected)), selected.colorConfirmed === true);
         stocktakeLiveCounts[currentStocktakeScanCode] = matchLocationQty;

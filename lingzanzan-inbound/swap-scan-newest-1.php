@@ -31,7 +31,8 @@ try {
   echo 'jsTouch=' . (strpos($js, "['pointerup', 'touchend']") !== false ? 'yes' : 'no') . "\n";
   echo 'jsTab=' . (strpos($js, 'lingzanzan-scanner-tab-v1') !== false ? 'yes' : 'no') . "\n";
   echo 'cssMarker=' . (strpos($css, 'is-match-picker-open') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlBust=' . (strpos($html, '20260927-scan-newest-1') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlBust=' . (strpos($html, '20260927-scan-newest-2') !== false ? 'yes' : 'no') . "\n";
+  echo 'jsQty=' . (strpos($js, '不必先選貨架') !== false ? 'yes' : 'no') . "\n";
   echo 'apiUnshift=' . (strpos($api, "array_unshift(\$sessions[\$found]['lines'],\$line)") !== false ? 'yes' : 'no') . "\n";
   echo "ok\n";
 } catch (Exception $e) {
