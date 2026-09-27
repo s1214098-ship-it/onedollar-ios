@@ -3,10 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
-const root = '/tmp/ygf-xfer-tap-serve';
+const root = '/tmp/ygf-xfer-qty12-serve';
+const profile = '/tmp/ygf-xfer-chrome-profile-qty12-' + Date.now();
 fs.rmSync(root, { recursive: true, force: true });
 fs.mkdirSync(path.join(root, 'assets/vendor'), { recursive: true });
-const html = fs.readFileSync('/workspace/lingzanzan-inbound/scanner.html.new-ygf-qty-11', 'utf8')
+const html = fs.readFileSync('/workspace/lingzanzan-inbound/scanner.html.new-ygf-qty-12', 'utf8')
   .replace('<body data-scanner-app class="scanner-pda-layout">', `<body data-scanner-app class="scanner-pda-layout">
   <script>
     localStorage.setItem('lingzanzan-v1-admin-login', JSON.stringify({
@@ -15,8 +16,8 @@ const html = fs.readFileSync('/workspace/lingzanzan-inbound/scanner.html.new-ygf
     localStorage.setItem('lingzanzan-scanner-tab-v1', 'transfer');
   </script>`);
 fs.writeFileSync(path.join(root, 'scanner.html'), html);
-fs.copyFileSync('/workspace/lingzanzan-inbound/scanner-ygf-v59.js.new-ygf-qty-11', path.join(root, 'assets/scanner-ygf-v59.js'));
-fs.copyFileSync('/workspace/lingzanzan-inbound/scanner-ygf-v59.css.new-ygf-qty-11', path.join(root, 'assets/scanner-ygf-v59.css'));
+fs.copyFileSync('/workspace/lingzanzan-inbound/scanner-ygf-v59.js.new-ygf-qty-12', path.join(root, 'assets/scanner-ygf-v59.js'));
+fs.copyFileSync('/workspace/lingzanzan-inbound/scanner-ygf-v59.css.new-ygf-qty-12', path.join(root, 'assets/scanner-ygf-v59.css'));
 fs.writeFileSync(path.join(root, 'assets/vendor/qrcode-generator.min.js'), 'window.qrcode=function(){return {addData:function(){},make:function(){},createImgTag:function(){return "";}};};');
 fs.writeFileSync(path.join(root, 'assets/scanner-review.js'), '');
 fs.writeFileSync(path.join(root, 'assets/image-upload-paste.js'), '');
@@ -71,12 +72,12 @@ server.listen(0, '127.0.0.1', () => {
     '--headless=new',
     '--disable-gpu',
     '--no-sandbox',
-    '--user-data-dir=/tmp/ygf-xfer-chrome-profile',
+    '--user-data-dir=' + profile,
     '--disable-dev-shm-usage',
     '--disable-background-networking',
     '--no-first-run',
     '--window-size=400,860',
-    '--virtual-time-budget=5000',
+    '--virtual-time-budget=8000',
     '--dump-dom',
     url
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -84,19 +85,19 @@ server.listen(0, '127.0.0.1', () => {
   let err = '';
   child.stdout.on('data', (chunk) => { dom += chunk; });
   child.stderr.on('data', (chunk) => { err += chunk; });
-  const killer = setTimeout(() => { try { child.kill('SIGKILL'); } catch (e) {} }, 12000);
+  const killer = setTimeout(() => { try { child.kill('SIGKILL'); } catch (e) {} }, 15000);
   child.on('close', () => {
     clearTimeout(killer);
-    fs.writeFileSync('/tmp/ygf-xfer-tap-dom.html', dom);
+    fs.writeFileSync('/tmp/ygf-xfer-qty12-dom.html', dom);
     const pass = /data-autotest="pass"/.test(dom);
     const fail = (dom.match(/data-autotest-reason="([^"]*)"/) || [])[1] || '';
     const draft = (dom.match(/data-autotest-draft="([^"]*)"/) || [])[1] || '';
     console.log(pass ? 'CLICK_OK ' + draft : 'CLICK_FAIL ' + (fail || 'no-autotest-attr'));
-    if (/版本 v172/.test(dom)) console.log('badge v172');
+    if (/版本 v173/.test(dom)) console.log('badge v173');
     if (!pass) {
       const msg = (dom.match(/AUTOTEST[^<]{0,180}/) || [])[0] || '';
       if (msg) console.log('msg', msg);
-      if (err) console.log('chrome-err', err.split('\n').filter((line) => /Page load|Error|AUTOTEST/.test(line)).slice(0, 8).join('\n'));
+      if (err) console.log('chrome-err', err.split('\n').filter((line) => /Page load|Error|AUTOTEST|FAIL/.test(line)).slice(0, 8).join('\n'));
     }
     server.close();
     process.exit(pass ? 0 : 1);
