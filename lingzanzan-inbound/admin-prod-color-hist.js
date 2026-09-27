@@ -10,3 +10,4 @@ function productHistoryColorNames() {
 function bindProductHistoryColorSelect() {
   fillProductHistoryColorSelect();
 }
+bindProductHistoryColorSelect();
