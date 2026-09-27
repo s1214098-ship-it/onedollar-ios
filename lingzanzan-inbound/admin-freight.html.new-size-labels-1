@@ -1,0 +1,972 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <script src="./asset-boot.php?v=20260924-near-confirm-1"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>LINGZANZAN - 物流集運</title>
+  <link rel="icon" href="./assets/brand-icon-192.png">
+<link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260927-size-labels-1">
+  <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css" data-admin-navigation-style>
+    <style>
+/* LZ_CAT_PICK_20260927 */
+.catalog-category-picker-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+.catalog-category-picker-open {
+  min-height: 48px;
+  padding: 0 14px;
+  white-space: nowrap;
+  font-weight: 900;
+  border-color: rgba(244, 198, 90, .72) !important;
+  background: #2a2018 !important;
+  color: #ffe7b3 !important;
+  -webkit-text-fill-color: #ffe7b3 !important;
+}
+.catalog-category-picker-open:hover,
+.catalog-category-picker-open:focus-visible {
+  border-color: #f4c65a !important;
+  background: #3a2c14 !important;
+}
+.freight-fifo-priority-controls .catalog-category-picker-open,
+.freight-existing-product-search-actions .catalog-category-picker-open {
+  align-self: end;
+}
+.catalog-category-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10070;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(8, 7, 10, .86);
+}
+.catalog-category-picker-overlay > section {
+  width: min(920px, 100%);
+  max-height: calc(100dvh - 24px);
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(220px, 1fr) auto;
+  gap: 10px;
+  box-sizing: border-box;
+  padding: 16px;
+  border: 1px solid rgba(244, 198, 90, .55);
+  border-radius: 20px;
+  background: #17131b;
+  color: #fff;
+  overflow: hidden;
+}
+.catalog-category-picker-overlay header,
+.catalog-category-picker-overlay footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.catalog-category-picker-overlay header small {
+  color: #f4c65a;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.catalog-category-picker-overlay h3 { margin: 4px 0 0; font-size: 22px; }
+.catalog-category-picker-overlay p { margin: 6px 0 0; color: #d7cfd8; }
+.catalog-category-picker-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.catalog-category-picker-filters button {
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 10px;
+  background: #27212a;
+  color: #f8eee1;
+  font-weight: 900;
+  cursor: pointer;
+}
+.catalog-category-picker-filters button.is-active {
+  border-color: #f4bd4d;
+  background: #f4bd4d;
+  color: #211719;
+}
+.catalog-category-picker-search {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  color: #ffe7b3;
+  font-weight: 800;
+}
+.catalog-category-picker-search input {
+  min-height: 44px;
+  border: 1px solid rgba(244, 198, 90, .45);
+  border-radius: 10px;
+  background: #1b1712;
+  color: #fff8ee;
+  font-weight: 800;
+}
+.catalog-category-picker-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #241e27;
+  color: #f3e6c8;
+  line-height: 1.45;
+}
+.catalog-category-picker-body {
+  min-height: 0;
+  overflow: auto;
+}
+.catalog-category-picker-cats,
+.catalog-category-picker-products {
+  display: grid;
+  gap: 8px;
+}
+.catalog-category-picker-cats {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.catalog-category-picker-cat {
+  display: grid;
+  gap: 4px;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid rgba(80, 216, 186, .4);
+  border-radius: 12px;
+  background: #17302d;
+  color: #fff8ed;
+  text-align: left;
+  cursor: pointer;
+  font-weight: 900;
+}
+.catalog-category-picker-cat small {
+  color: #9ff4e7;
+  font-weight: 800;
+}
+.catalog-category-picker-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.catalog-category-picker-card {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 12px;
+  background: #241e27;
+}
+.catalog-category-picker-card img,
+.catalog-category-picker-card .is-no-image {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #111;
+  display: grid;
+  place-items: center;
+  color: #bfb5c1;
+  font-size: 12px;
+}
+.catalog-category-picker-card b { color: #fffaf3; display: block; }
+.catalog-category-picker-card em,
+.catalog-category-picker-card small {
+  display: block;
+  color: #d7cfd8;
+  font-style: normal;
+  font-size: 13px;
+}
+.catalog-category-picker-card .primary-button { min-height: 42px; }
+.catalog-category-picker-empty {
+  margin: 0;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .05);
+  color: #ffc4ca;
+}
+@media (max-width: 760px) {
+  .catalog-category-picker-overlay { padding: 8px; }
+  .catalog-category-picker-overlay > section { padding: 12px; border-radius: 14px; }
+  .catalog-category-picker-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .catalog-category-picker-card { grid-template-columns: 52px minmax(0, 1fr); }
+  .catalog-category-picker-card .primary-button { grid-column: 1 / -1; width: 100%; }
+}
+
+
+      .freight-forecast-product-list,
+      .freight-forecast-pagination,
+      .freight-forecast-letter-filter { position: relative; z-index: 3; }
+      .freight-forecast-pagination button,
+      .freight-forecast-letter-filter button { pointer-events: auto; }
+    </style>  </head>
+<body class="labels-ready freight-view-entry freight-stage-waiting freight-workline-pinduoduo" data-freight-workline="pinduoduo">
+  <script>
+    var freightParams = new URLSearchParams(location.search);
+    var freightViewMode = freightParams.get('view') === 'tracking' ? 'tracking' : 'entry';
+    var freightStageParam = freightParams.get('stage');
+    var freightStageMode = freightViewMode === 'entry' ? 'waiting' : (freightStageParam === 'stocked' ? 'stocked' : (freightStageParam === 'awaiting' ? 'awaiting' : 'consolidated'));
+    var freightWorklineMode = freightParams.get('line');
+    if (['self_pickup', 'pinduoduo', 'haohong'].indexOf(freightWorklineMode) === -1) {
+      try { freightWorklineMode = localStorage.getItem('lingzanzan-freight-workline') || sessionStorage.getItem('lingzanzan-freight-workline') || 'pinduoduo'; } catch (error) { freightWorklineMode = 'pinduoduo'; }
+    }
+    if (['self_pickup', 'pinduoduo', 'haohong'].indexOf(freightWorklineMode) === -1) freightWorklineMode = 'pinduoduo';
+    document.body.classList.remove('freight-workline-self_pickup', 'freight-workline-pinduoduo', 'freight-workline-haohong');
+    document.body.classList.add('freight-workline-' + freightWorklineMode);
+    document.body.dataset.freightWorkline = freightWorklineMode;
+    document.body.classList.toggle('freight-view-entry', freightViewMode === 'entry');
+    document.body.classList.toggle('freight-view-tracking', freightViewMode === 'tracking');
+    document.body.classList.toggle('freight-stage-waiting', freightStageMode === 'waiting');
+    document.body.classList.toggle('freight-stage-consolidated', freightStageMode === 'consolidated');
+    document.body.classList.toggle('freight-stage-stocked', freightStageMode === 'stocked');
+    document.body.classList.toggle('freight-stage-awaiting', freightStageMode === 'awaiting');
+    var loginParams = new URLSearchParams(location.search);
+    var loginKey = 'lingzanzan-v1-admin-login';
+    if (loginParams.get('resetLogin') === '1') {
+      localStorage.removeItem(loginKey);
+    }
+    try {
+      var cachedLogin = JSON.parse(localStorage.getItem(loginKey) || '{}');
+      if (cachedLogin.version === 'password-login-v2' && cachedLogin.serverSession === true && ['admin', 'staff'].indexOf(cachedLogin.role) !== -1 && cachedLogin.until && Date.now() < cachedLogin.until) {
+        document.body.classList.add('is-admin-unlocked');
+      }
+    } catch (error) {}
+    document.addEventListener('DOMContentLoaded', function () {
+      var title = document.querySelector('#freight .panel-head h2');
+      var subtitle = document.querySelector('#freight .panel-head span');
+      var sectionTitle = document.querySelector('[data-freight-tracking-panel] > .panel-subhead h3');
+      var sectionSubtitle = document.querySelector('[data-freight-tracking-panel] > .panel-subhead span');
+      if (freightStageMode === 'stocked') {
+        document.title = 'LINGZANZAN - 物流已入庫';
+        if (title) title.textContent = '物流集運／已入庫';
+        if (subtitle) subtitle.textContent = '查看已帶入產品並完成正式入庫的物流紀錄，每頁 10 個物件。';
+        if (sectionTitle) sectionTitle.textContent = '已入庫物流';
+        if (sectionSubtitle) sectionSubtitle.textContent = '已完成產品建檔與庫存入庫的物流紀錄。';
+        var filedTitle = document.querySelector('[data-freight-product-filed-history] h3');
+        var filedLead = document.querySelector('[data-freight-product-filed-history] header p');
+        if (filedTitle) filedTitle.textContent = '已驗收入庫';
+        if (filedLead) filedLead.textContent = '卡片左上角小按鈕分辨已驗收入庫／未驗收入庫。';
+      } else if (freightStageMode === 'awaiting') {
+        document.title = 'LINGZANZAN - 未驗收入庫';
+        if (title) title.textContent = '物流集運／未驗收入庫';
+        if (subtitle) subtitle.textContent = '左上角小按鈕分辨已驗收入庫／未驗收入庫。尚未驗收入庫的物流列在這裡，每頁 10 筆。';
+        if (sectionTitle) sectionTitle.textContent = '未驗收入庫';
+        if (sectionSubtitle) sectionSubtitle.textContent = '卡片左上角可直接看出有沒有驗收入庫。';
+        var awaitingFiledTitle = document.querySelector('[data-freight-product-filed-history] h3');
+        var awaitingFiledLead = document.querySelector('[data-freight-product-filed-history] header p');
+        if (awaitingFiledTitle) awaitingFiledTitle.textContent = '未驗收入庫';
+        if (awaitingFiledLead) awaitingFiledLead.textContent = '卡片左上角小按鈕分辨已驗收入庫／未驗收入庫。已完成的請到「已入庫」。';
+      } else if (freightStageMode === 'consolidated') {
+        document.title = 'LINGZANZAN - 集運後狀態';
+        if (title) title.textContent = '物流集運／集運後狀態';
+        if (subtitle) subtitle.textContent = '集中查看已建立批次、配送進度、點貨驗收與缺件提醒，每頁 10 個批次。';
+        if (sectionTitle) sectionTitle.textContent = '集運後批次進度';
+        if (sectionSubtitle) sectionSubtitle.textContent = '已集運、配送中、待驗收與超過 10 天未完成的物流集中在這裡。';
+      } else {
+        if (title) title.textContent = '物流集運建檔';
+        if (subtitle) subtitle.textContent = '輸入平台、物流單號、產品明細與成本；尚未入批次或待正式入庫的物流都保留在本頁。';
+        if (sectionTitle) sectionTitle.textContent = '物流單號建檔';
+        if (sectionSubtitle) sectionSubtitle.textContent = '建立物流單號、購買平台、產品分類、顏色、尺寸、數量與成本資料。';
+      }
+    });
+  </script>
+    <div class="login-gate" data-login-gate>
+    <form class="login-card" data-login-form>
+      <img src="./assets/brand-logo.jpg" alt="">
+      <p>ADMIN LOGIN</p>
+      <h1>管理者登入</h1>
+      <span>請輸入管理者或員工帳號密碼，登入後可管理會員、商品、訂單、庫存與物流。</span>
+      <input data-login-account type="text" placeholder="輸入管理員帳號" autocomplete="username">
+      <input data-login-password type="password" placeholder="輸入管理員密碼" autocomplete="current-password">
+      <button type="submit">登入後台</button>
+      <a class="login-home-link" href="./">回首頁</a>
+      <small data-login-hint>登入一次後，24 小時內同一台瀏覽器不用重複輸入密碼。</small>
+    </form>
+  </div>
+  <div class="admin-top-actions" hidden style="display:none">
+    <span class="login-identity" data-current-user hidden></span>
+    <a href="./">回首頁</a>
+    <button type="button" data-logout-admin>登出</button>
+  </div>
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="./"><img src="./assets/brand-logo.jpg" alt="">LINGZANZAN</a>
+            <nav>
+        <a href="./admin.html">總覽</a>
+        <a href="./admin-security.html">管理者</a>
+        <a href="./admin-staff.html">員工管理</a>
+        <a href="./admin-members.html">會員管理</a>
+        <a href="./admin-sales.html">業務管理</a>
+        <a href="./admin-products.html">產品管理</a>
+        <a href="./admin-offline-products.html">下架產品</a>
+        <a href="./admin-style-columns.html">首頁區塊</a>
+        <a href="./admin-orders.html">訂單</a>
+        <a href="./admin-preorders.html" class="preorder-menu-link">預購打單</a>
+        <a href="./admin-preorder-demand.html">缺貨待補／欠貨客戶</a>
+        <a href="./admin-purchase.html" class="purchase-menu-link">採購區</a>
+        <a href="./admin-suppliers.html">廠商管理</a>
+        <a href="./admin-freight.html?view=tracking&amp;stage=consolidated">集運後狀態</a>
+        <a href="./admin-freight.html">待集運／物流建檔</a>
+        <a href="./admin-freight.html?view=tracking&amp;stage=awaiting">入庫未進貨</a>
+        <a href="./admin-freight.html?view=tracking&amp;stage=stocked">已入庫</a>
+        <a href="./admin-haohong-logistics.html">豪鴻集運對照</a>
+        <a href="./admin-live.html">直播打單</a>
+        <a href="./admin-inquiries.html">客戶詢問</a>
+        <a href="./admin-inventory.html">貨倉管理</a>
+        <a href="./admin-logistics.html">物流回報</a>
+        <a href="./admin-profit.html" class="profit-menu-link" data-profit-menu-link="true">營銷毛利</a>
+        <a href="./admin-backup.html">備份還原</a>
+      </nav>
+    </aside>
+    <main>
+      <section class="panel" id="freight">
+        <div class="panel-head">
+          <div>
+            <p>FREIGHT</p>
+            <h2>物流集運</h2>
+            <span>物流平台、集運倉、關稅與運費規則集中管理；廠商基本資料請到「廠商建檔」。</span>
+          </div>
+          <div class="panel-actions">
+            <nav class="freight-view-switch" aria-label="物流功能切換">
+              <a class="ghost-button" data-freight-view-consolidated href="./admin-freight.html?view=tracking&amp;stage=consolidated">集運後狀態</a>
+              <a class="ghost-button" data-freight-view-entry href="./admin-freight.html">待集運／建檔</a>
+              <a class="ghost-button" data-freight-view-awaiting href="./admin-freight.html?view=tracking&amp;stage=awaiting">入庫未進貨</a>
+              <a class="ghost-button" data-freight-view-stocked href="./admin-freight.html?view=tracking&amp;stage=stocked">已入庫</a>
+              <a class="ghost-button" href="./admin-haohong-logistics.html">豪鴻集運對照</a>
+              <a class="primary-button freight-batch-quick-link" href="#freight-batch-workbench">建立新批號／加入批次</a>
+            </nav>
+            <a class="ghost-button" href="./admin-suppliers.html">廠商建檔</a>
+            <a class="ghost-button" href="./admin-products.html">產品管理</a>
+          </div>
+        </div>
+        <section class="freight-receiving-lookup" id="freight-receiving-lookup" data-freight-receiving-lookup>
+          <div>
+            <p>FREIGHT RECEIVING／PENERIMAAN BARANG</p>
+            <h3>物流單號到貨驗收</h3>
+            <span>每個物流單號可逐筆帶入、拆包新增款式／顏色／尺寸及數量，再確認驗收入庫並列印條碼。無批次直接入庫每件抽取 NT$30；批次包裹人事同樣每件抽取 NT$30。關稅／台灣快遞仍依整批件數分攤，豪鴻運費仍依重量規則。</span>
+          </div>
+          <label>物流單號／集運批次<input type="search" data-freight-receiving-lookup-input placeholder="掃描物流單號或輸入批次號"></label>
+          <button type="button" class="primary-button" data-freight-receiving-lookup-submit>掃描／人工帶入這一筆</button>
+          <div class="freight-receiving-lookup-result" data-freight-receiving-lookup-result>輸入一張物流單即可逐筆驗收；批次為選填，不會阻擋單張入庫。</div>
+        </section>
+<section class="freight-workline-board" data-freight-workline-board aria-label="物流處理模式">
+          <header>
+            <div><p>THREE FREIGHT COST MODES</p><h3>選擇建檔與批次成本模式</h3><span>三種成本與到貨規則仍分開計算；下方物流清單、搜尋與分頁統一顯示全部工作線。</span></div>
+            <strong data-freight-workline-current>目前建檔模式：拼多多到台灣</strong>
+          </header>
+          <div class="freight-workline-list" role="tablist" aria-label="三種物流工作列">
+            <button type="button" class="freight-workline-row is-pickup" data-freight-workline-select="self_pickup" role="tab" aria-selected="false">
+              <span class="freight-workline-number">01</span>
+              <span class="freight-workline-route"><b>自取／東莞據點</b><small>中國倉收貨｜免運、免稅｜每件人事 NT$30</small></span>
+              <span class="freight-workline-metrics" data-freight-workline-metrics="self_pickup">待處理 0｜批次 0｜運送中 0｜已入庫 0｜異常 0</span>
+              <span class="freight-workline-open">切換建檔模式</span>
+            </button>
+            <button type="button" class="freight-workline-row is-pinduoduo" data-freight-workline-select="pinduoduo" role="tab" aria-selected="true">
+              <span class="freight-workline-number">02</span>
+              <span class="freight-workline-route"><b>拼多多到台灣</b><small>寶輝據點｜每件抽取 NT$30；關稅＋台灣快遞費依本批件數分攤</small></span>
+              <span class="freight-workline-metrics" data-freight-workline-metrics="pinduoduo">待處理 0｜批次 0｜運送中 0｜已入庫 0｜異常 0</span>
+              <span class="freight-workline-open">目前建檔模式</span>
+            </button>
+            <button type="button" class="freight-workline-row is-haohong" data-freight-workline-select="haohong" role="tab" aria-selected="false">
+              <span class="freight-workline-number">03</span>
+              <span class="freight-workline-route"><b>豪鴻到台灣</b><small>寶輝據點｜免稅｜依豪鴻重量與本批運費分攤</small></span>
+              <span class="freight-workline-metrics" data-freight-workline-metrics="haohong">待處理 0｜批次 0｜運送中 0｜已入庫 0｜異常 0</span>
+              <span class="freight-workline-open">切換建檔模式</span>
+            </button>
+          </div>
+          <p class="freight-workline-help" data-freight-workline-help>目前使用拼多多到台灣的建檔與成本規則；下方物流清單會統一顯示全部工作線。</p>
+        </section>
+        <section class="freight-arrival-overdue-reminders" data-freight-arrival-overdue-reminders hidden aria-live="polite"></section>
+
+        <section class="freight-customer-shipment-board" data-freight-customer-shipment-board aria-live="polite">
+          <header>
+            <div>
+              <p>FIFO CUSTOMER SHIPPING</p>
+              <h3>驗收入庫後・客戶出貨順序</h3>
+              <span>已配到貨物的客戶全部顯示；整張到齊可直接出貨，另有商品未到齊會先提醒是否等待或分批寄出。</span>
+            </div>
+            <strong data-freight-customer-shipment-count>整理中…</strong>
+          </header>
+          <div data-freight-customer-shipment-list>
+            <p class="empty-state">正在整理可出貨客戶與配送中訂單…</p>
+            <p><button type="button" class="primary-button" data-freight-fifo-reload>重新整理出貨名單</button></p>
+          </div>
+        </section>
+
+        
+        <section class="freight-tracking-panel" data-freight-tracking-panel>
+          <div class="panel-subhead">
+            <div>
+              <p>FREIGHT</p>
+              <h3>物流集運追蹤</h3>
+              <span>記錄拼直、拼郭、拼張、拼A、淘寶、抖音等平台的產品物流單號、集運批次、關稅 / 運費分攤與商損處理。</span>
+            </div>
+            <button type="button" class="ghost-button" data-freight-refresh>重新讀取</button>
+          </div>
+
+          <section class="freight-import-panel is-backend-only">
+            <div>
+              <p>BACKEND ENTRY ONLY</p>
+              <h4>物流資料只保留後台正式建檔</h4>
+              <span>雲端表匯入已停用；請使用下方物流建檔表單新增產品、照片、顏色、尺寸、數量與物流單號。</span>
+            </div>
+          </section>
+
+          <div class="freight-record-grid">
+            <form class="freight-form freight-compact-form" data-freight-checkpoint-form onsubmit="return false;">
+              <input type="hidden" data-freight-checkpoint-id>
+              <h4>平台目前做到哪個產品</h4>
+              <span class="field-hint">只記錄平台追蹤位置，不建立商品、不影響庫存；每筆紀錄都可新增、編輯或刪除。</span>
+              <label>日期<input type="date" data-freight-checkpoint-date></label>
+              <label>平台 / 帳號<select data-freight-checkpoint-platform>
+                <option value="">請選擇平台／帳號</option>
+                <option value="拼多多">拼多多（含運到台灣）</option>
+                <option value="拼直">拼直</option>
+                <option value="拼郭">拼郭</option>
+                <option value="拼張">拼張</option>
+                <option value="拼A">拼A</option>
+                <option value="拼電">拼電</option>
+                <option value="豪鴻">豪鴻集運倉</option>
+                <option value="掏寶">掏寶</option>
+                <option value="抖音">抖音</option>
+                <option value="其他">其他</option>
+              </select></label>
+              <label class="freight-wide">最後處理產品<input data-freight-checkpoint-product placeholder="例如：匹克運動水杯"></label>
+              <label class="freight-wide">備註<input data-freight-checkpoint-note placeholder="例如：追蹤進度"></label>
+              <div class="freight-actions"><button type="button" class="primary-button" data-freight-checkpoint-save>新增追蹤位置</button><button type="button" class="ghost-button" data-freight-checkpoint-clear>清空</button></div>
+            </form>
+
+            <form class="freight-form freight-compact-form" data-freight-damage-form onsubmit="return false;">
+              <input type="hidden" data-freight-damage-id>
+              <h4>商品故障 / 損壞處理</h4>
+              <span class="field-hint">登記故障、損壞、缺件、退貨或退款進度；每筆紀錄都可新增、編輯或刪除。</span>
+              <label>日期<input type="date" data-freight-damage-date></label>
+              <label>平台<select data-freight-damage-platform><option value="">請選擇已建檔平台</option></select></label>
+              <label>產品條碼<input data-freight-damage-code placeholder="產品條碼 / SKU"></label>
+              <label>物流單號<input data-freight-damage-tracking placeholder="平台或集運單號"></label>
+              <label class="freight-wide">產品名稱<input data-freight-damage-name placeholder="商品名稱"></label>
+              <label>問題類型<select data-freight-damage-type><option value="故障">故障</option><option value="破損">破損</option><option value="缺件">缺件</option><option value="退貨">退貨</option><option value="退款">退款</option><option value="其他">其他</option></select></label>
+              <label>處理進度<select data-freight-damage-progress><option value="待處理">待處理</option><option value="平台處理中">平台處理中</option><option value="集運倉處理中">集運倉處理中</option><option value="補發中">補發中</option><option value="退款完成">退款完成</option><option value="已完成">已完成</option></select></label>
+              <label class="freight-wide">備註<textarea rows="2" data-freight-damage-note placeholder="例如：破損位置、通知平台日期、退款或補發結果"></textarea></label>
+              <div class="freight-actions"><button type="button" class="primary-button" data-freight-damage-save>新增故障／損壞紀錄</button><button type="button" class="ghost-button" data-freight-damage-clear>清空</button></div>
+            </form>
+          </div>
+          <div class="freight-record-lists">
+            <div><h4>平台追蹤位置</h4><div data-freight-checkpoint-list></div></div>
+            <div class="freight-damage-results">
+              <h4>商損 / 故障搜尋結果</h4>
+              <p class="field-hint">處理完成後按「完成並移出」，紀錄會移到下方保留 20 天，期滿後自動刪除。</p>
+              <div data-freight-damage-list></div>
+              <details class="freight-damage-completed-history">
+                <summary>已完成紀錄（保留 20 天）<span data-freight-damage-completed-count>0 筆</span></summary>
+                <div data-freight-damage-completed-list></div>
+              </details>
+            </div>
+          </div>
+
+          <div class="freight-grid">
+            <form class="freight-form" data-freight-item-form data-freight-logistics-editor tabindex="-1" onsubmit="return false;">
+              <input type="hidden" data-freight-item-id>
+              <input type="hidden" data-freight-product-id>
+              <input type="hidden" data-freight-sku-id>
+              <input type="hidden" data-freight-product-aliases value="[]">
+              <input type="hidden" data-freight-purchase-offset-id>
+              <input type="hidden" data-freight-purchase-offset-status>
+              <input type="hidden" data-freight-purchase-offset-mutation-id>
+              <input type="hidden" data-freight-purchase-offset-at>
+              <input type="hidden" data-freight-purchase-offset-ids value="[]">
+              <h4>產品物流單號</h4>
+              <label class="freight-wide">物流處理工作列<select data-freight-source><option value="self_pickup">自取／東莞據點（免運免稅、每件 NT$30）</option><option value="pinduoduo">拼多多到台灣（關稅＋台灣快遞分攤）</option><option value="haohong">豪鴻到台灣（免稅、依重量分攤運費）</option></select></label>
+              <label class="freight-wide">到達據點／成本倉別
+                <select data-freight-destination>
+                  <option value="CN_DONGGUAN">中國倉｜東莞據點（每件自動加 NT$30）</option>
+                  <option value="TW_BAOHUI">台灣倉｜寶輝據點（每件抽取 NT$30）</option>
+                  <option value="ID_DIRECT">印尼倉｜直接到貨（預留；目前通常由中國／台灣調撥）</option>
+                </select>
+                <small data-freight-destination-help>目前主要使用東莞與寶輝；印尼通常由中國／台灣調撥，直接到貨選項只為未來流程預留。</small>
+              </label>
+              <label class="freight-wide">正式庫存後台／部門倉
+                <select data-freight-business-unit>
+                  <option value="lingzanzan">服裝倉｜張張管理後台</option>
+                  <option value="baohui_computer">電腦倉｜寶輝管理後台</option>
+                </select>
+                <small>這裡決定正式入庫要寫入哪一套庫存；顏色、尺寸與正式條碼仍逐規格核對。到達據點只負責物流成本，兩者不混用。</small>
+              </label>
+              <label class="freight-logistics-date">物流建檔日期<input type="date" data-freight-item-date></label>
+              <section class="freight-two-id-panel freight-wide">
+                <header>
+                  <div><b>先下單、後補物流：兩組號碼識別</b><small>完整平台採購訂單號永久保留；系統另產生待物流辨識碼。正式物流單號到貨後再補，不會覆蓋前兩組號碼。</small></div>
+                  <strong data-freight-pending-state>尚未輸入平台採購訂單號</strong>
+                </header>
+                <div class="freight-two-id-grid">
+                  <label>物流互聯編號（系統產生）<input data-freight-link-no readonly placeholder="儲存後立即產生；未到貨也可用來串聯訂單"></label>
+                  <label>① 平台採購訂單號（可後補）<input data-freight-purchase-order-no autocomplete="off" placeholder="有平台訂單號就填；沒有時先用物流互聯編號"></label>
+                  <label>② 待物流辨識碼（系統產生）<input data-freight-pending-code readonly placeholder="輸入平台訂單號後自動產生"></label>
+                  <label>正式物流單號（可後補）<input data-freight-tracking-no autocomplete="off" placeholder="收到正式物流號後再輸入或掃描"></label>
+                </div>
+                <input type="hidden" data-freight-split-packages value="[]">
+                <details class="freight-split-package-panel">
+                  <summary><span>拆包物流（同一產品、多個包裹）</span><strong data-freight-split-summary>未拆包</strong></summary>
+                  <p>同一廠商的多個款式可以分批出貨，也可以由多個物流單號混裝。每個物流單號只記錄實際包含的品名、顏色、尺寸與件數，不核對或扣除客戶數量、集運倉數量及正式庫存；相同款式可重複綁多個物流單號。</p>
+                  <div class="freight-split-package-composer">
+                    <label>新增物流單號<input data-freight-split-new-tracking autocomplete="off" placeholder="輸入或掃描物流單號"></label>
+                    <label>這包總件數<input type="number" min="1" step="1" value="1" data-freight-split-new-qty></label>
+                    <button type="button" class="primary-button" data-freight-split-add>＋加入單號並選款式</button>
+                  </div>
+                  <div class="freight-split-package-list" data-freight-split-package-list></div>
+                </details>
+                <section class="freight-tracking-duplicate-alert" data-freight-tracking-duplicate-alert role="alert" aria-live="assertive" hidden>
+                  <strong data-freight-tracking-duplicate-title></strong>
+                  <p data-freight-tracking-duplicate-message></p>
+                  <div>
+                    <button type="button" class="primary-button" data-freight-tracking-duplicate-load hidden>載入既有資料／追加成本</button>
+                    <button type="button" class="primary-button" data-freight-tracking-near-confirm hidden>我已核對，仍要帶入</button>
+                    <button type="button" class="ghost-button" data-freight-tracking-duplicate-edit>返回修改單號</button>
+                  </div>
+                </section>
+                <div class="freight-customer-link-grid">
+                  <label>對應客戶訂單號<input data-freight-customer-order-no list="freight-customer-order-options" autocomplete="off" placeholder="可輸入或選既有預購／現貨訂單"></label>
+                  <label>客戶姓名<input data-freight-customer-name autocomplete="off" placeholder="同名客戶仍以訂單號與電話區分"></label>
+                  <label>客戶電話<input data-freight-customer-phone inputmode="tel" autocomplete="off" placeholder="電話可後補，不以姓名當唯一鍵"></label>
+                </div>
+                <datalist id="freight-customer-order-options"></datalist>
+                <div class="freight-customer-match-status" data-freight-customer-match-status role="status" aria-live="polite">輸入正式物流單號後，系統會自動尋找符合物流單號且尚未抵銷的客戶訂單；每次只扣一件。</div>
+                <small class="freight-two-id-hint">同款商品有多人購買時，每位客戶各存一筆明細；真正綁定依序使用內部明細 ID、客戶訂單號、產品編號＋顏色＋尺寸，不用產品名稱猜測。</small>
+              </section>
+              <details class="freight-package-pool freight-wide" data-freight-package-pool>
+                <summary>同一商品一次建立多個物流包裹（例如 50 件／20 個單號）</summary>
+                <div class="freight-package-pool-body">
+                  <p>先完成下方商品、顏色、尺寸與成本，再一格一格填物流單號。每一格一個單號，可填數量；只填單號時，系統會依採購總件數平均分配。建立後仍是未到貨包裹池，不會增加庫存。</p>
+                  <label class="freight-pack-cell">本次同賣家採購總件數<input type="number" min="1" step="1" data-freight-package-pool-total placeholder="例如 50"></label>
+                  <div class="freight-package-pool-toolbar freight-wide">
+                    <small>物流單號欄位：一格一格填，可貼多行自動拆成多格。</small>
+                    <button type="button" class="ghost-button" data-freight-package-pool-add-cell>＋新增一格</button>
+                  </div>
+                  <div class="freight-package-pool-grid freight-wide" data-freight-package-pool-grid></div>
+                  <textarea hidden data-freight-package-pool-lines></textarea>
+                  <div class="freight-package-pool-preview freight-wide" data-freight-package-pool-preview>尚未預覽包裹分配。</div>
+                  <div class="freight-actions freight-wide">
+                    <button type="button" class="ghost-button" data-freight-package-pool-preview-button>預覽分配</button>
+                    <button type="button" class="primary-button" data-freight-package-pool-create>建立包裹池（不入庫）</button>
+                  </div>
+                </div>
+              </details>
+              <div class="freight-logistics-platform product-master-select-field" data-freight-pinduoduo-field>
+                <label>購買平台<select data-freight-platform><option value="">請選擇已建檔平台</option></select></label>
+                <div class="product-master-add"><input data-freight-platform-master placeholder="新增平台名稱"><button type="button" class="ghost-button" data-add-freight-master="platform">＋新增平台</button></div>
+              </div>
+              <section class="freight-existing-product-lookup freight-wide" data-freight-existing-product-lookup>
+                <div class="freight-existing-product-lookup-head">
+                  <div><b>先查後台有無相近產品</b><small>輸入廠商、分類（套裝、外套）、品牌、產品編號、名稱、既有條碼、顏色或尺寸；確認是同一款後再選用，避免重複建檔。</small></div>
+                  <div class="freight-existing-product-search-actions"><input type="search" data-freight-existing-product-search autocomplete="off" inputmode="search" placeholder="例如：套裝、外套、廠商、ADIDAS、OLAN68、既有條碼"><button type="button" class="ghost-button catalog-category-picker-open" data-catalog-category-picker="freight-existing">分類找產品</button><button type="button" class="ghost-button freight-existing-product-clear" data-freight-existing-product-clear hidden>清除已選產品</button></div>
+                </div>
+                <div class="freight-existing-product-results" data-freight-existing-product-results>
+                  <p>請先搜尋名稱、廠商或分類（例如套裝、外套）；相近的後台產品會顯示在這裡供你選擇。</p>
+                </div>
+              </section>
+              <div class="freight-product-identity-grid freight-wide">
+                <label>正式產品編號（選既有產品或配對訂單時帶入）<input data-freight-product-code readonly placeholder="選用相近產品後會連同正式編號、名稱與條碼一起帶入"></label>
+                <label>本次購買名稱／相關名稱<input data-freight-product-name autocomplete="off" placeholder="只做名稱與搜尋，不會自動選產品；既有產品請按上方「選用」"></label>
+                <div class="product-master-select-field"><label>品牌／Merek<select data-freight-brand><option value="">請選擇已建檔品牌</option></select></label><div class="product-master-add"><input data-freight-brand-master maxlength="80" placeholder="新增品牌名稱"><button type="button" class="ghost-button" data-add-freight-master="brand">＋新增品牌</button></div></div>
+                <div class="product-master-select-field"><label>規格／Spesifikasi<select data-freight-spec><option value="">請選擇已建檔規格</option></select></label><div class="product-master-add"><input data-freight-spec-master maxlength="160" placeholder="新增規格名稱"><button type="button" class="ghost-button" data-add-freight-master="spec">＋新增規格</button></div></div>
+              </div>
+              <div class="freight-category-path">
+                <div class="product-master-select-field freight-category-create-field">
+                  <label>產品主分類<select data-freight-category id="freight-category-options"><option value="">請選擇產品分類</option></select></label>
+                  <div class="product-master-add">
+                    <input data-freight-category-master maxlength="80" autocomplete="off" placeholder="選單沒有時輸入新分類">
+                    <button type="button" class="ghost-button" data-add-freight-master="category">＋新增分類</button>
+                  </div>
+                </div>
+                <div class="product-master-select-field freight-subcategory-field">
+                  <label>其他產品類／次分類<select data-freight-subcategory><option value="">請先選主分類</option></select></label>
+                  <div class="product-master-add">
+                    <input data-freight-subcategory-master maxlength="120" autocomplete="off" placeholder="選單沒有時輸入新次分類，例如後背包">
+                    <button type="button" class="ghost-button" data-add-freight-master="subcategory">＋新增次分類</button>
+                  </div>
+                </div>
+                <small data-freight-category-help>一般商品直接選產品主分類；電腦倉請依序選主分類與次分類。</small>
+              </div>
+              <div class="product-master-select-field freight-choice-create-field">
+                <label>顏色<select data-freight-color id="freight-color-options"><option value="">請選擇產品顏色</option></select></label>
+                <div class="product-master-add freight-choice-manual">
+                  <input data-freight-color-manual list="freight-inline-color-options" maxlength="80" autocomplete="off" placeholder="搜尋顏色：輸入「藍」可找到 藍色(BIRU)">
+                  <button type="button" class="ghost-button" data-add-freight-choice="color">＋新增顏色</button>
+                </div>
+                <small class="freight-color-search-hint">藍色在「藍色系」最上面；清單太長時輸入「藍」或 BIRU 即可篩選。</small>
+              </div>
+              <div class="product-master-select-field freight-choice-create-field">
+                <label>尺寸<select data-freight-size id="freight-size-options"><option value="">請選擇產品尺寸</option></select></label>
+                <div class="product-master-add freight-choice-manual">
+                  <input data-freight-size-manual list="freight-inline-size-options" maxlength="60" autocomplete="off" placeholder="輸入新尺寸，例如 XL / 2XL">
+                  <button type="button" class="ghost-button" data-add-freight-choice="size">＋新增尺寸</button>
+                </div>
+              </div>
+              <div class="freight-entry-quantity">
+                <span>這組數量</span>
+                <div class="freight-quantity-stepper" data-freight-quantity-stepper>
+                  <button type="button" aria-label="數量減一" data-freight-qty-minus>－</button>
+                  <label><span class="sr-only">這組數量</span><select data-freight-qty><option value="1">1</option></select></label>
+                  <button type="button" aria-label="數量加一" data-freight-qty-plus>＋</button>
+                </div>
+              </div>
+              <section class="freight-size-matrix freight-wide" data-freight-size-matrix data-preset="auto">
+                <header>
+                  <div>
+                    <b>同一顏色，多尺寸一次加入</b>
+                  </div>
+                  <div class="freight-size-matrix-presets" role="group" aria-label="尺寸範本">
+                    <button type="button" data-freight-size-preset="apparel">衣服 S–4XL</button>
+                    <button type="button" data-freight-size-preset="shoes">鞋子 36–44</button>
+                    <button type="button" data-freight-size-preset="existing">產品現有尺寸</button>
+                  </div>
+                </header>
+                <div class="freight-size-matrix-grid" data-freight-size-matrix-grid></div>
+                <footer>
+                  <span data-freight-size-matrix-status></span>
+                  <button type="button" class="primary-button" data-freight-size-matrix-add>＋一次加入有數量的尺寸</button>
+                </footer>
+              </section>
+              <label>中國／台灣統一產品條碼<input data-freight-sample-barcode autocomplete="off" placeholder="可掃描既有條碼，或按下方依分類、顏色、尺碼產生"></label>
+              <label>台灣條碼（自動同步）<input data-freight-taiwan-barcode autocomplete="off" placeholder="與中國樣品條碼完全相同" readonly></label>
+              <div class="freight-barcode-rule freight-wide">
+                <div>
+                  <b>統一條碼規則</b>
+                  <span data-freight-barcode-status>新列印統一使用 V2：產品編號＋P首次成本（固定不變）＋C色碼＋S尺寸碼（無尺寸固定 S00）；後續進貨成本只更新售價／毛利，原有條碼保留並可追溯。</span>
+                </div>
+                <button type="button" class="ghost-button" data-freight-barcode-generate>依分類／顏色／尺碼自動產生</button>
+              </div>
+              <div class="freight-barcode-match-status freight-wide" data-freight-barcode-match-status role="status" aria-live="polite">輸入或產生完整條碼後，系統會判斷台灣現貨、物流預報庫存，並搜尋尚缺這款的客戶訂單。</div>
+              <section class="freight-code-interlink freight-wide" data-freight-code-interlink hidden aria-live="assertive">
+                <header>
+                  <div><b data-freight-code-interlink-title>產品編號互聯提醒</b><small>只用完全相同的產品編號比對，不用名稱猜測；客戶名額只計預購與直播預購，不包含現貨出貨。帶入訂單只會先填入表單，儲存後才會由帳本核對並抵銷名額。</small></div>
+                  <button type="button" class="ghost-button" data-freight-code-interlink-close>稍後處理</button>
+                </header>
+                <div data-freight-code-interlink-results></div>
+              </section>
+              <input type="hidden" data-freight-variants value="[]">
+              <section class="freight-variant-workbench freight-wide">
+                <header>
+                  <div><b>同一物流單號的多品項明細</b><small>每選好一組分類、顏色、尺寸與數量後按「加入這組」；一個包裹可放四、五件以上不同衣服。</small></div>
+                  <button type="button" class="primary-button" data-freight-variant-add>＋加入這組品項</button>
+                </header>
+                <div class="freight-variant-list" data-freight-variant-list><p>尚未加入品項；單一品項也可直接儲存，系統會自動建立第一組。</p></div>
+                <p class="freight-variant-summary" data-freight-variant-summary>目前 0 組／0 件</p>
+                <div class="freight-variant-confirm-row">
+                  <button type="button" class="primary-button" data-freight-popup-save-trigger>確定儲存產品物流</button>
+                </div>
+              </section>
+              <label>處理進度
+                <select data-freight-progress>
+                  <option value="到貨待分類">到貨待分類（先收貨，稍後補商品）</option>
+                  <option value="待補物流單號">待補物流單號</option>
+                  <option value="待下單">待下單</option>
+                  <option value="已下單">已下單</option>
+                  <option value="中國收到">中國收到</option>
+                  <option value="已入物流表">第1階段｜待集運／已建檔</option>
+                  <option value="配送中">第2階段｜集運配送中</option>
+                  <option value="台灣收到待點貨">第3階段｜已到台灣／待驗收</option>
+                  <option value="已入庫">完成｜已入庫</option>
+                  <option value="缺件/故障處理中">異常｜缺件／故障待處理</option>
+                </select>
+              </label>
+              <label>人民幣成本（小姐可輸入）<input type="number" min="0" step="0.01" data-freight-cost-rmb placeholder="輸入人民幣後自動乘 5"></label>
+              <label>預估台幣商品成本（人民幣 × 5）<input type="number" min="0" step="0.01" data-freight-existing-twd-cost placeholder="輸入人民幣後自動帶入" readonly></label>
+              <label>商品售價（到貨後仍可編輯）<input type="number" min="0" step="1" data-freight-sale-price placeholder="尚未定價可先留 0"></label>
+              <label class="freight-check"><input type="checkbox" data-freight-fixed-twd-cost> 使用既有台幣成本鎖定（勾選後可手動修改）</label>
+              <label>每件抽取／人事處理成本（預設 NT$30）<input type="number" min="0" step="1" data-freight-handling-per-item readonly></label>
+              <label>異常／退單狀態<select data-freight-issue><option value="正常">正常</option><option value="待分類">到貨待分類</option><option value="延遲未到">延遲未到</option><option value="缺件">缺件</option><option value="故障">故障</option><option value="申請退單">申請退單</option><option value="退款處理中">退款處理中</option><option value="已退款">已退款</option><option value="補差額">補差額</option></select></label>
+              <section class="freight-demand-linker freight-wide" data-freight-demand-linker>
+                <header><div><b>預購缺口與客戶配貨互聯</b><small>未到貨即可先檢查相同產品、顏色、尺寸的待採購需求；只鎖定客戶名額，不會增加庫存。</small></div><button type="button" class="ghost-button" data-freight-demand-refresh>檢查目前缺貨訂單</button></header>
+                <div data-freight-demand-results><p>完成商品明細後按「檢查目前缺貨訂單」。</p></div>
+              </section>
+              <input type="hidden" data-freight-product-images value="[]">
+              <input type="hidden" data-freight-color-images value="{}">
+              <section class="freight-product-image-editor freight-wide" data-freight-product-image-editor data-image-size-scope tabindex="0" aria-label="產品明細圖，可貼上圖片">
+                <header>
+                  <div><b>產品明細圖與顏色圖</b><small>產品明細圖可一次選多張，也可直接 Ctrl+V 貼上截圖；先選顏色，再按上方任一圖片的「選作目前顏色圖」即可直接搭配。</small></div>
+                  <strong data-freight-product-image-summary>明細圖 0 張／顏色圖 0 張</strong>
+                </header>
+                <div class="image-view-size-switch" data-image-size-switch aria-label="圖片瀏覽大小">
+                  <span>瀏覽大小（只改顯示，不重複儲存）</span>
+                  <button type="button" data-image-size-option="small">小</button>
+                  <button type="button" class="is-active" data-image-size-option="medium">中</button>
+                  <button type="button" data-image-size-option="large">大</button>
+                  <small>上傳時已自動壓縮，節省 NAS 圖片空間。</small>
+                </div>
+                <div class="freight-product-image-actions">
+                  <label class="ghost-button freight-image-file-button">＋選擇多張產品明細圖<input type="file" accept="image/*" multiple data-freight-product-image-files></label>
+                  <button type="button" class="primary-button" data-freight-product-image-paste>貼上明細圖</button>
+                  <button type="button" class="ghost-button" data-freight-product-image-clear>清除全部明細圖</button>
+                </div>
+                <div class="freight-product-image-preview" data-freight-product-image-preview data-image-gallery data-image-size="medium"><p>尚未加入產品明細圖。</p></div>
+                <div class="freight-color-image-picker">
+                  <label>要綁定圖片的顏色<select data-freight-color-image-color><option value="">請先選顏色或加入品項</option></select></label>
+                  <label class="ghost-button freight-image-file-button">＋選擇這個顏色的圖片<input type="file" accept="image/*" data-freight-color-image-file></label>
+                </div>
+                <div class="freight-color-image-preview" data-freight-color-image-preview data-image-gallery data-image-size="medium"><p>尚未加入顏色圖。</p></div>
+              </section>
+              <input type="hidden" data-freight-batch-select value="">
+              <div class="freight-batch-package-list" data-freight-batch-packages hidden></div>
+              <section class="freight-haohong-weight-panel freight-wide" data-freight-haohong-field hidden>
+                <header>
+                  <div><b>豪鴻包裹重量／Biaya berdasarkan berat</b><small>重量屬於正式物流單號；同一物流單號含多個顏色／尺寸時只計一次，再依該包裹總數量分攤。</small></div>
+                  <a class="ghost-button" href="https://member.haohong56.com/#/myOrder" target="_blank" rel="noopener">開啟豪鴻我的訂單</a>
+                </header>
+                <div class="freight-haohong-weight-grid">
+                  <label>實際重量（kg）<input type="number" min="0" step="0.001" data-freight-actual-weight-kg placeholder="由豪鴻訂單明細 Weight 同步" readonly></label>
+                  <label>材積重量（kg）<input type="number" min="0" step="0.001" data-freight-volume-weight-kg placeholder="由豪鴻訂單明細 Weight2 同步" readonly></label>
+                  <label>計費重量（kg）<input type="number" min="0" step="0.001" data-freight-weight-kg placeholder="豪鴻收費重" readonly></label>
+                  <label>豪鴻重量更新時間<input data-freight-haohong-weight-updated readonly placeholder="尚未核對豪鴻"></label>
+                </div>
+                <p data-freight-haohong-weight-status>重量只能由豪鴻「我的訂單」同步；計費重量取豪鴻實重、材積重與收費重中較高者，不由人員手填。</p>
+              </section>
+              <div class="freight-auto-cost" data-freight-auto-cost>選擇物流來源並輸入成本後自動計算。</div>
+              <label class="freight-wide freight-note-compact">備註<textarea rows="2" data-freight-note placeholder="處理進度、平台備註、照片待補、退款進度"></textarea></label>
+              <div class="freight-actions">
+                <button type="button" class="primary-button" data-freight-item-save>儲存產品物流</button>
+                <button type="button" class="ghost-button" data-freight-item-clear>清空</button>
+              </div>
+            </form>
+
+            <details class="freight-batch-maintenance" data-freight-batch-maintenance id="batch-maintenance">
+              <summary>既有批次修正（正常建立批次不需要使用）</summary>
+            <form class="freight-form freight-batch-entry-form freight-batch-grouping-only" data-freight-batch-form onsubmit="return false;">
+              <input type="hidden" data-freight-batch-id>
+              <input type="hidden" data-freight-cost-mode value="pinduoduo_batch">
+              <input type="hidden" data-freight-forwarder value="拼多多集運">
+              <input type="hidden" data-freight-warehouse-tax-type value="taxable">
+              <input type="hidden" data-freight-charge-type value="tax">
+              <h4>既有物流批次修正</h4>
+              <p class="freight-wide freight-batch-intro">這裡只用於修正「集運追蹤」已存在批次的日期、狀態或備註；物流打單區不會再另外建立批號。</p>
+              <label>集運商
+                <select data-freight-batch-provider>
+                  <option value="pinduoduo">拼多多｜含中國運費、要關稅</option>
+                  <option value="haohong">豪鴻｜免關稅、要集運運費</option>
+                </select>
+              </label>
+              <label>集運日期<input type="date" data-freight-batch-date></label>
+              <label>批次物流名稱<input data-freight-batch-name autocomplete="off" maxlength="80" placeholder="例如：7/21 拼張夏季衣服第一批"></label>
+              <label>批號<input data-freight-batch-no autocomplete="off" placeholder="例如：20260715-PDD-01"></label>
+              <label>物流條碼／集運單號<input data-freight-batch-tracking autocomplete="off" placeholder="掃描或輸入物流條碼"></label>
+              <label>本批最終集運帳號
+                <select data-freight-batch-platform><option value="">請選擇最終集運帳號</option></select>
+              </label>
+              <label>關稅單號／台灣物流單號<input data-freight-customs-no list="freight-customs-options" autocomplete="off" placeholder="輸入關稅單號或台灣物流單號"></label>
+              <label>近 15 天寶輝關稅
+                <select data-freight-customs-recent-select><option value="">正在讀取寶輝關稅資料…</option></select>
+              </label>
+              <label>關稅金額<input type="number" min="0" step="1" data-freight-duty-twd placeholder="寶輝帶入／可修正"></label>
+              <label>台灣快遞單費<input type="number" min="0" step="1" data-freight-taiwan-courier-twd placeholder="寶輝帶入／可修正"></label>
+              <label>寶輝實收合計<input type="number" min="0" step="1" data-freight-charge-total-twd placeholder="自動帶入合計"></label>
+              <label>關稅單號件數<input type="number" min="0" step="1" data-freight-customs-package-count placeholder="寶輝帶入／可手動登記"></label>
+              <div class="freight-actions freight-wide">
+                <button type="button" class="ghost-button" data-freight-customs-lookup>從寶輝比對關稅</button>
+                <span data-freight-customs-result>輸入關稅單號或台灣物流單號後，可帶入金額與件數。</span>
+              </div>
+              <datalist id="freight-customs-options" data-freight-customs-options></datalist>
+              <label>本批商品總件數（用於產品成本分攤）<input type="number" min="1" step="1" data-freight-batch-count placeholder="可由關稅件數帶入，也可依實際商品件數修正"></label>
+              <section class="freight-provider-fields freight-wide" data-freight-haohong-batch-fields hidden>
+                <h5>豪鴻正式集運批次與重量運費</h5>
+                <label>豪鴻集運批次編號<input data-freight-haohong-order-code placeholder="由豪鴻我的訂單同步" readonly></label>
+                <label>實際總重量（kg）<input type="number" min="0" step="0.001" data-freight-haohong-actual-total readonly></label>
+                <label>材積總重量（kg）<input type="number" min="0" step="0.001" data-freight-haohong-volume-total readonly></label>
+                <label>豪鴻計費總重量（kg）<input type="number" min="0" step="0.001" data-freight-haohong-billed-total placeholder="由豪鴻同步" readonly></label>
+                <label>本批豪鴻運費（台幣）<input type="number" min="0" step="1" data-freight-haohong-shipping-twd placeholder="由豪鴻同步" readonly></label>
+                <p>運費會按每個物流單號的計費重量比例分攤，不再用商品件數平均。相同物流單號的多個產品列不會重複計重。</p>
+              </section>
+              <input type="hidden" data-freight-batch-amount>
+              <input type="hidden" data-freight-batch-allocation>
+              <div class="freight-batch-formula freight-auto-cost freight-wide" data-freight-batch-formula>選擇集運商並填入正式費用後自動計算。</div>
+              <label>批次狀態
+                <select data-freight-batch-status>
+                  <option value="已入物流表">第1階段｜待集運／已建檔</option>
+                  <option value="配送中">第2階段｜集運配送中</option>
+                  <option value="台灣收到待點貨">第3階段｜已到台灣／待驗收</option>
+                  <option value="缺件待處理">異常｜差異／缺件待處理</option>
+                  <option value="已入庫">完成｜已入庫</option>
+                </select>
+              </label>
+              <label class="freight-wide freight-note-compact">備註<textarea rows="2" data-freight-batch-note placeholder="例如：7/15 拼多多 15 件；或豪鴻本批運費 NT$1,200"></textarea></label>
+              <div class="freight-actions">
+                <button type="button" class="primary-button" data-freight-batch-save>儲存既有批次修正</button>
+                <button type="button" class="ghost-button" data-freight-batch-clear>清空</button>
+              </div>
+            </form>
+            </details>
+          </div>
+
+          <section class="freight-haohong-sync-panel" data-freight-haohong-sync-panel data-haohong-sync-panel>
+            <header>
+              <div>
+                <small>HAOHONG PACKAGE &amp; ORDER SYNC</small>
+                <h3>豪鴻包裹與集運訂單紀錄</h3>
+                <p>登入後可記住帳號。先同步豪鴻「我的包裹」與「我的訂單」，同一物流單號會對上後台；同步後可帶入單號與重量計費。也可把後台單號預報到豪鴻，或把公司品名寫回豪鴻。</p>
+              </div>
+              <div class="panel-actions">
+                <a class="ghost-button" href="./admin-haohong-logistics.html">打開豪鴻集運對照表</a>
+                <a class="ghost-button" href="https://member.haohong56.com/#/myBag" target="_blank" rel="noopener">開啟豪鴻我的包裹</a>
+              </div>
+            </header>
+            <div class="freight-haohong-sync-controls">
+              <label>豪鴻帳號<input autocomplete="username" data-haohong-sync-username placeholder="豪鴻會員帳號"></label>
+              <label>豪鴻密碼<input type="password" autocomplete="current-password" data-haohong-sync-password placeholder="已記住可留空"></label>
+              <label class="freight-haohong-remember"><input type="checkbox" data-haohong-sync-remember checked>記住登入</label>
+              <button type="button" class="primary-button" data-haohong-sync-load>同步我的包裹與集運訂單</button>
+              <button type="button" class="ghost-button" data-haohong-register-missing>後台單號預報到豪鴻</button>
+              <button type="button" class="ghost-button" data-haohong-name-sync>公司品名同步到豪鴻</button>
+            </div>
+            <div class="freight-haohong-sync-status" data-haohong-sync-status>正在讀取已記住的豪鴻登入…</div>
+            <div class="freight-haohong-sync-preview" data-haohong-sync-preview></div>
+          </section>
+
+          <section class="freight-batch-workbench" id="freight-batch-workbench" data-freight-workbench>
+            <header>
+              <div><small>LOGISTICS BATCH LINKING</small><h3>物流單號建立／加入批次</h3><p>搜尋並勾選物流單號後，可直接自動產生新批號，或加入下方既有批次；如果集運時才發現其他拆包單號，可在已選商品內連續增加多組單號與各組數量，系統會依總件數重算成本。</p></div>
+              <div class="freight-workbench-header-actions"><strong data-freight-bulk-count>本批 0 個物流單號／0 件商品</strong><button type="button" class="primary-button" data-freight-workbench-jump-bind>建立新批次／加入既有批次</button></div>
+            </header>
+            <div class="freight-workbench-search-row">
+              <label>正式物流號／待物流碼／平台訂單號
+                <input data-freight-workbench-search autocomplete="off" inputmode="search" placeholder="可搜尋三種號碼；待物流資料須先補正式物流號">
+              </label>
+              <label>依購買帳號篩選
+                <select data-freight-account-filter><option value="">全部購買帳號</option></select>
+              </label>
+              <div class="freight-workbench-filter-actions">
+                <button type="button" class="ghost-button" data-freight-workbench-select-filtered>勾選目前篩選</button>
+                <button type="button" class="primary-button" data-freight-workbench-add-exact>依輸入號碼加入</button>
+              </div>
+            </div>
+            <div class="freight-workbench-take-first">
+              <label>快速拆批：勾選篩選結果前 N 個<input type="number" min="1" step="1" value="5" data-freight-workbench-take-count></label>
+              <button type="button" class="ghost-button" data-freight-workbench-take-first>勾選前 N 個</button>
+            </div>
+            <p class="freight-workbench-account-rule" data-freight-workbench-account-rule>既有批次的集運倉、最終帳號與配送倉位是唯一依據；綁入後會依該批次回寫物流資料。</p>
+            <div class="freight-workbench-results" data-freight-workbench-results><p>輸入任一識別號或選平台帳號後會顯示物流紀錄；勾選後可自動建立新批號，或加入既有批次。</p></div>
+            <div class="freight-workbench-selected" data-freight-workbench-selected><p>本批尚未加入物流包裹。</p></div>
+            <div class="freight-workbench-purpose-actions">
+              <button type="button" class="ghost-button" data-freight-workbench-internal-use aria-pressed="false" disabled>本批設為公司自用</button>
+              <small data-freight-workbench-internal-use-status>一般批次：可依商品需求配客戶或轉公司現貨。</small>
+            </div>
+            <section class="freight-workbench-auto-create" data-freight-workbench-auto-create>
+              <div class="freight-workbench-auto-create-head">
+                <div><small>NEW BATCH</small><h4>加入批次並自動產生批號</h4><p>不用先建立批次；系統會依日期產生批號，並把目前勾選的物流單一次加入。</p></div>
+                <strong>建議使用</strong>
+              </div>
+              <div class="freight-workbench-create-fields">
+                <label>集運工作線
+                  <select data-freight-workbench-provider>
+                    <option value="self_pickup">自取／東莞據點</option>
+                    <option value="pinduoduo" selected>拼多多到台灣</option>
+                    <option value="haohong">豪鴻到台灣</option>
+                  </select>
+                </label>
+                <label>本批最終集運帳號
+                  <select data-freight-workbench-platform><option value="">請選擇最終集運帳號</option></select>
+                </label>
+                <label>到達倉庫
+                  <select data-freight-workbench-destination>
+                    <option value="CN_DONGGUAN">中國倉｜東莞據點</option>
+                    <option value="TW_BAOHUI" selected>台灣倉｜寶輝據點</option>
+                  </select>
+                </label>
+                <label>批次日期<input type="date" data-freight-workbench-date></label>
+              </div>
+              <button type="button" class="primary-button freight-workbench-auto-create-button" data-freight-bulk-create>加入批次並自動產生批號</button>
+              <p class="freight-workbench-auto-create-help">按下後會正式建立批次並回寫物流資料；若資料已被其他人加入批次，系統會停止並要求重新整理，不會覆蓋。</p>
+            </section>
+            <div class="freight-workbench-existing-divider"><span>或加入已經存在的批次</span></div>
+            <div class="freight-workbench-actions">
+              <label>集運追蹤既有批次<select data-freight-bulk-batch><option value="">請選擇既有批次</option></select></label>
+              <button type="button" class="primary-button" data-freight-bulk-bind>加入選定批次</button>
+              <button type="button" class="ghost-button" data-freight-workbench-clear>清空本批</button>
+            </div>
+            <section class="freight-existing-batch-preview" data-freight-existing-batch-preview><p>選擇既有批次後，這裡會先列出該批全部產品，確認正確再加入。</p></section>
+          </section>
+
+          <section class="freight-receiving-alerts" data-freight-receiving-alerts>
+            <p class="empty-state">正在核對批次點貨與缺件狀態…</p>
+          </section>
+          <section class="freight-overdue-alerts" data-freight-overdue-alerts><p class="empty-state">正在檢查超過 10 天尚未完成的集運…</p></section>
+          <section class="freight-virtual-stock-summary" id="freight-forecast" data-freight-virtual-stock-summary aria-live="polite">
+            <header><div><small>CONSOLIDATION WAREHOUSE FORECAST STOCK</small><h3>集運倉預報現貨</h3></div><p>物流建檔後即列為在途可預留數量；只保留給客戶預購與直播預購，現貨出貨不占用。尚未驗收入庫前不會增加台灣正式庫存。</p></header>
+            <p class="freight-forecast-flow"><b>庫存主鍵：</b>正式產品條碼＋顏色＋尺寸。同款產品即使來自不同物流單號或使用不同名稱，也會合併成同一款預購庫存；物流單號只保留作來源追蹤。預留不扣公司正式庫存，貨到按「轉入公司進貨入庫」後才增加實體庫存。</p>
+            <div><article><span>預報總件數</span><strong>0</strong></article><article><span>客戶已預留</span><strong>0</strong></article><article><span>尚可預留</span><strong>0</strong></article><article><span>產品編號數</span><strong>0</strong></article></div>
+            <div class="freight-forecast-product-list" data-freight-forecast-product-list><p>正在整理預報商品、照片與款式數量…</p></div>
+          </section>
+          <div class="freight-toolbar freight-list-toolbar">
+            <label class="freight-list-search">搜尋全部物流紀錄<input data-freight-search placeholder="物流號、客戶、產品、條碼、進度或操作人員"></label>
+            <label>物流單號狀態<select data-freight-list-tracking-filter><option value="">全部物流單號狀態</option><option value="missing">待補物流單號</option><option value="not_handed">已建單未交寄</option><option value="in_transit">配送中</option><option value="arrived_store">到店待取</option><option value="delivered">已完成/已取件</option><option value="returned">退回/異常</option><option value="no_data">查無資料</option><option value="manual">人工查詢/需處理</option><option value="ready">已有物流單號</option></select></label>
+            <label>產品部門<select data-freight-list-category-filter><option value="">全部產品部門</option><option value="computer">電腦部門</option><option value="apparel">服裝部門</option><option value="unassigned">未設定部門</option></select></label>
+            <label>倉庫位置<select data-freight-list-destination-filter><option value="">全部倉庫位置</option><optgroup label="現有實體倉庫"><option value="TW_BAOHUI">台灣倉｜正式庫存</option><option value="CN_DONGGUAN">中國倉｜正式庫存</option><option value="ID_DIRECT">印尼倉｜正式庫存</option></optgroup><optgroup label="特殊作業倉"><option value="PREORDER">預購倉｜準備採購／待驗收</option></optgroup></select></label>
+            <label>購買平台<select data-freight-list-platform-filter><option value="">全部平台</option></select></label>
+            <label>購買帳號<select data-freight-list-account-filter><option value="">全部帳號</option></select></label>
+            <label>日期從<input type="date" data-freight-list-date-from aria-label="物流紀錄起始日期"></label>
+            <label>日期到<input type="date" data-freight-list-date-to aria-label="物流紀錄結束日期"></label>
+            <label>排序方式<select data-freight-list-sort><option value="newest">最新建立優先</option><option value="oldest">最早建立優先</option><option value="date_newest">購買日期新到舊</option><option value="date_oldest">購買日期舊到新</option><option value="platform">依購買平台</option><option value="account">依購買帳號</option><option value="status">依處理狀態</option></select></label>
+            <button type="button" class="ghost-button" data-freight-list-filter-reset>清除篩選</button>
+            <strong data-freight-summary>尚未載入集運資料</strong>
+          </div>
+          <section class="freight-search-product-master" data-freight-search-product-master hidden></section>
+          <div class="freight-batch-list" data-freight-batch-list></div>
+          <nav class="freight-pagination" data-freight-pagination="batches" aria-label="集運批次分頁"></nav>
+          <div class="freight-bulk-delete-toolbar" data-freight-bulk-delete-toolbar>
+            <label><input type="checkbox" data-freight-bulk-delete-page> 勾選本頁可刪除項目</label>
+            <strong data-freight-bulk-delete-count>已選 0 筆</strong>
+            <button type="button" class="danger-button" data-freight-bulk-delete-submit disabled>刪除已勾選</button>
+            <button type="button" class="ghost-button" data-freight-bulk-delete-clear disabled>取消勾選</button>
+          </div>
+          <div class="freight-item-list" data-freight-item-list></div>
+          <nav class="freight-pagination" data-freight-pagination="items" aria-label="待集運物件分頁"></nav>
+          <section class="freight-product-filed-history" id="freight-awaiting-inventory" data-freight-product-filed-history>
+            <header class="admin-section-header">
+              <div><small>驗收入庫</small><h3>未驗收入庫</h3></div>
+              <p>卡片左上角小按鈕分辨已驗收入庫／未驗收入庫。已完成的請到「已入庫」。</p>
+            </header>
+            <div class="freight-item-list" data-freight-product-filed-list></div>
+            <nav class="freight-pagination" data-freight-pagination="filed" aria-label="已入庫物件分頁"></nav>
+            <details class="freight-stocked-archive" data-freight-stocked-archive hidden>
+              <summary>已移出清單的入庫紀錄 <span data-freight-stocked-archive-count>0</span> 筆（正式庫存仍保留）</summary>
+              <p>這裡只管理清單顯示；產品、進貨單及正式庫存都沒有刪除或倒扣。</p>
+              <div class="freight-item-list" data-freight-stocked-archive-list></div>
+            </details>
+          </section>
+        </section>
+      </section>
+    </main>
+  </div>
+  <datalist id="freight-inline-color-options">
+    <option value="藍色"><option value="藍色(BIRU)"><option value="深藍"><option value="深藍色(biru tua)"><option value="淺藍"><option value="淺藍(biru muda)"><option value="藏青色"><option value="黑色"><option value="白色"><option value="灰色"><option value="紅色"><option value="粉紅"><option value="橘色"><option value="黃色"><option value="綠色"><option value="紫色"><option value="咖啡色"><option value="卡其色"><option value="米色"><option value="彩色">
+  </datalist>
+  <datalist id="freight-inline-size-options">
+    <option value="NO SIZE"><option value="FREE"><option value="XS"><option value="S"><option value="M"><option value="L"><option value="XL"><option value="2XL"><option value="3XL"><option value="4XL"><option value="5XL"><option value="90"><option value="100"><option value="110"><option value="120"><option value="130"><option value="140"><option value="150"><option value="160">
+  </datalist>
+  <div class="admin-toast" data-admin-toast hidden></div>
+  <script type="lz/asset" data-lz-src="./assets/admin-labels.js" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/vendor/qrcode-generator.min.js" defer></script>
+
+    <link rel="lz-asset" data-lz-href="./assets/myship-workbench.css?v=20260829-shipment-button-5">
+    <style>
+      .freight-arrival-product-open{display:grid;gap:4px;width:100%;min-height:64px;padding:10px 12px;border:2px solid #d6a83d;border-radius:12px;background:#2b222d;color:#fff;text-align:left;cursor:pointer;touch-action:manipulation}
+      .freight-arrival-product-open b{color:#fff!important}.freight-arrival-product-open small{color:#eee4ec!important}.freight-arrival-product-open i{color:#f4c653;font-size:12px;font-style:normal;font-weight:900}
+      .freight-arrival-product-open:active,.freight-arrival-product-open:focus{outline:3px solid rgba(244,198,83,.35);background:#3a2d38}
+      .freight-color-search-hint{display:block;margin-top:6px;color:#9ff4e7;font-size:12px;line-height:1.4}
+    </style>
+<script type="lz/asset" data-lz-src="./assets/admin.js?v=20260927-size-labels-1" defer></script>
+    <script type="lz/asset" data-lz-src="./assets/myship-workbench.js?v=20260923-hold-retry-1" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-ui-rescue.js" defer></script>
+<script type="lz/asset" data-lz-src="./assets/submission-feedback.js" defer data-submission-feedback-script></script>
+<script type="lz/asset" data-lz-src="./assets/admin-navigation.js?v=20260902-agency-collection-1" defer></script>
+<script type="lz/asset" data-lz-src="./assets/return-event-entry.js?v=20260909-inline5" defer></script></body>
+</html>
+
+
+
+
+
+
+
+
