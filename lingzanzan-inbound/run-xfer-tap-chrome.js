@@ -6,7 +6,7 @@ const { spawn } = require('child_process');
 const root = '/tmp/ygf-xfer-tap-serve';
 fs.rmSync(root, { recursive: true, force: true });
 fs.mkdirSync(path.join(root, 'assets/vendor'), { recursive: true });
-const html = fs.readFileSync('/workspace/lingzanzan-inbound/scanner.html.new-ygf-qty-10', 'utf8')
+const html = fs.readFileSync('/workspace/lingzanzan-inbound/scanner.html.new-ygf-qty-11', 'utf8')
   .replace('<body data-scanner-app class="scanner-pda-layout">', `<body data-scanner-app class="scanner-pda-layout">
   <script>
     localStorage.setItem('lingzanzan-v1-admin-login', JSON.stringify({
@@ -15,8 +15,8 @@ const html = fs.readFileSync('/workspace/lingzanzan-inbound/scanner.html.new-ygf
     localStorage.setItem('lingzanzan-scanner-tab-v1', 'transfer');
   </script>`);
 fs.writeFileSync(path.join(root, 'scanner.html'), html);
-fs.copyFileSync('/workspace/lingzanzan-inbound/scanner-ygf-v59.js.new-ygf-qty-10', path.join(root, 'assets/scanner-ygf-v59.js'));
-fs.copyFileSync('/workspace/lingzanzan-inbound/scanner-ygf-v59.css.new-ygf-qty-10', path.join(root, 'assets/scanner-ygf-v59.css'));
+fs.copyFileSync('/workspace/lingzanzan-inbound/scanner-ygf-v59.js.new-ygf-qty-11', path.join(root, 'assets/scanner-ygf-v59.js'));
+fs.copyFileSync('/workspace/lingzanzan-inbound/scanner-ygf-v59.css.new-ygf-qty-11', path.join(root, 'assets/scanner-ygf-v59.css'));
 fs.writeFileSync(path.join(root, 'assets/vendor/qrcode-generator.min.js'), 'window.qrcode=function(){return {addData:function(){},make:function(){},createImgTag:function(){return "";}};};');
 fs.writeFileSync(path.join(root, 'assets/scanner-review.js'), '');
 fs.writeFileSync(path.join(root, 'assets/image-upload-paste.js'), '');
@@ -92,7 +92,7 @@ server.listen(0, '127.0.0.1', () => {
     const fail = (dom.match(/data-autotest-reason="([^"]*)"/) || [])[1] || '';
     const draft = (dom.match(/data-autotest-draft="([^"]*)"/) || [])[1] || '';
     console.log(pass ? 'CLICK_OK ' + draft : 'CLICK_FAIL ' + (fail || 'no-autotest-attr'));
-    if (/版本 v171/.test(dom)) console.log('badge v171');
+    if (/版本 v172/.test(dom)) console.log('badge v172');
     if (!pass) {
       const msg = (dom.match(/AUTOTEST[^<]{0,180}/) || [])[0] || '';
       if (msg) console.log('msg', msg);
