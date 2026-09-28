@@ -31,10 +31,11 @@ try {
   echo 'jsCollect=' . (strpos($js, 'function freightReceivingCollectMatches') !== false ? 'yes' : 'no') . "\n";
   echo 'jsZ=' . (strpos($js, 'z-index:2147483647') !== false ? 'yes' : 'no') . "\n";
   echo 'jsFallback=' . (strpos($js, 'function freightOtherWarehouseFallbackPrintPayload') !== false ? 'yes' : 'no') . "\n";
-  echo 'jsExtraSku=' . (strpos($js, 'data-freight-receiving-extra-sku') !== false ? 'yes' : 'no') . "\n";
+  echo 'jsPlusOne=' . (strpos($js, 'data-freight-receiving-plus-one') !== false ? 'yes' : 'no') . "\n";
+  echo 'jsExtraLocal=' . (strpos($js, 'function addFreightReceivingExtraForecastLocal') !== false ? 'yes' : 'no') . "\n";
   echo 'cssMarker=' . (strpos($css, 'LZ_RECV_PRINT_Z_20260928') !== false ? 'yes' : 'no') . "\n";
   echo 'cssLookup=' . (strpos($css, 'LZ_RECV_LOOKUP_20260928') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlBust=' . (strpos($html, '20260928-recv-lookup-1') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlBust=' . (strpos($html, '20260928-recv-color-1') !== false ? 'yes' : 'no') . "\n";
   echo 'phpLookup=' . (strpos($php, 'LZ_RECV_LOOKUP_20260928') !== false ? 'yes' : 'no') . "\n";
   echo "ok\n";
 } catch (Exception $e) {

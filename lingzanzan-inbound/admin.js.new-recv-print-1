@@ -29837,26 +29837,26 @@
       var image = imageInfo && imageInfo.isColorImage ? imageInfo.src : '';
       var current = key === currentKey;
       var presentIndex = existingKeys.hasOwnProperty(key) ? existingKeys[key] : -1;
-      var thumb = image ? '<img src="' + escapeHtml(image) + '" alt="" data-freight-receiving-zoom="' + escapeHtml(image) + '">' : '<i class="freight-receiving-color-swatch" aria-hidden="true"></i>';
-      if (current || (needsLink && presentIndex < 0)) {
-        return '<div role="button" tabindex="0" class="freight-receiving-color-chip' + (current ? ' is-current' : '') + '" data-freight-receiving-link-sku="' + escapeHtml(String(sku.id || sku.sku || '')) + '" data-line="' + index + '" data-color-name="' + escapeHtml(color) + '" data-size-name="' + escapeHtml(size) + '" data-color-hay="' + escapeHtml((color + ' ' + size + ' ' + (sku.colorCode || '')).toLowerCase()) + '">'
+      var thumb = image
+        ? '<button type="button" class="freight-receiving-chip-zoom" data-freight-receiving-zoom="' + escapeHtml(image) + '" title="放大圖片"><img src="' + escapeHtml(image) + '" alt=""></button>'
+        : '<i class="freight-receiving-color-swatch" aria-hidden="true"></i>';
+      if (current) {
+        return '<div class="freight-receiving-color-chip is-current" data-color-hay="' + escapeHtml((color + ' ' + size + ' ' + (sku.colorCode || '')).toLowerCase()) + '">'
           + thumb
           + '<b>' + escapeHtml(color) + '</b>'
           + '<em>' + escapeHtml(size && size !== 'NO SIZE' ? size : 'NO SIZE') + '</em>'
-          + (current ? '<small>點一下＋1</small>' : '')
+          + '<button type="button" class="freight-receiving-plus-one" data-freight-receiving-plus-one="' + index + '">預報這件 · 點＋1</button>'
           + '</div>';
       }
       return '<label class="freight-receiving-color-chip is-extra' + (presentIndex >= 0 ? ' is-checked' : '') + '" data-color-hay="' + escapeHtml((color + ' ' + size + ' ' + (sku.colorCode || '')).toLowerCase()) + '">'
-        + '<input type="checkbox" data-freight-receiving-extra-sku="' + escapeHtml(String(sku.id || sku.sku || '')) + '" data-line="' + index + '"' + (presentIndex >= 0 ? ' checked' : '') + '>'
+        + '<span class="freight-receiving-extra-check"><input type="checkbox" data-freight-receiving-extra-sku="' + escapeHtml(String(sku.id || sku.sku || '')) + '" data-line="' + index + '"' + (presentIndex >= 0 ? ' checked' : '') + '><em>列入其他預報</em></span>'
         + thumb
         + '<b>' + escapeHtml(color) + '</b>'
         + '<em>' + escapeHtml(size && size !== 'NO SIZE' ? size : 'NO SIZE') + '</em>'
-        + '<small>' + (presentIndex >= 0 ? '已列入其他預報' : '勾選後出現預報驗收列') + '</small>'
+        + '<small>' + (presentIndex >= 0 ? '已出現預報驗收列，尚未寫入實收' : '勾選後才出現預報列，不會寫入實收') + '</small>'
         + '</label>';
     }).join('');
-    var hint = needsLink
-      ? '這列還抓不到正式顏色（現在是「' + escapeHtml(line.color || '未填') + '」）。點預報顏色／尺寸會＋1。包裡其他顏色請勾選，勾選後才出現預報驗收數量，不會直接寫入實收。'
-      : '預報的顏色／尺寸點一下＋1。包裡若還有其他顏色／尺寸，勾選後會多一列預報驗收數量，不會立刻寫入實收。';
+    var hint = '預報是「' + escapeHtml((line.color || '未填') + '／' + (line.size || 'NO SIZE')) + '」：點綠色＋1 只加這列實收。包裡其他顏色／尺寸請勾「列入其他預報」，勾選後才多一列預報數量，實收維持 0，不會一點圖片就存檔。';
     var colorOptions = uniqueFreightChoiceValues(
       ((product && product.colors) || []).map(function (row) { return row && (row.name || row.colorName || row.color) || ''; })
         .concat(typeof freightPinnedBlueColors === 'function' ? freightPinnedBlueColors() : ['藍色(BIRU)', '深藍色(biru tua)', '淺藍(biru muda)'])
@@ -30024,6 +30024,97 @@
     });
   }
 
+  function freightReceivingSnapshotActuals(workbench) {
+    return Array.from((workbench && workbench.querySelectorAll('[data-freight-inspection-actual]')) || []).map(function (input) {
+      return Math.max(0, Math.floor(Number(input.value) || 0));
+    });
+  }
+
+  function freightReceivingPutItemLocal(updated, itemId) {
+    state.freightTracking = state.freightTracking || {};
+    var items = Array.isArray(state.freightTracking.items) ? state.freightTracking.items : [];
+    var index = items.findIndex(function (row) { return String(row && row.id || '') === String(itemId); });
+    if (index >= 0) items[index] = updated;
+    else items.push(updated);
+    state.freightTracking.items = items;
+  }
+
+  function freightReceivingReopenLocal(itemId, message) {
+    var workbench = document.querySelector('[data-freight-receiving-workbench]');
+    if (workbench && workbench.isConnected) workbench.remove();
+    openFreightReceivingWorkbench(itemId, { fromArrival: true, prefillExpected: false, catalogReady: true, forceOpen: true });
+    if (message) toast(message);
+  }
+
+  function addFreightReceivingExtraForecastLocal(itemId, sku) {
+    var workbench = document.querySelector('[data-freight-receiving-workbench="' + itemId + '"]') || document.querySelector('[data-freight-receiving-workbench]');
+    var latest = freightItemById(itemId);
+    if (!latest || !sku) return Promise.reject(new Error('找不到要列入預報的顏色'));
+    var product = (state.products || []).find(function (row) {
+      return String(row.id || '') === String(sku.productId || latest.productId || '');
+    }) || {};
+    var color = String(sku.colorName || sku.color || '').trim();
+    var size = canonicalNoSize(sku.sizeName || sku.size || 'NO SIZE');
+    var key = freightReceivingVariantKey(color, size);
+    var lines = freightVariantLines(latest);
+    if (lines.some(function (line) { return freightReceivingVariantKey(line.color, line.size || 'NO SIZE') === key; })) {
+      toast(color + (size && size !== 'NO SIZE' ? '／' + size : '') + ' 已在預報列，實收不會自動加');
+      return Promise.resolve();
+    }
+    var currentActuals = freightReceivingSnapshotActuals(workbench);
+    var barcode = freightSkuBarcode(sku) || sku.barcode || sku.id || '';
+    var extraCost = Math.max(0, Number(sku.currentCostTwd || sku.finalCostTwd || sku.cost || product.currentCostTwd || product.cost || 0));
+    var extraFixedCost = fixedBarcodeCostInfo(product, sku, extraCost, { sampleBarcode: barcode, taiwanBarcode: barcode });
+    lines.push(normalizeFreightVariantLine({
+      id: 'variant-receiving-' + Date.now(),
+      productId: sku.productId || product.id || latest.productId || '',
+      skuId: sku.id || sku.sku || '',
+      productCode: product.code || latest.productCode || '',
+      productName: product.title || product.name || latest.productName || '',
+      category: product.category || latest.category || '',
+      color: color,
+      size: size,
+      quantity: 1,
+      originalExpectedQty: 1,
+      addedDuringReceiving: true,
+      sampleBarcode: barcode,
+      taiwanBarcode: barcode,
+      barcodeAutoGenerated: false,
+      barcodeColorCode: sku.colorCode || '',
+      barcodeSizeCode: sku.sizeCode || '',
+      barcodeCostTwd: extraFixedCost.cost,
+      barcodeCostSource: extraFixedCost.source || '首次建檔成本（固定）',
+      latestCostTwd: extraCost,
+      image: freightExistingProductImage(product, sku) || ''
+    }, lines.length, latest));
+    currentActuals.push(0);
+    var nextInspectionLines = lines.map(function (nextLine, index) {
+      return {
+        sourceLineIndex: index,
+        expectedQty: freightReceivingOriginalExpectedQty(nextLine, {}),
+        originalExpectedQty: freightReceivingOriginalExpectedQty(nextLine, {}),
+        addedDuringReceiving: freightReceivingLineIsExtraColor(nextLine),
+        actualQty: index < currentActuals.length ? currentActuals[index] : 0,
+        color: nextLine.color || '',
+        size: nextLine.size || 'NO SIZE',
+        barcode: nextLine.sampleBarcode || nextLine.taiwanBarcode || ''
+      };
+    });
+    var updated = Object.assign({}, latest, {
+      variants: lines,
+      quantity: freightVariantTotalQuantity(lines),
+      receivingInspection: Object.assign({}, latest.receivingInspection || {}, {
+        status: 'draft',
+        lines: nextInspectionLines,
+        updatedAt: new Date().toISOString(),
+        reopenedReason: '勾選其他預報顏色，尚未寫入實收'
+      })
+    });
+    freightReceivingPutItemLocal(updated, itemId);
+    freightReceivingReopenLocal(itemId, '已加入預報列 ' + color + (size && size !== 'NO SIZE' ? '／' + size : '') + ' ×1，實收仍是 0，請再按＋才算點到');
+    return Promise.resolve();
+  }
+
   function removeFreightReceivingExtraSku(itemId, sku) {
     var latest = freightItemById(itemId);
     if (!latest || !sku) return Promise.resolve();
@@ -30062,14 +30153,11 @@
         lines: nextInspectionLines,
         updatedAt: new Date().toISOString(),
         reopenedReason: '取消其他預報顏色'
-      }),
-      updatedAt: new Date().toISOString()
+      })
     });
-    return saveFreightItemRecord(updated, 'freight-receiving-remove-extra-' + itemId + '-' + (sku.id || '')).then(function () {
-      if (workbench && workbench.isConnected) workbench.remove();
-      openFreightReceivingWorkbench(itemId, { fromArrival: true, prefillExpected: false, catalogReady: true, forceOpen: true });
-      toast('已拿掉其他預報列 ' + color + (size && size !== 'NO SIZE' ? '／' + size : ''));
-    });
+    freightReceivingPutItemLocal(updated, itemId);
+    freightReceivingReopenLocal(itemId, '已拿掉其他預報列 ' + color + (size && size !== 'NO SIZE' ? '／' + size : ''));
+    return Promise.resolve();
   }
 
   function openFreightReceivingImageZoom(src) {
@@ -30111,10 +30199,10 @@
     modal.dataset.inlineColorBound = '1';
     modal.addEventListener('keydown', function (event) {
       if (event.key !== 'Enter' && event.key !== ' ') return;
-      var chipKey = event.target.closest('[data-freight-receiving-link-sku]');
-      if (!chipKey) return;
+      var plusKey = event.target.closest('[data-freight-receiving-plus-one]');
+      if (!plusKey) return;
       event.preventDefault();
-      chipKey.click();
+      plusKey.click();
     });
     modal.addEventListener('change', function (event) {
       var extra = event.target && event.target.closest ? event.target.closest('[data-freight-receiving-extra-sku]') : null;
@@ -30125,7 +30213,7 @@
       if (!sku) { extra.checked = !extra.checked; toast('找不到這個正式顏色'); return; }
       extra.disabled = true;
       var job = extra.checked
-        ? linkFreightReceivingLineToSku(itemId, Number(extra.getAttribute('data-line') || 0), sku)
+        ? addFreightReceivingExtraForecastLocal(itemId, sku)
         : removeFreightReceivingExtraSku(itemId, sku);
       Promise.resolve(job).catch(function (error) {
         extra.checked = !extra.checked;
@@ -30135,8 +30223,8 @@
       });
     });
     modal.addEventListener('click', function (event) {
-      var zoom = event.target.closest('[data-freight-receiving-zoom], .freight-receiving-workbench-lines > article > img, .freight-receiving-thumb');
-      if (zoom && !event.target.closest('[data-freight-receiving-link-sku]')) {
+      var zoom = event.target.closest('[data-freight-receiving-zoom], .freight-receiving-workbench-lines img, .freight-receiving-thumb, .freight-receiving-chip-zoom');
+      if (zoom) {
         var src = zoom.getAttribute('data-freight-receiving-zoom') || zoom.getAttribute('src') || (zoom.querySelector && zoom.querySelector('img') && zoom.querySelector('img').src) || '';
         if (src) {
           event.preventDefault();
@@ -30144,6 +30232,19 @@
           openFreightReceivingImageZoom(src);
           return;
         }
+      }
+      var plus = event.target.closest('[data-freight-receiving-plus-one]');
+      if (plus) {
+        event.preventDefault();
+        event.stopPropagation();
+        var plusIndex = Number(plus.getAttribute('data-freight-receiving-plus-one') || 0);
+        var bump = modal.querySelector('[data-freight-inspection-actual="' + plusIndex + '"]');
+        if (!bump || bump.disabled) { toast('這一列還不能加件'); return; }
+        bump.value = String(Math.max(0, Math.floor(Number(bump.value) || 0) + 1));
+        bump.dispatchEvent(new Event('input', { bubbles: true }));
+        bump.dispatchEvent(new Event('change', { bubbles: true }));
+        toast('已加 1 件到這一列預報，目前驗收 ' + bump.value + ' 件。其他顏色請勾選，不要點圖片。');
+        return;
       }
       var missing = event.target.closest('[data-freight-receiving-line-missing]');
       if (missing) {
@@ -30167,23 +30268,10 @@
         if (typeof saveFreightTracking === 'function') saveFreightTracking().catch(function () {});
         return;
       }
-      var chip = event.target.closest('[data-freight-receiving-link-sku]');
-      if (chip) {
+      var leftoverChip = event.target.closest('[data-freight-receiving-link-sku]');
+      if (leftoverChip) {
         event.preventDefault();
-        var sku = (state.skus || []).find(function (row) {
-          return String(row && (row.id || row.sku) || '') === String(chip.getAttribute('data-freight-receiving-link-sku') || '');
-        });
-        if (!sku) { toast('找不到這個正式顏色'); return; }
-        chip.setAttribute('aria-busy', '1');
-        chip.style.pointerEvents = 'none';
-        toast('正在套用 ' + (sku.colorName || sku.color || '') + '／' + canonicalNoSize(sku.sizeName || sku.size || 'NO SIZE') + '…');
-        linkFreightReceivingLineToSku(itemId, Number(chip.getAttribute('data-line') || 0), sku).catch(function (error) {
-          toast('串聯顏色失敗：' + (error.message || error));
-        }).finally(function () {
-          if (!chip.isConnected) return;
-          chip.removeAttribute('aria-busy');
-          chip.style.pointerEvents = '';
-        });
+        toast('顏色圖片不會寫入。預報這件請按綠色「點＋1」；其他顏色請勾「列入其他預報」。');
         return;
       }
       var toggle = event.target.closest('[data-freight-receiving-color-new]');
@@ -30230,8 +30318,8 @@
       var query = filter.value || '';
       var host = modal.querySelector('[data-freight-receiving-color-link="' + filter.getAttribute('data-freight-receiving-color-filter') + '"]');
       if (!host) return;
-      Array.from(host.querySelectorAll('[data-freight-receiving-link-sku]')).forEach(function (chip) {
-        var name = chip.getAttribute('data-color-name') || '';
+      Array.from(host.querySelectorAll('.freight-receiving-color-chip')).forEach(function (chip) {
+        var name = chip.getAttribute('data-color-name') || (chip.querySelector('b') && chip.querySelector('b').textContent) || '';
         var hay = chip.getAttribute('data-color-hay') || '';
         var match = !query || hay.indexOf(query.toLowerCase()) >= 0 || (typeof freightColorMatchesQuery === 'function' && freightColorMatchesQuery(name, query));
         chip.hidden = !match;
@@ -67482,3 +67570,4 @@
 
 /* LZ_RECV_PRINT_Z_20260928 purpose picker above inbound overlay; other-wh uses inbound barcode */
 /* LZ_RECV_LOOKUP_20260928 receiving lookup uses list tracking fields + server search; no catalog hang */
+/* LZ_RECV_COLOR_CHK_20260928 extra colors are checkboxes; forecast tap only +1; no write on photo */
