@@ -2726,7 +2726,7 @@
     el.hidden = false;
     var isError = kind === 'error' || /失敗|無法|不足|為 0|為0|尚未|請先/.test(text);
     el.classList.toggle('is-error', isError);
-    el.style.zIndex = '2147483646';
+    el.style.zIndex = '2147483647';
     clearTimeout(toast.timer);
     toast.timer = setTimeout(function () {
       el.hidden = true;
@@ -5801,7 +5801,8 @@
       haohongPackageWeights: Array.isArray(data.haohongPackageWeights) ? data.haohongPackageWeights.map(normalizePlatformRecord) : [],
       checkpoints: Array.isArray(data.checkpoints) ? data.checkpoints.map(normalizePlatformRecord) : [],
       damages: normalizedDamages,
-      importMeta: data.importMeta && typeof data.importMeta === 'object' ? data.importMeta : {}
+      importMeta: data.importMeta && typeof data.importMeta === 'object' ? data.importMeta : {},
+      vendorShortages: Array.isArray(data.vendorShortages) ? data.vendorShortages.filter(function (row) { return row && typeof row === 'object'; }).slice(0, 80) : []
     };
     // Non-enumerable so it never enters JSON backups or API writes.
     Object.defineProperty(normalizedData, '__lingzanzanFreightNormalized', {
@@ -15340,13 +15341,21 @@
       if (timeDifference) return timeDifference;
       return String(b.batch.batchNo || b.batch.id || '').localeCompare(String(a.batch.batchNo || a.batch.id || ''));
     });
-    if (!alerts.length) {
+    var shortages = (normalizeFreightTracking(state.freightTracking).vendorShortages || []).filter(function (row) {
+      return row && String(row.status || '') !== 'resolved';
+    });
+    var shortageHtml = shortages.length
+      ? '<section class="freight-vendor-shortage-board"><header><div><small>VENDOR SHORTAGE／廠商沒發</small><h3>部分到貨／廠商沒發，不算驗收完成</h3></div><strong>' + shortages.length + ' 筆待重新下單</strong></header><div class="freight-vendor-shortage-list">' + shortages.map(function (row) {
+        return '<article><b>' + escapeHtml(row.productCode || '-') + '</b><span>' + escapeHtml(row.trackingNo || '-') + '／' + escapeHtml(row.color || '-') + '／' + escapeHtml(row.size || '-') + '</span><small>' + escapeHtml(row.reason || '廠商沒發') + '　預報 ' + Number(row.expectedQty || 0) + ' 件</small><em>' + escapeHtml(row.status || '待重新下單') + '</em></article>';
+      }).join('') + '</div></section>'
+      : '';
+    if (!alerts.length && !shortages.length) {
       host.classList.remove('has-alerts');
-      host.innerHTML = '<header><div><small>RECEIVING ALERT／PERINGATAN PENERIMAAN</small><h3>批次點貨與缺件提醒</h3></div><strong>目前沒有待處理缺件</strong></header><p>開始點貨後，管理者與小姐會在這裡看到同一批的已點、未點和缺件數量。</p>';
+      host.innerHTML = shortageHtml + '<header><div><small>RECEIVING ALERT／PERINGATAN PENERIMAAN</small><h3>批次點貨與缺件提醒</h3></div><strong>目前沒有待處理缺件</strong></header><p>開始點貨後，管理者與小姐會在這裡看到同一批的已點、未點和缺件數量。廠商沒發的規格會留在上方總覽，方便重新下單。</p>';
       return;
     }
     host.classList.add('has-alerts');
-    host.innerHTML = '<header><div><small>RECEIVING ALERT／PERINGATAN PENERIMAAN</small><h3>批次點貨與缺件提醒</h3><p>管理者與小姐共用同一份點貨紀錄；紅色為已確認缺件，黃色為尚在點貨。</p></div><strong>' + alerts.length + ' 批待處理</strong></header><div class="freight-receiving-alert-grid">' + alerts.map(function (entry) {
+    host.innerHTML = shortageHtml + '<header><div><small>RECEIVING ALERT／PERINGATAN PENERIMAAN</small><h3>批次點貨與缺件提醒</h3><p>管理者與小姐共用同一份點貨紀錄；紅色為已確認缺件，黃色為尚在點貨。部分到貨不算整張完成。</p></div><strong>' + alerts.length + ' 批待處理</strong></header><div class="freight-receiving-alert-grid">' + alerts.map(function (entry) {
       var batch = entry.batch;
       var summary = entry.summary;
       var missingRows = summary.rows.filter(function (row) { return row.missingQty > 0; });
@@ -17595,7 +17604,18 @@
   function freightOpenReceivedPrintPayloads(payloads) {
     payloads = Array.isArray(payloads) ? payloads.filter(function (item) { return item && item.barcode; }) : [];
     if (!payloads.length) {
-      toast('請先勾選要列印的其他倉庫現貨尺寸，或確認本次入庫條碼');
+      toast('請先勾選要列印的其他倉庫現貨尺寸，或確認本次入庫條碼', 'error');
+      var host = document.querySelector('[data-freight-received-print-ready] [data-freight-received-print-status]');
+      if (!host) {
+        var actions = document.querySelector('[data-freight-received-print-ready] .freight-received-print-actions');
+        if (actions) {
+          host = document.createElement('p');
+          host.setAttribute('data-freight-received-print-status', '');
+          host.style.cssText = 'margin:0 0 8px;color:#9f1239;font-weight:900;';
+          actions.parentNode.insertBefore(host, actions);
+        }
+      }
+      if (host) host.textContent = '目前沒有可列印條碼。請勾選其他倉現貨，或確認本次入庫 SKU 已有條碼。';
       return;
     }
     if (payloads.length === 1) openInventoryBarcodePrint(payloads[0]);
@@ -29805,6 +29825,10 @@
     var pack = freightReceivingLinkableSkus(item, destinationCode);
     var product = pack.product;
     var currentKey = freightReceivingVariantKey(line && (line.color || line.colorName) || '', line && (line.size || 'NO SIZE'));
+    var existingKeys = {};
+    freightVariantLines(item).forEach(function (row, rowIndex) {
+      existingKeys[freightReceivingVariantKey(row.color || row.colorName, row.size || 'NO SIZE')] = rowIndex;
+    });
     var chips = (pack.skus || []).map(function (sku) {
       var color = String(sku.colorName || sku.color || '未命名');
       var size = canonicalNoSize(sku.sizeName || sku.size || 'NO SIZE');
@@ -29812,15 +29836,27 @@
       var imageInfo = product ? freightExistingProductImageInfo(product, sku) : { src: '', isColorImage: false };
       var image = imageInfo && imageInfo.isColorImage ? imageInfo.src : '';
       var current = key === currentKey;
-      return '<div role="button" tabindex="0" class="freight-receiving-color-chip' + (current ? ' is-current' : '') + '" data-freight-receiving-link-sku="' + escapeHtml(String(sku.id || sku.sku || '')) + '" data-line="' + index + '" data-color-name="' + escapeHtml(color) + '" data-size-name="' + escapeHtml(size) + '" data-color-hay="' + escapeHtml((color + ' ' + size + ' ' + (sku.colorCode || '')).toLowerCase()) + '">'
-        + (image ? '<img src="' + escapeHtml(image) + '" alt="">' : '<i class="freight-receiving-color-swatch" aria-hidden="true"></i>')
+      var presentIndex = existingKeys.hasOwnProperty(key) ? existingKeys[key] : -1;
+      var thumb = image ? '<img src="' + escapeHtml(image) + '" alt="" data-freight-receiving-zoom="' + escapeHtml(image) + '">' : '<i class="freight-receiving-color-swatch" aria-hidden="true"></i>';
+      if (current || (needsLink && presentIndex < 0)) {
+        return '<div role="button" tabindex="0" class="freight-receiving-color-chip' + (current ? ' is-current' : '') + '" data-freight-receiving-link-sku="' + escapeHtml(String(sku.id || sku.sku || '')) + '" data-line="' + index + '" data-color-name="' + escapeHtml(color) + '" data-size-name="' + escapeHtml(size) + '" data-color-hay="' + escapeHtml((color + ' ' + size + ' ' + (sku.colorCode || '')).toLowerCase()) + '">'
+          + thumb
+          + '<b>' + escapeHtml(color) + '</b>'
+          + '<em>' + escapeHtml(size && size !== 'NO SIZE' ? size : 'NO SIZE') + '</em>'
+          + (current ? '<small>點一下＋1</small>' : '')
+          + '</div>';
+      }
+      return '<label class="freight-receiving-color-chip is-extra' + (presentIndex >= 0 ? ' is-checked' : '') + '" data-color-hay="' + escapeHtml((color + ' ' + size + ' ' + (sku.colorCode || '')).toLowerCase()) + '">'
+        + '<input type="checkbox" data-freight-receiving-extra-sku="' + escapeHtml(String(sku.id || sku.sku || '')) + '" data-line="' + index + '"' + (presentIndex >= 0 ? ' checked' : '') + '>'
+        + thumb
         + '<b>' + escapeHtml(color) + '</b>'
         + '<em>' + escapeHtml(size && size !== 'NO SIZE' ? size : 'NO SIZE') + '</em>'
-        + '</div>';
+        + '<small>' + (presentIndex >= 0 ? '已列入其他預報' : '勾選後出現預報驗收列') + '</small>'
+        + '</label>';
     }).join('');
     var hint = needsLink
-      ? '這列還抓不到正式顏色（現在是「' + escapeHtml(line.color || '未填') + '」）。點現有顏色或尺寸會套到本列；同一顆再點一次是加件數。沒有的顏色可新增並上傳照片。'
-      : '要增加其他顏色／尺寸，直接點下面就會新增一列。同一顆再點一次是加件數。沒有的顏色可新增並帶入照片。';
+      ? '這列還抓不到正式顏色（現在是「' + escapeHtml(line.color || '未填') + '」）。點預報顏色／尺寸會＋1。包裡其他顏色請勾選，勾選後才出現預報驗收數量，不會直接寫入實收。'
+      : '預報的顏色／尺寸點一下＋1。包裡若還有其他顏色／尺寸，勾選後會多一列預報驗收數量，不會立刻寫入實收。';
     var colorOptions = uniqueFreightChoiceValues(
       ((product && product.colors) || []).map(function (row) { return row && (row.name || row.colorName || row.color) || ''; })
         .concat(typeof freightPinnedBlueColors === 'function' ? freightPinnedBlueColors() : ['藍色(BIRU)', '深藍色(biru tua)', '淺藍(biru muda)'])
@@ -29898,7 +29934,6 @@
     }
     var addedColor = false;
     if (duplicateIndex >= 0 && !applyToThisRow) {
-      currentActuals[duplicateIndex] = Math.max(0, Number(currentActuals[duplicateIndex] || 0)) + qty;
       addedColor = true;
     } else if (duplicateIndex >= 0) {
       currentActuals[duplicateIndex] = Math.max(0, Number(currentActuals[duplicateIndex] || 0)) + qty;
@@ -29916,8 +29951,8 @@
         category: product.category || latest.category || '',
         color: color,
         size: size,
-        quantity: qty,
-        originalExpectedQty: 0,
+        quantity: 1,
+        originalExpectedQty: 1,
         addedDuringReceiving: true,
         sampleBarcode: barcode,
         taiwanBarcode: barcode,
@@ -29929,7 +29964,7 @@
         latestCostTwd: extraCost,
         image: freightExistingProductImage(product, sku) || ''
       }, lines.length, latest));
-      currentActuals.push(qty);
+      currentActuals.push(0);
       addedColor = true;
     } else {
       var cost = Math.max(0, Number(sku.currentCostTwd || sku.finalCostTwd || sku.cost || product.currentCostTwd || product.cost || 0));
@@ -29984,11 +30019,92 @@
     });
     return saveFreightItemRecord(updated, 'freight-receiving-link-color-' + freightStableToken([itemId, sku.id || sku.sku, lineIndex, Date.now()].join('|'))).then(function () {
       if (workbench && workbench.isConnected) workbench.remove();
-      openFreightReceivingWorkbench(itemId, { fromArrival: true, prefillExpected: true });
-      toast((addedColor ? '已增加 ' : '已串聯 ') + color + (size && size !== 'NO SIZE' ? '／' + size : '') + '，可繼續完成入庫');
+      openFreightReceivingWorkbench(itemId, { fromArrival: true, prefillExpected: false, catalogReady: true, forceOpen: true });
+      toast((addedColor ? '已加入其他預報驗收列 ' : '已串聯 ') + color + (size && size !== 'NO SIZE' ? '／' + size : '') + (addedColor ? '，請再按＋寫入實收，不會自動入帳' : '，可繼續完成入庫'));
     });
   }
 
+  function removeFreightReceivingExtraSku(itemId, sku) {
+    var latest = freightItemById(itemId);
+    if (!latest || !sku) return Promise.resolve();
+    var color = String(sku.colorName || sku.color || '').trim();
+    var size = canonicalNoSize(sku.sizeName || sku.size || 'NO SIZE');
+    var key = freightReceivingVariantKey(color, size);
+    var lines = freightVariantLines(latest);
+    var workbench = document.querySelector('[data-freight-receiving-workbench="' + itemId + '"]') || document.querySelector('[data-freight-receiving-workbench]');
+    var currentActuals = Array.from((workbench && workbench.querySelectorAll('[data-freight-inspection-actual]')) || []).map(function (input) {
+      return Math.max(0, Math.floor(Number(input.value) || 0));
+    });
+    var dropIndex = lines.findIndex(function (line, index) {
+      return freightReceivingLineIsExtraColor(line) && freightReceivingVariantKey(line.color, line.size || 'NO SIZE') === key && Math.max(0, Number(currentActuals[index] || 0)) === 0;
+    });
+    if (dropIndex < 0) {
+      toast('這一列已有實收數量，請先改成 0 再取消勾選');
+      return Promise.resolve(false);
+    }
+    lines.splice(dropIndex, 1);
+    currentActuals.splice(dropIndex, 1);
+    var nextInspectionLines = lines.map(function (nextLine, index) {
+      return {
+        sourceLineIndex: index,
+        expectedQty: freightReceivingOriginalExpectedQty(nextLine, {}),
+        actualQty: index < currentActuals.length ? currentActuals[index] : 0,
+        color: nextLine.color || '',
+        size: nextLine.size || 'NO SIZE',
+        barcode: nextLine.sampleBarcode || nextLine.taiwanBarcode || ''
+      };
+    });
+    var updated = Object.assign({}, latest, {
+      variants: lines,
+      quantity: freightVariantTotalQuantity(lines),
+      receivingInspection: Object.assign({}, latest.receivingInspection || {}, {
+        status: 'draft',
+        lines: nextInspectionLines,
+        updatedAt: new Date().toISOString(),
+        reopenedReason: '取消其他預報顏色'
+      }),
+      updatedAt: new Date().toISOString()
+    });
+    return saveFreightItemRecord(updated, 'freight-receiving-remove-extra-' + itemId + '-' + (sku.id || '')).then(function () {
+      if (workbench && workbench.isConnected) workbench.remove();
+      openFreightReceivingWorkbench(itemId, { fromArrival: true, prefillExpected: false, catalogReady: true, forceOpen: true });
+      toast('已拿掉其他預報列 ' + color + (size && size !== 'NO SIZE' ? '／' + size : ''));
+    });
+  }
+
+  function openFreightReceivingImageZoom(src) {
+    if (!src) return;
+    document.querySelectorAll('[data-freight-receiving-zoom-overlay]').forEach(function (node) { node.remove(); });
+    var overlay = document.createElement('div');
+    overlay.setAttribute('data-freight-receiving-zoom-overlay', '');
+    overlay.setAttribute('style', 'position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:rgba(8,7,10,.88);padding:18px;cursor:zoom-out;');
+    overlay.innerHTML = '<img src="' + escapeHtml(src) + '" alt="放大圖" style="max-width:min(92vw,920px);max-height:88vh;object-fit:contain;border-radius:16px;background:#fff;box-shadow:0 24px 80px rgba(0,0,0,.45);">';
+    overlay.addEventListener('click', function () { overlay.remove(); });
+    document.body.appendChild(overlay);
+  }
+
+  function recordFreightVendorShortage(item, line, reason) {
+    state.freightTracking = normalizeFreightTracking(state.freightTracking || {});
+    var rows = Array.isArray(state.freightTracking.vendorShortages) ? state.freightTracking.vendorShortages : [];
+    var entry = {
+      id: 'shortage-' + Date.now(),
+      freightItemId: item && item.id || '',
+      trackingNo: item && (item.trackingNo || item.supplementalTrackingNo || '') || '',
+      productCode: item && (item.productCode || item.productName) || '',
+      color: line && (line.color || line.colorName) || '',
+      size: line && (line.size || line.sizeName) || '',
+      expectedQty: freightReceivingOriginalExpectedQty(line || {}, {}),
+      reason: reason || '廠商沒發／尚未到貨',
+      status: '待重新下單',
+      createdAt: new Date().toISOString()
+    };
+    rows.unshift(entry);
+    state.freightTracking.vendorShortages = rows.slice(0, 80);
+    item.vendorShortage = true;
+    item.receivingComplete = false;
+    item.receivingPartial = true;
+    return entry;
+  }
 
   function bindFreightReceivingInlineColorTools(modal, itemId) {
     if (!modal || modal.dataset.inlineColorBound === '1') return;
@@ -30000,7 +30116,57 @@
       event.preventDefault();
       chipKey.click();
     });
+    modal.addEventListener('change', function (event) {
+      var extra = event.target && event.target.closest ? event.target.closest('[data-freight-receiving-extra-sku]') : null;
+      if (!extra || extra.tagName !== 'INPUT') return;
+      var sku = (state.skus || []).find(function (row) {
+        return String(row && (row.id || row.sku) || '') === String(extra.getAttribute('data-freight-receiving-extra-sku') || '');
+      });
+      if (!sku) { extra.checked = !extra.checked; toast('找不到這個正式顏色'); return; }
+      extra.disabled = true;
+      var job = extra.checked
+        ? linkFreightReceivingLineToSku(itemId, Number(extra.getAttribute('data-line') || 0), sku)
+        : removeFreightReceivingExtraSku(itemId, sku);
+      Promise.resolve(job).catch(function (error) {
+        extra.checked = !extra.checked;
+        toast('更新預報列失敗：' + ((error && error.message) || error));
+      }).finally(function () {
+        extra.disabled = false;
+      });
+    });
     modal.addEventListener('click', function (event) {
+      var zoom = event.target.closest('[data-freight-receiving-zoom], .freight-receiving-workbench-lines > article > img, .freight-receiving-thumb');
+      if (zoom && !event.target.closest('[data-freight-receiving-link-sku]')) {
+        var src = zoom.getAttribute('data-freight-receiving-zoom') || zoom.getAttribute('src') || (zoom.querySelector && zoom.querySelector('img') && zoom.querySelector('img').src) || '';
+        if (src) {
+          event.preventDefault();
+          event.stopPropagation();
+          openFreightReceivingImageZoom(src);
+          return;
+        }
+      }
+      var missing = event.target.closest('[data-freight-receiving-line-missing]');
+      if (missing) {
+        event.preventDefault();
+        var lineIndex = Number(missing.getAttribute('data-freight-receiving-line-missing') || 0);
+        var item = freightItemById(itemId);
+        var line = freightVariantLines(item)[lineIndex] || {};
+        var reason = window.prompt('這規格沒到的原因（會傳到總覽待重新下單）', '廠商沒發／尚未到貨');
+        if (reason === null) return;
+        reason = String(reason || '廠商沒發／尚未到貨').trim() || '廠商沒發／尚未到貨';
+        var actualInput = modal.querySelector('[data-freight-inspection-actual="' + lineIndex + '"]');
+        if (actualInput) {
+          actualInput.value = '0';
+          actualInput.setAttribute('data-vendor-missing', '1');
+          actualInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        recordFreightVendorShortage(item, line, reason);
+        var reasonBox = modal.querySelector('[data-freight-inspection-reason]');
+        if (reasonBox && !String(reasonBox.value || '').trim()) reasonBox.value = reason;
+        toast('已標成沒到：' + (line.color || '') + '／' + (line.size || 'NO SIZE') + '，這張不算驗收完成，總覽可重新下單');
+        if (typeof saveFreightTracking === 'function') saveFreightTracking().catch(function () {});
+        return;
+      }
       var chip = event.target.closest('[data-freight-receiving-link-sku]');
       if (chip) {
         event.preventDefault();
@@ -30213,8 +30379,8 @@
         category: result.product.category || latest.category || '',
         color: color,
         size: size,
-        quantity: qty,
-        originalExpectedQty: 0,
+        quantity: 1,
+        originalExpectedQty: 1,
         addedDuringReceiving: true,
         sampleBarcode: barcode,
         taiwanBarcode: barcode,
@@ -30231,8 +30397,8 @@
       var nextLines = latestLines.concat([newLine]);
       var nextInspectionLines = nextLines.map(function (line, index) {
         var extraColor = freightReceivingLineIsExtraColor(line);
-        var expected = extraColor ? 0 : freightReceivingOriginalExpectedQty(line, {});
-        var actual = index < currentActuals.length ? currentActuals[index] : qty;
+        var expected = extraColor ? freightReceivingOriginalExpectedQty(line, {}) : freightReceivingOriginalExpectedQty(line, {});
+        var actual = index < currentActuals.length ? currentActuals[index] : 0;
         return {
           sourceLineIndex: index,
           expectedQty: expected,
@@ -30353,12 +30519,14 @@
   }
 
   function freightReceivingOriginalExpectedQty(line, savedLine) {
-    if (freightReceivingLineIsExtraColor(line, savedLine)) return 0;
     if (savedLine && savedLine.originalExpectedQty != null && savedLine.originalExpectedQty !== '') {
       return freightSafeQty(savedLine.originalExpectedQty, 0);
     }
     if (line && line.originalExpectedQty != null && line.originalExpectedQty !== '') {
       return freightSafeQty(line.originalExpectedQty, 0);
+    }
+    if (freightReceivingLineIsExtraColor(line, savedLine)) {
+      return freightSafeQty(line && (line.quantity || line.qty), 1) || 1;
     }
     if (savedLine && savedLine.expectedQty != null && savedLine.expectedQty !== '') {
       return freightSafeQty(savedLine.expectedQty, 0);
@@ -30432,8 +30600,8 @@
     var remaining = Math.max(0, original - arrived);
     var savedActual = options.actual;
     if (extra) {
-      if (savedActual === '' || savedActual == null || savedActual === undefined) return Math.max(1, freightSafeQty(options.prefill, 1));
-      return freightSafeQty(savedActual, 1);
+      if (savedActual === '' || savedActual == null || savedActual === undefined) return 0;
+      return freightSafeQty(savedActual, 0);
     }
     if (options.inventoryPosted) return 0;
     if (savedActual === '' || savedActual == null || savedActual === undefined) return 0;
@@ -30478,9 +30646,7 @@
     var stock = options.stock || { warehouseName: '現貨倉', destStock: 0, tw: 0, cn: 0, id: 0 };
     var stockText = escapeHtml(stock.warehouseName || '現貨倉') + ' ' + Number(stock.destStock || 0);
     var stockDetail = '台灣 ' + Number(stock.tw || 0) + '／中國 ' + Number(stock.cn || 0) + '／印尼 ' + Number(stock.id || 0);
-    var origHtml = extraColor
-      ? ''
-      : ('<small class="freight-qty-stat is-orig">原始預報 <b data-freight-qty-expected>' + expected + '</b></small>');
+    var origHtml = '<small class="freight-qty-stat is-orig">原始預報 <b data-freight-qty-expected>' + expected + '</b></small>';
     return '<label class="freight-qty-combined is-actual"' + tap + '>' +
       '驗收數量' + badge +
       '<span class="freight-qty-combined-box">' +
@@ -30596,8 +30762,7 @@
     options = options || {};
     if (adminCurrentFileName() === 'admin-freight.html' && !options.catalogReady && !(adminFreightCatalogFreshLoaded && freightFormalCatalogReady())) {
       toast('正在載入正式商品與 SKU，完成後會自動打開驗收');
-      ensureAdminFreightCatalogLoaded(adminFreightDeferredServerFiles).then(function (loaded) {
-        if (!loaded) return;
+      freightReceivingPromiseTimeout(ensureAdminFreightCatalogLoaded(adminFreightDeferredServerFiles), 6000, true).then(function () {
         openFreightReceivingWorkbench(itemId, Object.assign({}, options, { catalogReady: true }));
       });
       return;
@@ -30605,7 +30770,7 @@
     var item = freightItemById(itemId);
     if (!item) { toast('找不到這筆物流產品'); return; }
     var formalReadiness = freightFormalReceiptReadiness(item);
-    if (!formalReadiness.ready) {
+    if (!formalReadiness.ready && !options.forceOpen) {
       if (options.skipProductConfirmation) {
         showFreightProductConfirmationRequiredAfterCatalog(item, formalReadiness);
         return;
@@ -30692,7 +30857,7 @@
           ? supplementalPrefillLines[index].actualQty
           : (batchSingleLineActual !== null && !inventoryPosted ? batchSingleLineActual : undefined));
       var actual = extraColor
-        ? freightReceivingInspectQty({ expected: expected, actual: savedActual, arrived: arrived, extraColor: true, inventoryPosted: inventoryPosted, prefill: 1 })
+        ? freightReceivingInspectQty({ expected: expected, actual: savedActual, arrived: arrived, extraColor: true, inventoryPosted: inventoryPosted, prefill: 0 })
         : freightReceivingInspectQty({ expected: expected, actual: savedActual, arrived: arrived, extraColor: false, inventoryPosted: inventoryPosted });
       var stockInfo = freightReceivingWarehouseStockInfo(line, filed, currentDestination, filed.id || item.productId);
       var image = freightForecastImageSources(item, line, item.productCode || filed.code || '')[0] || '';
@@ -30711,7 +30876,7 @@
         : freightLineInternalUseQty(line, item);
       var internalPrefill = actual === '' ? savedInternal : Math.min(actualQtyNum, savedInternal);
       var sellablePrefill = actual === '' ? '' : Math.max(0, actualQtyNum - internalPrefill);
-      return '<article' + (needsColorLink ? ' class="is-color-unlinked"' : '') + '>' + (image ? '<img src="' + escapeHtml(image) + '" alt="產品縮圖">' : '<span class="no-image">無圖片</span>') + '<div><b>' + escapeHtml(line.sampleBarcode || line.taiwanBarcode || filed.barcode || '未建條碼') + '</b><span' + (needsColorLink ? ' class="is-color-unlinked"' : '') + '>' + escapeHtml(line.color || '-') + '／' + escapeHtml(line.size || 'NO SIZE') + '</span><small>此規格已綁預購 ' + Number(lineDemand[index] || 0) + ' 件</small></div>' + freightReceivingCombinedQtyHtml({ expected: expected, inspectQty: actual, arrived: arrived, extraColor: extraColor, inventoryPosted: inventoryPosted, index: index, size: line.size || 'NO SIZE', stock: stockInfo }) + '<div class="freight-receiving-purpose-split" data-freight-receiving-purpose-split="' + index + '"' + (openingPurpose === 'mixed' ? '' : ' hidden') + '><label>可賣（件）<input type="number" min="0" step="1" value="' + sellablePrefill + '" data-freight-inspection-sellable="' + index + '"></label><label>公司自用（件）<input type="number" min="0" step="1" value="' + internalPrefill + '" data-freight-inspection-internal="' + index + '"></label><small>兩件裡要自用一件、競標一件，就把自用設成 1。</small></div>' + freightReceivingColorLinkHtml(item, line, index, currentDestination, needsColorLink, filed) + '</article>';
+      return '<article' + (needsColorLink ? ' class="is-color-unlinked"' : '') + '>' + (image ? '<button type="button" class="freight-receiving-thumb" data-freight-receiving-zoom="' + escapeHtml(image) + '" title="點擊放大"><img src="' + escapeHtml(image) + '" alt="產品縮圖"></button>' : '<span class="no-image">無圖片</span>') + '<div><b>' + escapeHtml(line.sampleBarcode || line.taiwanBarcode || filed.barcode || '未建條碼') + '</b><span' + (needsColorLink ? ' class="is-color-unlinked"' : '') + '>' + escapeHtml(line.color || '-') + '／' + escapeHtml(line.size || 'NO SIZE') + '</span><small>此規格已綁預購 ' + Number(lineDemand[index] || 0) + ' 件</small></div>' + freightReceivingCombinedQtyHtml({ expected: expected, inspectQty: actual, arrived: arrived, extraColor: extraColor, inventoryPosted: inventoryPosted, index: index, size: line.size || 'NO SIZE', stock: stockInfo }) + '<div class="freight-receiving-purpose-split" data-freight-receiving-purpose-split="' + index + '"' + (openingPurpose === 'mixed' ? '' : ' hidden') + '><label>可賣（件）<input type="number" min="0" step="1" value="' + sellablePrefill + '" data-freight-inspection-sellable="' + index + '"></label><label>公司自用（件）<input type="number" min="0" step="1" value="' + internalPrefill + '" data-freight-inspection-internal="' + index + '"></label><small>兩件裡要自用一件、競標一件，就把自用設成 1。</small></div>' + '<div class="freight-receiving-line-missing"><button type="button" class="ghost-button" data-freight-receiving-line-missing="' + index + '">此規格沒到／廠商沒發</button></div>' + freightReceivingColorLinkHtml(item, line, index, currentDestination, needsColorLink, filed) + '</article>';
     }).join('') + '</div><output class="freight-receiving-quantity-cost" data-freight-receiving-total-qty>本張所有配色實收合計 0 件；新增配色也會計入本批成本分攤件數。</output><label class="freight-receiving-reason">短少／多到原因<textarea data-freight-inspection-reason placeholder="實收不同時系統會自動記錄，例如：原登記 3 件、實到 6 件">' + escapeHtml(openingVarianceReason) + '</textarea></label><p class="freight-receiving-cost-rule">' + (inspectionFinal ? '目前只有點貨結案，尚未增加任何倉庫庫存；可先印條碼核對，再選客戶分流並完成正式入庫。公司自用會列入公司成本，不會變成可賣庫存。' : '最後核准會同步正式入庫。公司自用只入成本、不上架、不配客戶；可賣件數才走預購／現貨。成本按所有顏色／尺寸的實收總件數計算。') + '</p><output class="freight-receiving-action-status" data-freight-receiving-action-status aria-live="polite">尚未送出；修改實收數量後可直接按綠色按鈕。</output><div class="freight-receiving-workbench-actions"><button type="button" class="ghost-button freight-receiving-cancel" data-freight-receiving-close>取消／關閉（不儲存）</button><button type="button" class="danger-button" data-freight-receiving-void>作廢這一張單</button><button type="button" class="ghost-button" data-freight-receiving-print>先列印產品條碼（不入庫）</button><button type="button" class="ghost-button" data-freight-routing-preview>核對分流（不入庫）</button><button type="button" class="ghost-button" data-freight-inspection-save="draft">暫存這一張／稍後處理</button><button type="button" class="primary-button" data-freight-inspection-save="final">' + (inspectionFinal ? '繼續完成正式入庫' : (options.fromArrival ? '驗收入庫 → 條碼列印／客戶出貨' : '點貨完成 → 核准正式入庫')) + '</button></div></div><div><h4>物流進度時間表</h4>' + freightReceivingTimelineHtml(item) + '<a class="ghost-button" href="./admin-preorder-waiting.html?lookup=' + encodeURIComponent(item.productCode || item.sampleBarcode || '') + '">查看預購客戶明細</a></div></div></section>';
     document.body.appendChild(modal);
     var finalFlowStep = modal.querySelector('.freight-receiving-flow b:nth-child(4)');
@@ -31028,10 +31193,144 @@
 
   function freightReceivingTrackingAliases(item) {
     item = item || {};
-    return [item.trackingNo, item.haohongTrackingNo, item.pendingLogisticsCode]
-      .concat(Array.isArray(item.trackingNumbers) ? item.trackingNumbers : [])
-      .concat(Array.isArray(item.legacyTrackingNumbers) ? item.legacyTrackingNumbers : [])
-      .filter(Boolean);
+    var values = [
+      item.trackingNo,
+      item.supplementalTrackingNo,
+      item.haohongTrackingNo,
+      item.pendingLogisticsCode,
+      item.pendingTrackingCode,
+      item.logisticsTrackingNo,
+      item.taiwanTrackingNo,
+      item.customsNo,
+      item.consolidationNo,
+      item.haohongOrderCode,
+      item.haohongOrderId,
+      item.freightLinkNo,
+      item.purchaseOrderNo,
+      item.firstTrackingNo,
+      item.batchNo,
+      item.parcelId,
+      item.id
+    ];
+    (Array.isArray(item.trackingNumbers) ? item.trackingNumbers : []).forEach(function (value) {
+      values.push(value && typeof value === 'object' ? (value.trackingNo || value.no || value.code) : value);
+    });
+    (Array.isArray(item.legacyTrackingNumbers) ? item.legacyTrackingNumbers : []).forEach(function (value) {
+      values.push(value && typeof value === 'object' ? (value.trackingNo || value.no || value.code) : value);
+    });
+    try {
+      freightSplitPackages(item.splitPackages || []).forEach(function (parcel) {
+        values.push(parcel && parcel.trackingNo);
+      });
+    } catch (error) {}
+    return values.map(function (value) { return String(value || '').trim(); }).filter(Boolean);
+  }
+
+  function freightReceivingTrackingMatches(item, wanted) {
+    wanted = normalizeScanCode(wanted);
+    if (!wanted) return false;
+    var aliases = freightReceivingTrackingAliases(item).map(function (code) { return normalizeScanCode(code); }).filter(Boolean);
+    if (aliases.indexOf(wanted) !== -1) return true;
+    var wantedDigits = wanted.replace(/\D/g, '');
+    if (wantedDigits.length < 4) return false;
+    return aliases.some(function (code) {
+      var digits = code.replace(/\D/g, '');
+      return digits.length >= wantedDigits.length && digits.slice(-wantedDigits.length) === wantedDigits;
+    });
+  }
+
+  function freightReceivingLookupPool() {
+    var live = normalizeFreightTracking(state.freightTracking || {});
+    var base = adminFreightServerBaseData ? normalizeFreightTracking(adminFreightServerBaseData) : { items: [], batches: [] };
+    var itemsById = {};
+    (base.items || []).concat(live.items || []).forEach(function (item) {
+      if (!item) return;
+      var id = String(item.id || '');
+      if (id) itemsById[id] = item;
+    });
+    var batchesById = {};
+    (base.batches || []).concat(live.batches || []).forEach(function (batch) {
+      if (!batch) return;
+      var id = String(batch.id || '');
+      if (id) batchesById[id] = batch;
+    });
+    return {
+      items: Object.keys(itemsById).map(function (id) { return itemsById[id]; }),
+      batches: Object.keys(batchesById).map(function (id) { return batchesById[id]; })
+    };
+  }
+
+  function mergeFreightLookupHitsIntoState(items, batches) {
+    items = Array.isArray(items) ? items : [];
+    batches = Array.isArray(batches) ? batches : [];
+    if (!items.length && !batches.length) return;
+    state.freightTracking = normalizeFreightTracking(state.freightTracking || {});
+    var itemsById = {};
+    (state.freightTracking.items || []).forEach(function (row) { if (row && row.id) itemsById[String(row.id)] = row; });
+    items.forEach(function (row) { if (row && row.id) itemsById[String(row.id)] = row; });
+    state.freightTracking.items = Object.keys(itemsById).map(function (id) { return itemsById[id]; });
+    var batchesById = {};
+    (state.freightTracking.batches || []).forEach(function (row) { if (row && row.id) batchesById[String(row.id)] = row; });
+    batches.forEach(function (row) { if (row && row.id) batchesById[String(row.id)] = row; });
+    state.freightTracking.batches = Object.keys(batchesById).map(function (id) { return batchesById[id]; });
+  }
+
+  function freightReceivingCollectMatches(value) {
+    var wanted = normalizeScanCode(value);
+    var pool = freightReceivingLookupPool();
+    var items = pool.items.filter(function (item) {
+      return freightReceivingTrackingMatches(item, wanted)
+        || (typeof freightWorkbenchQueryMatchesItem === 'function' && freightWorkbenchQueryMatchesItem(item, value));
+    });
+    var batches = pool.batches.filter(function (batch) {
+      if (freightReceivingTrackingMatches(batch, wanted)) return true;
+      if (typeof freightWorkbenchQueryMatchesItem === 'function' && freightWorkbenchQueryMatchesItem(batch, value)) return true;
+      try {
+        return freightBatchPackageRows(batch).some(function (row) {
+          return freightReceivingTrackingMatches(row, wanted) || freightReceivingTrackingMatches(row.item || {}, wanted);
+        });
+      } catch (error) {
+        return false;
+      }
+    });
+    if (!items.length && batches.length) {
+      var batchIds = {};
+      batches.forEach(function (batch) { batchIds[String(batch.id || '')] = true; });
+      items = pool.items.filter(function (item) { return batchIds[String(item.batchId || '')]; });
+    }
+    return { items: items, batches: batches };
+  }
+
+  function fetchFreightReceivingServerHits(value) {
+    var controller = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = setTimeout(function () {
+      try { if (controller) controller.abort(); } catch (error) {}
+    }, 8000);
+    return fetch('./admin-freight-search-api.php?q=' + encodeURIComponent(String(value || '').trim()) + '&scope=list&limit=50&_=' + Date.now(), {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      signal: controller && controller.signal
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok || !data.ok) throw new Error(data.error || ('物流搜尋失敗 ' + res.status));
+        return data;
+      });
+    }).then(function (data) {
+      var items = Array.isArray(data.items) ? data.items : [];
+      var batches = Array.isArray(data.batches) ? data.batches : [];
+      mergeFreightLookupHitsIntoState(items, batches);
+      var collected = freightReceivingCollectMatches(value);
+      if (!collected.items.length && items.length) collected.items = items;
+      if (!collected.batches.length && batches.length) collected.batches = batches;
+      return collected;
+    }).catch(function (error) {
+      if (error && (error.name === 'AbortError' || /abort/i.test(String(error && error.message || '')))) {
+        throw new Error('物流搜尋逾時，請再貼一次單號');
+      }
+      throw error;
+    }).finally(function () {
+      clearTimeout(timer);
+    });
   }
 
   function freightArrivalRowForScan(batch, item, trackingNo) {
@@ -31041,9 +31340,7 @@
     var candidates = summary.rows.filter(function (row) {
       var source = row.item || {};
       if (itemId && [source.id, source.sourceItemId].some(function (id) { return String(id || '') === itemId; })) return true;
-      return wanted && freightReceivingTrackingAliases(source).some(function (code) {
-        return normalizeScanCode(code) === wanted;
-      });
+      return wanted && freightReceivingTrackingMatches(source, wanted);
     });
     return candidates.find(function (row) { return row.receivedQty < row.expectedQty; }) || candidates[0] || null;
   }
@@ -31054,9 +31351,7 @@
     var wanted = normalizeScanCode(trackingNo || item && item.trackingNo || '');
     var directMatches = summary.rows.filter(function (row) {
       var source = row.item || {};
-      return wanted && freightReceivingTrackingAliases(source).some(function (code) {
-        return normalizeScanCode(code) === wanted;
-      });
+      return wanted && freightReceivingTrackingMatches(source, wanted);
     });
     if (directMatches.length) return directMatches;
     return summary.rows.filter(function (row) {
@@ -33292,24 +33587,30 @@
       return;
     }
     host.className = 'freight-receiving-lookup-result';
-    host.textContent = '正在核對完整物流資料與正式商品／SKU…';
-    // List search replaces state with a filtered page. Receiving must restore
-    // the full working set before any batch/item lookup or subsequent save.
-    adminFreightServerSearchSequence += 1;
-    if (adminFreightServerSearchController) adminFreightServerSearchController.abort();
-    adminFreightServerSearchController = null;
-    if (adminFreightServerBaseData) {
-      state.freightTracking = adminFreightServerBaseData;
-      adminFreightServerSearchActive = false;
-    }
-    return ensureAdminFreightCatalogLoaded(adminFreightDeferredServerFiles).then(function (loaded) {
+    host.textContent = '正在找物流單號 ' + String(value || '').trim() + '…';
+    var local = freightReceivingCollectMatches(value);
+    var goReady = function () {
       if (sequence !== freightReceivingLookupSequence) return;
-      if (!loaded) {
+      renderFreightReceivingLookupReady(value);
+      ensureAdminFreightCatalogLoaded(adminFreightDeferredServerFiles).catch(function () {});
+    };
+    if (local.items.length || local.batches.length) {
+      goReady();
+      return;
+    }
+    host.textContent = '本頁暫存沒有這張單，正在用完整物流資料搜尋「' + String(value || '').trim() + '」…';
+    return fetchFreightReceivingServerHits(value).then(function (hits) {
+      if (sequence !== freightReceivingLookupSequence) return;
+      if (!hits || (!(hits.items || []).length && !(hits.batches || []).length)) {
         host.className = 'freight-receiving-lookup-result is-error';
-        host.textContent = '正式商品／SKU 資料載入失敗，尚未進行驗收。請重試；不需要重新建立商品。';
+        host.innerHTML = '<b>找不到物流單號／批次 ' + escapeHtml(value) + '</b><span>下面清單看得到時，多半是集運號碼、拆包單號或後四碼。已改用同一套欄位重查；仍沒有就請核對是否已建檔。</span>';
         return;
       }
-      renderFreightReceivingLookupReady(value);
+      goReady();
+    }).catch(function (error) {
+      if (sequence !== freightReceivingLookupSequence) return;
+      host.className = 'freight-receiving-lookup-result is-error';
+      host.innerHTML = '<b>物流單號搜尋失敗</b><span>' + escapeHtml((error && error.message) || '請再貼一次單號') + '</span>';
     });
   }
 
@@ -33342,15 +33643,35 @@
     if (manualItems.length === 1 && freightFormalReceiptReadiness(manualItems[0]).ready) {
       host.className = 'freight-receiving-lookup-result is-found';
       host.innerHTML = '<b>已找到物流單 ' + escapeHtml(value) + '</b><span>正式商品已建檔，正在打開驗收…</span>';
-      openFreightReceivingWorkbench(manualItems[0].id, { fromArrival: true, catalogReady: true, prefillExpected: false });
+      openFreightReceivingWorkbench(manualItems[0].id, { fromArrival: true, catalogReady: true, prefillExpected: false, forceOpen: true, skipProductConfirmation: true });
       return;
     }
     host.className = 'freight-receiving-lookup-result is-found freight-arrival-manual';
-    host.textContent = '正在核對已建檔商品與 SKU…';
+    host.textContent = '已找到物流單，正在打開驗收…';
     var sequence = freightReceivingLookupSequence;
-    Promise.all(manualItems.map(function (item) {
+    var catalogWait = Promise.all(manualItems.map(function (item) {
       return ensureFreightItemLinkedToFormalCatalog(item);
-    })).then(function (linkedItems) {
+    }));
+    var timed = new Promise(function (resolve) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        resolve(manualItems);
+      }, 6000);
+      catalogWait.then(function (linkedItems) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(linkedItems);
+      }, function () {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(manualItems);
+      });
+    });
+    timed.then(function (linkedItems) {
       if (sequence !== freightReceivingLookupSequence) return;
       var pending = (linkedItems || []).filter(function (item) {
         return item && !freightItemClosesBatchQueueWithoutSelectionCheck(item);
@@ -33359,7 +33680,7 @@
         var linkedReady = freightFormalReceiptReadiness(pending[0]).ready;
         host.className = 'freight-receiving-lookup-result is-found';
         host.innerHTML = '<b>已找到物流單 ' + escapeHtml(value) + '</b><span>' + (linkedReady ? '正式商品已建檔，正在打開驗收…' : '正在打開驗收…') + '</span>';
-        openFreightReceivingWorkbench(pending[0].id, { fromArrival: true, catalogReady: true, prefillExpected: false });
+        openFreightReceivingWorkbench(pending[0].id, { fromArrival: true, catalogReady: true, prefillExpected: false, forceOpen: true, skipProductConfirmation: true });
         return;
       }
       renderFreightReceivingManualItems(value, pending.length ? pending : manualItems, host);
@@ -33378,18 +33699,15 @@
       freightArrivalReceivingSession.customsLookupAttempted = false;
       freightArrivalReceivingSession.customsLookupValue = wanted;
     }
-    var freightData = normalizeFreightTracking(state.freightTracking);
-    var matches = freightData.items.filter(function (item) {
-      return freightReceivingTrackingAliases(item).some(function (tracking) { return normalizeScanCode(tracking) === wanted; });
-    });
+    var collected = freightReceivingCollectMatches(value);
+    var matches = collected.items.slice();
     var matchedByExactTracking = matches.length > 0;
     if (matchedByExactTracking) setFreightFifoProductScope(matches, value);
-    var matchedBatch = null;
-    if (!matches.length) {
-      matchedBatch = freightData.batches.find(function (batch) {
-        return [batch.id, batch.batchNo, batch.batchName, batch.logisticsTrackingNo, batch.customsNo, batch.consolidationNo].some(function (number) { return normalizeScanCode(number) === wanted; });
-      }) || null;
-      if (matchedBatch) matches = freightData.items.filter(function (item) { return String(item.batchId || '') === String(matchedBatch.id || ''); });
+    var matchedBatch = collected.batches[0] || null;
+    if (!matches.length && matchedBatch) {
+      matches = (normalizeFreightTracking(state.freightTracking).items || []).filter(function (item) {
+        return String(item.batchId || '') === String(matchedBatch.id || '');
+      });
     }
     if (matchedBatch && !matchedByExactTracking) setFreightFifoProductScope([], '');
     if (!matches.length && !matchedBatch) {
@@ -33744,8 +34062,17 @@
       return;
     }
     if (finalize && actual !== expected && !reason) {
-      reason = '物流原登記 ' + expected + ' 件，實際驗收 ' + actual + ' 件，系統依實收修正';
+      reason = '物流原登記 ' + expected + ' 件，實際驗收 ' + actual + ' 件，系統依實收修正；未到規格不算驗收完成';
       if (reasonBox) reasonBox.value = reason;
+    }
+    if (finalize && actual < expected) {
+      freightVariantLines(item).forEach(function (line, index) {
+        var row = lines[index] || { actualQty: 0 };
+        if (Number(row.actualQty || 0) > 0) return;
+        recordFreightVendorShortage(item, line, reason || '廠商沒發／尚未到貨');
+      });
+      item.receivingComplete = false;
+      item.receivingPartial = true;
     }
     if (actionStatus) {
       actionStatus.className = 'freight-receiving-action-status is-working';
@@ -35462,13 +35789,35 @@
     return item;
   }
 
+  function freightReceivingPromiseTimeout(promise, ms, fallback) {
+    return new Promise(function (resolve) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        resolve(fallback);
+      }, Math.max(500, Number(ms) || 6000));
+      Promise.resolve(promise).then(function (value) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      }, function () {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(fallback);
+      });
+    });
+  }
+
   function ensureFreightItemLinkedToFormalCatalog(item) {
     // LZ_NB008_RECV_20260923: no-batch scans painted "補齊產品資料後驗收"
     // from an empty in-memory catalog even when products.json already has
     // the code+barcode (NB008 / NB006 / K406). Link first, then receive.
     item = (item && item.id && freightItemById(item.id)) || item || {};
     if (freightFormalReceiptReadiness(item).ready) return Promise.resolve(item);
-    return lookupFreightFormalCatalog(item).then(function (lookup) {
+    var lookup = lookupFreightFormalCatalog(item).then(function (lookup) {
       var current = mergeFreightCatalogLookupIntoState(item, lookup);
       var items = (state.freightTracking && state.freightTracking.items) || [];
       var index = items.findIndex(function (row) { return String(row && row.id || '') === String(current.id || ''); });
@@ -35480,6 +35829,7 @@
       }
       return current;
     }).catch(function () { return item; });
+    return freightReceivingPromiseTimeout(lookup, 6000, item);
   }
 
   function lookupFreightFormalCatalog(item) {
@@ -35526,9 +35876,13 @@
       : (typeof ensureAdminFreightCatalogLoaded === 'function'
         ? ensureAdminFreightCatalogLoaded(typeof adminFreightDeferredServerFiles === 'undefined' ? {} : adminFreightDeferredServerFiles)
         : Promise.resolve(false));
-    boot.catch(function () { return false; }).then(function () {
-      return ensureFreightItemLinkedToFormalCatalog(item);
-    }).then(function (current) { finish(current); }).catch(function () { finish(item); });
+    freightReceivingPromiseTimeout(
+      boot.catch(function () { return false; }).then(function () {
+        return ensureFreightItemLinkedToFormalCatalog(item);
+      }),
+      6000,
+      item
+    ).then(function (current) { finish(current); }).catch(function () { finish(item); });
   }
 
   function showFreightProductConfirmationRequiredAfterCatalog(item, readiness) {
@@ -52933,7 +53287,12 @@
   window.__lzRecvOverlayPointer = function (event) {
     var target = event && event.target;
     if (!target || !target.closest) return;
-    if (target.closest('[data-freight-print-ready-close]') || (target.getAttribute && target.getAttribute('data-freight-received-print-ready') !== null)) {
+    if (target.closest('[data-inventory-label-purpose-picker],[data-inventory-barcode-print-overlay],[data-freight-print-received],[data-label-purpose-confirm],[data-label-purpose-close],[data-freight-other-stock-print],[data-freight-other-stock-select],[data-freight-received-go-shipping]')) return;
+    if (target.closest('[data-freight-print-ready-close]')) {
+      window.lzDismissFreightReceivedOverlay(event);
+      return;
+    }
+    if (target.getAttribute && target.getAttribute('data-freight-received-print-ready') !== null) {
       window.lzDismissFreightReceivedOverlay(event);
     }
   };
@@ -67122,3 +67481,4 @@
 })();
 
 /* LZ_RECV_PRINT_Z_20260928 purpose picker above inbound overlay; other-wh uses inbound barcode */
+/* LZ_RECV_LOOKUP_20260928 receiving lookup uses list tracking fields + server search; no catalog hang */

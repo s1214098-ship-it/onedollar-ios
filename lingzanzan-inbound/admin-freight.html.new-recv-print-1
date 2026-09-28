@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>LINGZANZAN - 物流集運</title>
   <link rel="icon" href="./assets/brand-icon-192.png">
-<link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260928-recv-print-1">
+<link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260928-recv-lookup-1">
   <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css" data-admin-navigation-style>
     <style>
 /* LZ_CAT_PICK_20260927 */
@@ -348,7 +348,7 @@
             <h3>物流單號到貨驗收</h3>
             <span>每個物流單號可逐筆帶入、拆包新增款式／顏色／尺寸及數量，再確認驗收入庫並列印條碼。無批次直接入庫每件抽取 NT$30；批次包裹人事同樣每件抽取 NT$30。關稅／台灣快遞仍依整批件數分攤，豪鴻運費仍依重量規則。</span>
           </div>
-          <label>物流單號／集運批次<input type="search" data-freight-receiving-lookup-input placeholder="掃描物流單號或輸入批次號"></label>
+          <label>物流單號／集運號碼／批次<input type="search" data-freight-receiving-lookup-input placeholder="可貼完整單號、集運號碼或後四碼"></label>
           <button type="button" class="primary-button" data-freight-receiving-lookup-submit>掃描／人工帶入這一筆</button>
           <div class="freight-receiving-lookup-result" data-freight-receiving-lookup-result>輸入一張物流單即可逐筆驗收；批次為選填，不會阻擋單張入庫。</div>
         </section>
@@ -955,7 +955,7 @@
       .freight-arrival-product-open:active,.freight-arrival-product-open:focus{outline:3px solid rgba(244,198,83,.35);background:#3a2d38}
       .freight-color-search-hint{display:block;margin-top:6px;color:#9ff4e7;font-size:12px;line-height:1.4}
     </style>
-<script type="lz/asset" data-lz-src="./assets/admin.js?v=20260928-recv-print-1" defer></script>
+<script type="lz/asset" data-lz-src="./assets/admin.js?v=20260928-recv-lookup-1" defer></script>
     <script type="lz/asset" data-lz-src="./assets/myship-workbench.js?v=20260923-hold-retry-1" defer></script>
   <script type="lz/asset" data-lz-src="./assets/admin-ui-rescue.js" defer></script>
 <script type="lz/asset" data-lz-src="./assets/submission-feedback.js" defer data-submission-feedback-script></script>
