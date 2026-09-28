@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>LINGZANZAN - 產品管理</title>
   <link rel="icon" href="./assets/brand-icon-192.png">
-  <link rel="lz-asset" data-lz-href="./assets/admin-products-horizontal-9.css?v=20260928-color-size-3">
+  <link rel="lz-asset" data-lz-href="./assets/admin-products-horizontal-9.css?v=20260928-platform-1">
   <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css?v=20260922-product-popup-confirm-1" data-admin-navigation-style>
   <link rel="lz-asset" data-lz-href="./assets/admin-products-no-hints.css?v=20260926-no-hints-1">
   <link rel="lz-asset" data-lz-href="./assets/admin-products-no-recog-1.css?v=20260928-no-recog-1">
@@ -521,17 +521,8 @@
                     </label>
                   </div>
                   <label class="product-logistics-platform-field">購買平台
-                    <select data-product-logistics-platform>
-                      <option value="拼多多">拼多多（含運到台灣）</option>
-                      <option value="拼直">拼直</option>
-                      <option value="拼郭">拼郭</option>
-                      <option value="拼張">拼張</option>
-                      <option value="拼A">拼A</option>
-                      <option value="拼電">拼電</option>
-                      <option value="淘寶">淘寶</option>
-                      <option value="抖音">抖音</option>
-                      <option value="其他">其他</option>
-                    </select>
+                    <input data-product-logistics-platform list="product-logistics-platform-list" placeholder="空白可直接打入新增" autocomplete="off">
+                    <datalist id="product-logistics-platform-list" data-product-logistics-platform-list></datalist>
                   </label>
                   <button type="button" class="ghost-button" data-product-logistics-add>加入物流紀錄</button>
                 </div>
@@ -655,7 +646,7 @@
   <div class="toast" data-admin-toast hidden></div>
   <script type="lz/asset" data-lz-src="./assets/vendor/qrcode-generator.min.js" defer></script>
   <script type="lz/asset" data-lz-src="./assets/admin-warehouse-authority-1.js?v=20260927-wh-barcode-1" defer></script>
-  <script type="lz/asset" data-lz-src="./assets/admin-product-forwarder-cost-9.js?v=20260928-color-size-3" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-product-forwarder-cost-9.js?v=20260928-platform-1" defer></script>
   <script type="lz/asset" data-lz-src="./assets/admin-products-no-hints.js?v=20260926-no-hints-1" defer></script>
   <script type="lz/asset" data-lz-src="./assets/zhangzhang-pricing-ui.js?v=20260917-pricing-50-1" defer></script>
   <script type="lz/asset" data-lz-src="./assets/admin-labels.js?v=20260918-product-department-filter-1" defer></script>

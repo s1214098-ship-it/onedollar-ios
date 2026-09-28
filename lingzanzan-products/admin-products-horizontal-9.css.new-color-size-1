@@ -6059,6 +6059,10 @@ button:not(.ghost):not(.danger-button):not(.modal-close),
   align-items: start;
 }
 
+.product-logistics-platform-field input {
+  width: 100%;
+}
+
 .product-logistics-grid label,
 .product-logistics-record-fields {
   min-width: 0;
@@ -9347,6 +9351,7 @@ body.is-admin-unlocked [data-refresh-logistics]:disabled {
 
 /* LZ_PROD_COLOR_HIST_20260927: 商品建檔顏色＝歷史選單 + 空白欄 */
 /* LZ_FILE_COLOR_SIZE_20260928: 顏色名稱是中文欄，印尼文只顯示、不拿來亂戴色碼 */
+/* LZ_PLATFORM_BLANK_20260928: 購買平台預設空白，可直接打入新增 */
 .color-add-row .product-color-zh-picker {
   display: grid;
   grid-template-columns: minmax(110px, .9fr) minmax(120px, 1fr);

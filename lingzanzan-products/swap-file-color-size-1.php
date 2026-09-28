@@ -34,8 +34,10 @@ try {
   echo 'jsDraftPick=' . (strpos($js, 'data-product-draft-image') !== false ? 'yes' : 'no') . "\n";
   echo 'jsNoOverlap=' . (strpos($js, 'LZ_FILE_COLOR_NO_OVERLAP_20260928') !== false ? 'yes' : 'no') . "\n";
   echo 'jsDedupeImg=' . (strpos($js, 'function dedupeProductDraftImages') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlBust=' . (strpos($html, 'admin-product-forwarder-cost-9.js?v=20260928-color-size-3') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlCss=' . (strpos($html, 'admin-products-horizontal-9.css?v=20260928-color-size-3') !== false ? 'yes' : 'no') . "\n";
+  echo 'jsPlatform=' . (strpos($js, 'LZ_PLATFORM_BLANK_20260928') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlBust=' . (strpos($html, 'admin-product-forwarder-cost-9.js?v=20260928-platform-1') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlCss=' . (strpos($html, 'admin-products-horizontal-9.css?v=20260928-platform-1') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlPlatform=' . (strpos($html, '空白可直接打入新增') !== false ? 'yes' : 'no') . "\n";
   echo 'htmlAddBtn=' . (strpos($html, '>新增顏色<') !== false ? 'yes' : 'no') . "\n";
   echo 'htmlMatrix=' . (strpos($html, '6. 顏色尺碼矩陣') !== false ? 'yes' : 'no') . "\n";
   echo 'ok';

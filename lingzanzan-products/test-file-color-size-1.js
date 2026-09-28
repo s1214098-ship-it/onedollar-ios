@@ -23,13 +23,20 @@ assert(overlay.indexOf('applySelectedProductColorMainImage(draftImageIndex)') ==
 assert(overlay.indexOf('applySelectedProductColorMainImage(productDraft.mainImageIndex)') === -1, 'main radio does not apply color photo');
 assert(overlay.indexOf('productDraft.images[productColorMainImageIndex]') === -1, 'add color does not inherit previous main image');
 assert(overlay.indexOf('data-product-draft-image') !== -1, 'draft image pick target');
-assert(html.indexOf('admin-product-forwarder-cost-9.js?v=20260928-color-size-3') !== -1, 'js cache bust');
-assert(html.indexOf('admin-products-horizontal-9.css?v=20260928-color-size-3') !== -1, 'css cache bust');
+assert(html.indexOf('admin-product-forwarder-cost-9.js?v=20260928-platform-1') !== -1, 'js cache bust');
+assert(html.indexOf('admin-products-horizontal-9.css?v=20260928-platform-1') !== -1, 'css cache bust');
+assert(html.indexOf('data-product-logistics-platform-list') !== -1, 'platform datalist');
+assert(html.indexOf('空白可直接打入新增') !== -1, 'platform blank placeholder');
+assert(html.indexOf('<select data-product-logistics-platform>') === -1, 'platform is not a locked select');
+assert(overlay.indexOf('function rememberPurchasePlatformName') !== -1, 'remember typed platform');
+assert(overlay.indexOf('LZ_PLATFORM_BLANK_20260928') !== -1, 'platform blank marker');
+assert(overlay.indexOf('rememberPurchasePlatformName(platform)') !== -1, 'adding logistics remembers typed platform');
 assert(html.indexOf('>新增顏色<') !== -1, 'add color button label');
 assert(html.indexOf('顏色名稱') !== -1, 'chinese name label');
 assert(html.indexOf('印尼文') !== -1, 'indonesian label');
 assert(html.indexOf('6. 顏色尺碼矩陣') !== -1, 'matrix heading');
 assert(css.indexOf('LZ_FILE_COLOR_SIZE_20260928') !== -1, 'css marker');
+assert(css.indexOf('LZ_PLATFORM_BLANK_20260928') !== -1, 'css platform blank marker');
 
 function stripProductColorCodePrefix(value) {
   return String(value || '').replace(/^(?:\d{2,4}|N\d{3})\s+/, '').trim();

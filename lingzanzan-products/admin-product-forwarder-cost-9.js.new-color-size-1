@@ -3633,7 +3633,8 @@
       '[data-new-product-category-english-name]',
       '[data-product-logistics-no]',
       '[data-product-logistics-progress]',
-      '[data-product-logistics-note]'
+      '[data-product-logistics-note]',
+      '[data-product-logistics-platform]'
     ].forEach(function (selector) {
       var el = document.querySelector(selector);
       if (el) el.value = '';
@@ -3892,16 +3893,58 @@
     }).map(function (item) { return item.name; });
   }
 
+  function rememberPurchasePlatformName(name) {
+    /* LZ_PLATFORM_BLANK_20260928 */
+    name = String(name || '').trim();
+    if (!name) return false;
+    state.purchasePlatforms = normalizePurchasePlatforms(state.purchasePlatforms);
+    var exists = state.purchasePlatforms.some(function (item) {
+      return (item.masterKind || 'platform') === 'platform' && String(item.name || '').trim() === name;
+    });
+    if (exists) return false;
+    state.purchasePlatforms.push({
+      id: 'platform-' + Date.now(),
+      name: name,
+      masterKind: 'platform',
+      type: '其他',
+      defaultProgress: '待下單',
+      contact: '',
+      returnRule: '',
+      note: '',
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  }
+
+  function logisticsPlatformCanSet(field, value) {
+    if (!field) return false;
+    if (!value) return true;
+    if (field.tagName !== 'SELECT' || !field.options) return true;
+    return Array.from(field.options).some(function (option) { return option.value === value; });
+  }
+
   function syncProductLogisticsPlatformOptions() {
-    var select = document.querySelector('[data-product-logistics-platform]');
-    if (!select) return;
-    var current = select.value;
-    var options = ['拼多多'].concat(purchasePlatformNames());
-    if (options.indexOf('其他') === -1) options.push('其他');
-    select.innerHTML = options.map(function (name) {
-      return '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
-    }).join('');
-    if (current && options.indexOf(current) !== -1) select.value = current;
+    /* LZ_PLATFORM_BLANK_20260928: 預設空白，可直接打入新平台。 */
+    var field = document.querySelector('[data-product-logistics-platform]');
+    if (!field) return;
+    var current = String(field.value || '').trim();
+    var names = purchasePlatformNames().slice();
+    ['拼多多', '拼直', '拼郭', '拼張', '拼A', '拼電', '淘寶', '抖音'].forEach(function (name) {
+      if (names.indexOf(name) === -1) names.push(name);
+    });
+    if (current && names.indexOf(current) === -1) names.unshift(current);
+    var list = document.querySelector('[data-product-logistics-platform-list]');
+    if (list) {
+      list.innerHTML = names.map(function (name) {
+        return '<option value="' + escapeHtml(name) + '"></option>';
+      }).join('');
+    }
+    if (field.tagName === 'SELECT') {
+      field.innerHTML = '<option value="">請選擇或直接打入</option>' + names.map(function (name) {
+        return '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
+      }).join('');
+    }
+    field.value = current;
   }
 
   function renderProductLogisticsEditor() {
@@ -3948,11 +3991,12 @@
       toast('請先填物流單號或處理進度');
       return;
     }
+    rememberPurchasePlatformName(platform);
     productDraft.purchaseLogistics = normalizeProductLogisticsRecords(productDraft.purchaseLogistics).concat([{
       id: 'plog-' + Date.now(),
       date: date,
       createdAt: new Date().toISOString(),
-      platform: platform || '其他',
+      platform: platform,
       trackingNo: trackingNo,
       progress: progress,
       note: note
@@ -5205,7 +5249,7 @@
     if (logisticsInput) logisticsInput.value = item.trackingNo || batch.logisticsTrackingNo || batch.firstTrackingNo || '';
     if (trackingInput) trackingInput.value = item.trackingNo || batch.logisticsTrackingNo || batch.firstTrackingNo || '';
     if (freightItemIdInput) freightItemIdInput.value = item.sourceItemId || item.id || '';
-    if (platformInput && item.platform && Array.from(platformInput.options).some(function (option) { return option.value === item.platform; })) platformInput.value = item.platform;
+    if (platformInput && item.platform) platformInput.value = item.platform;
     var selectedTrackingNo = item.trackingNo || batch.logisticsTrackingNo || batch.firstTrackingNo || '';
     var disposition = productCostInventoryDisposition(item, selectedTrackingNo, batch);
     var visibilityMode = document.querySelector('[data-product-visibility-mode]');
@@ -5316,7 +5360,7 @@
     var sourceSelect = document.querySelector('[data-product-freight-source]');
     var platformSelect = document.querySelector('[data-product-logistics-platform]');
     if (sourceSelect) sourceSelect.value = source;
-    if (platformSelect && batch.platform && Array.from(platformSelect.options).some(function (option) { return option.value === batch.platform; })) {
+    if (platformSelect && batch.platform && logisticsPlatformCanSet(platformSelect, batch.platform)) {
       platformSelect.value = batch.platform;
     }
     applyProductFreightSourceMode();
@@ -6003,7 +6047,7 @@
       '[data-product-freight-source]': draft.logisticsSource || 'pinduoduo',
       '[data-product-cost-mode]': (draft.logisticsSource === 'haohong' ? 'haohong_freight' : 'pinduoduo_freight'),
       '[data-product-visibility-mode]': draft.productMode || 'preorder',
-      '[data-product-logistics-platform]': draft.platform || '其他',
+      '[data-product-logistics-platform]': draft.platform || '',
       '[data-product-logistics-no]': draft.trackingNo || '',
       '[data-product-logistics-progress]': draft.progress || '',
       '[data-product-logistics-date]': draft.date || freightToday(),
@@ -6078,7 +6122,7 @@
     }
     renderProductLogisticsEditor();
     var platformInput = document.querySelector('[data-product-logistics-platform]');
-    if (platformInput && draft.platform && Array.from(platformInput.options).some(function (option) { return option.value === draft.platform; })) platformInput.value = draft.platform;
+    if (platformInput && draft.platform) platformInput.value = draft.platform;
     document.querySelector('[data-new-product-code]')?.focus();
     toast('已帶入產品建檔 ' + freightVariantRowsToApply.length + ' 組／數量 ' + freightVariant.quantity + ' 件' + (freightDraftImages.length || Object.keys(freightDraftColorImages).length ? '／圖片已一起帶入' : '') + (freightVariant.colorNeedsReview ? '；請先補正顏色' : '') + '，請核對後再儲存商品');
     return true;
