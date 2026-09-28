@@ -1,0 +1,96 @@
+<?php
+declare(strict_types=1);
+
+@ini_set('display_errors', '0');
+@ini_set('html_errors', '0');
+
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+$dataDir = __DIR__ . DIRECTORY_SEPARATOR . 'data';
+$file = $dataDir . DIRECTORY_SEPARATOR . 'freight-vendor-shortages.json';
+$stateFile = $dataDir . DIRECTORY_SEPARATOR . 'admin-state.json';
+$sessionsFile = $dataDir . DIRECTORY_SEPARATOR . 'admin-sessions.json';
+
+function shortage_respond(array $payload, int $status = 200): void
+{
+    http_response_code($status);
+    $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+    echo json_encode($payload, $flags) ?: '{"ok":false}';
+    exit;
+}
+
+function shortage_read_json(string $path): array
+{
+    if (!is_file($path)) return [];
+    $raw = file_get_contents($path);
+    if ($raw === false) return [];
+    $decoded = json_decode(preg_replace('/^\xEF\xBB\xBF/', '', rtrim($raw, "\0 \t\n\r\x0B")) ?? '', true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function shortage_token(): string
+{
+    $custom = trim((string)($_SERVER['HTTP_X_LINGZANZAN_ADMIN_SESSION'] ?? ''));
+    if (preg_match('/^[A-Za-z0-9_-]{32,160}$/', $custom)) return $custom;
+    $header = trim((string)($_SERVER['HTTP_AUTHORIZATION'] ?? ''));
+    if (preg_match('/^Bearer\s+([A-Za-z0-9_-]{32,160})$/i', $header, $match)) return (string)$match[1];
+    $cookie = trim((string)($_COOKIE['lz_admin_session'] ?? ''));
+    return preg_match('/^[A-Za-z0-9_-]{32,160}$/', $cookie) ? $cookie : '';
+}
+
+function shortage_require_operator(string $sessionsFile, string $stateFile): void
+{
+    $token = shortage_token();
+    if ($token === '') shortage_respond(['ok' => false, 'error' => '請重新登入後台'], 401);
+    $wantedHash = hash('sha256', $token);
+    $now = time();
+    foreach (shortage_read_json($sessionsFile) as $session) {
+        if (!is_array($session) || (int)($session['expiresAt'] ?? 0) <= $now) continue;
+        $savedHash = trim((string)($session['tokenHash'] ?? ''));
+        if ($savedHash === '' || !hash_equals($savedHash, $wantedHash)) continue;
+        return;
+    }
+    shortage_respond(['ok' => false, 'error' => '登入已逾時，請重新登入後台'], 401);
+}
+
+shortage_require_operator($sessionsFile, $stateFile);
+
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$payload = $method === 'POST' ? json_decode(file_get_contents('php://input') ?: '', true) : [];
+if (!is_array($payload)) $payload = [];
+
+$stored = shortage_read_json($file);
+$rows = [];
+if (is_array($stored['rows'] ?? null)) $rows = $stored['rows'];
+elseif (isset($stored[0]) && is_array($stored[0])) $rows = $stored;
+$rows = array_values(array_filter($rows, static function ($row): bool { return is_array($row); }));
+
+if ($method === 'GET') {
+    shortage_respond(['ok' => true, 'rows' => $rows, 'marker' => 'LZ_RECV_PARTIAL_20260928']);
+}
+
+$action = trim((string)($payload['action'] ?? 'replace'));
+if ($action === 'replace') {
+    $incoming = is_array($payload['rows'] ?? null) ? $payload['rows'] : [];
+    $rows = [];
+    foreach ($incoming as $row) {
+        if (!is_array($row)) continue;
+        $rows[] = $row;
+        if (count($rows) >= 80) break;
+    }
+} elseif ($action === 'add' && is_array($payload['row'] ?? null)) {
+    array_unshift($rows, $payload['row']);
+    $rows = array_slice($rows, 0, 80);
+} elseif ($action === 'resolve') {
+    $id = trim((string)($payload['id'] ?? ''));
+    foreach ($rows as &$row) {
+        if ($id !== '' && (string)($row['id'] ?? '') === $id) $row['status'] = 'resolved';
+    }
+    unset($row);
+}
+
+if (!is_dir($dataDir)) @mkdir($dataDir, 0775, true);
+$ok = file_put_contents($file, json_encode(['ok' => true, 'updatedAt' => date('c'), 'rows' => $rows], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) !== false;
+if (!$ok) shortage_respond(['ok' => false, 'error' => '缺件清單寫入失敗'], 500);
+shortage_respond(['ok' => true, 'rows' => $rows, 'marker' => 'LZ_RECV_PARTIAL_20260928']);

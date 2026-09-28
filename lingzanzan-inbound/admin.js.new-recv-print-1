@@ -7019,14 +7019,37 @@
       info.inventoryReceived === true;
   }
 
+  function freightReceivingPartialProgressText() {
+    return '部分到貨／缺件待重新下單';
+  }
+
+  function freightItemIsPartialReceiving(item) {
+    item = item || {};
+    if (item.receivingPartial === true || item.vendorShortage === true || item.receivingComplete === false && (item.receivingPartial || item.vendorShortage)) return true;
+    var progress = String(item.progress || '');
+    if (/部分到貨|缺件待重新下單|廠商沒發/.test(progress)) return true;
+    var itemId = String(item.id || '');
+    if (!itemId) return false;
+    return ((state.freightTracking && state.freightTracking.vendorShortages) || []).some(function (row) {
+      return row && String(row.status || '') !== 'resolved' && String(row.freightItemId || '') === itemId;
+    });
+  }
+
+  function freightReceivingDoneProgress(item) {
+    return freightItemIsPartialReceiving(item) ? freightReceivingPartialProgressText() : '已驗收完成';
+  }
+
   // LZ_FREIGHT_RECV_DONE_20260924: counted+inspected logistics cards show 已驗收完成
   function freightItemProgressDisplay(item) {
     item = item || {};
     var current = String(item.progress || '').trim();
     if (/作廢/.test(current)) return current;
+    if (freightItemIsPartialReceiving(item)) {
+      return /部分到貨|缺件/.test(current) ? current : freightReceivingPartialProgressText();
+    }
     var received = freightItemHasFormalInventoryReceipt(item)
       || String(item.freightReceivingStatus || '').trim() === '已完成入庫';
-    if (received && !/分批到貨|數量差異|拆包追加|待重新驗收/.test(current)) {
+    if (received && !/分批到貨|數量差異|拆包追加|待重新驗收|部分到貨|缺件/.test(current)) {
       return '已驗收完成';
     }
     return current || '待下單';
@@ -7035,10 +7058,12 @@
   // LZ_FREIGHT_RECV_CHIP_20260924: 左上角小按鈕只分辨有無驗收入庫
   function freightItemHasInspectedInbound(item) {
     item = item || {};
+    if (item.receivingVoided === true || /作廢/.test(String(item.progress || ''))) return false;
+    if (freightItemIsPartialReceiving(item)) return false;
     if (freightItemHasFormalInventoryReceipt(item)) return true;
     if (String(item.freightReceivingStatus || '').trim() === '已完成入庫') return true;
     var progress = String(item.progress || '').trim();
-    if (/作廢/.test(progress)) return false;
+    if (/作廢|部分到貨|缺件待重新下單|廠商沒發/.test(progress)) return false;
     if (/已驗收完成|已驗收進貨|已完成入庫/.test(progress) && !/待正式入庫|待重新驗收|分批到貨|數量差異/.test(progress)) return true;
     return false;
   }
@@ -15344,11 +15369,7 @@
     var shortages = (normalizeFreightTracking(state.freightTracking).vendorShortages || []).filter(function (row) {
       return row && String(row.status || '') !== 'resolved';
     });
-    var shortageHtml = shortages.length
-      ? '<section class="freight-vendor-shortage-board"><header><div><small>VENDOR SHORTAGE／廠商沒發</small><h3>部分到貨／廠商沒發，不算驗收完成</h3></div><strong>' + shortages.length + ' 筆待重新下單</strong></header><div class="freight-vendor-shortage-list">' + shortages.map(function (row) {
-        return '<article><b>' + escapeHtml(row.productCode || '-') + '</b><span>' + escapeHtml(row.trackingNo || '-') + '／' + escapeHtml(row.color || '-') + '／' + escapeHtml(row.size || '-') + '</span><small>' + escapeHtml(row.reason || '廠商沒發') + '　預報 ' + Number(row.expectedQty || 0) + ' 件</small><em>' + escapeHtml(row.status || '待重新下單') + '</em></article>';
-      }).join('') + '</div></section>'
-      : '';
+    var shortageHtml = freightVendorShortageBoardHtml(shortages, '部分到貨／廠商沒發，不算驗收完成');
     if (!alerts.length && !shortages.length) {
       host.classList.remove('has-alerts');
       host.innerHTML = shortageHtml + '<header><div><small>RECEIVING ALERT／PERINGATAN PENERIMAAN</small><h3>批次點貨與缺件提醒</h3></div><strong>目前沒有待處理缺件</strong></header><p>開始點貨後，管理者與小姐會在這裡看到同一批的已點、未點和缺件數量。廠商沒發的規格會留在上方總覽，方便重新下單。</p>';
@@ -15534,7 +15555,9 @@
   }
 
   function prepareFreightLazySummarySections(forecastItems) {
-    prepareFreightLazyRender('[data-freight-receiving-alerts]', renderFreightReceivingAlerts);
+    prepareFreightLazyRender('[data-freight-receiving-alerts]', function () {
+      loadFreightVendorShortages().then(function () { renderFreightReceivingAlerts(); });
+    });
     prepareFreightLazyRender('[data-freight-overdue-alerts]', renderFreightOverdueAlerts);
     prepareFreightLazyRender('[data-freight-forecast-product-list]', function () {
       renderFreightForecastProductList(forecastItems);
@@ -16711,7 +16734,7 @@
       item.inventoryStatus = 'received';
       item.inventoryReceivedAt = data.receivedAt || new Date().toISOString();
       item.productFiledInventoryReceived = true;
-      item.progress = '已驗收完成';
+      item.progress = freightReceivingDoneProgress(item);
       item.computerWarehouseReceivedLines = data.receipt && data.receipt.lines || [];
       data.printPayloads = freightStockedBarcodePayloads(item);
       toast(success);
@@ -16934,7 +16957,7 @@
               productFiledInventoryReceived: true,
               productFiledInventoryReceivedAt: data.receivedAt,
               receivingStage: 'inventory_received',
-              progress: '已驗收完成'
+              progress: freightReceivingDoneProgress(state.freightTracking.items[receivedIndex] || item)
             });
             confirmedReceived = true;
           }
@@ -29848,13 +29871,13 @@
           + '<button type="button" class="freight-receiving-plus-one" data-freight-receiving-plus-one="' + index + '">預報這件 · 點＋1</button>'
           + '</div>';
       }
-      return '<label class="freight-receiving-color-chip is-extra' + (presentIndex >= 0 ? ' is-checked' : '') + '" data-color-hay="' + escapeHtml((color + ' ' + size + ' ' + (sku.colorCode || '')).toLowerCase()) + '">'
+      return '<div class="freight-receiving-color-chip is-extra' + (presentIndex >= 0 ? ' is-checked' : '') + '" data-color-hay="' + escapeHtml((color + ' ' + size + ' ' + (sku.colorCode || '')).toLowerCase()) + '">'
         + '<span class="freight-receiving-extra-check"><input type="checkbox" data-freight-receiving-extra-sku="' + escapeHtml(String(sku.id || sku.sku || '')) + '" data-line="' + index + '"' + (presentIndex >= 0 ? ' checked' : '') + '><em>列入其他預報</em></span>'
         + thumb
         + '<b>' + escapeHtml(color) + '</b>'
         + '<em>' + escapeHtml(size && size !== 'NO SIZE' ? size : 'NO SIZE') + '</em>'
         + '<small>' + (presentIndex >= 0 ? '已出現預報驗收列，尚未寫入實收' : '勾選後才出現預報列，不會寫入實收') + '</small>'
-        + '</label>';
+        + '</div>';
     }).join('');
     var hint = '預報是「' + escapeHtml((line.color || '未填') + '／' + (line.size || 'NO SIZE')) + '」：點綠色＋1 只加這列實收。包裡其他顏色／尺寸請勾「列入其他預報」，勾選後才多一列預報數量，實收維持 0，不會一點圖片就存檔。';
     var colorOptions = uniqueFreightChoiceValues(
@@ -30171,14 +30194,82 @@
     document.body.appendChild(overlay);
   }
 
-  function recordFreightVendorShortage(item, line, reason) {
+  function bindFreightReceivingImageZoomOnce() {
+    if (window.__lzRecvZoomBound) return;
+    window.__lzRecvZoomBound = true;
+    document.addEventListener('click', function (event) {
+      var zoomCtl = event.target && event.target.closest && event.target.closest('[data-freight-receiving-zoom], .freight-receiving-thumb, .freight-receiving-chip-zoom');
+      var workbench = event.target && event.target.closest && event.target.closest('[data-freight-receiving-workbench],[data-freight-product-confirmation-required],[data-freight-quantity-confirm]');
+      if (!zoomCtl && !workbench) return;
+      if (event.target.closest('[data-freight-receiving-plus-one],[data-freight-receiving-extra-sku],[data-freight-qty-step],[data-freight-inspection-actual],[data-freight-quantity-actual]')) return;
+      var img = (zoomCtl && zoomCtl.querySelector && zoomCtl.querySelector('img')) || (event.target && event.target.closest && event.target.closest('img'));
+      if (!img && zoomCtl && zoomCtl.tagName === 'IMG') img = zoomCtl;
+      if (!img) return;
+      var src = (zoomCtl && zoomCtl.getAttribute && zoomCtl.getAttribute('data-freight-receiving-zoom')) || img.getAttribute('src') || img.currentSrc || '';
+      if (!src) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openFreightReceivingImageZoom(src);
+    }, true);
+  }
+
+  function bindFreightVendorShortageActionsOnce() {
+    if (window.__lzRecvShortageBound) return;
+    window.__lzRecvShortageBound = true;
+    document.addEventListener('click', function (event) {
+      var copy = event.target && event.target.closest && event.target.closest('[data-freight-shortage-copy]');
+      if (copy) {
+        event.preventDefault();
+        var text = copy.getAttribute('data-freight-shortage-copy') || '';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () { toast('已複製，可去打單據重新下單：' + text); }).catch(function () { toast(text); });
+        } else {
+          toast(text);
+        }
+        return;
+      }
+      var resolve = event.target && event.target.closest && event.target.closest('[data-freight-shortage-resolve]');
+      if (!resolve) return;
+      event.preventDefault();
+      resolveFreightVendorShortage(resolve.getAttribute('data-freight-shortage-resolve') || '');
+    });
+  }
+
+  function applyFreightVendorShortageFlags() {
+    var items = (state.freightTracking && state.freightTracking.items) || [];
+    var rows = (state.freightTracking && state.freightTracking.vendorShortages) || [];
+    var openIds = {};
+    rows.forEach(function (row) {
+      if (!row || String(row.status || '') === 'resolved') return;
+      if (row.freightItemId) openIds[String(row.freightItemId)] = true;
+    });
+    items.forEach(function (item) {
+      if (!item || !openIds[String(item.id || '')]) return;
+      item.receivingPartial = true;
+      item.receivingComplete = false;
+      item.vendorShortage = true;
+      if (!/部分到貨|缺件|作廢/.test(String(item.progress || ''))) {
+        item.progress = freightReceivingPartialProgressText();
+      }
+    });
+  }
+
+  function refreshFreightVendorShortageViews() {
+    bindFreightVendorShortageActionsOnce();
+    var rows = (state.freightTracking && state.freightTracking.vendorShortages) || [];
+    renderOverviewVendorShortage(rows);
+    if (typeof renderFreightReceivingAlerts === 'function') renderFreightReceivingAlerts();
+  }
+
+  function recordFreightVendorShortage(item, line, reason, options) {
     state.freightTracking = normalizeFreightTracking(state.freightTracking || {});
     var rows = Array.isArray(state.freightTracking.vendorShortages) ? state.freightTracking.vendorShortages : [];
     var entry = {
-      id: 'shortage-' + Date.now(),
+      id: 'shortage-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
       freightItemId: item && item.id || '',
       trackingNo: item && (item.trackingNo || item.supplementalTrackingNo || '') || '',
       productCode: item && (item.productCode || item.productName) || '',
+      productName: item && (item.productName || '') || '',
       color: line && (line.color || line.colorName) || '',
       size: line && (line.size || line.sizeName) || '',
       expectedQty: freightReceivingOriginalExpectedQty(line || {}, {}),
@@ -30186,15 +30277,97 @@
       status: '待重新下單',
       createdAt: new Date().toISOString()
     };
+    var key = [entry.freightItemId, entry.productCode, entry.color, entry.size].join('|');
+    rows = rows.filter(function (row) {
+      if (!row) return false;
+      if (String(row.status || '') === 'resolved') return true;
+      return [row.freightItemId, row.productCode, row.color, row.size].join('|') !== key;
+    });
     rows.unshift(entry);
     state.freightTracking.vendorShortages = rows.slice(0, 80);
-    item.vendorShortage = true;
-    item.receivingComplete = false;
-    item.receivingPartial = true;
+    if (item) {
+      item.vendorShortage = true;
+      item.receivingComplete = false;
+      item.receivingPartial = true;
+      item.vendorMissingReason = entry.reason;
+      if (!/作廢/.test(String(item.progress || ''))) item.progress = freightReceivingPartialProgressText();
+    }
+    if (!(options && options.skipPersist)) {
+      persistFreightVendorShortages().then(refreshFreightVendorShortageViews);
+    }
     return entry;
   }
 
+  function persistFreightVendorShortages() {
+    var rows = ((state.freightTracking && state.freightTracking.vendorShortages) || []).slice(0, 80);
+    return fetch('./admin-vendor-shortage-api.php', {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: (typeof adminAuthorizationHeaders === 'function' ? adminAuthorizationHeaders({ 'Content-Type': 'application/json' }) : { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ action: 'replace', rows: rows })
+    }).then(function (res) { return res.json().catch(function () { return {}; }); }).catch(function () { return {}; });
+  }
+
+  function loadFreightVendorShortages() {
+    bindFreightVendorShortageActionsOnce();
+    return fetch('./admin-vendor-shortage-api.php?_=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
+      .then(function (res) { return res.json().catch(function () { return {}; }); })
+      .then(function (data) {
+        var rows = data && data.ok && Array.isArray(data.rows) ? data.rows : [];
+        state.freightTracking = state.freightTracking || {};
+        if (rows.length) state.freightTracking.vendorShortages = rows;
+        applyFreightVendorShortageFlags();
+        return state.freightTracking.vendorShortages || rows;
+      })
+      .catch(function () { return (state.freightTracking && state.freightTracking.vendorShortages) || []; });
+  }
+
+  function resolveFreightVendorShortage(id) {
+    if (!id) return;
+    var rows = ((state.freightTracking && state.freightTracking.vendorShortages) || []);
+    var found = false;
+    rows.forEach(function (row) {
+      if (String(row.id || '') === String(id)) {
+        row.status = 'resolved';
+        found = true;
+      }
+    });
+    if (!found) return;
+    persistFreightVendorShortages().then(function () {
+      applyFreightVendorShortageFlags();
+      refreshFreightVendorShortageViews();
+      toast('已從待下單清單拿掉');
+    });
+  }
+
+  function freightVendorShortageBoardHtml(rows, title) {
+    rows = (rows || []).filter(function (row) { return row && String(row.status || '') !== 'resolved'; });
+    if (!rows.length) return '';
+    return '<section class="freight-vendor-shortage-board"><header><div><small>VENDOR SHORTAGE／廠商沒發</small><h3>' + escapeHtml(title || '部分到貨／廠商沒發，不算驗收完成') + '</h3><p>這些規格還沒到或廠商沒發，整張不算驗收完成。複製編號後可去打單據重新下單。</p></div><strong>' + rows.length + ' 筆待重新下單</strong></header><div class="freight-vendor-shortage-list">' + rows.map(function (row) {
+      var copyText = [row.productCode, row.color, row.size].filter(Boolean).join(' ');
+      return '<article><b>' + escapeHtml(row.productCode || '-') + '</b><span>' + escapeHtml(row.trackingNo || '-') + '／' + escapeHtml(row.color || '-') + '／' + escapeHtml(row.size || '-') + '</span><small>' + escapeHtml(row.reason || '廠商沒發') + '　預報 ' + Number(row.expectedQty || 0) + ' 件</small><em>' + escapeHtml(row.status || '待重新下單') + '</em><div class="freight-vendor-shortage-actions"><button type="button" class="ghost-button" data-freight-shortage-copy="' + escapeHtml(copyText) + '">複製編號去下單</button><button type="button" class="ghost-button" data-freight-shortage-resolve="' + escapeHtml(row.id || '') + '">已重新下單</button></div></article>';
+    }).join('') + '</div></section>';
+  }
+
+  function renderOverviewVendorShortage(rows) {
+    var dash = document.querySelector('[data-overview-dashboard]');
+    if (!dash) return;
+    var host = document.querySelector('[data-overview-vendor-shortage]');
+    if (!host) {
+      host = document.createElement('section');
+      host.setAttribute('data-overview-vendor-shortage', '');
+      host.className = 'freight-vendor-shortage-board';
+      var freightPanel = dash.querySelector('[data-overview-collapsible="freight"]');
+      dash.insertBefore(host, freightPanel || dash.firstChild);
+    }
+    var html = freightVendorShortageBoardHtml(rows, '驗收缺件／廠商沒發，可從這裡重新下單');
+    host.innerHTML = html ? html.replace(/^<section[^>]*>/, '').replace(/<\/section>$/, '') : '<header><div><small>VENDOR SHORTAGE</small><h3>目前沒有廠商沒發／未到貨待下單</h3></div></header><p>驗收時作廢單一產品或標沒到，會出現在這裡，方便重新下單。</p>';
+    host.hidden = false;
+  }
+
   function bindFreightReceivingInlineColorTools(modal, itemId) {
+    bindFreightReceivingImageZoomOnce();
     if (!modal || modal.dataset.inlineColorBound === '1') return;
     modal.dataset.inlineColorBound = '1';
     modal.addEventListener('keydown', function (event) {
@@ -30266,6 +30439,7 @@
         if (reasonBox && !String(reasonBox.value || '').trim()) reasonBox.value = reason;
         toast('已標成沒到：' + (line.color || '') + '／' + (line.size || 'NO SIZE') + '，這張不算驗收完成，總覽可重新下單');
         if (typeof saveFreightTracking === 'function') saveFreightTracking().catch(function () {});
+        refreshFreightVendorShortageViews();
         return;
       }
       var leftoverChip = event.target.closest('[data-freight-receiving-link-sku]');
@@ -30933,7 +31107,7 @@
     var currentReceivingCategory = currentBusinessUnit === 'baohui_computer'
       ? (computerCategory || String(item.category || item.categoryName || filed.category || filed.categoryName || receivingLinkedProduct.category || '').trim())
       : (clothingCategory || rememberedClothingCat || String(item.category || item.categoryName || filed.category || filed.categoryName || receivingLinkedProduct.category || '').trim());
-    modal.innerHTML = '<section><header><div><small>FREIGHT RECEIVING／PENERIMAAN BARANG</small><h3>物流到貨驗收</h3><p>物流單號 ' + escapeHtml(item.trackingNo || '-') + '／' + escapeHtml(item.productCode || item.productName || filed.code || '未命名產品') + '</p></div><div class="freight-receiving-head-actions"><button type="button" class="danger-button" data-freight-receiving-void>作廢這一張單</button><button type="button" class="ghost-button" data-freight-receiving-close>關閉</button></div></header><div class="freight-receiving-flow"><b>1 單張物流已記錄</b><b>2 核對這一張實收</b><b>3 正式入庫並跳條碼</b><b>4 選客戶並出貨</b></div><aside class="freight-receiving-classification"><b>入庫分流判定</b><span>' + escapeHtml(classification) + '</span><small>' + (options.fromArrival ? '這張物流單已獨立記錄，不需要等同批其他物流單；請核對實收數量後完成入庫。' : '') + ' 已預先綁定 ' + customerQty + ' 件；正式核准時還會依正式產品編號＋條碼＋顏色＋尺寸即時向後找最早客戶。可賣或公司自用請在這一步問老闆後勾選，填單時不用猜。尚未最後核准前不動庫存。</small></aside><fieldset class="freight-receiving-routing"><legend>預購倉驗收到貨：先選正式入庫倉，再選配客戶或轉現貨</legend><label class="freight-receiving-destination"><span><b>正式入庫倉別／Gudang</b><small>預購倉只代表準備採購；核准後會直接轉入所選實體倉，不會留在預購倉。選台灣倉即轉入台灣正式庫存。</small></span><select data-freight-receiving-destination><option value="TW_BAOHUI"' + (currentDestination === 'TW_BAOHUI' ? ' selected' : '') + '>台灣倉｜寶輝（正式庫存）</option><option value="CN_DONGGUAN"' + (currentDestination === 'CN_DONGGUAN' ? ' selected' : '') + '>中國倉｜東莞（正式庫存／不上前台）</option><option value="ID_DIRECT"' + (currentDestination === 'ID_DIRECT' ? ' selected' : '') + '>印尼倉｜直接到貨（正式庫存）</option></select></label><label class="is-recommended"><input type="radio" name="freight-receiving-routing" value="auto_mixed" checked><span><b>自動分流（建議）</b><small>先配精準吻合的最早預購客戶，剩餘轉公司現貨</small></span></label><label><input type="radio" name="freight-receiving-routing" value="preorder_only"' + (canLookupPreorder ? '' : ' disabled') + '><span><b>全數優先配預購客戶</b><small>' + (canLookupPreorder ? (customerQty ? '已有 ' + customerQty + ' 件預綁；核准時仍會即時補抓最早客戶' : '目前尚未預綁；核准時由伺服器即時找精準吻合的最早客戶') : '尚未建立正式產品，不能安全配對客戶') + '</small></span></label><label class="is-company-stock"><input type="radio" name="freight-receiving-routing" value="company_stock"><span><b>全數轉公司現貨／樣品</b><small>' + (customerQty ? '可覆寫原客戶保留，但必須勾選下方紅色確認' : '不配客戶，核准後直接增加現貨') + '</small></span></label>' + (customerQty ? '<label class="freight-release-customer-warning"><input type="checkbox" data-freight-release-customer-confirm><span><b>確認釋放原客戶保留 ' + customerQty + ' 件</b><small>受影響客戶會回到「尚欠／待重新採購」，不會被標成已到貨。</small></span></label>' : '') + '<output data-freight-routing-summary>實收尚未點貨；已預綁 ' + customerQty + ' 件，未預綁需求將於核准時即時核對</output></fieldset><fieldset class="freight-receiving-goods-purpose"><legend>這批是可賣還是公司自用？不確定就先問老闆</legend><label class="is-recommended"><input type="radio" name="freight-receiving-goods-purpose" value="sellable"' + (openingPurpose === 'sellable' ? ' checked' : '') + '><span><b>全部可賣</b><small>配客戶／競標／上架</small></span></label><label><input type="radio" name="freight-receiving-goods-purpose" value="internal_use"' + (openingPurpose === 'internal_use' ? ' checked' : '') + '><span><b>全部公司自用</b><small>列入公司成本，不上架、不配客戶</small></span></label><label><input type="radio" name="freight-receiving-goods-purpose" value="mixed"' + (openingPurpose === 'mixed' ? ' checked' : '') + '><span><b>同一規格拆開</b><small>例如 2 件裡自用 1、競標 1；問過老闆再填下方件數</small></span></label></fieldset><div class="freight-receiving-workbench-grid"><div><div class="freight-receiving-lines-heading"><h4>' + (options.fromArrival ? '逐色盤點' : '逐規格驗收') + '</h4><div class="freight-receiving-line-actions"><button type="button" class="primary-button" data-freight-supplemental-open="' + escapeHtml(item.id || '') + '" data-freight-supplemental-tracking="' + escapeHtml(item.trackingNo || item.supplementalTrackingNo || '') + '">＋ 新增不同產品</button><button type="button" class="ghost-button" data-freight-receiving-add-variant>＋ 增加顏色／尺寸</button><button type="button" class="danger-button" data-freight-receiving-void>作廢這一張單</button></div></div><div class="freight-receiving-workbench-lines">' + sourceLines.map(function (line, index) {
+    modal.innerHTML = '<section><header><div><small>FREIGHT RECEIVING／PENERIMAAN BARANG</small><h3>物流到貨驗收</h3><p>物流單號 ' + escapeHtml(item.trackingNo || '-') + '／' + escapeHtml(item.productCode || item.productName || filed.code || '未命名產品') + '</p></div><div class="freight-receiving-head-actions"><button type="button" class="danger-button" data-freight-receiving-void>作廢這個產品／刪除此產品</button><button type="button" class="ghost-button" data-freight-receiving-close>關閉</button></div></header><div class="freight-receiving-flow"><b>1 單張物流已記錄</b><b>2 核對這一張實收</b><b>3 正式入庫並跳條碼</b><b>4 選客戶並出貨</b></div><aside class="freight-receiving-classification"><b>入庫分流判定</b><span>' + escapeHtml(classification) + '</span><small>' + (options.fromArrival ? '這張物流單已獨立記錄，不需要等同批其他物流單；請核對實收數量後完成入庫。' : '') + ' 已預先綁定 ' + customerQty + ' 件；正式核准時還會依正式產品編號＋條碼＋顏色＋尺寸即時向後找最早客戶。可賣或公司自用請在這一步問老闆後勾選，填單時不用猜。尚未最後核准前不動庫存。</small></aside><fieldset class="freight-receiving-routing"><legend>預購倉驗收到貨：先選正式入庫倉，再選配客戶或轉現貨</legend><label class="freight-receiving-destination"><span><b>正式入庫倉別／Gudang</b><small>預購倉只代表準備採購；核准後會直接轉入所選實體倉，不會留在預購倉。選台灣倉即轉入台灣正式庫存。</small></span><select data-freight-receiving-destination><option value="TW_BAOHUI"' + (currentDestination === 'TW_BAOHUI' ? ' selected' : '') + '>台灣倉｜寶輝（正式庫存）</option><option value="CN_DONGGUAN"' + (currentDestination === 'CN_DONGGUAN' ? ' selected' : '') + '>中國倉｜東莞（正式庫存／不上前台）</option><option value="ID_DIRECT"' + (currentDestination === 'ID_DIRECT' ? ' selected' : '') + '>印尼倉｜直接到貨（正式庫存）</option></select></label><label class="is-recommended"><input type="radio" name="freight-receiving-routing" value="auto_mixed" checked><span><b>自動分流（建議）</b><small>先配精準吻合的最早預購客戶，剩餘轉公司現貨</small></span></label><label><input type="radio" name="freight-receiving-routing" value="preorder_only"' + (canLookupPreorder ? '' : ' disabled') + '><span><b>全數優先配預購客戶</b><small>' + (canLookupPreorder ? (customerQty ? '已有 ' + customerQty + ' 件預綁；核准時仍會即時補抓最早客戶' : '目前尚未預綁；核准時由伺服器即時找精準吻合的最早客戶') : '尚未建立正式產品，不能安全配對客戶') + '</small></span></label><label class="is-company-stock"><input type="radio" name="freight-receiving-routing" value="company_stock"><span><b>全數轉公司現貨／樣品</b><small>' + (customerQty ? '可覆寫原客戶保留，但必須勾選下方紅色確認' : '不配客戶，核准後直接增加現貨') + '</small></span></label>' + (customerQty ? '<label class="freight-release-customer-warning"><input type="checkbox" data-freight-release-customer-confirm><span><b>確認釋放原客戶保留 ' + customerQty + ' 件</b><small>受影響客戶會回到「尚欠／待重新採購」，不會被標成已到貨。</small></span></label>' : '') + '<output data-freight-routing-summary>實收尚未點貨；已預綁 ' + customerQty + ' 件，未預綁需求將於核准時即時核對</output></fieldset><fieldset class="freight-receiving-goods-purpose"><legend>這批是可賣還是公司自用？不確定就先問老闆</legend><label class="is-recommended"><input type="radio" name="freight-receiving-goods-purpose" value="sellable"' + (openingPurpose === 'sellable' ? ' checked' : '') + '><span><b>全部可賣</b><small>配客戶／競標／上架</small></span></label><label><input type="radio" name="freight-receiving-goods-purpose" value="internal_use"' + (openingPurpose === 'internal_use' ? ' checked' : '') + '><span><b>全部公司自用</b><small>列入公司成本，不上架、不配客戶</small></span></label><label><input type="radio" name="freight-receiving-goods-purpose" value="mixed"' + (openingPurpose === 'mixed' ? ' checked' : '') + '><span><b>同一規格拆開</b><small>例如 2 件裡自用 1、競標 1；問過老闆再填下方件數</small></span></label></fieldset><div class="freight-receiving-workbench-grid"><div><div class="freight-receiving-lines-heading"><h4>' + (options.fromArrival ? '逐色盤點' : '逐規格驗收') + '</h4><div class="freight-receiving-line-actions"><button type="button" class="primary-button" data-freight-supplemental-open="' + escapeHtml(item.id || '') + '" data-freight-supplemental-tracking="' + escapeHtml(item.trackingNo || item.supplementalTrackingNo || '') + '">＋ 新增不同產品</button><button type="button" class="ghost-button" data-freight-receiving-add-variant>＋ 增加顏色／尺寸</button><button type="button" class="danger-button" data-freight-receiving-void>作廢這個產品／刪除此產品</button></div></div><div class="freight-receiving-workbench-lines">' + sourceLines.map(function (line, index) {
       var savedLine = savedLines[index] || {};
       var extraColor = freightReceivingLineIsExtraColor(line, savedLine);
       var expected = freightReceivingOriginalExpectedQty(line, savedLine);
@@ -30965,8 +31139,10 @@
       var internalPrefill = actual === '' ? savedInternal : Math.min(actualQtyNum, savedInternal);
       var sellablePrefill = actual === '' ? '' : Math.max(0, actualQtyNum - internalPrefill);
       return '<article' + (needsColorLink ? ' class="is-color-unlinked"' : '') + '>' + (image ? '<button type="button" class="freight-receiving-thumb" data-freight-receiving-zoom="' + escapeHtml(image) + '" title="點擊放大"><img src="' + escapeHtml(image) + '" alt="產品縮圖"></button>' : '<span class="no-image">無圖片</span>') + '<div><b>' + escapeHtml(line.sampleBarcode || line.taiwanBarcode || filed.barcode || '未建條碼') + '</b><span' + (needsColorLink ? ' class="is-color-unlinked"' : '') + '>' + escapeHtml(line.color || '-') + '／' + escapeHtml(line.size || 'NO SIZE') + '</span><small>此規格已綁預購 ' + Number(lineDemand[index] || 0) + ' 件</small></div>' + freightReceivingCombinedQtyHtml({ expected: expected, inspectQty: actual, arrived: arrived, extraColor: extraColor, inventoryPosted: inventoryPosted, index: index, size: line.size || 'NO SIZE', stock: stockInfo }) + '<div class="freight-receiving-purpose-split" data-freight-receiving-purpose-split="' + index + '"' + (openingPurpose === 'mixed' ? '' : ' hidden') + '><label>可賣（件）<input type="number" min="0" step="1" value="' + sellablePrefill + '" data-freight-inspection-sellable="' + index + '"></label><label>公司自用（件）<input type="number" min="0" step="1" value="' + internalPrefill + '" data-freight-inspection-internal="' + index + '"></label><small>兩件裡要自用一件、競標一件，就把自用設成 1。</small></div>' + '<div class="freight-receiving-line-missing"><button type="button" class="ghost-button" data-freight-receiving-line-missing="' + index + '">此規格沒到／廠商沒發</button></div>' + freightReceivingColorLinkHtml(item, line, index, currentDestination, needsColorLink, filed) + '</article>';
-    }).join('') + '</div><output class="freight-receiving-quantity-cost" data-freight-receiving-total-qty>本張所有配色實收合計 0 件；新增配色也會計入本批成本分攤件數。</output><label class="freight-receiving-reason">短少／多到原因<textarea data-freight-inspection-reason placeholder="實收不同時系統會自動記錄，例如：原登記 3 件、實到 6 件">' + escapeHtml(openingVarianceReason) + '</textarea></label><p class="freight-receiving-cost-rule">' + (inspectionFinal ? '目前只有點貨結案，尚未增加任何倉庫庫存；可先印條碼核對，再選客戶分流並完成正式入庫。公司自用會列入公司成本，不會變成可賣庫存。' : '最後核准會同步正式入庫。公司自用只入成本、不上架、不配客戶；可賣件數才走預購／現貨。成本按所有顏色／尺寸的實收總件數計算。') + '</p><output class="freight-receiving-action-status" data-freight-receiving-action-status aria-live="polite">尚未送出；修改實收數量後可直接按綠色按鈕。</output><div class="freight-receiving-workbench-actions"><button type="button" class="ghost-button freight-receiving-cancel" data-freight-receiving-close>取消／關閉（不儲存）</button><button type="button" class="danger-button" data-freight-receiving-void>作廢這一張單</button><button type="button" class="ghost-button" data-freight-receiving-print>先列印產品條碼（不入庫）</button><button type="button" class="ghost-button" data-freight-routing-preview>核對分流（不入庫）</button><button type="button" class="ghost-button" data-freight-inspection-save="draft">暫存這一張／稍後處理</button><button type="button" class="primary-button" data-freight-inspection-save="final">' + (inspectionFinal ? '繼續完成正式入庫' : (options.fromArrival ? '驗收入庫 → 條碼列印／客戶出貨' : '點貨完成 → 核准正式入庫')) + '</button></div></div><div><h4>物流進度時間表</h4>' + freightReceivingTimelineHtml(item) + '<a class="ghost-button" href="./admin-preorder-waiting.html?lookup=' + encodeURIComponent(item.productCode || item.sampleBarcode || '') + '">查看預購客戶明細</a></div></div></section>';
+    }).join('') + '</div><output class="freight-receiving-quantity-cost" data-freight-receiving-total-qty>本張所有配色實收合計 0 件；新增配色也會計入本批成本分攤件數。</output><label class="freight-receiving-reason">短少／多到原因<textarea data-freight-inspection-reason placeholder="實收不同時系統會自動記錄，例如：原登記 3 件、實到 6 件">' + escapeHtml(openingVarianceReason) + '</textarea></label><p class="freight-receiving-cost-rule">' + (inspectionFinal ? '目前只有點貨結案，尚未增加任何倉庫庫存；可先印條碼核對，再選客戶分流並完成正式入庫。公司自用會列入公司成本，不會變成可賣庫存。' : '最後核准會同步正式入庫。公司自用只入成本、不上架、不配客戶；可賣件數才走預購／現貨。成本按所有顏色／尺寸的實收總件數計算。') + '</p><output class="freight-receiving-action-status" data-freight-receiving-action-status aria-live="polite">尚未送出；修改實收數量後可直接按綠色按鈕。</output><div class="freight-receiving-workbench-actions"><button type="button" class="ghost-button freight-receiving-cancel" data-freight-receiving-close>取消／關閉（不儲存）</button><button type="button" class="danger-button" data-freight-receiving-void>作廢這個產品／刪除此產品</button><button type="button" class="ghost-button" data-freight-receiving-partial-done>這單已驗收，仍有沒到</button><button type="button" class="ghost-button" data-freight-receiving-print>先列印產品條碼（不入庫）</button><button type="button" class="ghost-button" data-freight-routing-preview>核對分流（不入庫）</button><button type="button" class="ghost-button" data-freight-inspection-save="draft">暫存這一張／稍後處理</button><button type="button" class="primary-button" data-freight-inspection-save="final">' + (inspectionFinal ? '繼續完成正式入庫' : (options.fromArrival ? '驗收入庫 → 條碼列印／客戶出貨' : '點貨完成 → 核准正式入庫')) + '</button></div></div><div><h4>物流進度時間表</h4>' + freightReceivingTimelineHtml(item) + '<a class="ghost-button" href="./admin-preorder-waiting.html?lookup=' + encodeURIComponent(item.productCode || item.sampleBarcode || '') + '">查看預購客戶明細</a></div></div></section>';
     document.body.appendChild(modal);
+    bindFreightReceivingImageZoomOnce();
+    bindFreightVendorShortageActionsOnce();
     var finalFlowStep = modal.querySelector('.freight-receiving-flow b:nth-child(4)');
     if (finalFlowStep) finalFlowStep.textContent = '4 客戶自動配置／現貨入倉';
     var routingPreviewButton = modal.querySelector('[data-freight-routing-preview]');
@@ -31254,6 +31430,13 @@
         event.preventDefault();
         event.stopPropagation();
         voidFreightReceivingWorkbench(control);
+      });
+    });
+    Array.from(modal.querySelectorAll('[data-freight-receiving-partial-done]')).forEach(function (control) {
+      control.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        markFreightReceivingPartialDone(control);
       });
     });
     bindFreightReceivingInlineColorTools(modal, itemId);
@@ -33984,6 +34167,37 @@
     });
   }
 
+  function markFreightReceivingPartialDone(button) {
+    var modal = document.querySelector('[data-freight-receiving-workbench]');
+    if (!modal) return;
+    var itemId = modal.getAttribute('data-freight-receiving-workbench') || '';
+    var item = freightItemById(itemId);
+    if (!item) { toast('找不到這筆物流產品'); return; }
+    var lines = freightReceivingInspectionLinesFromWorkbench(modal);
+    var missingLines = [];
+    freightVariantLines(item).forEach(function (line, index) {
+      var row = lines[index] || { actualQty: 0 };
+      if (Number(row.actualQty || 0) > 0) return;
+      missingLines.push(line);
+    });
+    if (!missingLines.length) {
+      toast('每一列都有實收，請用綠色按鈕完成驗收');
+      return;
+    }
+    if (!window.confirm('這張會依已到數量入庫；沒到的 ' + missingLines.length + ' 個規格會傳到總覽待重新下單，整張不算驗收完成。確定？')) return;
+    var reasonBox = modal.querySelector('[data-freight-inspection-reason]');
+    var reason = String(reasonBox && reasonBox.value || '').trim() || '廠商沒發／尚未到貨';
+    if (reasonBox && !String(reasonBox.value || '').trim()) reasonBox.value = reason;
+    missingLines.forEach(function (line) {
+      recordFreightVendorShortage(item, line, reason, { skipPersist: true });
+    });
+    item.receivingPartial = true;
+    item.receivingComplete = false;
+    item.progress = freightReceivingPartialProgressText();
+    persistFreightVendorShortages().then(refreshFreightVendorShortageViews);
+    saveFreightReceivingInspection(true, button);
+  }
+
   function voidFreightReceivingWorkbench(button) {
     // LZ_WORKBENCH_VOID_DOC_20260923
     var modal = document.querySelector('[data-freight-receiving-workbench]');
@@ -33992,7 +34206,7 @@
     var item = freightItemById(itemId);
     if (!item) { toast('找不到這筆物流產品'); return; }
     if (item.receivingVoided === true || String((item.receivingInspection && item.receivingInspection.status) || '') === 'voided' || String(item.receivingStage || '') === 'voided' || /作廢/.test(String(item.progress || ''))) {
-      toast('這一張已經作廢');
+      toast('這個產品已經作廢');
       return;
     }
     if (typeof freightItemHasPostedInventory === 'function' ? freightItemHasPostedInventory(item) : !!(item.inventoryReceivedAt || item.productFiledInventoryReceived || String(item.inventoryStatus || '') === 'received')) {
@@ -34000,33 +34214,31 @@
       return;
     }
     var trackingNo = String(item.trackingNo || item.haohongTrackingNo || '').trim();
-    var label = trackingNo || item.productCode || item.productName || itemId;
-    if (!window.confirm('確定作廢這一張物流單（' + label + '）？整張不會入庫，歷史紀錄會保留。')) return;
-    var reason = freightAskVoidReason('沒寄到');
+    var productLabel = item.productCode || item.productName || itemId;
+    var label = productLabel + (trackingNo ? '／物流 ' + trackingNo : '');
+    if (!window.confirm('確定作廢這個產品（' + productLabel + '）？只刪這一個產品，同一張物流單的其他產品不受影響。這個產品不會入庫，會傳到總覽待重新下單。')) return;
+    var reason = freightAskVoidReason('廠商沒發／沒寄到');
     if (!reason) return;
-    var targets = (state.freightTracking && Array.isArray(state.freightTracking.items) ? state.freightTracking.items : []).filter(function (row) {
-      if (!row) return false;
-      if (String(row.id || '') === String(itemId)) return true;
-      if (!trackingNo) return false;
-      if (String(row.trackingNo || '') !== trackingNo && String(row.haohongTrackingNo || '') !== trackingNo) return false;
-      return !(row.receivingVoided === true || String((row.receivingInspection && row.receivingInspection.status) || '') === 'voided');
-    });
-    if (!targets.length) targets = [item];
+    var targets = [item];
     var actionStatus = modal.querySelector('[data-freight-receiving-action-status]');
     if (actionStatus) {
       actionStatus.className = 'freight-receiving-action-status is-working';
-      actionStatus.textContent = '正在作廢這一張單，不會入庫…';
+      actionStatus.textContent = '正在作廢這個產品，不會入庫；會傳到總覽待重新下單…';
     }
     Array.from(modal.querySelectorAll('[data-freight-receiving-void]')).forEach(function (control) {
       control.disabled = true;
       control.setAttribute('data-idle-label', control.getAttribute('data-idle-label') || control.textContent || '');
-      control.textContent = '正在作廢…';
+      control.textContent = '正在作廢這個產品…';
     });
     if (button) {
       button.disabled = true;
       button.setAttribute('data-idle-label', button.getAttribute('data-idle-label') || button.textContent || '');
-      button.textContent = '正在作廢…';
+      button.textContent = '正在作廢這個產品…';
     }
+    freightVariantLines(item).forEach(function (line) {
+      recordFreightVendorShortage(item, line, reason, { skipPersist: true });
+    });
+    persistFreightVendorShortages();
     var sequence = Promise.resolve();
     targets.forEach(function (row) {
       sequence = sequence.then(function () {
@@ -34041,20 +34253,24 @@
           voidReason: reason,
           varianceReason: reason,
           final: true,
-          auditAction: '作廢物流單'
+          auditAction: '作廢單一產品'
         }, 30000);
       });
     });
     sequence.then(function () {
+      return persistFreightVendorShortages();
+    }).then(function () {
       return typeof loadFreightTracking === 'function' ? loadFreightTracking(true) : null;
     }).then(function () {
-      toast('已作廢：' + label + '，沒有入庫');
+      applyFreightVendorShortageFlags();
+      refreshFreightVendorShortageViews();
+      toast('已作廢這個產品：' + label + '。同一張物流單其他產品還在；缺件已傳到總覽');
       modal.remove();
       if (typeof renderFreightTracking === 'function') renderFreightTracking();
     }).catch(function (error) {
       Array.from(modal.querySelectorAll('[data-freight-receiving-void]')).forEach(function (control) {
         control.disabled = false;
-        control.textContent = control.getAttribute('data-idle-label') || '作廢這一張單';
+        control.textContent = control.getAttribute('data-idle-label') || '作廢這個產品／刪除此產品';
       });
       if (actionStatus) {
         actionStatus.className = 'freight-receiving-action-status is-error';
@@ -34157,10 +34373,13 @@
       freightVariantLines(item).forEach(function (line, index) {
         var row = lines[index] || { actualQty: 0 };
         if (Number(row.actualQty || 0) > 0) return;
-        recordFreightVendorShortage(item, line, reason || '廠商沒發／尚未到貨');
+        recordFreightVendorShortage(item, line, reason || '廠商沒發／尚未到貨', { skipPersist: true });
       });
       item.receivingComplete = false;
       item.receivingPartial = true;
+      item.vendorShortage = true;
+      item.progress = freightReceivingPartialProgressText();
+      persistFreightVendorShortages().then(refreshFreightVendorShortageViews);
     }
     if (actionStatus) {
       actionStatus.className = 'freight-receiving-action-status is-working';
@@ -34175,7 +34394,15 @@
     }
     freightPostJsonWithTimeout({ action: 'save-receiving-inspection', freightItemId: itemId, lines: lines, goodsPurpose: goodsPurpose, inventoryBusinessUnit: selectedBusinessUnit, destinationWarehouse: selectedDestination, category: selectedCategory, varianceReason: reason, final: !!finalize }, 30000).then(function (payload) {
       var index = state.freightTracking.items.findIndex(function (row) { return String(row.id || '') === String(itemId); });
-      if (index >= 0 && payload.item) state.freightTracking.items[index] = payload.item;
+      if (index >= 0 && payload.item) {
+        state.freightTracking.items[index] = payload.item;
+        if (item.receivingPartial || item.vendorShortage) {
+          state.freightTracking.items[index].receivingPartial = true;
+          state.freightTracking.items[index].receivingComplete = false;
+          state.freightTracking.items[index].vendorShortage = true;
+          state.freightTracking.items[index].progress = freightReceivingPartialProgressText();
+        }
+      }
       if (payload.revision !== undefined) state.freightTracking.revision = payload.revision;
       if (!finalize) {
         toast('點貨進度已暫存；尚未改庫存或成本');
@@ -34472,6 +34699,8 @@
   }
 
   function renderFreightTracking() {
+    bindFreightReceivingImageZoomOnce();
+    bindFreightVendorShortageActionsOnce();
     var panel = document.querySelector('[data-freight-tracking-panel]');
     if (!panel) return;
     cancelFreightSecondaryRender();
@@ -40825,6 +41054,9 @@
       }).join('') || '<div class="empty">目前沒有未處理訂單。</div>';
     }
     renderAdminDuplicateProductList();
+    loadFreightVendorShortages().then(function (rows) {
+      renderOverviewVendorShortage(rows);
+    });
   }
 
   function renderSalesPerformance() {
@@ -63643,6 +63875,12 @@
         voidFreightReceivingWorkbench(freightReceivingVoid);
         return;
       }
+      var freightReceivingPartialDone = event.target.closest ? event.target.closest('[data-freight-receiving-partial-done]') : null;
+      if (freightReceivingPartialDone) {
+        event.preventDefault();
+        markFreightReceivingPartialDone(freightReceivingPartialDone);
+        return;
+      }
       var freightInspectionSave = event.target.closest ? event.target.closest('[data-freight-inspection-save]') : null;
       var freightRoutingPreview = event.target.closest ? event.target.closest('[data-freight-routing-preview]') : null;
       if (freightRoutingPreview) {
@@ -67571,3 +67809,4 @@
 /* LZ_RECV_PRINT_Z_20260928 purpose picker above inbound overlay; other-wh uses inbound barcode */
 /* LZ_RECV_LOOKUP_20260928 receiving lookup uses list tracking fields + server search; no catalog hang */
 /* LZ_RECV_COLOR_CHK_20260928 extra colors are checkboxes; forecast tap only +1; no write on photo */
+/* LZ_RECV_PARTIAL_20260928 thumb zoom; void this product only; shortages to overview */
