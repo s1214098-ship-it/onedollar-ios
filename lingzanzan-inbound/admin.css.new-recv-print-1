@@ -20127,6 +20127,13 @@ body.is-order-save-locked .login-gate{pointer-events:none}
   padding: 12px 0 0;
   background: #f4fff9;
 }
+.freight-received-print-ready [data-freight-print-received] {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 30 !important;
+  cursor: pointer !important;
+  touch-action: manipulation;
+}
 .freight-received-other-wh {
   max-height: 220px;
   overflow: auto;
@@ -20134,11 +20141,10 @@ body.is-order-save-locked .login-gate{pointer-events:none}
 .freight-received-other-stock[hidden] {
   display: none !important;
 }
-.inventory-label-purpose-picker {
-  z-index: 11020;
-}
+.inventory-label-purpose-picker,
 .inventory-barcode-print-overlay {
-  z-index: 11060;
+  z-index: 2147483647 !important;
+  pointer-events: auto !important;
 }
 .freight-size-matrix-cell {
   display: grid;
@@ -20621,6 +20627,7 @@ body.is-order-save-locked .login-gate{pointer-events:none}
 
 /* LZ_RECV_LOOKUP_20260928 receiving lookup + extra color checkbox + thumb zoom */
 /* LZ_RECV_PARTIAL_20260928 thumb zoom badge + vendor shortage board */
+/* LZ_RECV_PRINT_TAP_20260928 print button above inbound overlay */
 .freight-receiving-thumb,.freight-receiving-chip-zoom{padding:0;border:0;background:transparent;cursor:zoom-in;position:relative}
 .freight-receiving-thumb{width:58px;height:58px}
 .freight-receiving-thumb img{width:58px;height:58px;border-radius:9px;object-fit:cover;display:block;pointer-events:none}

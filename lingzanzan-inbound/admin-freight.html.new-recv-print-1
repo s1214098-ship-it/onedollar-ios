@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>LINGZANZAN - 物流集運</title>
   <link rel="icon" href="./assets/brand-icon-192.png">
-<link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260928-recv-partial-1">
+<link rel="lz-asset" data-lz-href="./assets/admin.css?v=20260928-recv-print-2">
   <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css" data-admin-navigation-style>
     <style>
 /* LZ_CAT_PICK_20260927 */
@@ -955,7 +955,7 @@
       .freight-arrival-product-open:active,.freight-arrival-product-open:focus{outline:3px solid rgba(244,198,83,.35);background:#3a2d38}
       .freight-color-search-hint{display:block;margin-top:6px;color:#9ff4e7;font-size:12px;line-height:1.4}
     </style>
-<script type="lz/asset" data-lz-src="./assets/admin.js?v=20260928-recv-partial-1" defer></script>
+<script type="lz/asset" data-lz-src="./assets/admin.js?v=20260928-recv-print-2" defer></script>
     <script type="lz/asset" data-lz-src="./assets/myship-workbench.js?v=20260923-hold-retry-1" defer></script>
   <script type="lz/asset" data-lz-src="./assets/admin-ui-rescue.js" defer></script>
 <script type="lz/asset" data-lz-src="./assets/submission-feedback.js" defer data-submission-feedback-script></script>

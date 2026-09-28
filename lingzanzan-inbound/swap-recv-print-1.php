@@ -41,7 +41,9 @@ try {
   echo 'cssMarker=' . (strpos($css, 'LZ_RECV_PRINT_Z_20260928') !== false ? 'yes' : 'no') . "\n";
   echo 'cssLookup=' . (strpos($css, 'LZ_RECV_LOOKUP_20260928') !== false ? 'yes' : 'no') . "\n";
   echo 'cssPartial=' . (strpos($css, 'LZ_RECV_PARTIAL_20260928') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlBust=' . (strpos($html, '20260928-recv-partial-1') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlBust=' . (strpos($html, '20260928-recv-print-2') !== false ? 'yes' : 'no') . "\n";
+  echo 'jsPrintTap=' . (strpos($js, 'LZ_RECV_PRINT_TAP_20260928') !== false ? 'yes' : 'no') . "\n";
+  echo 'jsPrintFn=' . (strpos($js, 'function lzPrintFreightReceivedNow') === false && strpos($js, 'window.lzPrintFreightReceivedNow') !== false ? 'yes' : 'no') . "\n";
   echo 'phpLookup=' . (strpos($php, 'LZ_RECV_LOOKUP_20260928') !== false ? 'yes' : 'no') . "\n";
   echo 'phpShortage=' . (strpos($shortage, 'LZ_RECV_PARTIAL_20260928') !== false ? 'yes' : 'no') . "\n";
   echo "ok\n";

@@ -17639,11 +17639,44 @@
         }
       }
       if (host) host.textContent = '目前沒有可列印條碼。請勾選其他倉現貨，或確認本次入庫 SKU 已有條碼。';
-      return;
+      return false;
     }
+    toast('正在開啟列印…');
     if (payloads.length === 1) openInventoryBarcodePrint(payloads[0]);
     else openInventoryBarcodeBatchPrint(payloads);
+    return true;
   }
+
+  window.lzPrintFreightReceivedNow = function (event) {
+    // LZ_RECV_PRINT_TAP_20260928: PDA/WebView often never fires click after a
+    // document capture pointerdown. Close already used pointerdown; print must too.
+    if (event) {
+      try { event.preventDefault(); } catch (error) {}
+      try { event.stopPropagation(); } catch (error) {}
+      try { if (event.stopImmediatePropagation) event.stopImmediatePropagation(); } catch (error) {}
+    }
+    if (window.__lzRecvPrintBusy && Date.now() < window.__lzRecvPrintBusy) return false;
+    window.__lzRecvPrintBusy = Date.now() + 1200;
+    var panel = document.querySelector('[data-freight-received-print-ready]');
+    var button = event && event.currentTarget && event.currentTarget.getAttribute && event.currentTarget.getAttribute('data-freight-print-received') !== null
+      ? event.currentTarget
+      : (panel && panel.querySelector('[data-freight-print-received]'));
+    if (button) {
+      button.setAttribute('data-idle-label', button.getAttribute('data-idle-label') || button.textContent || '立即列印本次條碼');
+      button.textContent = '正在開啟列印…';
+    }
+    try {
+      freightOpenReceivedPrintPayloads(freightReceivedCombinedPrintPayloads(panel));
+    } catch (error) {
+      toast('列印開啟失敗：' + ((error && error.message) || error));
+    }
+    window.setTimeout(function () {
+      if (button && document.body.contains(button)) {
+        button.textContent = button.getAttribute('data-idle-label') || '立即列印本次條碼';
+      }
+    }, 1400);
+    return false;
+  };
 
   function syncFreightReceivedPrintButtonLabel(panel) {
     var button = panel && panel.querySelector('[data-freight-print-received]');
@@ -17841,7 +17874,7 @@
         ? '<button type="button" class="ghost-button" data-freight-received-go-shipping>自行改綁客戶</button>'
         : '<button type="button" class="primary-button" data-freight-received-go-shipping>列印完成 → 選可出貨客戶</button>')
       : '';
-    panel.innerHTML = '<section><header class="freight-received-print-head"><div><small>' + (isInternalUse ? 'INTERNAL USE DEDUCTED' : 'INVENTORY RECEIVED') + '</small><h3>' + (isInternalUse ? '公司自用已扣庫存' : (hasPrintableBarcodes ? '正式入庫完成，可直接列印條碼' : '正式入庫完成')) + '</h3></div><button type="button" class="ghost-button freight-received-print-x" data-freight-print-ready-close onclick="window.lzDismissFreightReceivedOverlay&&window.lzDismissFreightReceivedOverlay(event);return false;">關閉</button></header><div class="freight-received-print-scroller">' + chinaSummary + chinaSampleNote + dispatchSummary + '<div class="freight-received-print-list">' + inboundList + '</div><div class="freight-received-other-stock" data-freight-received-other-stock' + (isInternalUse ? ' hidden' : '') + '><header><small>OTHER WAREHOUSE STOCK</small><b>其他倉庫現貨對比／列印給業務</b><span data-freight-other-stock-hint>讀取其他倉庫現貨尺寸與數量…</span></header><div class="freight-received-other-body" data-freight-other-stock-body>讀取中…</div></div></div><div class="freight-received-print-actions">' + shippingAction + '<button type="button" class="ghost-button" data-freight-print-received>立即列印本次條碼</button><button type="button" class="ghost-button" data-freight-print-ready-close onclick="window.lzDismissFreightReceivedOverlay&&window.lzDismissFreightReceivedOverlay(event);return false;">關閉</button></div></section>';
+    panel.innerHTML = '<section><header class="freight-received-print-head"><div><small>' + (isInternalUse ? 'INTERNAL USE DEDUCTED' : 'INVENTORY RECEIVED') + '</small><h3>' + (isInternalUse ? '公司自用已扣庫存' : (hasPrintableBarcodes ? '正式入庫完成，可直接列印條碼' : '正式入庫完成')) + '</h3></div><button type="button" class="ghost-button freight-received-print-x" data-freight-print-ready-close onclick="window.lzDismissFreightReceivedOverlay&&window.lzDismissFreightReceivedOverlay(event);return false;">關閉</button></header><div class="freight-received-print-scroller">' + chinaSummary + chinaSampleNote + dispatchSummary + '<div class="freight-received-print-list">' + inboundList + '</div><div class="freight-received-other-stock" data-freight-received-other-stock' + (isInternalUse ? ' hidden' : '') + '><header><small>OTHER WAREHOUSE STOCK</small><b>其他倉庫現貨對比／列印給業務</b><span data-freight-other-stock-hint>讀取其他倉庫現貨尺寸與數量…</span></header><div class="freight-received-other-body" data-freight-other-stock-body>讀取中…</div></div></div><div class="freight-received-print-actions">' + shippingAction + '<button type="button" class="ghost-button" data-freight-print-received onclick="window.lzPrintFreightReceivedNow&&window.lzPrintFreightReceivedNow(event);return false;">立即列印本次條碼</button><button type="button" class="ghost-button" data-freight-print-ready-close onclick="window.lzDismissFreightReceivedOverlay&&window.lzDismissFreightReceivedOverlay(event);return false;">關閉</button></div></section>';
     document.body.appendChild(panel);
     // This panel is created after the page finished binding controls. Bind its
     // two actions locally as well as keeping the document-level fallback; on
@@ -17849,11 +17882,13 @@
     // clickable but produced no response.
     var readyPrintPayloads = freightReceivedPrintPayloads.slice();
     var readyPrintButton = panel.querySelector('[data-freight-print-received]');
-    if (readyPrintButton) readyPrintButton.addEventListener('click', function (event) {
-      event.preventDefault();
-      event.stopPropagation();
-      freightOpenReceivedPrintPayloads(freightReceivedCombinedPrintPayloads(panel));
-    });
+    if (readyPrintButton) {
+      var bindReceivedPrint = function (event) {
+        window.lzPrintFreightReceivedNow(event);
+      };
+      readyPrintButton.addEventListener('pointerdown', bindReceivedPrint, true);
+      readyPrintButton.addEventListener('click', bindReceivedPrint, true);
+    }
     var closeFreightReceivedPrintReady = function () {
       // LZ_RECV_CLOSE_AGAIN_20260927: 關閉只拿掉完成層，不重置建檔資料。
       dismissFreightReceivedPrintReadyKeepForm();
@@ -53606,8 +53641,9 @@
   }
   window.__lzRecvOverlayPointer = function (event) {
     var target = event && event.target;
+    if (target && target.nodeType === 3) target = target.parentElement;
     if (!target || !target.closest) return;
-    if (target.closest('[data-inventory-label-purpose-picker],[data-inventory-barcode-print-overlay],[data-freight-print-received],[data-label-purpose-confirm],[data-label-purpose-close],[data-freight-other-stock-print],[data-freight-other-stock-select],[data-freight-received-go-shipping]')) return;
+    if (target.closest('[data-inventory-label-purpose-picker],[data-inventory-barcode-print-overlay],[data-freight-print-received],[data-label-purpose-confirm],[data-label-purpose-close],[data-freight-other-stock-print],[data-freight-other-stock-select],[data-freight-other-stock-copies],[data-freight-received-go-shipping],[data-freight-received-print-ready] section,.freight-received-print-actions')) return;
     if (target.closest('[data-freight-print-ready-close]')) {
       window.lzDismissFreightReceivedOverlay(event);
       return;
@@ -53627,9 +53663,26 @@
   document.addEventListener('click', window.__lzRecvOverlayClick, true);
   window.__lzRecvOverlayDismissBound = true;
 
+  function liftInventoryPrintLayer(node) {
+    if (!node || !node.style) return;
+    node.style.setProperty('position', 'fixed', 'important');
+    node.style.setProperty('inset', '0', 'important');
+    node.style.setProperty('z-index', '2147483647', 'important');
+    node.style.setProperty('display', 'grid', 'important');
+    node.style.setProperty('pointer-events', 'auto', 'important');
+    var ready = document.querySelector('[data-freight-received-print-ready]');
+    if (ready) ready.style.setProperty('z-index', '1', 'important');
+  }
+
+  function restoreReceivedPrintReadyLayer() {
+    var ready = document.querySelector('[data-freight-received-print-ready]');
+    if (ready) ready.style.setProperty('z-index', '2147483646', 'important');
+  }
+
   function closeInventoryLabelPurposePicker() {
     var picker = document.querySelector('[data-inventory-label-purpose-picker]');
     if (picker) picker.remove();
+    restoreReceivedPrintReadyLayer();
   }
 
   function inventoryLabelPayloadsForTotal(payloads, total) {
@@ -53700,6 +53753,7 @@
     picker.className = 'inventory-label-purpose-picker';
     picker.setAttribute('data-inventory-label-purpose-picker', '');
     picker.setAttribute('style', 'position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;pointer-events:auto;');
+    liftInventoryPrintLayer(picker);
     picker.innerHTML = [
       '<section role="dialog" aria-modal="true" aria-labelledby="inventory-label-purpose-title">',
       '<header><div><small>LABEL PURPOSE / TUJUAN LABEL</small><h3 id="inventory-label-purpose-title">選擇標籤用途／Pilih tujuan label</h3></div><button type="button" data-label-purpose-close aria-label="關閉／Tutup">×</button></header>',
@@ -53721,6 +53775,7 @@
       '</section>'
     ].join('');
     document.body.appendChild(picker);
+    liftInventoryPrintLayer(picker);
     var confirmButton = picker.querySelector('[data-label-purpose-confirm]');
     renderLabelPurposeSummary();
     picker.addEventListener('change', function (event) {
@@ -53733,6 +53788,10 @@
       if (event.target && event.target.matches('[data-label-purpose-copies]')) renderLabelPurposeSummary();
     });
     picker.addEventListener('click', function (event) {
+      if (window.__lzRecvPrintBusy && Date.now() < window.__lzRecvPrintBusy && event.target === picker) {
+        event.preventDefault();
+        return;
+      }
       if (event.target === picker || event.target.closest('[data-label-purpose-close]')) {
         event.preventDefault();
         closeInventoryLabelPurposePicker();
@@ -53784,6 +53843,7 @@
     // LZ_PRINT_OVERLAY_20260923: show labels in-page; never auto-print an empty popup.
     var overlay = document.querySelector('[data-inventory-barcode-print-overlay]');
     if (overlay) overlay.remove();
+    if (!document.querySelector('[data-inventory-label-purpose-picker]')) restoreReceivedPrintReadyLayer();
   }
 
   function showInventoryBarcodePrintOverlay(printableHtml, fileName) {
@@ -53802,6 +53862,7 @@
       + '<button type="button" class="ghost-button" data-label-overlay-close>關閉</button>'
       + '</footer></section>';
     document.body.appendChild(overlay);
+    liftInventoryPrintLayer(overlay);
     var frame = overlay.querySelector('[data-label-print-frame]');
     var frameDoc = frame && (frame.contentDocument || (frame.contentWindow && frame.contentWindow.document));
     if (!frameDoc) {
@@ -63209,8 +63270,7 @@
       var freightPrintReceived = event.target.closest ? event.target.closest('[data-freight-print-received]') : null;
       if (freightPrintReceived) {
         event.preventDefault();
-        var receivedPrintPanel = freightPrintReceived.closest('[data-freight-received-print-ready]');
-        freightOpenReceivedPrintPayloads(freightReceivedCombinedPrintPayloads(receivedPrintPanel));
+        window.lzPrintFreightReceivedNow(event);
         return;
       }
       var freightPrintReadyClose = event.target.closest ? event.target.closest('[data-freight-print-ready-close]') : null;
@@ -67810,3 +67870,4 @@
 /* LZ_RECV_LOOKUP_20260928 receiving lookup uses list tracking fields + server search; no catalog hang */
 /* LZ_RECV_COLOR_CHK_20260928 extra colors are checkboxes; forecast tap only +1; no write on photo */
 /* LZ_RECV_PARTIAL_20260928 thumb zoom; void this product only; shortages to overview */
+/* LZ_RECV_PRINT_TAP_20260928 inbound print uses pointerdown because click is swallowed */
