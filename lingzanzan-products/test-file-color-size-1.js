@@ -15,8 +15,10 @@ assert(overlay.indexOf('function applyProductSizeModuleFromSelect') !== -1, 'siz
 assert(overlay.indexOf("closest('[data-product-add-color]')") !== -1, 'add color uses closest');
 assert(overlay.indexOf("closest('[data-apply-size-module]')") !== -1, 'apply size uses closest');
 assert(overlay.indexOf('淺藍色永遠 911') !== -1, 'standard code comment');
-assert(html.indexOf('admin-product-forwarder-cost-9.js?v=20260928-color-size-1') !== -1, 'js cache bust');
-assert(html.indexOf('admin-products-horizontal-9.css?v=20260928-color-size-1') !== -1, 'css cache bust');
+assert(overlay.indexOf('function applySelectedProductColorMainImage') !== -1, 'click main image applies color photo');
+assert(overlay.indexOf('data-product-draft-image') !== -1, 'draft image pick target');
+assert(html.indexOf('admin-product-forwarder-cost-9.js?v=20260928-color-size-2') !== -1, 'js cache bust');
+assert(html.indexOf('admin-products-horizontal-9.css?v=20260928-color-size-2') !== -1, 'css cache bust');
 assert(html.indexOf('>新增顏色<') !== -1, 'add color button label');
 assert(html.indexOf('顏色名稱') !== -1, 'chinese name label');
 assert(html.indexOf('印尼文') !== -1, 'indonesian label');

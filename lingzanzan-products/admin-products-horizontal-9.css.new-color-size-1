@@ -1550,11 +1550,24 @@ body.product-editor-open {
   background: rgba(232, 183, 91, .92);
   font-size: 12px;
   font-weight: 950;
+  cursor: pointer;
+  z-index: 2;
 }
 
 .main-image-choice input {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
+  accent-color: #171117;
+  cursor: pointer;
+}
+
+[data-product-image-list] .product-draft-image-item {
+  cursor: pointer;
+}
+
+[data-product-image-list] .product-draft-image-item.is-main {
+  outline: 2px solid #e8b75b;
+  outline-offset: 2px;
 }
 
 .product-basic-grid,

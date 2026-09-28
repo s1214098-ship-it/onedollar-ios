@@ -30,8 +30,10 @@ try {
   echo 'jsSizeMod=' . (strpos($js, 'function applyProductSizeModuleFromSelect') !== false ? 'yes' : 'no') . "\n";
   echo 'jsCode911=' . (strpos($js, '淺藍色永遠 911') !== false ? 'yes' : 'no') . "\n";
   echo 'cssMarker=' . (strpos($css, 'LZ_FILE_COLOR_SIZE_20260928') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlBust=' . (strpos($html, 'admin-product-forwarder-cost-9.js?v=20260928-color-size-1') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlCss=' . (strpos($html, 'admin-products-horizontal-9.css?v=20260928-color-size-1') !== false ? 'yes' : 'no') . "\n";
+  echo 'jsMainImg=' . (strpos($js, 'function applySelectedProductColorMainImage') !== false ? 'yes' : 'no') . "\n";
+  echo 'jsDraftPick=' . (strpos($js, 'data-product-draft-image') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlBust=' . (strpos($html, 'admin-product-forwarder-cost-9.js?v=20260928-color-size-2') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlCss=' . (strpos($html, 'admin-products-horizontal-9.css?v=20260928-color-size-2') !== false ? 'yes' : 'no') . "\n";
   echo 'htmlAddBtn=' . (strpos($html, '>新增顏色<') !== false ? 'yes' : 'no') . "\n";
   echo 'htmlMatrix=' . (strpos($html, '6. 顏色尺碼矩陣') !== false ? 'yes' : 'no') . "\n";
   echo 'ok';
