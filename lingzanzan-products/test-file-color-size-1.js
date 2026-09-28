@@ -15,10 +15,16 @@ assert(overlay.indexOf('function applyProductSizeModuleFromSelect') !== -1, 'siz
 assert(overlay.indexOf("closest('[data-product-add-color]')") !== -1, 'add color uses closest');
 assert(overlay.indexOf("closest('[data-apply-size-module]')") !== -1, 'apply size uses closest');
 assert(overlay.indexOf('淺藍色永遠 911') !== -1, 'standard code comment');
-assert(overlay.indexOf('function applySelectedProductColorMainImage') !== -1, 'click main image applies color photo');
+assert(overlay.indexOf('function applySelectedProductColorMainImage') !== -1, 'color picker applies color photo');
+assert(overlay.indexOf('function dedupeProductDraftImages') !== -1, 'dedupe overlapping product images');
+assert(overlay.indexOf('function clearPendingProductColorImage') !== -1, 'clear pending color image');
+assert(overlay.indexOf('LZ_FILE_COLOR_NO_OVERLAP_20260928') !== -1, 'no overlap marker');
+assert(overlay.indexOf('applySelectedProductColorMainImage(draftImageIndex)') === -1, 'thumbnail click does not apply color photo');
+assert(overlay.indexOf('applySelectedProductColorMainImage(productDraft.mainImageIndex)') === -1, 'main radio does not apply color photo');
+assert(overlay.indexOf('productDraft.images[productColorMainImageIndex]') === -1, 'add color does not inherit previous main image');
 assert(overlay.indexOf('data-product-draft-image') !== -1, 'draft image pick target');
-assert(html.indexOf('admin-product-forwarder-cost-9.js?v=20260928-color-size-2') !== -1, 'js cache bust');
-assert(html.indexOf('admin-products-horizontal-9.css?v=20260928-color-size-2') !== -1, 'css cache bust');
+assert(html.indexOf('admin-product-forwarder-cost-9.js?v=20260928-color-size-3') !== -1, 'js cache bust');
+assert(html.indexOf('admin-products-horizontal-9.css?v=20260928-color-size-3') !== -1, 'css cache bust');
 assert(html.indexOf('>新增顏色<') !== -1, 'add color button label');
 assert(html.indexOf('顏色名稱') !== -1, 'chinese name label');
 assert(html.indexOf('印尼文') !== -1, 'indonesian label');
@@ -141,5 +147,53 @@ var stocks = ensureMatrix([{ name: '淺藍色' }], ['S', 'M', 'L', 'XL', '2XL'],
 assert.strictEqual(Object.keys(stocks).length, 5);
 assert.strictEqual(stocks['淺藍色||S'], 0);
 assert.strictEqual(stocks['淺藍色||2XL'], 0);
+
+function sameProductDraftImage(a, b) {
+  a = String(a || '');
+  b = String(b || '');
+  if (!a || !b) return false;
+  if (a === b) return true;
+  function payload(value) {
+    value = String(value || '');
+    var comma = value.indexOf(',');
+    if (/^data:image\//i.test(value) && comma > -1) return 'data:' + value.slice(comma + 1);
+    var clean = value.replace(/[?#].*$/, '');
+    try {
+      if (/^https?:\/\//i.test(clean) || clean.indexOf('//') === 0 || clean.charAt(0) === '.' || clean.charAt(0) === '/') {
+        return new URL(clean, 'https://www.lingzanzan.com/').pathname;
+      }
+    } catch (error) {}
+    var slash = clean.lastIndexOf('/');
+    return slash >= 0 ? clean.slice(slash) : clean;
+  }
+  var left = payload(a);
+  var right = payload(b);
+  return !!left && left === right;
+}
+
+function dedupeImages(images, mainIndex) {
+  var mainSrc = images[mainIndex] || images[0] || '';
+  var unique = [];
+  images.forEach(function (image) {
+    if (!image) return;
+    if (unique.some(function (have) { return sameProductDraftImage(have, image); })) return;
+    unique.push(image);
+  });
+  var nextMain = 0;
+  unique.forEach(function (image, index) {
+    if (sameProductDraftImage(image, mainSrc)) nextMain = index;
+  });
+  return { images: unique, mainImageIndex: unique.length ? nextMain : 0 };
+}
+
+assert.strictEqual(sameProductDraftImage('https://www.lingzanzan.com/uploads/jeans.jpg', './uploads/jeans.jpg?v=2'), true);
+assert.strictEqual(sameProductDraftImage('data:image/jpeg;base64,AAA', 'data:image/png;base64,AAA'), true);
+assert.strictEqual(sameProductDraftImage('/uploads/a.jpg', '/uploads/b.jpg'), false);
+var jeansDup = dedupeImages([
+  'https://www.lingzanzan.com/uploads/jeans.jpg',
+  './uploads/jeans.jpg?cache=1'
+], 0);
+assert.strictEqual(jeansDup.images.length, 1);
+assert.strictEqual(jeansDup.mainImageIndex, 0);
 
 console.log('test-file-color-size-1 ok');

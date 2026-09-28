@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>LINGZANZAN - 產品管理</title>
   <link rel="icon" href="./assets/brand-icon-192.png">
-  <link rel="lz-asset" data-lz-href="./assets/admin-products-horizontal-9.css?v=20260928-color-size-2">
+  <link rel="lz-asset" data-lz-href="./assets/admin-products-horizontal-9.css?v=20260928-color-size-3">
   <link rel="lz-asset" data-lz-href="./assets/admin-navigation.css?v=20260922-product-popup-confirm-1" data-admin-navigation-style>
   <link rel="lz-asset" data-lz-href="./assets/admin-products-no-hints.css?v=20260926-no-hints-1">
   <link rel="lz-asset" data-lz-href="./assets/admin-products-no-recog-1.css?v=20260928-no-recog-1">
@@ -655,7 +655,7 @@
   <div class="toast" data-admin-toast hidden></div>
   <script type="lz/asset" data-lz-src="./assets/vendor/qrcode-generator.min.js" defer></script>
   <script type="lz/asset" data-lz-src="./assets/admin-warehouse-authority-1.js?v=20260927-wh-barcode-1" defer></script>
-  <script type="lz/asset" data-lz-src="./assets/admin-product-forwarder-cost-9.js?v=20260928-color-size-2" defer></script>
+  <script type="lz/asset" data-lz-src="./assets/admin-product-forwarder-cost-9.js?v=20260928-color-size-3" defer></script>
   <script type="lz/asset" data-lz-src="./assets/admin-products-no-hints.js?v=20260926-no-hints-1" defer></script>
   <script type="lz/asset" data-lz-src="./assets/zhangzhang-pricing-ui.js?v=20260917-pricing-50-1" defer></script>
   <script type="lz/asset" data-lz-src="./assets/admin-labels.js?v=20260918-product-department-filter-1" defer></script>

@@ -2638,10 +2638,50 @@
     function payload(value) {
       value = String(value || '');
       var comma = value.indexOf(',');
-      if (/^data:image\//i.test(value) && comma > -1) return value.slice(comma + 1);
-      return value.replace(/[?#].*$/, '');
+      if (/^data:image\//i.test(value) && comma > -1) return 'data:' + value.slice(comma + 1);
+      var clean = value.replace(/[?#].*$/, '');
+      try {
+        if (/^https?:\/\//i.test(clean) || clean.indexOf('//') === 0 || clean.charAt(0) === '.' || clean.charAt(0) === '/') {
+          return new URL(clean, 'https://www.lingzanzan.com/').pathname;
+        }
+      } catch (error) {}
+      var slash = clean.lastIndexOf('/');
+      return slash >= 0 ? clean.slice(slash) : clean;
     }
-    return payload(a) === payload(b) && payload(a).length > 0;
+    var left = payload(a);
+    var right = payload(b);
+    return !!left && left === right;
+  }
+
+  function clearPendingProductColorImage() {
+    /* LZ_FILE_COLOR_NO_OVERLAP_20260928: 新增顏色不沿用上一張主圖。 */
+    productColorMainImageIndex = -1;
+    productColorImageTarget = 'new';
+    var input = document.querySelector('[data-new-color-image]');
+    if (input) {
+      input.value = '';
+      delete input.dataset.selectedMainImage;
+    }
+  }
+
+  function dedupeProductDraftImages() {
+    /* LZ_FILE_COLOR_NO_OVERLAP_20260928 */
+    var images = Array.isArray(productDraft.images) ? productDraft.images : [];
+    var mainSrc = images[productDraft.mainImageIndex] || images[0] || '';
+    var unique = [];
+    images.forEach(function (image) {
+      if (!image) return;
+      if (unique.some(function (have) { return sameProductDraftImage(have, image); })) return;
+      unique.push(image);
+    });
+    var mainIndex = 0;
+    unique.forEach(function (image, index) {
+      if (sameProductDraftImage(image, mainSrc)) mainIndex = index;
+    });
+    productDraft.images = unique;
+    productDraft.mainImageIndex = unique.length ? mainIndex : 0;
+    if (productColorMainImageIndex >= unique.length) productColorMainImageIndex = -1;
+    return unique;
   }
 
   var lastProductImageCommit = { at: 0, key: '' };
@@ -2649,6 +2689,7 @@
   function commitProductImagesToDraft(images, sourceLabel, options) {
     /* LZ_FILE_COLOR_DUP_20260928 */
     options = options || {};
+    dedupeProductDraftImages();
     images = (images || []).filter(Boolean);
     if (!images.length) {
       toast('剪貼簿沒有圖片，請先用剪刀截圖後再貼上');
@@ -3527,6 +3568,7 @@
   }
 
   function renderProductDraftImages() {
+    dedupeProductDraftImages();
     var preview = document.querySelector('[data-product-main-preview]');
     var list = document.querySelector('[data-product-image-list]');
     if (productDraft.mainImageIndex >= productDraft.images.length) productDraft.mainImageIndex = 0;
@@ -3546,8 +3588,7 @@
     var keepWarehouse = options && options.keepWarehouse;
     quickStockInManualItemId = '';
     productEditId = '';
-    productColorMainImageIndex = -1;
-    productColorImageTarget = 'new';
+    clearPendingProductColorImage();
     productDraft = {
       images: [],
       mainImageIndex: 0,
@@ -3597,6 +3638,7 @@
       var el = document.querySelector(selector);
       if (el) el.value = '';
     });
+    clearPendingProductColorImage();
     var resetCodeInput = document.querySelector('[data-new-product-code]');
     if (resetCodeInput) {
       delete resetCodeInput.dataset.autoCategoryCode;
@@ -6135,8 +6177,7 @@
       return;
     }
     productEditId = product.id;
-    productColorMainImageIndex = -1;
-    productColorImageTarget = 'new';
+    clearPendingProductColorImage();
     var skus = productSkus(state.skus, product.id);
     productDraft = {
       images: product.images && product.images.length ? product.images.slice() : (product.mainImage ? [product.mainImage] : []),
@@ -6150,6 +6191,7 @@
       stocks: {},
       purchaseLogistics: normalizeProductLogisticsRecords(product.purchaseLogistics || product.logisticsRecords || product.purchaseTracking || [])
     };
+    dedupeProductDraftImages();
     if (!productDraft.colors.length) {
       var colorNames = Array.from(new Set(skus.map(function (sku) { return sku.colorName || sku.color; }).filter(Boolean)));
       productDraft.colors = colorNames.map(function (name) { var nameId = productColorIndonesianName(name); return { code: '', name: name, nameId: nameId, colorNameId: nameId, image: '' }; });
@@ -6399,8 +6441,7 @@
       if (!event.target || !event.target.matches) return;
       if (event.target.matches('[data-product-main-image]')) {
         productDraft.mainImageIndex = Number(event.target.getAttribute('data-product-main-image'));
-        applySelectedProductColorMainImage(productDraft.mainImageIndex);
-        renderProductCreate();
+        renderProductDraftImages();
         return;
       }
       if (event.target.matches('[data-product-color-main-image]')) {
@@ -7447,6 +7488,7 @@
       });
     });
     dedupeProductDraftColors();
+    dedupeProductDraftImages();
     if (!code || !title) {
       toast('請填產品編號與產品名稱');
       productDraftMessage('請填產品編號與產品名稱');
@@ -11327,12 +11369,12 @@
   }
 
   function applySelectedProductColorMainImage(imageIndex, options) {
-    /* LZ_FILE_COLOR_SIZE_20260928: 點主圖圈圈／縮圖就套成顏色圖，不必再按套用勾選。 */
+    /* LZ_FILE_COLOR_NO_OVERLAP_20260928: 只有顏色區勾選／套用勾選才套顏色圖。主圖圈只標產品主圖，不記住去新增。 */
     options = options || {};
     imageIndex = Number(imageIndex);
     var src = (productDraft.images || [])[imageIndex] || '';
     if (!src) {
-      if (!options.silent) toast('找不到這張主圖');
+      if (!options.silent) toast('找不到這張圖片');
       return false;
     }
     var now = Date.now();
@@ -11345,38 +11387,25 @@
     productColorMainImageIndex = imageIndex;
     productColorImageTarget = targetValue;
     var newColorImageInput = document.querySelector('[data-new-color-image]');
-    if (newColorImageInput) {
-      newColorImageInput.value = '';
-      newColorImageInput.dataset.selectedMainImage = src;
-    }
     if (targetValue === 'new' || targetValue === '') {
-      var colors = productDraft.colors || [];
-      var lastColor = colors.length ? colors[colors.length - 1] : null;
-      var lastName = lastColor ? (productColorIdentity(lastColor).name || lastColor.name || '') : '';
-      if (lastColor && lastName && lastName !== '未設定' && lastName !== '未設定顏色') {
-        var onlyDefaultBlack = colors.length === 1 && lastName === canonicalChineseColorName('黑色');
-        if (!onlyDefaultBlack) {
-          lastColor.image = src;
-          var statusExisting = document.querySelector('[data-product-color-main-image-status]');
-          if (statusExisting) statusExisting.textContent = '已把主圖 ' + (imageIndex + 1) + ' 套用到「' + lastName + '」';
-          if (!options.silent) toast('已把主圖套用到顏色：' + lastName);
-          renderProductCreate();
-          return true;
-        }
+      if (newColorImageInput) {
+        newColorImageInput.value = '';
+        newColorImageInput.dataset.selectedMainImage = src;
       }
       var status = document.querySelector('[data-product-color-main-image-status]');
-      if (status) status.textContent = '已勾選主圖 ' + (imageIndex + 1) + '，新增顏色時會帶上';
-      if (!options.silent) toast('已選主圖 ' + (imageIndex + 1) + ' 當顏色圖');
+      if (status) status.textContent = '已勾選商品圖片 ' + (imageIndex + 1) + '，新增顏色時會帶上';
+      if (!options.silent) toast('已選圖片 ' + (imageIndex + 1) + ' 當新顏色圖');
       renderProductDraftOptions();
       return true;
     }
+    if (newColorImageInput) delete newColorImageInput.dataset.selectedMainImage;
     var existingColorIndex = Number(targetValue);
     if (!productDraft.colors[existingColorIndex]) {
       if (!options.silent) toast('找不到要套用的顏色');
       return false;
     }
     productDraft.colors[existingColorIndex].image = src;
-    if (!options.silent) toast('已把主圖套用到顏色：' + productDraft.colors[existingColorIndex].name);
+    if (!options.silent) toast('已把圖片套用到顏色：' + productDraft.colors[existingColorIndex].name);
     renderProductCreate();
     return true;
   }
@@ -17275,17 +17304,14 @@
       var draftImageItem = target.closest ? target.closest('[data-product-draft-image]') : null;
       if (draftImageItem && !(target.closest && target.closest('[data-product-remove-image]'))) {
         var draftImageIndex = Number(draftImageItem.getAttribute('data-product-draft-image'));
-        var pickingMain = !!(target.closest && (target.closest('.main-image-choice') || target.closest('[data-product-main-image]')));
-        if (pickingMain) productDraft.mainImageIndex = draftImageIndex;
-        applySelectedProductColorMainImage(draftImageIndex);
-        if (pickingMain) renderProductCreate();
+        productDraft.mainImageIndex = draftImageIndex;
+        renderProductDraftImages();
         return;
       }
       if (target.matches('[data-product-main-image]') || (target.closest && target.closest('[data-product-main-image]'))) {
         var mainImageInput = target.matches('[data-product-main-image]') ? target : target.closest('[data-product-main-image]');
         productDraft.mainImageIndex = Number(mainImageInput.getAttribute('data-product-main-image'));
-        applySelectedProductColorMainImage(productDraft.mainImageIndex);
-        renderProductCreate();
+        renderProductDraftImages();
         return;
       }
       var matrixMainImageButton = target.closest ? target.closest('[data-matrix-main-image]') : null;
@@ -17324,10 +17350,7 @@
         return;
       }
       if (target.matches('[data-clear-product-color-main-image]') || (target.closest && target.closest('[data-clear-product-color-main-image]'))) {
-        productColorMainImageIndex = -1;
-        productColorImageTarget = 'new';
-        var pendingColorImageInput = document.querySelector('[data-new-color-image]');
-        if (pendingColorImageInput) delete pendingColorImageInput.dataset.selectedMainImage;
+        clearPendingProductColorImage();
         renderProductDraftOptions();
         toast('已清除顏色圖片選擇');
         return;
@@ -17346,7 +17369,7 @@
         var colorCode = (colorCodeInput?.value || '').trim();
         var colorNameId = (colorNameIdInput?.value || '').trim();
         var colorImage = (colorImageInput?.value || '').trim();
-        var selectedMainImage = colorImageInput?.dataset?.selectedMainImage || productDraft.images[productColorMainImageIndex] || '';
+        var selectedMainImage = (colorImageInput && colorImageInput.dataset && colorImageInput.dataset.selectedMainImage) || '';
         var colorFile = colorFileInput && colorFileInput.files ? colorFileInput.files[0] : null;
         if (!colorName || colorName === '未設定') {
           toast('請先選顏色或輸入中文顏色名稱');
@@ -17382,8 +17405,7 @@
             delete colorImageInput.dataset.selectedMainImage;
           }
           if (colorFileInput) colorFileInput.value = '';
-          productColorMainImageIndex = -1;
-          productColorImageTarget = 'new';
+          clearPendingProductColorImage();
           renderProductCreate();
           toast('已加入顏色 ' + addingColor.code + ' ' + addingColor.name);
         }

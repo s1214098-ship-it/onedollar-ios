@@ -32,8 +32,10 @@ try {
   echo 'cssMarker=' . (strpos($css, 'LZ_FILE_COLOR_SIZE_20260928') !== false ? 'yes' : 'no') . "\n";
   echo 'jsMainImg=' . (strpos($js, 'function applySelectedProductColorMainImage') !== false ? 'yes' : 'no') . "\n";
   echo 'jsDraftPick=' . (strpos($js, 'data-product-draft-image') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlBust=' . (strpos($html, 'admin-product-forwarder-cost-9.js?v=20260928-color-size-2') !== false ? 'yes' : 'no') . "\n";
-  echo 'htmlCss=' . (strpos($html, 'admin-products-horizontal-9.css?v=20260928-color-size-2') !== false ? 'yes' : 'no') . "\n";
+  echo 'jsNoOverlap=' . (strpos($js, 'LZ_FILE_COLOR_NO_OVERLAP_20260928') !== false ? 'yes' : 'no') . "\n";
+  echo 'jsDedupeImg=' . (strpos($js, 'function dedupeProductDraftImages') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlBust=' . (strpos($html, 'admin-product-forwarder-cost-9.js?v=20260928-color-size-3') !== false ? 'yes' : 'no') . "\n";
+  echo 'htmlCss=' . (strpos($html, 'admin-products-horizontal-9.css?v=20260928-color-size-3') !== false ? 'yes' : 'no') . "\n";
   echo 'htmlAddBtn=' . (strpos($html, '>新增顏色<') !== false ? 'yes' : 'no') . "\n";
   echo 'htmlMatrix=' . (strpos($html, '6. 顏色尺碼矩陣') !== false ? 'yes' : 'no') . "\n";
   echo 'ok';
