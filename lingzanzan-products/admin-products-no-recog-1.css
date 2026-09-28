@@ -1,0 +1,30 @@
+/* LZ_NO_RECOG_20260928: 拿掉辨識圖片，貼上／剪刀不再跟加入圖片疊成一坨 */
+.product-image-card .product-photo-paste-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.product-image-card .product-photo-paste-row button {
+  flex: 1 1 160px;
+  min-height: 44px;
+  writing-mode: horizontal-tb;
+  white-space: nowrap;
+  border-radius: 12px;
+}
+.product-image-card .inline-form.module-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+.product-image-card [data-start-product-image-recognition],
+.product-image-card [data-product-similar-panel],
+.product-image-card [data-product-add-image],
+.product-image-card [data-product-image-url],
+.product-image-card [data-product-detail-image-file] {
+  display: none !important;
+}
+.product-similar-panel {
+  display: none !important;
+}

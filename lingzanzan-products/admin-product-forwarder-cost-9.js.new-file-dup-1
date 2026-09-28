@@ -2686,12 +2686,18 @@
     return commitProductImagesToDraft(images, sourceLabel, options);
   }
 
+  function stripProductImageRecognitionUi() {
+    /* LZ_NO_RECOG_20260928 */
+    document.querySelectorAll('[data-start-product-image-recognition], [data-product-similar-panel]').forEach(function (el) {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    });
+    document.querySelectorAll('[data-product-add-image], [data-product-image-url], [data-product-detail-image-file]').forEach(function (el) {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    });
+  }
+
   function startProductImageRecognition() {
-    if (!productDraft.images.length) {
-      toast('請先加入至少一張產品圖片，再按圖片辨識');
-      return;
-    }
-    scanSimilarProductsForDraftImages();
+    stripProductImageRecognitionUi();
   }
 
   function setPendingPasteImage(panel, dataUrl) {
@@ -6873,6 +6879,7 @@
   }
 
   function renderProductCreate() {
+    stripProductImageRecognitionUi();
     productCreatePainted = true;
     var serialInput = document.querySelector('[data-new-product-serial]');
     if (serialInput && !serialInput.value) serialInput.value = nextProductSerial();
@@ -16555,6 +16562,7 @@
   function bindActions() {
     if (actionsBound) return;
     actionsBound = true;
+    stripProductImageRecognitionUi();
     document.addEventListener('submit', function (event) {
       if (event.target.matches('[data-admin-shipment-form]')) {
         event.preventDefault();
@@ -17056,19 +17064,7 @@
         return;
       }
       if (target.matches('[data-product-add-image]')) {
-        var imageInput = document.querySelector('[data-product-image-url]');
-        var imageFile = document.querySelector('[data-product-image-file]');
-        var imageUrls = splitImageUrls(imageInput?.value || '');
-        var pickedFiles = imageFile && imageFile.files ? imageFile.files : [];
-        if (!imageUrls.length && !pickedFiles.length) {
-          toast('請先貼圖片網址或選擇圖片');
-          return;
-        }
-        filesToDataUrls(pickedFiles).then(function (dataUrls) {
-          addImagesToProductDraft(imageUrls.concat(dataUrls), '圖片');
-          imageInput.value = '';
-          if (imageFile) imageFile.value = '';
-        });
+        stripProductImageRecognitionUi();
         return;
       }
       if (target.matches('[data-product-screen-snip]')) {
@@ -18581,11 +18577,7 @@
     });
 
     bindIf('[data-product-detail-image-file]', 'change', function (event) {
-      filesToDataUrls(event.target.files || []).then(function (images) {
-        if (images.length > 1) addImagesToProductDraft(images, '一次選取的圖片');
-        else if (images[0]) openScissorTool(images[0], 'product');
-        event.target.value = '';
-      });
+      event.target.value = '';
     });
 
     bindIf('[data-quick-price-search]', 'input', renderQuickPriceEditor);
@@ -20332,8 +20324,12 @@
 
   document.addEventListener('click', function (event) {
     var start = event.target.closest ? event.target.closest('[data-start-product-image-recognition]') : null;
-    if (start) startProductImageRecognition();
-  });
+    if (start) {
+      event.preventDefault();
+      event.stopPropagation();
+      stripProductImageRecognitionUi();
+    }
+  }, true);
 
   loadLocal();
   // The freight page already stored a complete draft before navigating here.

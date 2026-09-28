@@ -17,9 +17,16 @@ assert(overlay.indexOf('normalized.indexOf(name) > -1') === -1, 'old substring l
 assert(overlay.indexOf('event.defaultPrevented') !== -1, 'paste respects defaultPrevented');
 assert(paste.indexOf('LZ_FILE_COLOR_DUP_20260928') !== -1, 'paste marker');
 assert(paste.indexOf("closest('.product-image-card, [data-product-paste-image]')") !== -1, 'paste skips product card');
-assert(html.indexOf('admin-product-forwarder-cost-9.js?v=20260928-file-dup-1') !== -1, 'js cache bust');
+assert(html.indexOf('admin-product-forwarder-cost-9.js?v=20260928-no-recog-1') !== -1, 'js cache bust');
 assert(html.indexOf('image-upload-paste.js?v=20260928-file-dup-1') !== -1, 'paste cache bust');
-assert((html.match(/data-no-auto-paste/g) || []).length >= 4, 'file inputs skip auto paste');
+assert(html.indexOf('admin-products-no-recog-1.css?v=20260928-no-recog-1') !== -1, 'recog css');
+assert(html.indexOf('data-start-product-image-recognition') === -1, 'recognition button gone');
+assert(html.indexOf('data-product-similar-panel') === -1, 'similar panel gone');
+assert(html.indexOf('data-product-add-image') === -1, 'overlapping add-image gone');
+assert(html.indexOf('product-photo-paste-row') !== -1, 'paste row');
+assert(overlay.indexOf('LZ_NO_RECOG_20260928') !== -1, 'no-recog marker');
+assert(overlay.indexOf('function stripProductImageRecognitionUi') !== -1, 'strip recognition ui');
+assert((html.match(/data-no-auto-paste/g) || []).length >= 2, 'file inputs skip auto paste');
 
 function stripProductColorCodePrefix(value) {
   return String(value || '').replace(/^(?:\d{2,4}|N\d{3})\s+/, '').trim();
