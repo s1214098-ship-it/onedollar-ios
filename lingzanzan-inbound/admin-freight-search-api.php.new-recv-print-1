@@ -1,0 +1,230 @@
+<?php
+declare(strict_types=1);
+
+@ini_set('display_errors', '0');
+@ini_set('html_errors', '0');
+@ini_set('memory_limit', '256M');
+
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+$dataDir = __DIR__ . DIRECTORY_SEPARATOR . 'data';
+$freightFile = $dataDir . DIRECTORY_SEPARATOR . 'freight-forwarding-tracking.json';
+$stateFile = $dataDir . DIRECTORY_SEPARATOR . 'admin-state.json';
+$sessionsFile = $dataDir . DIRECTORY_SEPARATOR . 'admin-sessions.json';
+
+function freight_search_respond(array $payload, int $status = 200): void
+{
+    http_response_code($status);
+    $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+    if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+    echo json_encode($payload, $flags) ?: '{"ok":false,"error":"搜尋結果無法輸出"}';
+    exit;
+}
+
+function freight_search_read_json(string $path): array
+{
+    if (!is_file($path)) return [];
+    $raw = file_get_contents($path);
+    if ($raw === false) return [];
+    $raw = rtrim($raw, "\0 \t\n\r\x0B");
+    $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw) ?? $raw;
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function freight_search_token(): string
+{
+    $custom = trim((string)($_SERVER['HTTP_X_LINGZANZAN_ADMIN_SESSION'] ?? ''));
+    if (preg_match('/^[A-Za-z0-9_-]{32,160}$/', $custom)) return $custom;
+    $header = trim((string)($_SERVER['HTTP_AUTHORIZATION'] ?? ''));
+    if (preg_match('/^Bearer\s+([A-Za-z0-9_-]{32,160})$/i', $header, $match)) return (string)$match[1];
+    $cookie = trim((string)($_COOKIE['lz_admin_session'] ?? ''));
+    return preg_match('/^[A-Za-z0-9_-]{32,160}$/', $cookie) ? $cookie : '';
+}
+
+function freight_search_require_operator(string $sessionsFile, string $stateFile): array
+{
+    $token = freight_search_token();
+    if ($token === '') freight_search_respond(['ok' => false, 'error' => '請重新登入後台'], 401);
+    $wantedHash = hash('sha256', $token);
+    $state = freight_search_read_json($stateFile);
+    $now = time();
+    foreach (freight_search_read_json($sessionsFile) as $session) {
+        if (!is_array($session) || (int)($session['expiresAt'] ?? 0) <= $now) continue;
+        $savedHash = trim((string)($session['tokenHash'] ?? ''));
+        if ($savedHash === '' || !hash_equals($savedHash, $wantedHash)) continue;
+        $role = strtolower(trim((string)($session['role'] ?? '')));
+        $account = strtolower(trim((string)($session['account'] ?? '')));
+        if ($role === 'admin') {
+            $current = strtolower(trim((string)($state['adminAccount'] ?? 'admin')));
+            if ($account !== $current && !($current === 'admin' && $account === '管理者')) {
+                freight_search_respond(['ok' => false, 'error' => '管理者帳號已更新，請重新登入'], 401);
+            }
+            $expected = hash('sha256', 'admin' . "\0" . $account . "\0" . (string)($state['adminPasswordHash'] ?? ''));
+            $fingerprint = trim((string)($session['credentialFingerprint'] ?? ''));
+            if ($fingerprint !== '' && !hash_equals($fingerprint, $expected)) {
+                freight_search_respond(['ok' => false, 'error' => '管理者密碼已更新，請重新登入'], 401);
+            }
+            return $session;
+        }
+        if ($role === 'staff') {
+            foreach (is_array($state['staff'] ?? null) ? $state['staff'] : [] as $person) {
+                if (!is_array($person) || strtolower(trim((string)($person['account'] ?? ''))) !== $account) continue;
+                $expected = hash('sha256', 'staff' . "\0" . $account . "\0" . (string)($person['password'] ?? ''));
+                $fingerprint = trim((string)($session['credentialFingerprint'] ?? ''));
+                if ($fingerprint !== '' && !hash_equals($fingerprint, $expected)) {
+                    freight_search_respond(['ok' => false, 'error' => '員工密碼已更新，請重新登入'], 401);
+                }
+                $permissions = is_array($person['permissions'] ?? null) ? $person['permissions'] : [];
+                if (!array_intersect(['物流集運', '採購區', '採購進貨建檔', '訂單管理'], $permissions)) {
+                    freight_search_respond(['ok' => false, 'error' => '目前帳號沒有物流查詢權限'], 403);
+                }
+                return $session;
+            }
+            freight_search_respond(['ok' => false, 'error' => '員工帳號已停用，請重新登入'], 401);
+        }
+        freight_search_respond(['ok' => false, 'error' => '目前帳號沒有物流查詢權限'], 403);
+    }
+    freight_search_respond(['ok' => false, 'error' => '登入已逾時，請重新登入後台'], 401);
+}
+
+function freight_search_lower(string $value): string
+{
+    return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+}
+
+function freight_search_digits($value): string
+{
+    return preg_replace('/\D+/', '', (string)$value) ?? '';
+}
+
+function freight_search_compact($value): string
+{
+    return preg_replace('/[\s\p{P}\p{S}]+/u', '', freight_search_lower((string)$value)) ?? freight_search_lower((string)$value);
+}
+
+function freight_search_text(array $row): string
+{
+    $parts = [];
+    $walk = static function ($value, string $key = '') use (&$walk, &$parts): void {
+        if (is_array($value)) {
+            foreach ($value as $childKey => $child) $walk($child, (string)$childKey);
+            return;
+        }
+        if (!is_scalar($value)) return;
+        if (preg_match('/image|photo|base64|html/i', $key)) return;
+        $text = trim((string)$value);
+        if ($text !== '' && strlen($text) <= 4000) $parts[] = $text;
+    };
+    $walk($row);
+    return freight_search_lower(implode(' ', $parts));
+}
+
+function freight_search_tracking_values(array $row): array
+{ /* LZ_RECV_LOOKUP_20260928 include split/supplemental tracking */
+    $keys = ['trackingNo', 'supplementalTrackingNo', 'haohongTrackingNo', 'pendingLogisticsCode', 'pendingTrackingCode', 'freightLinkNo', 'purchaseOrderNo', 'parcelId', 'batchNo', 'logisticsTrackingNo', 'taiwanTrackingNo', 'firstTrackingNo', 'customsNo', 'consolidationNo', 'haohongOrderCode', 'haohongOrderId', 'id'];
+    $values = [];
+    foreach ($keys as $key) {
+        $digits = freight_search_digits($row[$key] ?? '');
+        if ($digits !== '') $values[] = $digits;
+    }
+    foreach (is_array($row['trackingNumbers'] ?? null) ? $row['trackingNumbers'] : [] as $value) {
+        $digits = freight_search_digits(is_array($value) ? ($value['trackingNo'] ?? $value['no'] ?? $value['code'] ?? '') : $value);
+        if ($digits !== '') $values[] = $digits;
+    }
+    foreach (is_array($row['legacyTrackingNumbers'] ?? null) ? $row['legacyTrackingNumbers'] : [] as $value) {
+        $digits = freight_search_digits(is_array($value) ? ($value['trackingNo'] ?? $value['no'] ?? $value['code'] ?? '') : $value);
+        if ($digits !== '') $values[] = $digits;
+    }
+    foreach (is_array($row['splitPackages'] ?? null) ? $row['splitPackages'] : [] as $package) {
+        if (!is_array($package)) continue;
+        $digits = freight_search_digits($package['trackingNo'] ?? '');
+        if ($digits !== '') $values[] = $digits;
+    }
+    foreach (is_array($row['packageRows'] ?? null) ? $row['packageRows'] : [] as $package) {
+        if (!is_array($package)) continue;
+        foreach (freight_search_tracking_values($package) as $digits) $values[] = $digits;
+    }
+    return $values;
+}
+
+function freight_search_matches(array $row, string $query, bool $numeric, string $digits): bool
+{
+    if ($numeric) {
+        foreach (freight_search_tracking_values($row) as $candidate) {
+            if (strlen($candidate) >= strlen($digits) && substr($candidate, -strlen($digits)) === $digits) return true;
+        }
+        return false;
+    }
+    $text = freight_search_text($row);
+    $lower = freight_search_lower($query);
+    $compact = freight_search_compact($query);
+    return str_contains($text, $lower) || ($compact !== '' && str_contains(freight_search_compact($text), $compact));
+}
+
+function freight_search_time(array $row): int
+{
+    foreach (['updatedAt', 'createdAt', 'date', 'consolidationDate'] as $key) {
+        $time = strtotime((string)($row[$key] ?? ''));
+        if ($time !== false) return $time;
+    }
+    return 0;
+}
+
+function freight_search_lighten($value, string $key = '')
+{
+    if (is_string($value)) {
+        if (str_starts_with($value, 'data:image/') || strlen($value) > 400000) return '';
+        return $value;
+    }
+    if (!is_array($value)) return $value;
+    foreach ($value as $childKey => $child) $value[$childKey] = freight_search_lighten($child, (string)$childKey);
+    return $value;
+}
+
+if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'GET') {
+    freight_search_respond(['ok' => false, 'error' => '此 API 僅提供只讀查詢'], 405);
+}
+
+freight_search_require_operator($sessionsFile, $stateFile);
+
+$startedAt = microtime(true);
+$query = trim(mb_substr((string)($_GET['q'] ?? ''), 0, 120, 'UTF-8'));
+$scope = trim((string)($_GET['scope'] ?? 'list'));
+$limit = max(1, min(50, (int)($_GET['limit'] ?? 10)));
+$digits = freight_search_digits($query);
+$numeric = $query !== '' && preg_match('/^[0-9\s()+-]+$/', $query) === 1;
+if ($query === '') freight_search_respond(['ok' => false, 'error' => '請輸入搜尋內容'], 422);
+if ($numeric && strlen($digits) < 4) freight_search_respond(['ok' => false, 'error' => '物流單號或批號請至少輸入最後 4 碼'], 422);
+if (!$numeric && mb_strlen($query, 'UTF-8') < 2) freight_search_respond(['ok' => false, 'error' => '產品、客戶或批次資料請至少輸入 2 個字'], 422);
+
+$data = freight_search_read_json($freightFile);
+$items = [];
+foreach (is_array($data['items'] ?? null) ? $data['items'] : [] as $row) {
+    if (is_array($row) && freight_search_matches($row, $query, $numeric, $digits)) $items[] = $row;
+}
+$batches = [];
+foreach (is_array($data['batches'] ?? null) ? $data['batches'] : [] as $row) {
+    if (is_array($row) && freight_search_matches($row, $query, $numeric, $digits)) $batches[] = $row;
+}
+usort($items, static fn(array $a, array $b): int => freight_search_time($b) <=> freight_search_time($a));
+usort($batches, static fn(array $a, array $b): int => freight_search_time($b) <=> freight_search_time($a));
+$itemTotal = count($items);
+$batchTotal = count($batches);
+$items = array_map('freight_search_lighten', array_slice($items, 0, $limit));
+$batches = array_map('freight_search_lighten', array_slice($batches, 0, $limit));
+if ($scope === 'workbench') $batches = [];
+
+freight_search_respond([
+    'ok' => true,
+    'query' => $query,
+    'scope' => $scope,
+    'itemCount' => $itemTotal,
+    'batchCount' => $batchTotal,
+    'items' => $items,
+    'batches' => $batches,
+    'revision' => max(0, (int)($data['revision'] ?? 0)),
+    'updatedAt' => (string)($data['updatedAt'] ?? ''),
+    'serverMs' => (int)round((microtime(true) - $startedAt) * 1000),
+]);
