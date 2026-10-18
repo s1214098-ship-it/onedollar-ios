@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>火旺伯宜蘭精選物件</title>
+  <link rel="stylesheet" href="styles.css?v=202606201045">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="brand">火旺伯宜蘭精選物件</div>
+      <div class="subbrand" data-zh="永慶不動產羅東文化盛群加盟店" data-vi="Yilan Real Estate Service for Vietnamese Customers">永慶不動產羅東文化盛群加盟店</div>
+    </div>
+    <div class="lang-switch" aria-label="語言切換">
+      <button class="lang-btn active" data-lang="zh">中文</button>
+      <button class="lang-btn" data-lang="vi">Tiếng Việt</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow" data-zh="本週物件選單" data-vi="Danh sách nhà đất tuần này">本週物件選單</p>
+        <h1 data-zh="一次看懂宜蘭好物件" data-vi="Xem nhanh các bất động sản tốt tại Yilan">一次看懂宜蘭好物件</h1>
+        <p class="hero-text" data-zh="用地區、價格、類型快速篩選，點開每一件都像 DM 一樣清楚。越南客戶也可以直接看越南文版本。" data-vi="Lọc nhanh theo khu vực, giá và loại nhà đất. Mỗi bất động sản có trang giới thiệu rõ ràng như DM, hỗ trợ tiếng Việt.">用地區、價格、類型快速篩選，點開每一件都像 DM 一樣清楚。越南客戶也可以直接看越南文版本。</p>
+        <div class="hero-actions">
+          <a class="call-btn" href="tel:0911294374">0911-294-374</a>
+          <a class="line-btn" href="#contact">LINE ID 0911294374</a>
+        </div>
+      </div>
+      <img class="hero-card" src="assets/huowang-card.jpg" alt="郭火旺名片">
+    </section>
+
+    <section class="filters" aria-label="物件篩選">
+      <div class="filter-row" id="areaFilters"></div>
+      <div class="filter-row" id="typeFilters"></div>
+      <div class="filter-row">
+        <button class="filter active" data-price="all" data-zh="全部價格" data-vi="Tất cả giá">全部價格</button>
+        <button class="filter" data-price="featured" data-zh="400-1000萬精選" data-vi="Chọn lọc 4-10 triệu Đài tệ">400-1000萬精選</button>
+        <button class="filter" data-price="low" data-zh="400萬以下" data-vi="Dưới 4 triệu Đài tệ">400萬以下</button>
+        <button class="filter" data-price="high" data-zh="1000萬以上" data-vi="Trên 10 triệu Đài tệ">1000萬以上</button>
+      </div>
+    </section>
+
+    <section class="summary-band">
+      <div>
+        <span id="countNow">0</span>
+        <small data-zh="件可看" data-vi="bất động sản">件可看</small>
+      </div>
+      <div>
+        <span>400-1000</span>
+        <small data-zh="萬精選" data-vi="triệu TWD chọn lọc">萬精選</small>
+      </div>
+      <div>
+        <span data-zh="農地 土地 農舍" data-vi="Đất Nông trại Nhà vườn">農地 土地 農舍</span>
+        <small data-zh="特別分類" data-vi="phân loại riêng">特別分類</small>
+      </div>
+    </section>
+
+    <section class="grid" id="propertyGrid"></section>
+  </main>
+
+  <section class="contact" id="contact">
+    <div>
+      <h2 data-zh="越南客戶房產服務 火旺伯" data-vi="Chú Hỏa Vượng hỗ trợ khách Việt mua nhà đất">越南客戶房產服務 火旺伯</h2>
+      <p data-zh="看屋、買房、土地、農舍、置產投資，都可以直接找郭火旺。" data-vi="Hỗ trợ xem nhà, mua nhà, đất, nhà vườn và đầu tư bất động sản tại Yilan.">看屋、買房、土地、農舍、置產投資，都可以直接找郭火旺。</p>
+    </div>
+    <div class="contact-lines">
+      <strong>郭火旺</strong>
+      <a href="tel:0911294374">0911-294-374</a>
+      <span>LINE ID 0911294374</span>
+    </div>
+  </section>
+
+  <dialog id="detailDialog">
+    <button class="close" id="closeDialog" aria-label="關閉">×</button>
+    <div class="detail" id="detailBody"></div>
+  </dialog>
+
+  <a class="floating-line" href="https://line.me/ti/p/~0911294374" target="_blank" rel="noopener" data-zh="LINE 快速詢問" data-vi="Hỏi qua LINE">LINE 快速詢問</a>
+
+  <script src="data.js?v=202606201045"></script>
+  <script src="app.js?v=202606201045"></script>
+</body>
+</html>

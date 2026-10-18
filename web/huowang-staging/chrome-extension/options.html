@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>火旺發文選項</title>
+  <style>
+    body{font:16px/1.6 -apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif;max-width:640px;margin:24px auto;padding:0 16px;color:#29231e;background:#f6f1e8}
+    label{display:block;font-weight:700;margin:14px 0 6px}
+    input{width:100%;padding:10px;border:1px solid #cfc3b5;border-radius:8px;font:inherit}
+    button{margin-top:16px;border:0;border-radius:8px;padding:10px 16px;background:#0f766e;color:#fff;font-weight:800;cursor:pointer}
+    .hint{color:#756b62;font-size:14px}
+    .ok{margin-top:12px;color:#0f766e;font-weight:800}
+  </style>
+</head>
+<body>
+  <h1>火旺 Facebook 執行器</h1>
+  <p class="hint">這個 Chrome 必須已登入郭火旺的 Facebook。後台佇列在 huowang.paohui.org，擴充功能每分鐘領一件並發佈。</p>
+  <label>後台網址</label>
+  <input id="apiBase" placeholder="https://huowang.paohui.org">
+  <label>執行器金鑰</label>
+  <input id="workerKey" placeholder="與後台 facebook-group-candidates 同一組">
+  <label>執行器名稱</label>
+  <input id="workerId" placeholder="chrome-ext-fengzhi">
+  <button id="save">儲存</button>
+  <p id="msg" class="ok"></p>
+  <script src="options.js"></script>
+</body>
+</html>

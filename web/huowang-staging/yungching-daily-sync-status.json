@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "timezone": "Asia/Taipei",
+  "schedule": ["12:00", "18:00"],
+  "lastRunAt": "2026-08-21T04:00:02.957Z",
+  "lastRunTaipei": "2026-08-21 12:00:02",
+  "fetched": 200,
+  "failed": 0,
+  "sameStoreActive": 198,
+  "sameStoreUpdated": 198,
+  "sameStorePhotos": 0,
+  "borrowActive": 13,
+  "note": "火旺後台同店／異店／照片每天 12:00、18:00 自動更新，開機後會重掛排程。"
+}
