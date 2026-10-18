@@ -2355,7 +2355,7 @@ $opsFunctionGroups = [
     ],
     '自動化排程相關' => [
         'schedule' => '排程上架',
-        'facebook-daily' => '臉書當日日報',
+        'facebook-daily' => '臉書當日日報／通州截標',
         'post-scripts' => '發文問答套組',
         'settlement' => '得標結算',
         'settlement-edit' => '結算編輯',
@@ -8797,7 +8797,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
         <p class="muted">總部後台只控制員工能不能進入電商營運；這裡才是控制進入後能看哪些電商功能。最高管理員永遠保留全部功能。</p>
       </div>
     </div>
-    <div class="notice-block">設定順序：先到總部後台「權限設定」勾選電商營運管理入口，再到這裡設定產品、庫存、單據、財務、排程等細項。員工名單會同步總部員工管理；非管理員未設定第二層時，只能看到控制台。</div>
+    <div class="notice-block">設定順序：先到總部後台「權限設定」勾選電商營運管理入口，再到這裡設定產品、庫存、單據、財務、排程等細項。員工名單會同步總部員工管理；非管理員未設定第二層時，只能看到控制台。YUKI LIU 用「截標人員（通州截標）」；Kuo Feng Cheng 仍用既有「上架人員」排程／提醒工作列，不要重做那一欄。</div>
     <form method="post" class="product-form">
       <input type="hidden" name="action" value="save_ops_staff_permission">
       <label>員工登入帳號<select name="staff_account" id="opsStaffAccountSelect" required>
@@ -8822,6 +8822,7 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
       </div>
       <div class="wide form-actions">
         <button type="button" class="secondary" onclick="setOpsStaffPermissionRole('shelf')">套用上架人員</button>
+        <button type="button" class="secondary" onclick="setOpsStaffPermissionRole('close')">套用截標人員（通州截標）</button>
         <button type="button" class="secondary" onclick="setOpsStaffPermissionRole('ship')">套用記單出貨</button>
         <button type="button" class="secondary" onclick="setOpsStaffPermissionRole('warehouse')">套用倉管盤點</button>
         <button type="button" class="secondary" onclick="setOpsStaffPermissionRole('finance')">套用財務單據</button>
@@ -11214,8 +11215,8 @@ body:has(.ops-tab:target) .metric-grid.ops-tab:target { display: grid !important
   <section class="ops-card ops-tab" id="facebook-daily">
     <div class="section-head">
       <div>
-        <h2>臉書當日上架日報</h2>
-        <p class="muted">看出今天要上架／已上架哪些產品，並比對缺貼文、待提醒、待得標通知。Codex 依這份日報執行發文、第一則問答、價格提醒與得標通知；系統不會自動發 Facebook。</p>
+        <h2>臉書當日上架日報／通州截標</h2>
+        <p class="muted">看出今天要上架／已上架哪些產品，並比對缺貼文、待提醒、待得標通知。通州截標由 YUKI LIU 負責（今日截標／得標結算）。競標貼文提醒與產品上架仍走 Kuo Feng Cheng 既有排程工作列，不要改那一欄。Codex 依這份日報執行發文、第一則問答、價格提醒與得標通知；系統不會自動發 Facebook。</p>
       </div>
       <div class="form-actions">
         <a class="button-like" href="operations.php?partial=facebook_daily&amp;date=<?=h($facebookDailyDate)?>" target="_blank" rel="noopener">JSON（給 Codex）</a>
@@ -16932,6 +16933,7 @@ function setOpsStaffPermissionSelection(selectAll) {
 function setOpsStaffPermissionRole(role) {
   const presets = {
     shelf: ['overview','products','product-categories','shopee-workspace','color-modules','stock-search','wage-items','logistics-items','schedule','facebook-daily','post-scripts','settlement'],
+    close: ['overview','facebook-daily','settlement','settlement-edit'],
     ship: ['overview','members','member-create','customer-shipping','orders','settlement','settlement-edit','logistics','logistics-items','document-center'],
     warehouse: ['overview','stock-search','stock-in','inventory-count','inventory-transfer','finance-loss','finance-overage','warehouses','document-center'],
     finance: ['overview','document-center','finance-reconcile','finance-collection','finance-request','finance-bad-debt','finance-analytics','finance-report','finance-expense-categories','finance-fixed-expense','finance-fixed-asset','finance-mobile-asset']
