@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "寶輝 Facebook 發文助手",
+  "version": "1.10.268",
+  "description": "固定使用峰志 Chrome 設定檔：Kuo Feng Cheng 負責上架產品與競標貼文提醒；YUKI LIU、海賊團行政專員與寶輝科技官方網站 粉絲團可上架文章；YUKI LIU 另負責通州截標。",
+  "permissions": [
+    "storage",
+    "tabs",
+    "alarms",
+    "notifications",
+    "debugger"
+  ],
+  "host_permissions": [
+    "https://baohui.paohui.org/*",
+    "https://www.facebook.com/*",
+    "https://facebook.com/*"
+  ],
+  "background": {
+    "type": "module",
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://baohui.paohui.org/*",
+        "https://www.facebook.com/*",
+        "https://facebook.com/*"
+      ],
+      "js": [
+        "reminder-scene-catalog.js",
+        "reminder-scene-calendar.js",
+        "reminder-scene-runtime.js",
+        "content.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "寶輝 Facebook 發文助手"
+  }
+}
+
