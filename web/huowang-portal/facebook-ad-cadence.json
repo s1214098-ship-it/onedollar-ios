@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "mode": "three_fanpage_personal10_regions_hourly1",
+  "consumer": "火旺臉書上架助手",
+  "hourStart": 7,
+  "hourEnd": 21,
+  "personalPerPage": 10,
+  "regionsPerHour": 1,
+  "regions": [
+    {"key": "north", "label": "北"},
+    {"key": "central", "label": "中"},
+    {"key": "south", "label": "南"},
+    {"key": "east", "label": "東"}
+  ],
+  "pages": [
+    {
+      "id": "GUOHUOWANG",
+      "label": "郭火旺",
+      "accountKey": "personal_primary",
+      "account": "郭火旺（個人）",
+      "publisherId": "100009183179584",
+      "pageName": "郭火旺個人動態",
+      "pageUrl": "https://www.facebook.com/profile.php?id=100009183179584",
+      "personalViaGroups": true
+    },
+    {
+      "id": "NONGSHE",
+      "label": "農舍郭火旺",
+      "accountKey": "fanpage",
+      "account": "羅東透天農舍 郭火旺（粉絲團）",
+      "publisherId": "61571273973945",
+      "pageName": "羅東透天農舍 郭火旺粉絲團動態",
+      "pageUrl": "https://www.facebook.com/profile.php?id=61571273973945",
+      "personalViaGroups": false
+    },
+    {
+      "id": "GUOHUOWANGFAN",
+      "label": "郭火旺",
+      "accountKey": "personal_secondary",
+      "account": "郭火旺（粉絲團）",
+      "publisherId": "61574296001770",
+      "pageName": "郭火旺粉絲團動態",
+      "pageUrl": "https://www.facebook.com/profile.php?id=61574296001770",
+      "personalViaGroups": false
+    }
+  ],
+  "note": "三個粉絲團各有個人每日 10 則，以及北中南東每小時各一則。兩個「郭火旺」用 accountKey／publisherId 區分。"
+}

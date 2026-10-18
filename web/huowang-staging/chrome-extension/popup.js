@@ -7,6 +7,7 @@ function render(state, version) {
     "上次領件：" + (s.lastClaimAt || "尚無"),
     "目前任務：" + (s.lastJobTitle || "沒有"),
     "上次結果：" + (s.lastResult || "尚無"),
+    s.cadenceNote ? ("節奏：" + s.cadenceNote) : "節奏：三粉絲團｜個人每日 10｜北中南東每小時各 1",
     s.lastNote ? ("說明：" + s.lastNote) : "",
     s.lastError ? ("錯誤：" + s.lastError) : "錯誤：無"
   ].filter(Boolean);

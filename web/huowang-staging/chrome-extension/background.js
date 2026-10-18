@@ -6,6 +6,16 @@ try {
 var DEFAULTS = typeof HUOWANG_FB_DEFAULTS === "object" && HUOWANG_FB_DEFAULTS
   ? HUOWANG_FB_DEFAULTS
   : { apiBase: "https://huowang.paohui.org", workerKey: "", workerId: "chrome-ext-fengzhi" };
+var DEFAULT_CADENCE = {
+  version: 1,
+  mode: "three_fanpage_personal10_regions_hourly1",
+  consumer: "火旺臉書上架助手",
+  hourStart: 7,
+  hourEnd: 21,
+  personalPerPage: 10,
+  regionsPerHour: 1,
+  note: "三個粉絲團各有個人每日 10 則，以及北中南東每小時各一則。"
+};
 var ALARM_NAME = "huowang-fb-poll";
 var tickRunning = false;
 
@@ -36,6 +46,29 @@ async function ensureDefaults() {
   if (!stored.workerId) patch.workerId = DEFAULTS.workerId;
   if (typeof stored.enabled === "undefined") patch.enabled = true;
   if (Object.keys(patch).length) await chrome.storage.local.set(patch);
+}
+
+async function loadCadence(cfg) {
+  var bundled = null;
+  var remote = null;
+  var fromWorker = null;
+  try {
+    var local = await fetch(chrome.runtime.getURL("cadence.json"));
+    if (local.ok) bundled = await local.json();
+  } catch (e) {}
+  try {
+    var site = await fetch(String(cfg.apiBase || "").replace(/\/+$/, "") + "/facebook-ad-cadence.json?ts=" + Date.now(), { cache: "no-store" });
+    if (site.ok) remote = await site.json();
+  } catch (e) {}
+  if (cfg && cfg.workerKey) {
+    try {
+      var worker = await apiFetch(cfg, "/api/facebook_publish_worker.php?action=cadence");
+      fromWorker = worker && worker.adPolicy ? worker.adPolicy : null;
+    } catch (e) {}
+  }
+  var cadence = (remote && remote.pages) ? remote : (fromWorker && fromWorker.pages) ? fromWorker : (bundled && bundled.pages) ? bundled : DEFAULT_CADENCE;
+  await saveState({ cadence: cadence, cadenceNote: cadence.note || DEFAULT_CADENCE.note });
+  return cadence;
 }
 
 async function apiFetch(cfg, path, options) {
@@ -229,6 +262,7 @@ async function tick(force) {
   try {
     await ensureDefaults();
     var cfg = await getCfg();
+    try { await loadCadence(cfg); } catch (e) {}
     await saveState({ heartbeatAt: nowIso(), lastTickAt: nowIso() });
     if (!cfg.enabled && !force) {
       await saveState({ lastError: "執行器已暫停（可在彈出視窗打開）" });

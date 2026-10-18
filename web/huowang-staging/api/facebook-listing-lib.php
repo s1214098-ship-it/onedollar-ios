@@ -17,6 +17,11 @@ const FB_PUBLIC_LINE = '0911294374';
 const FB_PUBLIC_AGENT = '郭火旺';
 const FB_PUBLIC_SITE_ZH = 'https://huowang.paohui.org/huowang/?lang=zh';
 const FB_PUBLIC_SITE_VI = 'https://huowang.paohui.org/huowang/?lang=vi';
+const FB_PAGE_FAN_ACCOUNT = '郭火旺（粉絲團）';
+const FB_AD_HOUR_START = 7;
+const FB_AD_HOUR_END = 21;
+const FB_AD_PERSONAL_PER_PAGE = 10;
+const FB_AD_REGIONS_PER_HOUR = 1;
 
 function fb_text(mixed $value): string {
     return trim((string)($value ?? ''));
@@ -247,10 +252,320 @@ function fb_overseas_text(string $text): bool {
     return (bool)preg_match('/越南|Vietnam|胡志明|河內|Hanoi|海外|中國大陸|中国大陆|馬來西亞|马来西亚|新加坡|柬埔|泰國|泰国|菲律賓|菲律宾|BẤT ĐỘNG|Bất động/iu', $text);
 }
 
+function fb_taiwan_regions(): array {
+    return [
+        'north' => [
+            'key' => 'north',
+            'label' => '北',
+            'cities' => ['基隆市', '台北市', '臺北市', '新北市', '桃園市', '新竹市', '新竹縣'],
+            'keywords' => ['北部', '北區', '北台灣', '北臺灣'],
+        ],
+        'central' => [
+            'key' => 'central',
+            'label' => '中',
+            'cities' => ['苗栗縣', '台中市', '臺中市', '彰化縣', '南投縣', '雲林縣'],
+            'keywords' => ['中部', '中區', '中台灣', '中臺灣'],
+        ],
+        'south' => [
+            'key' => 'south',
+            'label' => '南',
+            'cities' => ['嘉義市', '嘉義縣', '台南市', '臺南市', '高雄市', '屏東縣'],
+            'keywords' => ['南部', '南區', '南台灣', '南臺灣'],
+        ],
+        'east' => [
+            'key' => 'east',
+            'label' => '東',
+            'cities' => ['宜蘭縣', '花蓮縣', '台東縣', '臺東縣'],
+            'keywords' => ['東部', '東區', '東台灣', '東臺灣', '宜蘭'],
+        ],
+    ];
+}
+
+function fb_cadence_defaults(): array {
+    return [
+        [
+            'id' => 'GUOHUOWANG',
+            'label' => '郭火旺',
+            'account' => FB_PERSONAL_ACCOUNT,
+            'accountKey' => 'personal_primary',
+            'publisherId' => '100009183179584',
+            'pageName' => '郭火旺個人動態',
+            'pageUrl' => '',
+            'groupId' => 'PAGE-GUOHUOWANG-PERSONAL',
+            'personalViaGroups' => true,
+        ],
+        [
+            'id' => 'NONGSHE',
+            'label' => '農舍郭火旺',
+            'account' => FB_PAGE_ACCOUNT,
+            'accountKey' => 'fanpage',
+            'publisherId' => '61571273973945',
+            'pageName' => FB_PAGE_NAME,
+            'pageUrl' => FB_PAGE_URL,
+            'groupId' => FB_PAGE_GROUP_ID,
+            'personalViaGroups' => false,
+        ],
+        [
+            'id' => 'GUOHUOWANGFAN',
+            'label' => '郭火旺',
+            'account' => FB_PAGE_FAN_ACCOUNT,
+            'accountKey' => 'personal_secondary',
+            'publisherId' => '61574296001770',
+            'pageName' => '郭火旺粉絲團動態',
+            'pageUrl' => '',
+            'groupId' => 'PAGE-GUOHUOWANG-FANPAGE',
+            'personalViaGroups' => false,
+        ],
+    ];
+}
+
+function fb_cadence_path(): string {
+    $here = dirname(__DIR__) . '/facebook-ad-cadence.json';
+    return is_file($here) ? $here : '';
+}
+
+function fb_fan_pages(): array {
+    $defaults = [];
+    foreach (fb_cadence_defaults() as $page) {
+        $defaults[$page['id']] = $page;
+    }
+    $pages = fb_cadence_defaults();
+    $path = fb_cadence_path();
+    if ($path !== '') {
+        $data = json_decode((string)file_get_contents($path), true);
+        if (is_array($data['pages'] ?? null) && $data['pages']) {
+            $pages = $data['pages'];
+        }
+    }
+    $out = [];
+    foreach ($pages as $page) {
+        if (!is_array($page)) {
+            continue;
+        }
+        $id = fb_text($page['id'] ?? '');
+        $base = $defaults[$id] ?? [];
+        $merged = array_merge($base, $page);
+        if (fb_text($merged['pageUrl'] ?? '') === '' && fb_text($merged['publisherId'] ?? '') !== '') {
+            $merged['pageUrl'] = 'https://www.facebook.com/profile.php?id=' . fb_text($merged['publisherId']);
+        }
+        if (fb_text($merged['id'] ?? '') === '') {
+            continue;
+        }
+        $out[] = $merged;
+    }
+    return $out ?: fb_cadence_defaults();
+}
+
+function fb_allowed_accounts(): array {
+    $out = [FB_PERSONAL_ACCOUNT, FB_PAGE_ACCOUNT, FB_PAGE_FAN_ACCOUNT];
+    foreach (fb_fan_pages() as $page) {
+        $out[] = fb_text($page['account'] ?? '');
+    }
+    return array_values(array_unique(array_filter($out)));
+}
+
 function fb_unverified_account(string $account): bool {
     return $account === ''
-        || (bool)preg_match('/第三帳號|待核對|火旺仲介房屋/u', $account)
-        || !in_array($account, [FB_PERSONAL_ACCOUNT, FB_PAGE_ACCOUNT], true);
+        || (bool)preg_match('/待核對/u', $account)
+        || !in_array($account, fb_allowed_accounts(), true);
+}
+
+function fb_ad_policy(array $publish = []): array {
+    $saved = is_array($publish['facebookFanPageAdPolicy'] ?? null) ? $publish['facebookFanPageAdPolicy'] : [];
+    $file = [];
+    $path = fb_cadence_path();
+    if ($path !== '') {
+        $decoded = json_decode((string)file_get_contents($path), true);
+        $file = is_array($decoded) ? $decoded : [];
+    }
+    $start = max(6, min(20, (int)($saved['hourStart'] ?? $file['hourStart'] ?? FB_AD_HOUR_START)));
+    $end = max($start, min(21, (int)($saved['hourEnd'] ?? $file['hourEnd'] ?? FB_AD_HOUR_END)));
+    $personal = max(1, min(30, (int)($saved['personalPerPage'] ?? $file['personalPerPage'] ?? FB_AD_PERSONAL_PER_PAGE)));
+    $enabled = !array_key_exists('enabled', $saved) || (bool)$saved['enabled'];
+    $hours = $end - $start + 1;
+    $pages = fb_fan_pages();
+    $regionCount = max(1, count(fb_taiwan_regions()));
+    $rawPerRegion = (int)($saved['regionsPerHour'] ?? $file['regionsPerHour'] ?? FB_AD_REGIONS_PER_HOUR);
+    // 舊值 4 代表「每小時北中南東四則」，不是每區 4 則。
+    $perRegion = $rawPerRegion >= $regionCount ? 1 : max(1, min(4, $rawPerRegion));
+    $regionJobsPerHour = $regionCount * $perRegion;
+    return [
+        'enabled' => $enabled,
+        'mode' => fb_text($file['mode'] ?? $saved['mode'] ?? 'three_fanpage_personal10_regions_hourly1'),
+        'consumer' => fb_text($file['consumer'] ?? '火旺臉書上架助手'),
+        'hourStart' => $start,
+        'hourEnd' => $end,
+        'hoursPerDay' => $hours,
+        'personalPerPage' => $personal,
+        'regionsPerHour' => $perRegion,
+        'regionCount' => $regionCount,
+        'regionJobsPerHour' => $regionJobsPerHour,
+        'regionJobsPerPage' => $hours * $regionJobsPerHour,
+        'pageCount' => count($pages),
+        'pages' => array_map(fn($page) => [
+            'id' => $page['id'],
+            'label' => $page['label'],
+            'account' => $page['account'],
+            'accountKey' => $page['accountKey'] ?? '',
+            'publisherId' => $page['publisherId'] ?? '',
+            'pageName' => $page['pageName'],
+            'pageUrl' => $page['pageUrl'],
+            'personalViaGroups' => !empty($page['personalViaGroups']),
+        ], $pages),
+        'regions' => array_values(array_map(fn($region) => [
+            'key' => $region['key'],
+            'label' => $region['label'],
+            'cities' => $region['cities'],
+        ], fb_taiwan_regions())),
+        'dailyTarget' => (count($pages) * $personal) + (count($pages) * $hours * $regionJobsPerHour) + 20,
+        'note' => '三個粉絲團各有「個人」每日 ' . $personal . ' 則，以及北中南東每小時各一則（' . sprintf('%02d', $start) . ':00–' . sprintf('%02d', $end) . ':00）。真幸福社團每日 20 則維持既有通道。',
+    ];
+}
+
+function fb_city_region(string $city): string {
+    foreach (fb_taiwan_regions() as $key => $region) {
+        if (in_array($city, $region['cities'], true)) {
+            return $key;
+        }
+    }
+    return '';
+}
+
+function fb_group_region(array $group): string {
+    $lane = fb_text($group['lane'] ?? $group['region'] ?? '');
+    $map = ['personal' => 'personal', '個人' => 'personal', 'north' => 'north', '北' => 'north', 'central' => 'central', '中' => 'central', 'south' => 'south', '南' => 'south', 'east' => 'east', '東' => 'east'];
+    if (isset($map[$lane])) {
+        return $map[$lane];
+    }
+    $hay = fb_text($group['name'] ?? '') . ' ' . implode(' ', array_map('strval', is_array($group['areas'] ?? null) ? $group['areas'] : []));
+    foreach (fb_taiwan_regions() as $key => $region) {
+        foreach ($region['keywords'] as $keyword) {
+            if (mb_strpos($hay, $keyword) !== false) {
+                return $key;
+            }
+        }
+        foreach ($region['cities'] as $city) {
+            if ($city !== '' && mb_strpos($hay, $city) !== false) {
+                return $key;
+            }
+        }
+    }
+    return '';
+}
+
+function fb_region_groups(array $groups, string $account, string $regionKey): array {
+    $out = [];
+    foreach ($groups as $group) {
+        if (($group['enabled'] ?? true) === false) {
+            continue;
+        }
+        if (fb_text($group['account'] ?? '') !== $account) {
+            continue;
+        }
+        $name = fb_text($group['name'] ?? '');
+        $url = fb_text($group['url'] ?? '');
+        if ($url === FB_TRUEHAPPINESS_URL || mb_strpos($name, '真幸福') !== false) {
+            continue;
+        }
+        if (fb_excluded_group_name($name . ' ' . $url)) {
+            continue;
+        }
+        if (fb_group_region($group) !== $regionKey) {
+            continue;
+        }
+        $out[] = $group;
+    }
+    return $out;
+}
+
+function fb_page_region_destination(array $page, string $regionKey, array $groups, array $usedUrls): ?array {
+    $region = fb_taiwan_regions()[$regionKey] ?? null;
+    if (!$region) {
+        return null;
+    }
+    $matches = fb_region_groups($groups, fb_text($page['account'] ?? ''), $regionKey);
+    $best = $matches ? fb_best_personal_group($matches, ['city' => $region['cities'][0] ?? '', 'district' => ''], $usedUrls) : null;
+    if ($best) {
+        return [
+            'groupId' => fb_id($best['id'] ?? ''),
+            'destinationName' => fb_text($best['name'] ?? ''),
+            'destinationUrl' => fb_text($best['url'] ?? ''),
+        ];
+    }
+    $pageUrl = fb_text($page['pageUrl'] ?? '');
+    if ($pageUrl === '') {
+        return null;
+    }
+    return [
+        'groupId' => fb_id($page['groupId'] ?? '') . '-' . strtoupper($regionKey),
+        'destinationName' => fb_text($page['pageName'] ?? $page['label'] ?? '') . '｜' . $region['label'] . '部廣告',
+        'destinationUrl' => $pageUrl,
+    ];
+}
+
+function fb_hourly_times(string $targetDate, int $hourStart, int $hourEnd, int $minute): array {
+    $out = [];
+    for ($hour = $hourStart; $hour <= $hourEnd; $hour++) {
+        $out[] = strtotime($targetDate . ' ' . sprintf('%02d:%02d:00', $hour, $minute));
+    }
+    return $out;
+}
+
+function fb_personal_slot_times(string $targetDate, int $count, int $offsetMinutes = 0): array {
+    $base = ['12:10', '12:25', '12:40', '12:55', '18:10', '18:25', '18:40', '18:55', '19:10', '19:25', '13:10', '13:25', '17:10', '17:25', '19:40', '20:00', '20:20', '20:40', '21:00', '16:10', '16:25', '16:40', '17:40', '18:05', '14:10', '14:25', '15:10', '15:25', '11:40', '11:55'];
+    $slots = array_slice($base, 0, max(1, $count));
+    return array_map(function ($time) use ($targetDate, $offsetMinutes) {
+        return strtotime($targetDate . ' ' . $time) + ($offsetMinutes * 60);
+    }, $slots);
+}
+
+function fb_pick_region_items(array $items, string $regionKey, array $hourUsed, int $limit): array {
+    $prefer = array_values(array_filter($items, function ($item) use ($regionKey, $hourUsed) {
+        if (!empty($hourUsed[$item['id'] ?? ''])) {
+            return false;
+        }
+        return fb_city_region(fb_text($item['city'] ?? '')) === $regionKey;
+    }));
+    if (count($prefer) >= $limit) {
+        return array_slice($prefer, 0, $limit);
+    }
+    $fallback = array_values(array_filter($items, fn($item) => empty($hourUsed[$item['id'] ?? ''])));
+    $merged = [];
+    $seen = [];
+    foreach (array_merge($prefer, $fallback) as $item) {
+        $id = $item['id'] ?? '';
+        if ($id === '' || isset($seen[$id])) {
+            continue;
+        }
+        $seen[$id] = true;
+        $merged[] = $item;
+        if (count($merged) >= $limit) {
+            break;
+        }
+    }
+    return $merged;
+}
+
+function fb_count_jobs_matching(array $jobs, string $today, callable $match): array {
+    $out = ['queued' => 0, 'published' => 0, 'pending_review' => 0, 'blocked' => 0, 'failed' => 0, 'running' => 0, 'total' => 0];
+    foreach ($jobs as $job) {
+        if (fb_job_day($job) !== $today) {
+            continue;
+        }
+        if (!$match($job)) {
+            continue;
+        }
+        $status = fb_text($job['status'] ?? 'unknown');
+        $out['total']++;
+        if (isset($out[$status])) {
+            $out[$status]++;
+        }
+    }
+    return $out;
+}
+
+function fb_active_job(array $job): bool {
+    return !in_array($job['status'] ?? '', ['cancelled', 'failed', 'blocked'], true);
 }
 
 function fb_excluded_group_name(string $name): bool {
@@ -461,7 +776,8 @@ function fb_append_jobs(array &$jobs, array $selected, array $meta): int {
         if (in_array($job['status'] ?? '', ['cancelled', 'failed', 'blocked'], true)) {
             continue;
         }
-        $existing[fb_job_day($job) . '|' . fb_id($job['caseId'] ?? '') . '|' . fb_text($job['destinationUrl'] ?? '') . '|' . fb_text($job['account'] ?? '')] = true;
+        $hour = substr(fb_text($job['scheduledAt'] ?? ''), 11, 2);
+        $existing[fb_job_day($job) . '|' . fb_id($job['caseId'] ?? '') . '|' . fb_text($job['destinationUrl'] ?? '') . '|' . fb_text($job['account'] ?? '') . '|' . fb_text($job['lane'] ?? '') . '|' . $hour] = true;
     }
     foreach ($selected as $index => $item) {
         $run = $meta['times'][$index] ?? null;
@@ -469,7 +785,7 @@ function fb_append_jobs(array &$jobs, array $selected, array $meta): int {
             continue;
         }
         $jobId = $meta['idPrefix'] . date('Ymd-Hi', $run) . '-' . str_pad((string)($index + 1), 2, '0', STR_PAD_LEFT);
-        $dedupe = date('Y-m-d', $run) . '|' . $item['id'] . '|' . $meta['destinationUrl'] . '|' . $meta['account'];
+        $dedupe = date('Y-m-d', $run) . '|' . $item['id'] . '|' . $meta['destinationUrl'] . '|' . $meta['account'] . '|' . fb_text($meta['lane'] ?? '') . '|' . date('H', $run);
         if (isset($existing[$jobId]) || isset($existing[$dedupe])) {
             continue;
         }
@@ -497,9 +813,14 @@ function fb_append_jobs(array &$jobs, array $selected, array $meta): int {
             'brokerDisclosureLine' => FB_BROKER_LINE,
             'postType' => '出售文',
             'account' => $meta['account'],
+            'accountKey' => fb_text($meta['accountKey'] ?? ''),
             'groupId' => $meta['groupId'],
             'destinationName' => $meta['destinationName'],
             'destinationUrl' => $meta['destinationUrl'],
+            'lane' => fb_text($meta['lane'] ?? ''),
+            'region' => fb_text($meta['region'] ?? ''),
+            'pageId' => fb_text($meta['pageId'] ?? ''),
+            'pageLabel' => fb_text($meta['pageLabel'] ?? ''),
             'scheduledAt' => date('c', $run),
             'status' => 'queued',
             'postUrl' => '',
@@ -516,7 +837,7 @@ function fb_append_jobs(array &$jobs, array $selected, array $meta): int {
 
 function fb_best_personal_group(array $groups, array $item, array $usedUrls): ?array {
     $best = null;
-    $bestScore = -1;
+    $bestScore = PHP_INT_MIN;
     foreach ($groups as $group) {
         $url = fb_text($group['url'] ?? '');
         $name = fb_text($group['name'] ?? '');
@@ -614,6 +935,23 @@ function fb_dashboard(array $publish, array $shared = []): array {
         'sourceUrl' => $job['sourceUrl'] ?? '',
     ], array_slice($queued, 0, 3));
     $done = ($todayStatus['published'] ?? 0) + ($todayStatus['pending_review'] ?? 0);
+    $policy = fb_ad_policy($publish);
+    $pageChannels = [];
+    foreach ($policy['pages'] as $page) {
+        $pageId = $page['id'];
+        $pageChannels[] = [
+            'id' => $pageId,
+            'label' => $page['label'],
+            'account' => $page['account'],
+            'personal' => fb_count_jobs_matching($jobs, $today, fn($job) => fb_text($job['pageId'] ?? '') === $pageId && fb_text($job['lane'] ?? '') === 'personal'),
+            'regions' => [
+                'north' => fb_count_jobs_matching($jobs, $today, fn($job) => fb_text($job['pageId'] ?? '') === $pageId && fb_text($job['lane'] ?? '') === 'north'),
+                'central' => fb_count_jobs_matching($jobs, $today, fn($job) => fb_text($job['pageId'] ?? '') === $pageId && fb_text($job['lane'] ?? '') === 'central'),
+                'south' => fb_count_jobs_matching($jobs, $today, fn($job) => fb_text($job['pageId'] ?? '') === $pageId && fb_text($job['lane'] ?? '') === 'south'),
+                'east' => fb_count_jobs_matching($jobs, $today, fn($job) => fb_text($job['pageId'] ?? '') === $pageId && fb_text($job['lane'] ?? '') === 'east'),
+            ],
+        ];
+    }
     return [
         'ok' => true,
         'today' => $today,
@@ -623,14 +961,16 @@ function fb_dashboard(array $publish, array $shared = []): array {
         'dailyPolicy' => $publish['facebookDailyPublishPolicy'] ?? [],
         'trueHappinessPolicy' => $publish['facebookTrueHappinessDailyPublishPolicy'] ?? [],
         'personalPolicy' => $publish['facebookPersonalDailyPublishPolicy'] ?? [],
+        'adPolicy' => $policy,
+        'fanPages' => $pageChannels,
         'allStatus' => $status,
         'todayStatus' => $todayStatus,
         'todayDone' => $done,
-        'todayTarget' => 50,
+        'todayTarget' => $policy['dailyTarget'],
         'channels' => [
-            'page' => fb_count_today($jobs, $today, 'scheduleId', 'SCH-PAGE-DAILY20-' . str_replace('-', '', $today)),
+            'page' => fb_count_jobs_matching($jobs, $today, fn($job) => fb_text($job['lane'] ?? '') !== '' && fb_text($job['lane'] ?? '') !== 'personal' && fb_text($job['pageId'] ?? '') !== ''),
             'truehappiness' => fb_count_today($jobs, $today, 'scheduleId', 'SCH-TRUEHAPPINESS-DAILY20-' . str_replace('-', '', $today)),
-            'personal' => fb_count_today($jobs, $today, 'scheduleId', 'SCH-PERSONAL-DAILY10-' . str_replace('-', '', $today)),
+            'personal' => fb_count_jobs_matching($jobs, $today, fn($job) => fb_text($job['lane'] ?? '') === 'personal'),
         ],
         'nextJobs' => $next,
         'queuedReady' => count($queued),
@@ -661,6 +1001,208 @@ function fb_cap_schedule_times(array $times, int $intervalMinutes, ?int $notBefo
     return $out;
 }
 
+function fb_retire_legacy_page_jobs(array &$jobs, string $targetDate): int {
+    $legacyId = 'SCH-PAGE-DAILY20-' . str_replace('-', '', $targetDate);
+    $retired = 0;
+    foreach ($jobs as &$job) {
+        if (($job['scheduleId'] ?? '') !== $legacyId) {
+            continue;
+        }
+        if (!in_array($job['status'] ?? '', ['queued', 'running'], true)) {
+            continue;
+        }
+        $job['status'] = 'cancelled';
+        $job['note'] = trim(fb_text($job['note'] ?? '') . '；已改為粉絲團北中南東／個人廣告文規則');
+        $job['updatedAt'] = date('c');
+        $retired++;
+    }
+    unset($job);
+    return $retired;
+}
+
+function fb_generate_page_personal_jobs(array &$jobs, array &$schedules, array $page, array $items, array $groups, string $targetDate, array $policy, int $pageIndex, array &$sameDay): int {
+    $pageId = fb_text($page['id'] ?? '');
+    $scheduleId = 'SCH-AD-' . $pageId . '-PERSONAL-' . str_replace('-', '', $targetDate);
+    $existing = count(array_filter($jobs, fn($job) => ($job['scheduleId'] ?? '') === $scheduleId && fb_active_job($job)));
+    $need = max(0, (int)$policy['personalPerPage'] - $existing);
+    if ($need <= 0 || !$items) {
+        return 0;
+    }
+    $personalGroups = !empty($page['personalViaGroups']) ? fb_yilan_personal_groups($groups) : [];
+    $pageUrl = fb_text($page['pageUrl'] ?? '');
+    if (!$personalGroups && $pageUrl === '') {
+        fb_upsert_schedule($schedules, [
+            'id' => $scheduleId,
+            'name' => $page['label'] . '｜個人每日' . $policy['personalPerPage'] . '件｜' . $targetDate,
+            'enabled' => true,
+            'lane' => 'personal',
+            'pageId' => $pageId,
+            'itemsPerDay' => (int)$policy['personalPerPage'],
+            'accounts' => [$page['account']],
+            'sourceMode' => 'same_store_only',
+            'postType' => '出售文',
+            'note' => '尚未設定粉絲團網址或個人社團，佇列為 0',
+            'createdAt' => date('c'),
+        ]);
+        return 0;
+    }
+    $selected = fb_pick_items($items, $sameDay, [], $need, true);
+    $times = fb_cap_schedule_times(
+        fb_personal_slot_times($targetDate, $need, $pageIndex * 2),
+        1,
+        time() + 90,
+        strtotime($targetDate . ' 21:59:00')
+    );
+    $selected = array_slice($selected, 0, count($times));
+    fb_upsert_schedule($schedules, [
+        'id' => $scheduleId,
+        'name' => $page['label'] . '｜個人每日' . $policy['personalPerPage'] . '件｜' . $targetDate,
+        'enabled' => true,
+        'lane' => 'personal',
+        'pageId' => $pageId,
+        'itemsPerDay' => (int)$policy['personalPerPage'],
+        'startTime' => '12:10',
+        'intervalMinutes' => 15,
+        'accounts' => [$page['account']],
+        'sourceMode' => 'same_store_only',
+        'postType' => '出售文',
+        'createdAt' => date('c'),
+    ]);
+    $created = 0;
+    $usedUrls = [];
+    foreach ($selected as $index => $item) {
+        $run = $times[$index] ?? null;
+        if (!$run) {
+            continue;
+        }
+        $destName = fb_text($page['pageName'] ?? $page['label']);
+        $destUrl = $pageUrl;
+        $groupId = fb_id($page['groupId'] ?? '');
+        if ($personalGroups) {
+            $group = fb_best_personal_group($personalGroups, $item, $usedUrls);
+            if (!$group) {
+                continue;
+            }
+            $destName = fb_text($group['name'] ?? '');
+            $destUrl = fb_text($group['url'] ?? '');
+            $groupId = fb_id($group['id'] ?? '');
+            $usedUrls[$destUrl] = ($usedUrls[$destUrl] ?? 0) + 1;
+        }
+        if ($destUrl === '') {
+            continue;
+        }
+        $created += fb_append_jobs($jobs, [$item], [
+            'scheduleId' => $scheduleId,
+            'idPrefix' => 'JOB-AD-' . $pageId . '-PERSONAL-',
+            'account' => $page['account'],
+            'accountKey' => $page['accountKey'] ?? '',
+            'groupId' => $groupId,
+            'destinationName' => $destName,
+            'destinationUrl' => $destUrl,
+            'headlinePrefix' => '🏡 ' . $page['label'] . '個人精選｜',
+            'note' => $page['label'] . '｜個人每日' . $policy['personalPerPage'] . '件',
+            'lane' => 'personal',
+            'region' => '個人',
+            'pageId' => $pageId,
+            'pageLabel' => $page['label'],
+            'times' => [$run],
+        ]);
+        $sameDay[$item['id']] = true;
+    }
+    return $created;
+}
+
+function fb_generate_page_region_jobs(array &$jobs, array &$schedules, array $page, array $items, array $groups, string $targetDate, array $policy, int $pageIndex): int {
+    $pageId = fb_text($page['id'] ?? '');
+    $ymd = str_replace('-', '', $targetDate);
+    $created = 0;
+    $regionKeys = array_keys(fb_taiwan_regions());
+    $endTs = strtotime($targetDate . sprintf(' %02d:59:00', (int)$policy['hourEnd']));
+    foreach ($regionKeys as $regionOffset => $regionKey) {
+        $region = fb_taiwan_regions()[$regionKey];
+        $scheduleId = 'SCH-AD-' . $pageId . '-' . strtoupper($regionKey) . '-' . $ymd;
+        $existingHours = [];
+        foreach ($jobs as $job) {
+            if (($job['scheduleId'] ?? '') !== $scheduleId || !fb_active_job($job)) {
+                continue;
+            }
+            $hour = substr(fb_text($job['scheduledAt'] ?? ''), 11, 2);
+            if ($hour !== '') {
+                $existingHours[$hour] = true;
+            }
+        }
+        $minute = ($regionOffset * 12) + ($pageIndex * 3);
+        $times = fb_hourly_times($targetDate, (int)$policy['hourStart'], (int)$policy['hourEnd'], $minute);
+        $times = array_values(array_filter($times, function ($t) use ($existingHours, $endTs) {
+            if ($t > $endTs) {
+                return false;
+            }
+            if ($t < time() + 60) {
+                return false;
+            }
+            $hour = date('H', $t);
+            return empty($existingHours[$hour]);
+        }));
+        fb_upsert_schedule($schedules, [
+            'id' => $scheduleId,
+            'name' => $page['label'] . '｜' . $region['label'] . '部每小時1則｜' . $targetDate,
+            'enabled' => true,
+            'lane' => $regionKey,
+            'pageId' => $pageId,
+            'itemsPerDay' => (int)$policy['hoursPerDay'],
+            'startTime' => sprintf('%02d:%02d', (int)$policy['hourStart'], $minute),
+            'intervalMinutes' => 60,
+            'accounts' => [$page['account']],
+            'sourceMode' => 'same_store_only',
+            'postType' => '出售文',
+            'createdAt' => date('c'),
+        ]);
+        if (!$times) {
+            continue;
+        }
+        $usedUrls = [];
+        foreach ($times as $run) {
+            $hourUsed = [];
+            $hourKey = date('H', $run);
+            foreach ($jobs as $job) {
+                if (fb_job_day($job) !== $targetDate || !fb_active_job($job)) {
+                    continue;
+                }
+                if (fb_text($job['pageId'] ?? '') !== $pageId) {
+                    continue;
+                }
+                if (substr(fb_text($job['scheduledAt'] ?? ''), 11, 2) === $hourKey) {
+                    $hourUsed[fb_id($job['caseId'] ?? '')] = true;
+                }
+            }
+            $picked = fb_pick_region_items($items, $regionKey, $hourUsed, max(1, (int)($policy['regionsPerHour'] ?? 1)));
+            $item = $picked[0] ?? null;
+            $dest = fb_page_region_destination($page, $regionKey, $groups, $usedUrls);
+            if (!$item || !$dest) {
+                continue;
+            }
+            $usedUrls[$dest['destinationUrl']] = ($usedUrls[$dest['destinationUrl']] ?? 0) + 1;
+            $created += fb_append_jobs($jobs, [$item], [
+                'scheduleId' => $scheduleId,
+                'idPrefix' => 'JOB-AD-' . $pageId . '-' . strtoupper($regionKey) . '-',
+                'account' => $page['account'],
+                'accountKey' => $page['accountKey'] ?? '',
+                'groupId' => $dest['groupId'],
+                'destinationName' => $dest['destinationName'],
+                'destinationUrl' => $dest['destinationUrl'],
+                'headlinePrefix' => '🔥 ' . $page['label'] . $region['label'] . '部廣告｜',
+                'note' => $page['label'] . '｜北中南東｜' . $region['label'] . '部每小時1則',
+                'lane' => $regionKey,
+                'region' => $region['label'],
+                'pageId' => $pageId,
+                'pageLabel' => $page['label'],
+                'times' => [$run],
+            ]);
+        }
+    }
+    return $created;
+}
+
 function fb_generate_today_bundle(array $shared, array $publish, string $targetDate, bool $commit): array {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $targetDate)) {
         $targetDate = date('Y-m-d');
@@ -669,56 +1211,42 @@ function fb_generate_today_bundle(array $shared, array $publish, string $targetD
     $schedules = fb_rows($publish['facebookPublishSchedules'] ?? []);
     $groups = fb_rows($publish['facebookGroupRegistry'] ?? []);
     $cancelled = fb_cancel_stale_jobs($jobs, $targetDate);
+    $cancelled['legacyPageDaily20'] = fb_retire_legacy_page_jobs($jobs, $targetDate);
     $disabledGroups = fb_disable_overseas_groups($groups);
     $items = fb_same_store_items($shared);
-    [$sameDay, $recent] = fb_used_case_ids($jobs, $targetDate, 14);
-
-    $pageId = 'SCH-PAGE-DAILY20-' . str_replace('-', '', $targetDate);
-    $trueId = 'SCH-TRUEHAPPINESS-DAILY20-' . str_replace('-', '', $targetDate);
-    $personalId = 'SCH-PERSONAL-DAILY10-' . str_replace('-', '', $targetDate);
+    $policy = fb_ad_policy($publish);
+    $personalGroups = fb_yilan_personal_groups($groups);
     $created = ['page' => 0, 'truehappiness' => 0, 'personal' => 0];
-    $pageExisting = count(array_filter($jobs, fn($job) => ($job['scheduleId'] ?? '') === $pageId && !in_array($job['status'] ?? '', ['cancelled', 'failed', 'blocked'], true)));
-    $pageNeed = max(0, 20 - $pageExisting);
-    if ($pageNeed > 0) {
-        $selected = fb_pick_items($items, $sameDay, $recent, $pageNeed, true);
-        fb_upsert_schedule($schedules, [
-            'id' => $pageId,
-            'name' => '店內物件粉絲團每日20件｜' . $targetDate,
-            'enabled' => true,
-            'itemsPerDay' => 20,
-            'groupsPerListing' => 1,
-            'startTime' => '12:00',
-            'intervalMinutes' => 36,
-            'accounts' => [FB_PAGE_ACCOUNT],
-            'cities' => ['宜蘭縣'],
-            'sourceMode' => 'same_store_only',
-            'postType' => '出售文',
-            'createdAt' => date('c'),
-        ]);
-        $times = [];
-        for ($i = 0; $i < count($selected); $i++) {
-            $times[] = strtotime($targetDate . ' 12:00') + $i * 36 * 60;
-        }
-        $times = fb_cap_schedule_times($times, 36, time() + 90, strtotime($targetDate . ' 21:30:00'));
-        $selected = array_slice($selected, 0, count($times));
-        $created['page'] = fb_append_jobs($jobs, $selected, [
-            'scheduleId' => $pageId,
-            'idPrefix' => 'JOB-PAGE-DAILY20-',
-            'account' => FB_PAGE_ACCOUNT,
-            'groupId' => FB_PAGE_GROUP_ID,
-            'destinationName' => FB_PAGE_NAME,
-            'destinationUrl' => FB_PAGE_URL,
-            'headlinePrefix' => '🔥 店內精選｜',
-            'note' => '店內物件粉絲團每日20件；每天 12:00／18:00 更新補件',
-            'times' => $times,
-        ]);
-        foreach ($selected as $item) {
-            $sameDay[$item['id']] = true;
-            $recent[$item['id']] = true;
+    $scheduleIds = [];
+
+    if ($policy['enabled']) {
+        foreach (fb_fan_pages() as $pageIndex => $page) {
+            $pageSameDay = [];
+            foreach ($jobs as $job) {
+                if (fb_job_day($job) !== $targetDate || !fb_active_job($job)) {
+                    continue;
+                }
+                if (fb_text($job['pageId'] ?? '') === $page['id'] && fb_text($job['lane'] ?? '') === 'personal') {
+                    $pageSameDay[fb_id($job['caseId'] ?? '')] = true;
+                }
+            }
+            $personalMade = fb_generate_page_personal_jobs($jobs, $schedules, $page, $items, $groups, $targetDate, $policy, $pageIndex, $pageSameDay);
+            $regionMade = fb_generate_page_region_jobs($jobs, $schedules, $page, $items, $groups, $targetDate, $policy, $pageIndex);
+            $created['personal'] += $personalMade;
+            $created['page'] += $regionMade;
+            $created[$page['id'] . '_personal'] = $personalMade;
+            $created[$page['id'] . '_regions'] = $regionMade;
+            $scheduleIds[] = 'SCH-AD-' . $page['id'] . '-PERSONAL-' . str_replace('-', '', $targetDate);
+            foreach (array_keys(fb_taiwan_regions()) as $regionKey) {
+                $scheduleIds[] = 'SCH-AD-' . $page['id'] . '-' . strtoupper($regionKey) . '-' . str_replace('-', '', $targetDate);
+            }
         }
     }
 
-    $trueExisting = count(array_filter($jobs, fn($job) => ($job['scheduleId'] ?? '') === $trueId && !in_array($job['status'] ?? '', ['cancelled', 'failed', 'blocked'], true)));
+    $trueId = 'SCH-TRUEHAPPINESS-DAILY20-' . str_replace('-', '', $targetDate);
+    $scheduleIds[] = $trueId;
+    [$sameDay, $recent] = fb_used_case_ids($jobs, $targetDate, 14);
+    $trueExisting = count(array_filter($jobs, fn($job) => ($job['scheduleId'] ?? '') === $trueId && fb_active_job($job)));
     $trueNeed = max(0, 20 - $trueExisting);
     if ($trueNeed > 0) {
         $selected = fb_pick_items($items, $sameDay, $recent, $trueNeed, true);
@@ -752,54 +1280,9 @@ function fb_generate_today_bundle(array $shared, array $publish, string $targetD
             'note' => '店內物件真幸福社團每日20件；每天 12:00／18:00 更新補件',
             'times' => $times,
         ]);
-        foreach ($selected as $item) {
-            $sameDay[$item['id']] = true;
-            $recent[$item['id']] = true;
-        }
     }
 
-    $personalExisting = count(array_filter($jobs, fn($job) => ($job['scheduleId'] ?? '') === $personalId && !in_array($job['status'] ?? '', ['cancelled', 'failed', 'blocked'], true)));
-    $personalGroups = fb_yilan_personal_groups($groups);
-    $personalNeed = max(0, 10 - $personalExisting);
-    if ($personalNeed > 0 && $personalGroups) {
-        $selected = fb_pick_items($items, $sameDay, $recent, $personalNeed, true);
-        $times = fb_cap_schedule_times(fb_personal_times($targetDate), 15, time() + 120, strtotime($targetDate . ' 21:30:00'));
-        $selected = array_slice($selected, 0, count($times));
-        fb_upsert_schedule($schedules, [
-            'id' => $personalId,
-            'name' => '店內物件個人宜蘭社團每日10件｜' . $targetDate,
-            'enabled' => true,
-            'itemsPerDay' => 10,
-            'startTime' => '12:10',
-            'intervalMinutes' => 15,
-            'accounts' => [FB_PERSONAL_ACCOUNT],
-            'cities' => ['宜蘭縣'],
-            'sourceMode' => 'same_store_only',
-            'postType' => '出售文',
-            'createdAt' => date('c'),
-        ]);
-        $usedUrls = [];
-        foreach ($selected as $index => $item) {
-            $group = fb_best_personal_group($personalGroups, $item, $usedUrls);
-            $run = $times[$index] ?? null;
-            if (!$run || !$group) {
-                continue;
-            }
-            $usedUrls[fb_text($group['url'] ?? '')] = ($usedUrls[fb_text($group['url'] ?? '')] ?? 0) + 1;
-            $created['personal'] += fb_append_jobs($jobs, [$item], [
-                'scheduleId' => $personalId,
-                'idPrefix' => 'JOB-PERSONAL-DAILY10-',
-                'account' => FB_PERSONAL_ACCOUNT,
-                'groupId' => fb_id($group['id'] ?? ''),
-                'destinationName' => fb_text($group['name'] ?? ''),
-                'destinationUrl' => fb_text($group['url'] ?? ''),
-                'headlinePrefix' => '🏡 宜蘭精選｜',
-                'note' => '店內物件個人宜蘭社團每日10件；每天 12:00／18:00 更新補件',
-                'times' => [$run],
-            ]);
-        }
-    }
-
+    $adPolicy = array_merge($policy, ['updatedAt' => date('c')]);
     $publish = fb_merge_publish($publish, [
         'facebookPublishJobs' => json_encode($jobs, JSON_UNESCAPED_UNICODE),
         'facebookPublishSchedules' => json_encode($schedules, JSON_UNESCAPED_UNICODE),
@@ -811,14 +1294,16 @@ function fb_generate_today_bundle(array $shared, array $publish, string $targetD
             'license' => '（113）000395字號',
             'updatedAt' => date('c'),
         ],
+        'facebookFanPageAdPolicy' => $adPolicy,
         'facebookDailyPublishPolicy' => [
-            'enabled' => true,
-            'name' => '店內物件粉絲團每日20件',
+            'enabled' => $policy['enabled'],
+            'name' => '三粉絲團北中南東每小時各一',
             'source' => 'sameStoreItems',
-            'account' => FB_PAGE_ACCOUNT,
-            'dailyLimit' => 20,
-            'startTime' => '12:00',
-            'intervalMinutes' => 36,
+            'accounts' => fb_allowed_accounts(),
+            'hourStart' => $policy['hourStart'],
+            'hourEnd' => $policy['hourEnd'],
+            'regionsPerHour' => $policy['regionsPerHour'],
+            'regionJobsPerHour' => $policy['regionJobsPerHour'],
             'refreshAt' => ['12:00', '18:00'],
             'updatedAt' => date('c'),
         ],
@@ -834,18 +1319,21 @@ function fb_generate_today_bundle(array $shared, array $publish, string $targetD
             'updatedAt' => date('c'),
         ],
         'facebookPersonalDailyPublishPolicy' => [
-            'enabled' => true,
-            'name' => '店內物件個人宜蘭社團每日10件',
+            'enabled' => $policy['enabled'],
+            'name' => '三粉絲團個人每日各' . $policy['personalPerPage'] . '件',
             'source' => 'sameStoreItems',
-            'account' => FB_PERSONAL_ACCOUNT,
-            'dailyLimit' => 10,
-            'startTime' => '12:10',
-            'slots' => ['12:10', '12:25', '12:40', '12:55', '18:10', '18:25', '18:40', '18:55', '19:10', '19:25'],
+            'accounts' => fb_allowed_accounts(),
+            'dailyLimit' => $policy['personalPerPage'],
             'refreshAt' => ['12:00', '18:00'],
             'updatedAt' => date('c'),
         ],
     ]);
 
+    $numericCreated = [
+        'page' => (int)($created['page'] ?? 0),
+        'truehappiness' => (int)($created['truehappiness'] ?? 0),
+        'personal' => (int)($created['personal'] ?? 0),
+    ];
     return [
         'publish' => $publish,
         'result' => [
@@ -854,11 +1342,12 @@ function fb_generate_today_bundle(array $shared, array $publish, string $targetD
             'targetDate' => $targetDate,
             'availableSameStoreItems' => count($items),
             'createdJobs' => $created,
-            'createdTotal' => array_sum($created),
+            'createdTotal' => $numericCreated['page'] + $numericCreated['truehappiness'] + $numericCreated['personal'],
             'cancelled' => $cancelled,
             'disabledOverseasGroups' => $disabledGroups,
             'personalGroups' => count($personalGroups),
-            'scheduleIds' => [$pageId, $trueId, $personalId],
+            'adPolicy' => $adPolicy,
+            'scheduleIds' => $scheduleIds,
             'dashboard' => fb_dashboard($publish, $shared),
         ],
     ];
