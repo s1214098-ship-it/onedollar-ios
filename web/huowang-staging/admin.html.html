@@ -2996,7 +2996,8 @@ input[list*="List"],input[list]{
   <a onclick="show('backup',this)" style="background:#5B21B6">💾 資料庫備份還原</a>
   <a onclick="show('agent',this)">🏢 門市資訊設定</a>
   <a onclick="show('automation',this)" style="background:#0F766E">🤖 自動化功能</a>
-  <a onclick="show('facebookAutomation',this)" style="background:#1D4ED8">📘 Facebook 排程</a>
+  <a onclick="show('facebookAds',this)" style="background:#E87524;color:#fff;font-size:18px;font-weight:1000">📣 臉書廣告文</a>
+  <a onclick="show('facebookAutomation',this)" style="background:#1D4ED8">📘 Facebook 舊排程管理</a>
 </div>
 
 <!-- 主要內容 -->
@@ -3021,6 +3022,7 @@ input[list*="List"],input[list]{
     <h2>🤖 自動化功能</h2>
     <p style="color:#475569;font-weight:900;margin-bottom:14px">同店、異店、照片與 Facebook 都是每天中午 12:00、晚上 18:00 自動更新；PHT-SR 重開後會重掛排程。</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <button type="button" onclick="show('facebookAds',document.querySelector('[onclick*=facebookAds]'))" style="background:#E87524;color:#fff;padding:11px 16px;border:0;border-radius:8px;font-weight:950;cursor:pointer">📣 發廣告文</button>
       <button type="button" onclick="show('facebookAutomation',document.querySelector('[onclick*=facebookAutomation]'))" style="background:#0F766E;color:#fff;padding:11px 16px;border:0;border-radius:8px;font-weight:950;cursor:pointer">📘 開啟火旺專屬房屋自動化</button>
     </div>
     <div class="automation-grid" id="automationGrid"></div>
@@ -3034,6 +3036,14 @@ input[list*="List"],input[list]{
       <p style="color:#475569;font-weight:800;margin-top:0">每天中午 12:00、晚上 18:00 自動更新。每日 50 件：粉絲團 20、真幸福 20、個人宜蘭社團 10。</p>
     </div>
     <iframe src="./facebook-schedule.html" title="Facebook 發布與加入社團排程" style="display:block;width:100%;height:2200px;border:0;background:#f6f1e8"></iframe>
+  </div>
+
+  <div id="facebookAds" class="card" style="display:none;padding:0;overflow:hidden">
+    <div style="padding:18px 18px 0">
+      <h2 style="margin-bottom:6px">📣 臉書廣告文</h2>
+      <p style="color:#475569;font-weight:800;margin-top:0">同店物件上架中心。預覽、建立 queued 任務後，由「火旺臉書上架助手」在發文機實際發布。</p>
+    </div>
+    <iframe src="./facebook-ads.html" title="同店物件臉書廣告文工具列" style="display:block;width:100%;height:2600px;border:0;background:#f5f7fb"></iframe>
   </div>
 
   <!-- 行事曆 / 帶看排程 -->
@@ -3133,6 +3143,14 @@ input[list*="List"],input[list]{
         <div>
           <div class="external-link-title">火旺伯外部物件後台</div>
           <div class="external-link-desc">新增客人看的外部物件，支援中文與越南文物件名稱、介紹與照片。</div>
+        </div>
+        <div class="external-link-action">開啟</div>
+      </a>
+      <a class="external-link-card" href="./facebook-ads.html">
+        <div class="external-link-icon">📣</div>
+        <div>
+          <div class="external-link-title">臉書廣告文</div>
+          <div class="external-link-desc">同店物件預覽、強制規則與建立 queued 上架任務；實際發文由火旺臉書上架助手執行。</div>
         </div>
         <div class="external-link-action">開啟</div>
       </a>
@@ -5246,7 +5264,15 @@ function applyLoginState(role){
   document.getElementById("permMenu").style.display = "block";
   document.getElementById("empMenu").style.display = "block";
   if(isAdmin) loadPermissionInfo();
+  refreshFacebookAdsAuth();
   setTimeout(showLoginExpiredUnsoldPrompt, 500);
+}
+
+function refreshFacebookAdsAuth(){
+  const frame = document.querySelector('#facebookAds iframe');
+  if(frame && frame.contentWindow){
+    frame.contentWindow.postMessage({type:'huowang-admin-auth-refresh'}, location.origin);
+  }
 }
 
 function getExpiredUnsoldOwnItems(){
@@ -7263,6 +7289,7 @@ function show(id,el){
       }
     }
     if(pageId==="importReport")renderImportReport();
+    if(pageId==="facebookAds")refreshFacebookAdsAuth();
     initAddressRoadDatalists();
 }
 
@@ -9351,10 +9378,10 @@ function renderAutomationCenter(){
         },
         {
             title:"Facebook 上架排版與發出",
-            body:"後台產生直式房屋文案、照片與名片；本機 Chrome 擴充功能 0.5.35 依佇列發到粉絲團與社團。Service Worker 若顯示無法使用，請改載 F:\\\\Web\\\\huowang-staging\\\\chrome-extension。",
+            body:"發廣告文走「臉書廣告文」工具列與 api/facebook-ad-tool.php；本機 Chrome「火旺臉書上架助手」依佇列發到粉絲團與社團。舊排程頁仍可管理歷史佇列。",
             status:"",
-            statusText:"擴充功能 0.5.35｜每約 90 秒發一則",
-            actions:'<button class="blue" onclick="show(\'facebookAutomation\',document.querySelector(\'[onclick*=facebookAutomation]\'))">打開 Facebook 排程</button><button class="green" onclick="window.open(\'chrome-extension/INSTALL.txt\',\'_blank\')">安裝說明</button>'
+            statusText:"線上已發布紀錄可從臉書廣告文查看",
+            actions:'<button class="orange" onclick="show(\'facebookAds\',document.querySelector(\'[onclick*=facebookAds]\'))">發廣告文</button><button class="blue" onclick="show(\'facebookAutomation\',document.querySelector(\'[onclick*=facebookAutomation]\'))">打開舊排程</button><button class="green" onclick="window.open(\'chrome-extension/INSTALL.txt\',\'_blank\')">安裝說明</button>'
         },
         {
             title:"網站健康檢查",
