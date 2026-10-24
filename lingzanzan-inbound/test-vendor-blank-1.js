@@ -41,4 +41,69 @@ assert(isLockedChoicePlaceholder('請選擇已建檔平台') === true, 'locked p
 assert(isLockedChoicePlaceholder('拼直') === false, 'real vendor stays');
 assert(isLockedChoicePlaceholder('') === true, 'empty is blank');
 
+function makeEl(tag, attrs, value) {
+  var el = {
+    tagName: tag.toUpperCase(),
+    attrs: Object.assign({}, attrs || {}),
+    value: value || '',
+    style: { display: (attrs && attrs.style && /display:\s*none/.test(attrs.style)) ? 'none' : '' },
+    hidden: !!(attrs && attrs.hidden),
+    parentNode: null,
+    getAttribute: function (n) { return this.attrs[n]; },
+    setAttribute: function (n, v) { this.attrs[n] = String(v); },
+    closest: function () { return this.host; }
+  };
+  el.attributes = Object.keys(el.attrs).map(function (k) { return { name: k, value: el.attrs[k] }; });
+  return el;
+}
+(function convertSelectFixture() {
+  var supplier = makeEl('select', { 'data-purchase-receipt-supplier': '' }, '請選擇已建檔廠商');
+  var platform = makeEl('select', { 'data-purchase-receipt-platform': '' }, '微信');
+  var supplierHost = { hidden: false, style: { display: '' }, removeAttribute: function () {} };
+  var platformHost = { hidden: true, style: { display: 'none' }, removeAttribute: function (n) { if (n === 'hidden') this.hidden = false; } };
+  supplier.host = supplierHost;
+  platform.host = platformHost;
+  var parentS = { replaceChild: function (n) { this.child = n; } };
+  var parentP = { replaceChild: function (n) { this.child = n; } };
+  supplier.parentNode = parentS;
+  platform.parentNode = parentP;
+  var lists = {};
+  function createElement(tag) {
+    if (tag === 'datalist') {
+      var list = makeEl('datalist', {});
+      Object.defineProperty(list, 'id', {
+        get: function () { return this.attrs.id; },
+        set: function (v) { this.attrs.id = v; lists[v] = this; }
+      });
+      return list;
+    }
+    return makeEl(tag, {});
+  }
+  function convert(el, listId) {
+    var current = isLockedChoicePlaceholder(el.value) ? '' : text(el.value);
+    function text(v) { return String(v == null ? '' : v).trim(); }
+    var input = createElement('input');
+    el.attributes.forEach(function (attr) {
+      if (attr.name.indexOf('data-') === 0) input.setAttribute(attr.name, attr.value);
+    });
+    input.setAttribute('placeholder', '空白可直接打入新增');
+    input.value = current;
+    el.parentNode.replaceChild(input, el);
+    var host = el.closest();
+    host.hidden = false;
+    host.removeAttribute('hidden');
+    if (host.style.display === 'none') host.style.display = '';
+    return input;
+  }
+  var s = convert(supplier, 'purchase-receipt-supplier-options');
+  var p = convert(platform, 'purchase-receipt-platform-options');
+  assert(s.tagName === 'INPUT', 'converted supplier tag');
+  assert(s.value === '', 'placeholder select becomes blank');
+  assert(s.attrs.placeholder === '空白可直接打入新增', 'supplier placeholder after convert');
+  assert(p.tagName === 'INPUT', 'converted platform tag');
+  assert(p.value === '微信', 'real platform value kept');
+  assert(platformHost.hidden === false, 'platform unhidden');
+  assert(platformHost.style.display === '', 'platform display restored');
+})();
+
 console.log('vendor-blank ok');
