@@ -17106,6 +17106,7 @@ function setOpsStaffPermissionRole(role) {
 </script>
 <script src="ops-customer-company.js?v=customer-company-20260922" charset="UTF-8"></script>
 <script src="ops-billing-documents.js?v=billing-docs-20260922b" charset="UTF-8"></script>
+<script src="ops-delivery-logistics.js?v=logistics-safe-20261027" charset="UTF-8"></script>
 <script src="../baohui-paste-image.js?v=20260819-paste-1"></script>
 </body>
 </html>
