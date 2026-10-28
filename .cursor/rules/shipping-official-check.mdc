@@ -1,0 +1,53 @@
+---
+description: 出貨物流官方查件三條不可再犯：7-11驗證碼自己打、全家驗證碼自己打、十二點三點必須真的查官網
+alwaysApply: true
+---
+
+# 出貨物流官方查件（三條工作任務，以後不能再犯）
+
+這是固定工作，不是選做。7-11、全家、郵局、新竹、大榮的官方查件，代理人必須自己查完並寫回佇列。驗證碼是公開的，峰志已授權全部自己處理。不准停下來問要不要查、也不准把驗證碼丟回給使用者。
+
+查到官方顯示「已取件／配送成功」或「退回原門市」才可從每日必查名單拿掉。其他狀態隔天 **12:00／15:00 Asia/Taipei** 繼續查。
+
+## 任務一：7-11 未查／過期單 — 驗證碼自己輸入
+
+官網：https://tracking.shopmore.com.tw/
+
+- 截圖驗證碼（四碼數字），**自己打進欄位再按查詢**。一次最多 6 筆。
+- 不准停在「SHOPMORE 要驗證碼所以沒查」。
+- 不准因為 `/PackageDetail` 空白（htmlLen 很小、Vue 沒掛上）就回報卡住、把工作丟回給使用者。SHOPMORE 的查詢是表單 POST 到 `/PackageDetail`；嵌入瀏覽器常渲染不出 Vue。正確做法：留在首頁，用 `fetch(form.action, {method:'POST', body: FormData, credentials:'include'})` 拿 HTML，解析 `var searchResults = [...]`，再寫回。
+- 寫回：`scripts/apply-seven-official.js` 或 `scripts/apply-carrier-results.js`。
+
+## 任務二：全家 未查／過期單 — 驗證碼自己輸入
+
+官網請直接開 iframe 內頁，不要停在外層 `fmec.famiport.com.tw`（snapshot 看不到 iframe）：
+
+`https://ecfme.fme.com.tw/FMEDCFPWebV2_II/index.aspx?orderno=單號`
+
+- 一次最多 5 筆。截圖「數字驗證」，**自己打進去再查**。
+- 驗證失敗就關提示、重新截圖、再打一組，不准因此停工。
+- 不准停在「要驗證碼所以沒查」。查完用 `scripts/apply-carrier-results.js` 寫回。
+
+## 任務三：每天 12:00 與 15:00（Asia/Taipei）必須真的查五家官網
+
+峰志 2026-10-28：「每天中午十二點更新跟下午三點」。舊窗口 12:00／18:00 廢止。舊 Claude 排程「物流更新 張張+寶輝（每日12:00、16:00）」自 2026-10-09 起失敗，不得再當正式排程。
+
+- 這兩個時段要**實際打開** 7-11 shopmore／全家 inner FME／郵局／新竹 HCT／大榮 KTJ 官網查件，並把結果寫回佇列。
+- Windows 排程有啟動、只跑 `carrier-thorough-audit.js` 點名未查筆數，**不算完成**。
+- LINE 額度滿（429）、Gmail 密碼沒設、通知寄不出，**都不是跳過查件的理由**。通知失敗仍要把官方狀態查完寫回。
+- 這輪完成標準：未查清零；過期（超過約 20 小時）也要重查。郵局／超商查無資料可記 `official_no_data`，其餘不准留著不查。
+
+## 寫回與完成
+
+- 佇列：`data/carrier-tracking-queue.json`
+- 未查清單：先跑 `scripts/carrier-thorough-audit.js --force --no-mail` 再依 leftovers **真的查官網**
+- 結果：`scripts/apply-carrier-results.js`（`resultType: official_tracking_only` 或 `official_verified`，`verificationSource` 寫官網名稱）
+- 訂單狀態另用 `scripts/sync-carrier-orders.js --apply`（僅唯一單號或已官方驗證）
+
+## 不要再犯
+
+- 不要把驗證碼當成阻擋、請使用者代打、或回報「卡在驗證碼」。
+- 不要只報 leftover 數量卻不查官方。
+- 不要用「排程有跑」或「LINE／信件失敗」當物流已更新。
+- 不要查到一半改做豪鴻品名或其他事，就把出貨查件當成做完。
+- 東莞自取／self_pickup 不要送到豪鴻；那是進貨規則，不能拿來當出貨查件沒做的藉口。
